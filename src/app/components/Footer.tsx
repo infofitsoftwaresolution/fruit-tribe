@@ -1,13 +1,18 @@
-import { motion } from 'motion/react';
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Leaf } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Leaf, ShieldCheck, Zap, Globe, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import logo from '@/assets/logo.png';
+import { useStore } from '@/app/context/StoreContext';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
+import { cn } from '@/lib/utils';
 
 export function Footer() {
+  const { theme } = useStore();
+  const { cities: deliveryCities } = useServiceableAreas();
+
   const socialLinks = [
-    { icon: Facebook, href: '#', label: 'Facebook' },
-    { icon: Instagram, href: '#', label: 'Instagram' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
+    { icon: Facebook, href: theme.socialFacebook || '#', label: 'Facebook' },
+    { icon: Instagram, href: theme.socialInstagram || '#', label: 'Instagram' },
+    { icon: Twitter, href: theme.socialTwitter || '#', label: 'Twitter' },
   ];
 
   const quickLinks = [
@@ -18,219 +23,184 @@ export function Footer() {
   ];
 
   const categories = [
-    'Tropical Fruits',
+    'Tropical fruits',
     'Berries',
-    'Citrus Fruits',
-    'Exotic Fruits',
-    'Seasonal Fruits',
-    'Organic Selection',
+    'Citrus',
+    'Exotic fruits',
+    'Seasonal picks',
+    'Organic',
   ];
 
   return (
-    <footer className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white relative overflow-hidden">
-      {/* Background Decoration */}
-      <div className="absolute inset-0 overflow-hidden opacity-10">
-        <motion.div
-          className="absolute top-0 right-0 w-96 h-96 bg-orange-500 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-green-500 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.5, 0.3, 0.5],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-      </div>
+    <footer className="bg-slate-950 text-white relative overflow-hidden border-t border-white/5">
+      {/* Cinematic Static & Noise */}
+      <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
-          {/* Brand Section */}
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 py-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 mb-24">
+
+          {/* Brand */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            className="lg:col-span-4 space-y-10"
           >
-            <Link to="/" className="flex items-center gap-3 mb-4">
-              <motion.img
-                src={logo}
-                alt="The Fruit Tribe"
-                className="h-16 w-auto object-contain"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.3 }}
-              />
+            <Link to="/" className="flex items-center gap-4 group">
+              {theme.logoUrl ? (
+                <img src={theme.logoUrl} alt={theme.storeName} className="h-12 w-auto object-contain" />
+              ) : (
+                <div className="h-12 w-12 bg-emerald-500 rounded-2xl flex items-center justify-center font-black text-white shadow-2xl transition-all rotate-3 group-hover:rotate-0">
+                  {theme.storeName.charAt(0)}
+                </div>
+              )}
+              <div className="flex flex-col">
+                <span className="font-black text-xl tracking-tight uppercase leading-none">{theme.storeName}</span>
+                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.4em] mt-1">Fresh fruits delivered</span>
+              </div>
             </Link>
-            <p className="text-gray-400 mb-6 leading-relaxed">
-              Your trusted source for fresh, organic fruits delivered straight to your door. Quality and freshness guaranteed.
+
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed italic max-w-sm">
+              {theme.footerAboutText || 'Fresh fruit from trusted growers, delivered with care. Quality and convenience you can count on.'}
             </p>
-            
-            {/* Social Links */}
-            <div className="flex gap-3">
+            {deliveryCities.length > 0 && (
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                We deliver to: {deliveryCities.join(', ')}
+              </p>
+            )}
+            <div className="flex gap-4">
               {socialLinks.map((social, index) => (
                 <motion.a
                   key={index}
                   href={social.href}
-                  whileHover={{ scale: 1.1, y: -3 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-10 h-10 bg-gradient-to-r from-orange-600 to-amber-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all"
-                  aria-label={social.label}
+                  whileHover={{ y: -5, scale: 1.1 }}
+                  className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition-all"
                 >
-                  <social.icon className="w-5 h-5 text-white" />
+                  <social.icon className="w-3.5 h-3.5" />
+                  {social.label}
                 </motion.a>
               ))}
             </div>
           </motion.div>
 
-          {/* Quick Links */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-orange-500" />
-              Quick Links
-            </h3>
-            <ul className="space-y-3">
+          {/* Quick links */}
+          <div className="lg:col-span-2 space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Quick links</h3>
+            </div>
+            <ul className="space-y-4">
               {quickLinks.map((link, index) => (
                 <li key={index}>
                   <Link to={link.path}>
                     <motion.div
                       whileHover={{ x: 5 }}
-                      className="text-gray-400 hover:text-orange-400 transition-colors flex items-center gap-2"
+                      className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-3 transition-colors"
                     >
-                      <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                      <ArrowUpRight className="w-3 h-3 text-emerald-500/40" />
                       {link.name}
                     </motion.div>
                   </Link>
                 </li>
               ))}
             </ul>
-          </motion.div>
+          </div>
 
           {/* Categories */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-orange-500" />
-              Categories
-            </h3>
-            <ul className="space-y-3">
+          <div className="lg:col-span-2 space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Categories</h3>
+            </div>
+            <ul className="space-y-4">
               {categories.map((category, index) => (
                 <li key={index}>
                   <motion.div
                     whileHover={{ x: 5 }}
-                    className="text-gray-400 hover:text-orange-400 transition-colors cursor-pointer flex items-center gap-2"
+                    className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-3 cursor-pointer transition-colors"
                   >
-                    <span className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
+                    <div className="w-1 h-1 bg-slate-800 rounded-full" />
                     {category}
                   </motion.div>
                 </li>
               ))}
             </ul>
-          </motion.div>
+          </div>
 
-          {/* Contact Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-          >
-            <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-              <Leaf className="w-5 h-5 text-orange-500" />
-              Contact Us
-            </h3>
-            <div className="space-y-4">
-              <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-3 text-gray-400 hover:text-orange-400 transition-colors cursor-pointer"
-              >
-                <MapPin className="w-5 h-5 text-orange-500 mt-1 flex-shrink-0" />
-                <span>123 Fruit Street, Fresh City, FC 12345</span>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-center gap-3 text-gray-400 hover:text-orange-400 transition-colors cursor-pointer"
-              >
-                <Phone className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                <span>+1 (555) 123-4567</span>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-center gap-3 text-gray-400 hover:text-orange-400 transition-colors cursor-pointer"
-              >
-                <Mail className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                <span>hello@fruittribe.com</span>
-              </motion.div>
+          {/* Contact */}
+          <div className="lg:col-span-4 space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Contact</h3>
+            </div>
+
+            <div className="space-y-6">
+              {[
+                { icon: MapPin, text: theme.contactAddress || 'Fresh City, Local' },
+                { icon: Phone, text: theme.contactPhone || '1-800-FRUIT' },
+                { icon: Mail, text: theme.contactEmail || 'hello@fruittribe.com' },
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  whileHover={{ x: 5 }}
+                  className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer uppercase tracking-widest"
+                >
+                  <item.icon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                  <span className="leading-relaxed">{item.text}</span>
+                </motion.div>
+              ))}
             </div>
 
             {/* Newsletter */}
-            <div className="mt-6">
-              <p className="text-sm text-gray-400 mb-3">Subscribe to our newsletter</p>
+            <div className="pt-6">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-4">Subscribe to our newsletter</p>
               <div className="flex gap-2">
                 <input
                   type="email"
-                  placeholder="Your email"
-                  className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:border-orange-500 transition-colors"
+                  placeholder="you@example.com"
+                  className="flex-1 h-14 px-6 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all shadow-inner"
                 />
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                  className="h-14 w-14 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all"
                 >
-                  <Mail className="w-5 h-5" />
+                  <Zap className="w-5 h-5" />
                 </motion.button>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Footer bottom */}
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="pt-8 border-t border-gray-700"
+          className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8"
         >
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-gray-400 text-sm text-center md:text-left">
-              © 2026 The Fruit Tribe. All rights reserved. | Fresh & Natural
+          <div className="flex flex-col md:flex-row items-center gap-8">
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">
+              © 2026 The Fruit Tribe. All rights reserved.
             </p>
-            
-            <div className="flex gap-6 text-sm text-gray-400">
-              <motion.a whileHover={{ y: -2 }} href="#" className="hover:text-orange-400 transition-colors">
-                Privacy Policy
-              </motion.a>
-              <motion.a whileHover={{ y: -2 }} href="#" className="hover:text-orange-400 transition-colors">
-                Terms of Service
-              </motion.a>
-              <motion.a whileHover={{ y: -2 }} href="#" className="hover:text-orange-400 transition-colors">
-                Cookie Policy
-              </motion.a>
+            <div className="flex items-center gap-4 px-4 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Secure</span>
             </div>
+          </div>
+
+          <div className="flex gap-10">
+            {['Privacy', 'Terms of service', 'Cookies'].map((txt, i) => (
+              <motion.a
+                key={i}
+                whileHover={{ y: -2, textDecoration: 'underline' }}
+                href="#"
+                className="text-[9px] font-black text-slate-600 hover:text-white uppercase tracking-widest transition-colors"
+              >
+                {txt}
+              </motion.a>
+            ))}
           </div>
         </motion.div>
       </div>

@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
+import { useStore } from '@/app/context/StoreContext';
+import { cn, getRoundedClass } from '@/lib/utils';
 
 export function ContactPage() {
+  const { theme } = useStore();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -25,79 +28,79 @@ export function ContactPage() {
   };
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-28 pb-12 min-h-screen bg-gradient-to-b from-white to-orange-50/50">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
+          className="text-center mb-8"
         >
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3">
             <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              Get In Touch
+              Get in touch
             </span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+          <p className="text-base text-gray-600 max-w-xl mx-auto">
             Have a question or feedback? We'd love to hear from you!
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-12">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Contact Info */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-8"
+            className="space-y-4"
           >
             <div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-6">Contact Information</h2>
-              <p className="text-gray-600 mb-8">
-                Reach out to us through any of these channels. We're here to help!
+              <h2 className="text-xl font-bold text-gray-800 mb-2">Contact Information</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Reach out through any of these channels. We're here to help!
               </p>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 p-6 bg-white rounded-2xl shadow-lg"
+                whileHover={{ x: 4 }}
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
               >
-                <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 mb-1">Email</h3>
-                  <p className="text-gray-600">support@fruittribe.com</p>
-                  <p className="text-gray-600">info@fruittribe.com</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Email</h3>
+                  <p className="text-gray-600 text-sm">support@fruittribe.com</p>
+                  <p className="text-gray-600 text-sm">info@fruittribe.com</p>
                 </div>
               </motion.div>
 
               <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 p-6 bg-white rounded-2xl shadow-lg"
+                whileHover={{ x: 4 }}
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
               >
-                <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Phone className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 mb-1">Phone</h3>
-                  <p className="text-gray-600">+1 (555) 123-4567</p>
-                  <p className="text-gray-600">Mon-Fri: 9AM - 6PM EST</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Phone</h3>
+                  <p className="text-gray-600 text-sm">+1 (555) 123-4567</p>
+                  <p className="text-gray-600 text-sm">Mon–Fri: 9AM – 6PM EST</p>
                 </div>
               </motion.div>
 
               <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 p-6 bg-white rounded-2xl shadow-lg"
+                whileHover={{ x: 4 }}
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
               >
-                <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-5 h-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="font-bold text-gray-800 mb-1">Address</h3>
-                  <p className="text-gray-600">123 Fruit Street</p>
-                  <p className="text-gray-600">Fresh City, FC 12345</p>
-                  <p className="text-gray-600">United States</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Address</h3>
+                  <p className="text-gray-600 text-sm">123 Fruit Street</p>
+                  <p className="text-gray-600 text-sm">Fresh City, FC 12345</p>
+                  <p className="text-gray-600 text-sm">United States</p>
                 </div>
               </motion.div>
             </div>
@@ -107,20 +110,18 @@ export function ContactPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-3xl p-8 shadow-2xl"
+            className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-amber-500 rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-white" />
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 text-white" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800">Send us a Message</h2>
+              <h2 className="text-xl font-bold text-gray-800">Send us a message</h2>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Name
-                </label>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
                 <input
                   type="text"
                   id="name"
@@ -128,15 +129,13 @@ export function ContactPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email
-                </label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
                   id="email"
@@ -144,15 +143,13 @@ export function ContactPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
                   placeholder="your.email@example.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Subject
-                </label>
+                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                 <input
                   type="text"
                   id="subject"
@@ -160,35 +157,36 @@ export function ContactPage() {
                   value={formData.subject}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
                   placeholder="What's this about?"
                 />
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Message
-                </label>
+                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                 <textarea
                   id="message"
                   name="message"
                   value={formData.message}
                   onChange={handleChange}
                   required
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                  rows={4}
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors resize-none text-sm"
                   placeholder="Tell us what's on your mind..."
                 />
               </div>
 
               <motion.button
                 type="submit"
-                whileHover={{ scale: 1.02, y: -2 }}
+                whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                className={cn(
+                  "w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 rounded-lg",
+                  getRoundedClass(theme.buttonStyle)
+                )}
               >
-                <Send className="w-5 h-5" />
-                Send Message
+                <Send className="w-4 h-4" />
+                Send message
               </motion.button>
             </form>
           </motion.div>

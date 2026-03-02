@@ -1,0 +1,52 @@
+import {
+    Controller,
+    Post,
+    Get,
+    Body,
+    UseGuards,
+    Request,
+    HttpCode,
+    HttpStatus,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { AuthService } from '../application/auth.service';
+import { RegisterDto, LoginDto } from '../application/dtos/auth.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
+import { Roles } from './decorators/roles.decorator';
+
+@ApiTags('Auth')
+@Controller('auth')
+export class AuthController {
+    constructor(private readonly authService: AuthService) { }
+
+    @ApiOperation({ summary: 'Register a new user' })
+    @Post('register')
+    async register(@Body() dto: RegisterDto) {
+        return this.authService.register(dto);
+    }
+
+    @ApiOperation({ summary: 'Login with email and password' })
+    @HttpCode(HttpStatus.OK)
+    @Post('login')
+    async login(@Body() dto: LoginDto) {
+        return this.authService.login(dto);
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get current user profile' })
+    @UseGuards(JwtAuthGuard)
+    @Get('me')
+    async getProfile(@Request() req: any) {
+        return this.authService.getProfile(req.user.id);
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'List customers (Admin only)' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @Get('users')
+    async getUsers() {
+        return this.authService.getCustomersForAdmin();
+    }
+}

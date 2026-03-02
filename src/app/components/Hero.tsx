@@ -1,262 +1,188 @@
-import { motion } from 'motion/react';
-import { ArrowRight, Sparkles, Leaf, TrendingUp } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { ArrowRight, Sparkles, Leaf, TrendingUp, Zap, ShieldCheck, Globe, PlayCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useStore } from '@/app/context/StoreContext';
+import { cn } from '@/lib/utils';
+import { useRef } from 'react';
 
 export function Hero() {
   const navigate = useNavigate();
+  const { theme, isEditing, updateTheme } = useStore();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { scrollY } = useScroll();
+  const y1 = useTransform(scrollY, [0, 500], [0, 200]);
+  const opacity = useTransform(scrollY, [0, 300], [1, 0]);
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-orange-50 via-amber-50 to-green-50 pt-24">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute top-20 left-10 w-72 h-72 bg-orange-300/30 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-20 right-10 w-96 h-96 bg-green-300/30 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.5, 0.3, 0.5],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-300/20 rounded-full blur-3xl"
-          animate={{
-            rotate: 360,
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
+    <div ref={containerRef} className="relative min-h-[100vh] flex items-center justify-center overflow-x-hidden bg-white">
+      {/* Cinematic Background Layer */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,#ecfdf5_0%,transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,#fef3c7_0%,transparent_50%)] opacity-40" />
+
+        {/* Animated Grid Artifact */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left Content */}
-          <div className="text-center lg:text-left">
+      {/* Main Content Manifold */}
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 pt-32 pb-20 w-full">
+        <div className="grid lg:grid-cols-12 gap-16 items-center">
+
+          {/* Left Column: Symbolic & Textual Signals */}
+          <div className="lg:col-span-7 text-center lg:text-left space-y-10">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg mb-8"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="inline-flex items-center gap-3 px-5 py-2.5 bg-slate-900 rounded-full shadow-2xl transition-all hover:scale-105 group cursor-default"
             >
-              <Sparkles className="w-4 h-4 text-orange-600" />
-              <span className="text-sm font-medium text-gray-700">
-                100% Fresh & Organic
+              <div className="flex -space-x-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-5 w-5 rounded-full border-2 border-slate-900 bg-emerald-500 flex items-center justify-center">
+                    <Leaf className="w-2.5 h-2.5 text-white" />
+                  </div>
+                ))}
+              </div>
+              <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+                Fresh from the farm
               </span>
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl md:text-7xl font-bold mb-6"
-            >
-              <span className="bg-gradient-to-r from-orange-600 via-amber-500 to-green-600 bg-clip-text text-transparent">
-                Fresh Fruits
-              </span>
-              <br />
-              <span className="text-gray-800">
-                Delivered to
-              </span>
-              <br />
-              <span className="text-gray-800">
-                Your Doorstep
-              </span>
-            </motion.h1>
+            <div className="space-y-6">
+              <motion.h1
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8 }}
+                className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.9] uppercase"
+              >
+                <span className="block italic font-serif text-emerald-600 lowercase tracking-tight mb-2">The</span>
+                {theme.heroTitle}
+              </motion.h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-xl text-gray-600 mb-8 max-w-lg mx-auto lg:mx-0"
-            >
-              Experience nature's sweetest treasures. From exotic mangoes to crisp apples, we bring you the finest selection of fresh fruits.
-            </motion.p>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+                className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight max-w-xl mx-auto lg:mx-0 leading-relaxed italic"
+              >
+                {theme.heroSubtitle}
+              </motion.p>
+            </div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
+              transition={{ duration: 0.8, delay: 0.3 }}
+              className="flex flex-wrap gap-6 justify-center lg:justify-start"
             >
-              <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={() => navigate('/products')}
-                className="px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 group"
+                className="h-20 px-12 bg-slate-900 text-white rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
               >
-                Shop Now
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </motion.button>
+                Shop now
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+              </button>
 
-              <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
+              <button
                 onClick={() => navigate('/about')}
-                className="px-8 py-4 bg-white text-gray-800 rounded-full font-semibold shadow-lg hover:shadow-xl transition-all"
+                className="h-20 px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
               >
-                Learn More
-              </motion.button>
+                Heritage Manual
+                <PlayCircle className="w-5 h-5 text-emerald-500" />
+              </button>
             </motion.div>
 
-            {/* Stats */}
+            {/* Signal Telemetry Stats */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-              className="grid grid-cols-3 gap-6 mt-12 max-w-md mx-auto lg:mx-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-50 max-w-lg mx-auto lg:mx-0"
             >
               {[
-                { icon: Leaf, value: '100+', label: 'Varieties' },
-                { icon: TrendingUp, value: '50K+', label: 'Happy Customers' },
-                { icon: Sparkles, value: '4.9★', label: 'Rating' },
-              ].map((stat, index) => (
-                <motion.div
-                  key={index}
-                  whileHover={{ y: -5 }}
-                  className="text-center p-4 bg-white/60 backdrop-blur-sm rounded-2xl shadow-md"
-                >
-                  <stat.icon className="w-6 h-6 text-orange-600 mx-auto mb-2" />
-                  <div className="text-2xl font-bold text-gray-800">{stat.value}</div>
-                  <div className="text-sm text-gray-600">{stat.label}</div>
-                </motion.div>
+                { label: 'Varieties', value: '100+', sub: 'Active SKUs' },
+                { label: 'Global Reach', value: '50K+', sub: 'Nodes Active' },
+                { label: 'High Yield', value: '4.9★', sub: 'Satisfaction' },
+              ].map((stat, i) => (
+                <div key={i} className="space-y-1">
+                  <p className="text-2xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                  <div className="h-0.5 w-8 bg-emerald-500/20 rounded-full" />
+                </div>
               ))}
             </motion.div>
           </div>
 
-          {/* Right Content - Floating Fruit Images */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative hidden lg:block h-[600px]"
-          >
-            {/* Main Image */}
+          {/* Right Column: High-Value Visual Asset */}
+          <div className="lg:col-span-5 relative">
             <motion.div
-              animate={{
-                y: [0, -20, 0],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-3xl overflow-hidden shadow-2xl"
+              style={{ y: y1 }}
+              initial={{ opacity: 0, scale: 0.9, rotate: -5 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              transition={{ duration: 1, delay: 0.2 }}
+              className="relative aspect-[4/5] rounded-[4rem] bg-slate-100 overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.1)] border-[12px] border-white group"
             >
               <img
-                src="https://images.unsplash.com/photo-1757941288470-888a418852b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2xvcmZ1bCUyMG1peGVkJTIwZnJ1aXRzfGVufDF8fHx8MTc2ODU1OTYyMHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Fresh Fruits"
-                className="w-full h-full object-cover"
+                src={theme.heroImage}
+                alt="Fresh produce"
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3s]"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
+
+              {/* Cinematic Overlay Artifacts */}
+              <div className="absolute top-10 right-10 flex gap-2">
+                <div className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Asset #884</span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-10 left-10 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-white uppercase tracking-widest leading-none">Purity Verified</p>
+                    <p className="text-[9px] font-bold text-white/60 uppercase tracking-widest">Global Standard 01</p>
+                  </div>
+                </div>
+              </div>
             </motion.div>
 
-            {/* Floating Elements */}
+            {/* Abstract Botanic Artifacts */}
             <motion.div
-              animate={{
-                y: [0, -15, 0],
-                rotate: [0, 5, 0],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 0.5
-              }}
-              className="absolute top-10 right-10 w-32 h-32 rounded-2xl overflow-hidden shadow-xl"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1570767531016-b21faba25ea1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMHN0cmF3YmVycmllcyUyMGJhc2tldHxlbnwxfHx8fDE3Njg1NTk0NjZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Strawberries"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-
+              animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute -top-10 -right-10 h-40 w-40 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none"
+            />
             <motion.div
-              animate={{
-                y: [0, 20, 0],
-                rotate: [0, -5, 0],
-              }}
-              transition={{
-                duration: 6,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 1
-              }}
-              className="absolute bottom-20 left-10 w-28 h-28 rounded-2xl overflow-hidden shadow-xl"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1634781326658-8734696bb6d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcmFuZ2UlMjBjaXRydXMlMjBmcnVpdHxlbnwxfHx8fDE3Njg0NjE5ODd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Oranges"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-
-            <motion.div
-              animate={{
-                y: [0, -25, 0],
-                rotate: [0, 8, 0],
-              }}
-              transition={{
-                duration: 7,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: 1.5
-              }}
-              className="absolute top-32 left-5 w-24 h-24 rounded-2xl overflow-hidden shadow-xl"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1554495644-8ce87fe3e713?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibHVlYmVycmllcyUyMGJvd2x8ZW58MXx8fHwxNzY4NDc0NTIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Blueberries"
-                className="w-full h-full object-cover"
-              />
-            </motion.div>
-          </motion.div>
+              animate={{ y: [0, 30, 0], scale: [1, 1.2, 1] }}
+              transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute bottom-20 -left-20 h-64 w-64 bg-amber-500/5 blur-[80px] rounded-full pointer-events-none"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Scroll Indicator */}
+      {/* Scroll Down Signal */}
       <motion.div
-        animate={{
-          y: [0, 10, 0],
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
+        style={{ opacity }}
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4"
       >
-        <div className="w-6 h-10 border-2 border-gray-400 rounded-full flex justify-center">
+        <div className="h-12 w-[2px] bg-gradient-to-b from-slate-200 via-emerald-500 to-transparent relative overflow-hidden">
           <motion.div
-            animate={{
-              y: [0, 12, 0],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="w-1.5 h-1.5 bg-gray-400 rounded-full mt-2"
+            animate={{ y: ['-100%', '100%'] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+            className="absolute top-0 left-0 w-full h-1/2 bg-white/40"
           />
         </div>
+        <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.3em]">Vertical Flow</span>
       </motion.div>
     </div>
   );

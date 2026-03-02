@@ -1,31 +1,39 @@
+import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { cn, getRoundedClass } from '@/lib/utils';
 
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import { useStore, type CartItem } from '@/app/context/StoreContext';
+import { useAuth } from '@/app/context/AuthContext';
+import { toast } from 'sonner';
 
 interface CartPageProps {
   items: CartItem[];
-  onUpdateQuantity: (id: number, change: number) => void;
-  onRemoveItem: (id: number) => void;
+  onUpdateQuantity: (id: string | number, change: number) => void;
+  onRemoveItem: (id: string | number) => void;
 }
 
+
 export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProps) {
+  const { products, taxRates, theme } = useStore();
   const navigate = useNavigate();
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 50 ? 0 : 5.99;
-  const tax = subtotal * 0.08;
-  const total = subtotal + shipping + tax;
+  const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  const shipping = subtotal > 500 ? 0 : 49;
+
+  // Dynamic Tax Calculation based on Category
+  const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
+    const product = products.find(p => p.id === item.id);
+    const category = product?.category || 'Fruits';
+    const rate = taxRates[category] || 0;
+    return totalTax + (item.price * item.quantity * (rate / 100));
+  }, 0);
+
+  const total = subtotal + shipping + calculatedTax;
 
   if (items.length === 0) {
     return (
-      <div className="pt-24 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
+      <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -40,7 +48,10 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-full font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 mx-auto"
+              className={cn(
+                "px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 mx-auto",
+                getRoundedClass(theme.buttonStyle)
+              )}
             >
               Start Shopping
               <ArrowRight className="w-5 h-5" />
@@ -51,86 +62,113 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
     );
   }
 
+  const groupedItems = useMemo(() => {
+    return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
+      const vendor = item.vendor || 'The Fruit Tribe';
+      if (!acc[vendor]) acc[vendor] = [];
+      acc[vendor].push(item);
+      return acc;
+    }, {});
+  }, [items]);
+
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
+    <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold mb-6">
           <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
             Shopping Cart
           </span>
         </h1>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {items.map((item, index) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white rounded-2xl p-6 shadow-lg flex gap-6"
-              >
-                {/* Image */}
-                <div className="w-32 h-32 rounded-xl overflow-hidden flex-shrink-0">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{item.name}</h3>
-                  <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
-                    ${item.price.toFixed(2)}
-                  </p>
-
-                  {/* Quantity Controls */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => onUpdateQuantity(item.id, -1)}
-                        className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
-                      >
-                        <Minus className="w-5 h-5 text-gray-600" />
-                      </motion.button>
-                      <span className="w-12 text-center text-lg font-bold text-gray-800">
-                        {item.quantity}
-                      </span>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => onUpdateQuantity(item.id, 1)}
-                        className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center hover:bg-gray-200 transition-colors"
-                      >
-                        <Plus className="w-5 h-5 text-gray-600" />
-                      </motion.button>
-                    </div>
-
-                    <div className="text-right">
-                      <p className="text-sm text-gray-600 mb-1">Subtotal</p>
-                      <p className="text-xl font-bold text-gray-800">
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </p>
-                    </div>
+          {/* Cart Items grouped by Merchant */}
+          <div className="lg:col-span-2 space-y-12">
+            {(Object.entries(groupedItems) as [string, CartItem[]][]).map(([vendor, vendorItems], vIdx) => (
+              <div key={vendor} className="space-y-6">
+                <div className="flex items-center gap-3 pb-2 border-b border-orange-100">
+                  <div className="h-8 w-8 bg-slate-900 rounded-lg flex items-center justify-center text-[10px] font-black text-emerald-400">
+                    {vendor.charAt(0)}
                   </div>
-
-                  {/* Remove Button */}
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => onRemoveItem(item.id)}
-                    className="mt-4 flex items-center gap-2 text-red-500 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    <span className="text-sm font-semibold">Remove</span>
-                  </motion.button>
+                  <div>
+                    <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">{vendor} Cluster</h2>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">In stock</p>
+                  </div>
                 </div>
-              </motion.div>
+                <div className="space-y-4">
+                  {vendorItems.map((item: CartItem, index: number) => (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: (vIdx * 0.1) + (index * 0.05) }}
+                      className="bg-white rounded-2xl p-4 sm:p-6 shadow-lg flex flex-col sm:flex-row gap-4 sm:gap-6 border border-slate-50"
+                    >
+                      {/* Image */}
+                      <div className="w-full sm:w-32 h-48 sm:h-32 rounded-xl overflow-hidden flex-shrink-0 relative group">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        />
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="text-xl font-bold text-gray-800 truncate pr-4">{item.name}</h3>
+                            {item.vendor && <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Assigned Vendor: {item.vendor}</span>}
+                          </div>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => onRemoveItem(item.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </motion.button>
+                        </div>
+
+                        <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+                          ₹{item.price.toFixed(2)}
+                        </p>
+
+                        <div className="flex flex-wrap items-center justify-between gap-4 mt-auto">
+                          {/* Quantity Controls */}
+                          <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-xl">
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => onUpdateQuantity(item.id, -1)}
+                              className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-100"
+                            >
+                              <Minus className="w-5 h-5 text-gray-600" />
+                            </motion.button>
+                            <span className="w-10 text-center text-lg font-bold text-gray-800">
+                              {item.quantity}
+                            </span>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => onUpdateQuantity(item.id, 1)}
+                              className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-100"
+                            >
+                              <Plus className="w-5 h-5 text-gray-600" />
+                            </motion.button>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Subtotal</p>
+                            <p className="text-xl font-black text-gray-900">
+                              ₹{(item.price * item.quantity).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 
@@ -147,7 +185,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
               <div className="space-y-4 mb-6">
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Shipping</span>
@@ -155,28 +193,28 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                     {shipping === 0 ? (
                       <span className="text-green-600">FREE</span>
                     ) : (
-                      `$${shipping.toFixed(2)}`
+                      `₹${shipping.toFixed(2)}`
                     )}
                   </span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+                  <span className="font-semibold">₹{calculatedTax.toFixed(2)}</span>
                 </div>
-                {subtotal > 0 && subtotal < 50 && (
+                {subtotal > 0 && subtotal < 500 && (
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                   >
-                    Add ${(50 - subtotal).toFixed(2)} more for free shipping!
+                    Add ₹{(500 - subtotal).toFixed(2)} more for free shipping!
                   </motion.p>
                 )}
                 <div className="border-t border-gray-200 pt-4">
                   <div className="flex justify-between items-center">
                     <span className="text-xl font-bold text-gray-800">Total</span>
                     <span className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                      ${total.toFixed(2)}
+                      ₹{total.toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -186,7 +224,10 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => navigate('/checkout')}
-                className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mb-4"
+                className={cn(
+                  "w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mb-4",
+                  getRoundedClass(theme.buttonStyle)
+                )}
               >
                 Proceed to Checkout
                 <ArrowRight className="w-5 h-5" />
@@ -196,7 +237,10 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                  className={cn(
+                    "w-full py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all",
+                    getRoundedClass(theme.buttonStyle)
+                  )}
                 >
                   Continue Shopping
                 </motion.button>

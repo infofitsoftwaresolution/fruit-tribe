@@ -1,241 +1,207 @@
-import { motion } from 'motion/react';
-import { Sun, Snowflake, Flower2, Leaf, Calendar } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sun, Snowflake, Flower2, Leaf, Calendar, Zap, ArrowRight, ShieldCheck, Activity } from 'lucide-react';
+import { useStore } from '@/app/context/StoreContext';
+import { ProductCard } from '@/app/components/ProductCard';
+import { cn } from '@/lib/utils';
 
 export function SeasonalHighlights() {
-  const currentSeason = 'Winter'; // This could be dynamic based on actual date
+  const { theme, isEditing, updateTheme, products } = useStore();
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
+
+  const currentSeasonType = theme.seasonal?.type || 'Summer';
 
   const seasons = [
     {
       name: 'Spring',
       icon: Flower2,
-      color: 'from-pink-500 to-rose-500',
-      bgColor: 'from-pink-50 to-rose-50',
+      label: 'Spring harvest',
+      color: 'emerald',
       fruits: ['Strawberries', 'Cherries', 'Apricots'],
-      description: 'Fresh blooms bring sweet delights',
-      active: false,
+      description: 'Fresh berries and early stone fruit.',
     },
     {
       name: 'Summer',
       icon: Sun,
-      color: 'from-yellow-500 to-orange-500',
-      bgColor: 'from-yellow-50 to-orange-50',
+      label: 'Peak season',
+      color: 'amber',
       fruits: ['Watermelon', 'Peaches', 'Mangoes'],
-      description: 'Juicy treats for sunny days',
-      active: false,
+      description: 'Tropical and stone fruit at their best.',
     },
     {
-      name: 'Fall',
+      name: 'Autumn',
       icon: Leaf,
-      color: 'from-orange-500 to-red-500',
-      bgColor: 'from-orange-50 to-red-50',
+      label: 'Harvest time',
+      color: 'blue',
       fruits: ['Apples', 'Pears', 'Grapes'],
-      description: 'Harvest season\'s finest',
-      active: false,
+      description: 'Apples, pears and vine fruits.',
     },
     {
       name: 'Winter',
       icon: Snowflake,
-      color: 'from-blue-500 to-cyan-500',
-      bgColor: 'from-blue-50 to-cyan-50',
+      label: 'Citrus & exotic',
+      color: 'purple',
       fruits: ['Oranges', 'Kiwi', 'Dragon Fruit'],
-      description: 'Exotic winter wonders',
-      active: true,
+      description: 'Citrus and exotic fruits.',
     },
   ];
 
-  const activeSeason = seasons.find(s => s.active) || seasons[0];
+  const activeSeason = seasons.find(s => s.name === currentSeasonType) || seasons[1];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-orange-50 to-white relative overflow-hidden">
-      {/* Seasonal Decorations */}
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          animate={{
-            y: [0, -30, 0],
-            rotate: [0, 10, -10, 0],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute top-20 left-20 text-8xl"
-        >
-          ❄️
-        </motion.div>
-        <motion.div
-          animate={{
-            y: [0, 30, 0],
-            rotate: [0, -10, 10, 0],
-          }}
-          transition={{
-            duration: 10,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute bottom-20 right-20 text-8xl"
-        >
-          🍊
-        </motion.div>
+    <section className="relative py-32 bg-slate-50 overflow-hidden">
+      {/* Background Architectural Elements */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 right-0 h-[600px] w-[600px] bg-slate-900/[0.02] rotate-12 blur-3xl pointer-events-none" />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 rounded-full mb-4">
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span className="text-sm font-medium text-blue-800">Seasonal Selection</span>
-          </div>
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+        {/* Section Header Orchestration */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-24">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl space-y-6"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-[1px] w-12 bg-emerald-500" />
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Seasonal</span>
+            </div>
 
-          <h2 className="text-5xl md:text-6xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              {activeSeason.name} Favorites
-            </span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover the freshest fruits of the season, handpicked for peak flavor
-          </p>
-        </motion.div>
-
-        {/* Seasons Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          {seasons.map((season, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -10, scale: 1.02 }}
-              className={`relative bg-gradient-to-br ${season.bgColor} rounded-3xl p-6 shadow-lg hover:shadow-2xl transition-all group overflow-hidden ${
-                season.active ? 'ring-4 ring-blue-400' : ''
-              }`}
-            >
-              {/* Active Badge */}
-              {season.active && (
-                <div className="absolute top-4 right-4">
-                  <span className="px-3 py-1 bg-blue-500 text-white text-xs font-bold rounded-full shadow-lg">
-                    Now
-                  </span>
-                </div>
-              )}
-
-              {/* Glow Effect */}
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.1, 0.2, 0.1],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: index * 0.3,
-                }}
-                className={`absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-r ${season.color} rounded-full blur-3xl`}
-              />
-
-              {/* Icon */}
-              <motion.div
-                whileHover={{ rotate: 360, scale: 1.1 }}
-                transition={{ duration: 0.6 }}
-                className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${season.color} flex items-center justify-center mb-4 shadow-lg relative z-10 mx-auto`}
+            <h2 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+              <span
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={handleTextChange('seasonalHighlightsTitle')}
+                className="outline-none"
               >
-                <season.icon className="w-8 h-8 text-white" />
-              </motion.div>
+                {theme.seasonalHighlightsTitle || 'In season now'}
+              </span>
+            </h2>
 
-              {/* Content */}
-              <h3 className="text-2xl font-bold text-gray-800 mb-2 text-center relative z-10">
-                {season.name}
-              </h3>
-              <p className="text-sm text-gray-600 mb-4 text-center relative z-10">
-                {season.description}
-              </p>
+            <p
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              onBlur={handleTextChange('seasonalHighlightsSubtitle')}
+              className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic leading-relaxed outline-none"
+            >
+              {theme.seasonalHighlightsSubtitle || 'We follow the seasons to bring you the best-tasting fruit.'}
+            </p>
+          </motion.div>
 
-              {/* Fruits */}
-              <div className="space-y-2 relative z-10">
-                {season.fruits.map((fruit, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 text-sm text-gray-700 bg-white/50 rounded-lg px-3 py-2"
-                  >
-                    <span className={`w-2 h-2 rounded-full bg-gradient-to-r ${season.color}`} />
-                    {fruit}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ))}
+          {/* Current season */}
+          <div className="bg-slate-900 p-10 rounded-[2.5rem] border border-white/10 flex items-center gap-8 shadow-3xl overflow-hidden relative group">
+            <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="h-16 w-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-xl relative z-10">
+              <activeSeason.icon className="h-8 w-8" />
+            </div>
+            <div className="relative z-10">
+              <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Current season</p>
+              <h4 className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{activeSeason.name}</h4>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">{activeSeason.label}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Featured Banner */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className={`bg-gradient-to-r ${activeSeason.color} rounded-3xl p-8 md:p-12 shadow-2xl relative overflow-hidden`}
-        >
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-20">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
-              className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"
-            />
-            <motion.div
-              animate={{ rotate: -360 }}
-              transition={{ duration: 50, repeat: Infinity, ease: "linear" }}
-              className="absolute bottom-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"
-            />
-          </div>
-
-          <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
-            {/* Left Content */}
-            <div className="text-white">
-              <div className="flex items-center gap-3 mb-4">
-                <activeSeason.icon className="w-12 h-12" />
-                <h3 className="text-4xl md:text-5xl font-bold">
-                  {activeSeason.name} Special
-                </h3>
-              </div>
-              <p className="text-xl text-white/90 mb-6">
-                Get 20% off on all {activeSeason.name.toLowerCase()} fruits! Limited time offer.
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-                className="px-8 py-4 bg-white text-gray-800 rounded-full font-bold shadow-lg hover:shadow-xl transition-all"
+        {/* Temporal Grid Registry */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {seasons.map((season, index) => {
+            const isActive = season.name === currentSeasonType;
+            return (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -8 }}
+                className={cn(
+                  "relative bg-white rounded-[2.5rem] p-8 border transition-all duration-500 flex flex-col h-full",
+                  isActive
+                    ? "border-emerald-500 shadow-2xl ring-4 ring-emerald-500/5 bg-emerald-50/20"
+                    : "border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:border-slate-200"
+                )}
               >
-                Shop {activeSeason.name} Collection
-              </motion.button>
-            </div>
+                <div className="flex items-center justify-between mb-10">
+                  <div className={cn(
+                    "h-14 w-14 rounded-2xl flex items-center justify-center shadow-xl transition-all group-hover:rotate-12",
+                    `bg-${season.color}-500 text-white`
+                  )}>
+                    <season.icon className="h-6 w-6" />
+                  </div>
+                  {isActive && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+                </div>
 
-            {/* Right - Featured Fruits */}
-            <div className="grid grid-cols-3 gap-4">
-              {activeSeason.fruits.map((fruit, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 text-center"
-                >
-                  <div className="text-4xl mb-2">🍊</div>
-                  <p className="text-white font-semibold text-sm">{fruit}</p>
-                </motion.div>
-              ))}
+                <div className="space-y-2 mb-8">
+                  <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">{season.name}</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed italic">{season.description}</p>
+                </div>
+
+                <div className="space-y-2 mt-auto">
+                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em] block mb-4">In season</span>
+                  {season.fruits.map((fruit, i) => (
+                    <div key={i} className="flex items-center justify-between group cursor-default">
+                      <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight group-hover:text-slate-900 transition-colors">{fruit}</span>
+                      <div className={cn("h-1 w-1 rounded-full", `bg-${season.color}-500/40`)} />
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Live Seasonal Harvest Registry */}
+        <div className="mt-32 space-y-12">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">In season now</h3>
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Fruits available this season</p>
+            </div>
+            <div className="h-px flex-1 bg-slate-100 mx-10 hidden md:block" />
+            <div className="flex items-center gap-2 px-6 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+              <Zap className="h-4 w-4 text-emerald-500 animate-pulse" />
+              <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Live</span>
             </div>
           </div>
-        </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {products.filter((p: any) => p.isSeasonal).slice(0, 3).map((product: any, index: number) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, scale: 0.95 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  stock={product.stock}
+                  image={product.image}
+                  description={product.description}
+                  badge={product.badge}
+                  isSeasonal={product.isSeasonal}
+                  bulkDiscountQty={product.bulkDiscountQty}
+                  bulkDiscountPrice={product.bulkDiscountPrice}
+                  onAddToCart={() => { }}
+                />
+              </motion.div>
+            ))}
+            {products.filter((p: any) => p.isSeasonal).length === 0 && (
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-white/50">
+                <Calendar className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No seasonal products right now.</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );

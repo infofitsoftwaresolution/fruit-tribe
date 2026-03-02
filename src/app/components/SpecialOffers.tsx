@@ -1,153 +1,216 @@
-import { motion } from 'motion/react';
-import { Tag, Clock, TrendingUp, Gift } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Tag, Clock, TrendingUp, Gift, Zap, ShieldCheck, ArrowRight, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useStore } from '@/app/context/StoreContext';
+import { ProductCard } from '@/app/components/ProductCard';
+import { cn } from '@/lib/utils';
 
 export function SpecialOffers() {
+  const { theme, isEditing, updateTheme } = useStore();
   const navigate = useNavigate();
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
 
   const offers = [
     {
-      icon: Tag,
-      title: '25% Off',
-      subtitle: 'Exotic Fruits',
-      description: 'Special discount on dragon fruit, kiwi, and more exotic varieties',
-      color: 'from-purple-500 to-pink-500',
-      bgColor: 'from-purple-50 to-pink-50',
+      icon: TrendingUp,
+      title: '25% off',
+      subtitle: 'Exotic fruits',
+      description: 'Great deals on dragon fruit, kiwi, and other tropical favorites.',
+      color: 'emerald',
     },
     {
       icon: Clock,
-      title: 'Flash Sale',
-      subtitle: 'Berries Bundle',
-      description: 'Mix of strawberries, blueberries & grapes - Limited time offer',
-      color: 'from-red-500 to-orange-500',
-      bgColor: 'from-red-50 to-orange-50',
+      title: 'Limited time',
+      subtitle: 'Berry bundle',
+      description: 'Strawberries, blueberries and grapes at a special price.',
+      color: 'amber',
     },
     {
       icon: Gift,
-      title: 'Buy 2 Get 1',
-      subtitle: 'Seasonal Fruits',
-      description: 'Purchase any 2 items and get 1 free on selected fruits',
-      color: 'from-green-500 to-teal-500',
-      bgColor: 'from-green-50 to-teal-50',
+      title: 'Buy 2 get 1',
+      subtitle: 'Seasonal offer',
+      description: 'Buy two items and get one complimentary fruit of the season.',
+      color: 'blue',
     },
   ];
 
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
-      {/* Background Decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-orange-200/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-amber-200/30 rounded-full blur-3xl" />
-      </div>
+    <section className="relative py-32 bg-white overflow-hidden">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+        {/* Section Header Orchestration */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-24">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl space-y-6"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-[1px] w-12 bg-emerald-500" />
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Special deals</span>
+            </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 rounded-full mb-4">
-            <TrendingUp className="w-4 h-4 text-orange-600" />
-            <span className="text-sm font-medium text-orange-800">Limited Time Offers</span>
-          </div>
-          
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              Special Deals
-            </span>
-          </h2>
-          
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Don't miss out on our exclusive offers and amazing discounts
-          </p>
-        </motion.div>
+            <h2 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+              <span
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={handleTextChange('specialOffersTitle')}
+                className="outline-none"
+              >
+                {theme.specialOffersTitle || 'Offers'}
+              </span>
+            </h2>
 
-        {/* Offers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            <p
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              onBlur={handleTextChange('specialOffersSubtitle')}
+              className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic leading-relaxed outline-none"
+            >
+              {theme.specialOffersSubtitle || "Save more with our seasonal and bulk deals."}
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="flex items-center gap-4 px-6 py-3 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+              <Activity className="h-4 w-4 text-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Deals active</span>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Tactical Rewards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {offers.map((offer, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -10, scale: 1.02 }}
-              className={`relative bg-gradient-to-br ${offer.bgColor} rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all overflow-hidden group cursor-pointer`}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ y: -10 }}
               onClick={() => navigate('/products')}
+              className="group relative bg-slate-900 rounded-[3rem] p-12 overflow-hidden cursor-pointer shadow-2xl transition-all duration-500"
             >
-              {/* Icon */}
-              <motion.div
-                className={`w-16 h-16 bg-gradient-to-r ${offer.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg`}
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-              >
-                <offer.icon className="w-8 h-8 text-white" />
-              </motion.div>
+              <div className={cn(
+                "absolute -top-10 -right-10 h-40 w-40 blur-[80px] opacity-20 group-hover:opacity-40 transition-all duration-700",
+                `bg-${offer.color}-500`
+              )} />
 
-              {/* Content */}
-              <h3 className={`text-3xl font-bold mb-2 bg-gradient-to-r ${offer.color} bg-clip-text text-transparent`}>
-                {offer.title}
-              </h3>
-              <h4 className="text-xl font-semibold text-gray-800 mb-3">
-                {offer.subtitle}
-              </h4>
-              <p className="text-gray-600 leading-relaxed">
-                {offer.description}
-              </p>
+              <div className="relative z-10 space-y-10">
+                <div className={cn(
+                  "h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl transition-all group-hover:rotate-12 group-hover:scale-110",
+                  `bg-${offer.color}-500 text-white`
+                )}>
+                  <offer.icon className="h-8 w-8" />
+                </div>
 
-              {/* Decorative Element */}
-              <motion.div
-                className={`absolute -bottom-10 -right-10 w-32 h-32 bg-gradient-to-r ${offer.color} rounded-full opacity-10 group-hover:opacity-20 transition-opacity`}
-                animate={{
-                  scale: [1, 1.2, 1],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
+                <div className="space-y-4">
+                  <h3 className={cn("text-4xl font-black tracking-tighter uppercase leading-none", `text-${offer.color}-400`)}>
+                    {offer.title}
+                  </h3>
+                  <h4 className="text-xl font-black text-white uppercase tracking-tight">
+                    {offer.subtitle}
+                  </h4>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed italic">
+                    {offer.description}
+                  </p>
+                </div>
+
+                <div className="pt-8 border-t border-white/5 flex items-center justify-between group-hover:text-white transition-colors">
+                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest group-hover:text-slate-300">View offer</span>
+                  <ArrowRight className="h-4 w-4 text-slate-600 group-hover:translate-x-2 transition-transform" />
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Call to Action Banner */}
+        {/* Global Node Subscription HUD */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.98 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="relative bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 rounded-3xl p-12 overflow-hidden"
+          className="mt-20 p-16 bg-emerald-500 rounded-[4rem] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-12 group"
         >
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-0 w-40 h-40 bg-white rounded-full -translate-x-1/2 -translate-y-1/2" />
-            <div className="absolute bottom-0 right-0 w-60 h-60 bg-white rounded-full translate-x-1/3 translate-y-1/3" />
+          {/* Background Distortion Artifacts */}
+          <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+          <div className="relative z-10 text-center md:text-left space-y-4">
+            <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.5em]">Newsletter</span>
+            <h3 className="text-4xl md:text-6xl font-black text-slate-950 uppercase tracking-tighter leading-none">
+              Stay in the loop
+            </h3>
+            <p className="text-lg md:text-xl text-slate-900/60 font-bold uppercase tracking-tight italic">
+              Subscribe for 15% off your first order and weekly tips.
+            </p>
           </div>
 
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="text-white text-center md:text-left">
-              <h3 className="text-3xl md:text-4xl font-bold mb-3">
-                Subscribe & Save 15%
-              </h3>
-              <p className="text-white/90 text-lg">
-                Join our fruit club and get exclusive deals delivered to your inbox
-              </p>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/subscription')}
-              className="px-8 py-4 bg-white text-orange-600 rounded-full font-bold shadow-xl hover:shadow-2xl transition-all whitespace-nowrap"
-            >
-              Subscribe Now
-            </motion.button>
-          </div>
+          <motion.button
+            whileHover={{ scale: 1.05, rotate: -2 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/subscription')}
+            className="h-20 px-16 bg-slate-950 text-white rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-white hover:text-slate-950 transition-all shadow-3xl group"
+          >
+            Subscribe
+            <Zap className="h-5 w-5 text-emerald-500 group-hover:scale-125 transition-transform" />
+          </motion.button>
         </motion.div>
+
+        {/* Bulk Acquisition Signals */}
+        <div className="mt-40 space-y-12">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-1">
+              <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Bulk deals</h3>
+              <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic">Save more when you buy in larger quantities</p>
+            </div>
+            <div className="flex items-center gap-2 px-6 py-3 bg-white rounded-2xl border border-slate-100 shadow-sm">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest leading-none">Discounts available</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {useStore().products.filter((p: any) => (p.bulkDiscountQty ?? 0) > 0).slice(0, 3).map((product: any, index: number) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <ProductCard
+                  id={product.id}
+                  name={product.name}
+                  price={product.price}
+                  stock={product.stock}
+                  image={product.image}
+                  description={product.description}
+                  badge={product.badge}
+                  isSeasonal={product.isSeasonal}
+                  bulkDiscountQty={product.bulkDiscountQty}
+                  bulkDiscountPrice={product.bulkDiscountPrice}
+                  onAddToCart={() => { }}
+                />
+              </motion.div>
+            ))}
+            {useStore().products.filter((p: any) => (p.bulkDiscountQty ?? 0) > 0).length === 0 && (
+              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
+                <Tag className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No bulk deals available right now.</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </section>
   );

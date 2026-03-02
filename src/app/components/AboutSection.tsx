@@ -1,163 +1,205 @@
-import { motion } from 'motion/react';
-import { Leaf, Award, Truck, Heart, Shield, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Leaf, Award, Truck, Heart, Shield, Users, Zap, ShieldCheck, Microscope, Globe } from 'lucide-react';
+import { useStore } from '@/app/context/StoreContext';
+import { cn } from '@/lib/utils';
 
 export function AboutSection() {
+  const { theme, isEditing, updateTheme } = useStore();
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
+
   const features = [
     {
-      icon: Leaf,
-      title: '100% Organic',
-      description: 'All our fruits are grown without harmful pesticides or chemicals',
+      icon: Microscope,
+      title: theme.aboutFeature1Title || 'Precision Organic',
+      description: theme.aboutFeature1Desc || 'Grown without synthetic chemicals for natural goodness.',
+      fieldTitle: 'aboutFeature1Title',
+      fieldDesc: 'aboutFeature1Desc',
+      color: 'emerald'
     },
     {
       icon: Award,
-      title: 'Premium Quality',
-      description: 'Hand-picked and carefully selected for the highest quality',
+      title: theme.aboutFeature2Title || 'Premium grade',
+      description: theme.aboutFeature2Desc || 'Sourced from trusted growers for the best taste and nutrition.',
+      fieldTitle: 'aboutFeature2Title',
+      fieldDesc: 'aboutFeature2Desc',
+      color: 'amber'
     },
     {
-      icon: Truck,
-      title: 'Fast Delivery',
-      description: 'Same-day delivery available in most areas',
+      icon: Zap,
+      title: theme.aboutFeature3Title || 'Fast delivery',
+      description: theme.aboutFeature3Desc || 'Quick shipping so your fruit arrives fresh.',
+      fieldTitle: 'aboutFeature3Title',
+      fieldDesc: 'aboutFeature3Desc',
+      color: 'blue'
     },
     {
-      icon: Heart,
-      title: 'Health First',
-      description: 'Nutrient-rich fruits to support your healthy lifestyle',
+      icon: ShieldCheck,
+      title: theme.aboutFeature4Title || 'Quality verified',
+      description: theme.aboutFeature4Desc || 'Every item is checked against our freshness standards.',
+      fieldTitle: 'aboutFeature4Title',
+      fieldDesc: 'aboutFeature4Desc',
+      color: 'purple'
     },
     {
-      icon: Shield,
-      title: 'Quality Assured',
-      description: 'Every fruit goes through rigorous quality checks',
+      icon: Globe,
+      title: theme.aboutFeature5Title || 'Traceable origin',
+      description: theme.aboutFeature5Desc || 'We tell you where your fruit comes from.',
+      fieldTitle: 'aboutFeature5Title',
+      fieldDesc: 'aboutFeature5Desc',
+      color: 'slate'
     },
     {
       icon: Users,
-      title: 'Customer Love',
-      description: 'Join 50,000+ happy customers who trust us',
+      title: theme.aboutFeature6Title || 'Trusted by many',
+      description: theme.aboutFeature6Desc || 'Join thousands of happy customers who choose us for fresh fruit.',
+      fieldTitle: 'aboutFeature6Title',
+      fieldDesc: 'aboutFeature6Desc',
+      color: 'pink'
     },
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-orange-50 to-white relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          className="absolute top-20 right-10 w-64 h-64 bg-green-300/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.3, 1],
-            x: [0, 50, 0],
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-20 left-10 w-80 h-80 bg-orange-300/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            x: [0, -30, 0],
-          }}
-          transition={{
-            duration: 12,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
+    <section className="relative py-32 overflow-hidden bg-slate-50">
+      {/* Background Architectural Elements */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 left-0 w-full h-1/2 bg-white" />
+        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-100" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-16"
-        >
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              Why Choose Us
-            </span>
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            We're committed to bringing you the freshest, healthiest fruits with exceptional service
-          </p>
-        </motion.div>
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+        {/* Section Header Orchestration */}
+        <div className="grid lg:grid-cols-2 gap-20 items-end mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-[1px] w-12 bg-emerald-500" />
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">About us</span>
+            </div>
 
-        {/* Features Grid */}
+            <h2 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-8">
+              <span className="block italic font-serif text-emerald-600 lowercase tracking-tight mb-2">The</span>
+              <span
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={handleTextChange('aboutSectionTitle')}
+                className="outline-none"
+              >
+                {theme.aboutSectionTitle || 'Fruit Tribe'}
+              </span>
+            </h2>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="pb-4"
+          >
+            <p
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              onBlur={handleTextChange('aboutSectionSubtitle')}
+              className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic leading-relaxed outline-none border-l-4 border-slate-900 pl-8"
+            >
+              {theme.aboutSectionSubtitle || "We bring you the freshest fruit from trusted farms, with a focus on quality and care."}
+            </p>
+          </motion.div>
+        </div>
+
+        {/* Features */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -8, scale: 1.02 }}
-              className="relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all group"
+              transition={{ delay: index * 0.1 }}
+              className="group relative bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-2xl hover:shadow-emerald-900/10 hover:border-emerald-100 transition-all duration-500"
             >
-              {/* Icon Container */}
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="w-16 h-16 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mb-6 shadow-md group-hover:shadow-lg"
-              >
-                <feature.icon className="w-8 h-8 text-white" />
-              </motion.div>
+              <div className="flex items-start justify-between mb-10">
+                <div className={cn(
+                  "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110",
+                  `bg-${feature.color}-50 text-${feature.color}-600`
+                )}>
+                  <feature.icon className="h-8 w-8" />
+                </div>
+                <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em]">Feature {index + 1}</span>
+              </div>
 
-              {/* Content */}
-              <h3 className="text-xl font-bold text-gray-800 mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600 leading-relaxed">
-                {feature.description}
-              </p>
+              <div className="space-y-4">
+                <h3
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={handleTextChange((feature as any).fieldTitle)}
+                  className="text-xl font-black text-slate-900 uppercase tracking-tight outline-none"
+                >
+                  {feature.title}
+                </h3>
+                <p
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={handleTextChange((feature as any).fieldDesc)}
+                  className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed italic outline-none"
+                >
+                  {feature.description}
+                </p>
+              </div>
 
-              {/* Hover Effect */}
-              <motion.div
-                className="absolute inset-0 rounded-2xl border-2 border-transparent group-hover:border-orange-200 transition-all"
-              />
+              <div className="mt-10 pt-8 border-t border-slate-50 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-500">
+                <span className="text-[8px] font-black text-slate-900 uppercase tracking-widest">Verified</span>
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Stats Section */}
+        {/* Global Performance Manifold */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="mt-20 bg-gradient-to-r from-orange-600 via-amber-600 to-orange-600 rounded-3xl p-12 relative overflow-hidden"
+          className="mt-32 p-16 bg-slate-900 rounded-[4rem] relative overflow-hidden flex flex-col items-center justify-center text-center space-y-16"
         >
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute top-0 left-1/4 w-40 h-40 bg-white rounded-full" />
-            <div className="absolute bottom-0 right-1/4 w-60 h-60 bg-white rounded-full" />
+          {/* Background Technical Noise */}
+          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+          <div className="space-y-4">
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.5em]">By the numbers</span>
+            <h3 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter">How we're doing</h3>
           </div>
 
-          <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full max-w-5xl">
             {[
-              { value: '100+', label: 'Fruit Varieties' },
-              { value: '50K+', label: 'Happy Customers' },
-              { value: '99%', label: 'Satisfaction Rate' },
-              { value: '24/7', label: 'Customer Support' },
+              { value: '100+', label: 'Product varieties', sub: 'In catalog' },
+              { value: '50K+', label: 'Happy customers', sub: 'And growing' },
+              { value: '99%', label: 'Customer satisfaction', sub: 'Rated' },
+              { value: '24/7', label: 'Support', sub: 'Always here' },
             ].map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, scale: 0.5 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="text-center text-white"
-              >
+              <div key={index} className="space-y-2">
                 <motion.div
-                  className="text-4xl md:text-5xl font-bold mb-2"
-                  whileHover={{ scale: 1.1 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="text-4xl md:text-5xl font-black text-white tracking-tighter"
                 >
                   {stat.value}
                 </motion.div>
-                <div className="text-white/90 font-medium">{stat.label}</div>
-              </motion.div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">{stat.label}</p>
+                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{stat.sub}</p>
+                </div>
+              </div>
             ))}
           </div>
         </motion.div>

@@ -1,5 +1,6 @@
+import { useStore } from '@/app/context/StoreContext';
 import { Hero } from '@/app/components/Hero';
-import { FeaturedProducts } from '@/app/components/FeaturedPeoducts';
+import { FeaturedProducts } from '@/app/components/FeaturedProducts';
 import { AboutSection } from '@/app/components/AboutSection';
 import { HowItWorks } from '@/app/components/HowItWorks';
 import { SeasonalHighlights } from '@/app/components/SeasonalHighlights';
@@ -16,20 +17,22 @@ interface HomePageProps {
 }
 
 export function HomePage({ onAddToCart }: HomePageProps) {
+  const { theme } = useStore();
+
   return (
-    <div className="pt-20">
+    <div>
       <Hero />
-      <FeaturedProducts onAddToCart={onAddToCart} />
+      {theme.showFeaturedProducts !== false && <FeaturedProducts onAddToCart={onAddToCart} />}
       <AboutSection />
-      <HowItWorks />
-      <SeasonalHighlights />
+      {theme.showHowItWorks !== false && <HowItWorks />}
+      {theme.showSeasonalHighlights !== false && <SeasonalHighlights />}
       <ParallaxBanner />
-      <SpecialOffers />
+      {theme.showSpecialOffers !== false && <SpecialOffers />}
       <WhyChooseUs />
-      <Testimonials />
-      <RecipesSection />
-      <StatsSection />
-      <NewsletterSection />
+      {theme.showTestimonials !== false && <Testimonials />}
+      {theme.showRecipes !== false && <RecipesSection />}
+      {theme.showStats !== false && <StatsSection />}
+      {theme.showNewsletter !== false && <NewsletterSection />}
     </div>
   );
 }

@@ -1,9 +1,19 @@
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles, Zap, ShieldCheck, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useStore } from '@/app/context/StoreContext';
+import { cn } from '@/lib/utils';
 
 export function ParallaxBanner() {
+  const { theme, isEditing, updateTheme } = useStore();
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { scrollYProgress } = useScroll({
@@ -12,105 +22,100 @@ export function ParallaxBanner() {
   });
 
   const y = useTransform(scrollYProgress, [0, 1], ['-20%', '20%']);
-  const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.5, 1, 0.5]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5, 1], [0.6, 1, 0.6]);
+  const bgImage = theme.parallaxBannerImage || 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920';
 
   return (
-    <div ref={containerRef} className="relative">
-      <section className="relative h-[600px] overflow-hidden">
+    <div ref={containerRef} className="relative" style={{ position: 'relative' }}>
+      <section className="relative h-[600px] sm:h-[900px] overflow-hidden">
         {/* Parallax Background */}
         <motion.div
-          style={{ y }}
-          className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920')] bg-cover bg-center"
+          data-theme-field="parallaxBannerImage"
+          style={{ y, backgroundImage: `url(${bgImage})` }}
+          className={`absolute inset-0 bg-cover bg-center transition-all ${isEditing ? 'cursor-pointer hover:ring-4 hover:ring-green-500 hover:ring-inset' : ''}`}
         >
-          {/* Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
+          {/* Cinematic Global Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/40 to-slate-950" />
+          <div className="absolute inset-0 bg-black/60" />
         </motion.div>
 
-        {/* Content */}
+        {/* Technical HUD Overlay Elements */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          <div className="absolute top-20 right-20 flex gap-4">
+            <div className="px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl flex items-center gap-3">
+              <Activity className="h-4 w-4 text-emerald-500" />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Verified</span>
+            </div>
+          </div>
+
+          <div className="absolute bottom-20 left-20">
+            <div className="px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl flex items-center gap-3">
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Quality assured</span>
+            </div>
+          </div>
+        </div>
+
+        {/* High-Fidelity Content Hub */}
         <motion.div
           style={{ opacity }}
-          className="relative z-10 h-full flex items-center justify-center"
+          className="relative z-20 h-full flex items-center justify-center px-6"
         >
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="max-w-5xl w-full text-center space-y-12">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
+              className="space-y-10"
             >
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full mb-6 border border-white/20">
-                <Sparkles className="w-4 h-4 text-orange-400" />
-                <span className="text-sm font-medium text-white">
-                  Premium Quality Guarantee
-                </span>
+              <div className="inline-flex items-center gap-4 px-6 py-2 bg-emerald-500/5 backdrop-blur-md border border-emerald-500/20 rounded-full">
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-[0.4em]">Our promise</span>
               </div>
 
-              <h2 className="text-5xl md:text-7xl font-bold text-white mb-6">
-                Farm to Table
-                <br />
-                <span className="bg-gradient-to-r from-orange-400 to-amber-400 bg-clip-text text-transparent">
-                  In 24 Hours
+              <h2 className="text-5xl sm:text-7xl md:text-9xl font-black text-white tracking-tighter uppercase leading-[0.8]">
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={handleTextChange('parallaxTitle')}
+                  className="outline-none"
+                >
+                  {theme.parallaxTitle || 'Fresh'}
                 </span>
+                <br />
+                <span className="italic font-serif text-emerald-400 lowercase tracking-tight">from farm to you</span>
               </h2>
 
-              <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-                Experience the difference of truly fresh fruits, picked at peak ripeness and delivered straight to your door
+              <p
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={handleTextChange('parallaxSubtitle')}
+                className="text-lg md:text-2xl text-slate-300 font-bold uppercase tracking-tight italic max-w-2xl mx-auto leading-relaxed outline-none"
+              >
+                {theme.parallaxSubtitle || 'Quality fruit, delivered with care.'}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-8 justify-center items-center pt-8">
                 <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileHover={{ scale: 1.05, x: 5 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/products')}
-                  className="px-8 py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-full font-bold shadow-2xl hover:shadow-orange-500/50 transition-all flex items-center justify-center gap-2 group"
+                  className="h-20 px-16 bg-white text-slate-900 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-emerald-400 transition-all shadow-3xl active:scale-95 group"
                 >
-                  Start Shopping
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  Shop now
+                  <Zap className="h-5 w-5 text-emerald-500 group-hover:scale-125 transition-transform" />
                 </motion.button>
 
                 <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/about')}
-                  className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white rounded-full font-bold border-2 border-white/30 hover:bg-white/20 transition-all"
+                  className="h-20 px-16 bg-white/5 backdrop-blur-md text-white border-2 border-white/20 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
                 >
-                  Our Story
+                  About us
                 </motion.button>
               </div>
             </motion.div>
           </div>
-        </motion.div>
-
-        {/* Floating Elements */}
-        <motion.div
-          animate={{
-            y: [0, -20, 0],
-            rotate: [0, 5, -5, 0],
-          }}
-          transition={{
-            duration: 6,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="absolute top-20 left-20 text-6xl opacity-30"
-        >
-          🍎
-        </motion.div>
-
-        <motion.div
-          animate={{
-            y: [0, 20, 0],
-            rotate: [0, -5, 5, 0],
-          }}
-          transition={{
-            duration: 7,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 1
-          }}
-          className="absolute bottom-20 right-20 text-6xl opacity-30"
-        >
-          🥭
         </motion.div>
       </section>
     </div>

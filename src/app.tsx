@@ -1,376 +1,201 @@
-import { useState } from 'react';
+import React, { lazy, Suspense, useMemo, useCallback, memo } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from '@/app/context/AuthContext';
+import { AuthProvider, useAuth } from '@/app/context/AuthContext';
+import { StoreProvider, useStore, type CartItem } from '@/app/context/StoreContext';
 import { Navbar } from '@/app/components/Navbar';
 import { Footer } from '@/app/components/Footer';
 import { CartDrawer } from '@/app/components/CartDrawer';
 import { ScrollToTop } from '@/app/components/ScrollToTop';
-import { HomePage } from '@/app/pages/HomePage';
-import { ProductsPage } from '@/app/pages/ProductsPage';
-import { ProductDetailPage } from '@/app/pages/ProductDetailPage';
-import { AboutPage } from '@/app/pages/AboutPage';
-import { ContactPage } from '@/app/pages/ContactPage';
-import { CartPage } from '@/app/pages/CartPage';
-import { ProfilePage } from '@/app/pages/ProfilePage';
-import { LoginPage } from '@/app/pages/LoginPage';
-import { SignUpPage } from '@/app/pages/SignUpPage';
-import { ForgotPasswordPage } from '@/app/pages/ForgotPasswordPage';
-import { CheckoutPage } from '@/app/pages/CheckoutPage';
-import { OrderConfirmationPage } from '@/app/pages/OrderConfirmationPage';
-import { NotFoundPage } from '@/app/pages/NotFoundPage';
-import { SubscriptionPage } from '@/app/pages/SubscriptionPage';
+import { SeasonalEffects } from '@/app/components/SeasonalEffects';
+import { ThemeWrapper } from '@/app/components/ThemeWrapper';
+import { ProtectedRoute } from '@/app/components/ProtectedRoute';
+import { Toaster } from 'sonner';
 
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+// Lazy-load pages for smaller initial bundle and faster first paint
+const HomePage = lazy(() => import('@/app/pages/HomePage').then(m => ({ default: m.HomePage })));
+const ProductsPage = lazy(() => import('@/app/pages/ProductsPage').then(m => ({ default: m.ProductsPage })));
+const ProductDetailPage = lazy(() => import('@/app/pages/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
+const AboutPage = lazy(() => import('@/app/pages/AboutPage').then(m => ({ default: m.AboutPage })));
+const ContactPage = lazy(() => import('@/app/pages/ContactPage').then(m => ({ default: m.ContactPage })));
+const CartPage = lazy(() => import('@/app/pages/CartPage').then(m => ({ default: m.CartPage })));
+const ProfilePage = lazy(() => import('@/app/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const LoginPage = lazy(() => import('@/app/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const SignUpPage = lazy(() => import('@/app/pages/SignUpPage').then(m => ({ default: m.SignUpPage })));
+const ForgotPasswordPage = lazy(() => import('@/app/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const CheckoutPage = lazy(() => import('@/app/pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
+const OrderConfirmationPage = lazy(() => import('@/app/pages/OrderConfirmationPage').then(m => ({ default: m.OrderConfirmationPage })));
+const NotFoundPage = lazy(() => import('@/app/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const SubscriptionPage = lazy(() => import('@/app/pages/SubscriptionPage').then(m => ({ default: m.SubscriptionPage })));
+const MerchantOnboardingPage = lazy(() => import('@/app/pages/MerchantOnboardingPage').then(m => ({ default: m.MerchantOnboardingPage })));
 
-function Layout({ children }: { children: React.ReactNode }) {
+const AdminLayout = lazy(() => import('@/app/layouts/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const AdminDashboard = lazy(() => import('@/app/pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const AdminProductsPage = lazy(() => import('@/app/pages/admin/AdminProductsPage').then(m => ({ default: m.AdminProductsPage })));
+const AdminOrdersPage = lazy(() => import('@/app/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })));
+const AdminCustomersPage = lazy(() => import('@/app/pages/admin/AdminCustomersPage').then(m => ({ default: m.AdminCustomersPage })));
+const AdminThemeEditor = lazy(() => import('@/app/pages/admin/store/AdminThemeEditor').then(m => ({ default: m.AdminThemeEditor })));
+const AdminAnalyticsPage = lazy(() => import('@/app/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })));
+const AdminTaxPage = lazy(() => import('@/app/pages/admin/AdminTaxPage').then(m => ({ default: m.AdminTaxPage })));
+const AdminStorePage = lazy(() => import('@/app/pages/admin/store/AdminStorePage').then(m => ({ default: m.AdminStorePage })));
+const AdminPagesPage = lazy(() => import('@/app/pages/admin/store/AdminPagesPage').then(m => ({ default: m.AdminPagesPage })));
+const AdminPreferencesPage = lazy(() => import('@/app/pages/admin/store/AdminPreferencesPage').then(m => ({ default: m.AdminPreferencesPage })));
+const AdminSettingsPage = lazy(() => import('@/app/pages/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
+const AdminDiscountsPage = lazy(() => import('@/app/pages/admin/AdminDiscountsPage').then(m => ({ default: m.AdminDiscountsPage })));
+const AdminSellersPage = lazy(() => import('@/app/pages/admin/AdminSellersPage').then(m => ({ default: m.AdminSellersPage })));
+const AdminLogisticsPage = lazy(() => import('@/app/pages/admin/AdminLogisticsPage').then(m => ({ default: m.AdminLogisticsPage })));
+const AdminPayoutsPage = lazy(() => import('@/app/pages/admin/AdminPayoutsPage').then(m => ({ default: m.AdminPayoutsPage })));
+const SellerDashboard = lazy(() => import('@/app/pages/seller/SellerDashboard').then(m => ({ default: m.SellerDashboard })));
+
+function PageFallback() {
   return (
-    <div className="relative min-h-screen bg-white">
-      {children}
+    <div className="min-h-[60vh] flex items-center justify-center bg-slate-50">
+      <div className="h-10 w-10 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
     </div>
   );
 }
 
-export default function App() {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+function AdminDashboardSwitcher() {
+  const { user } = useAuth();
+  if (user?.role === 'seller') {
+    return <SellerDashboard />;
+  }
+  return <AdminDashboard />;
+}
 
-  // Product data for cart
-  const productData: { [key: number]: { name: string; price: number; image: string } } = {
-    1: {
-      name: 'Premium Alphonso Mango',
-      price: 12.99,
-      image: 'https://images.unsplash.com/photo-1734163075572-8948e799e42c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyaXBlJTIwbWFuZ28lMjBmcnVpdHxlbnwxfHx8fDE3Njg1NDg2ODl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    2: {
-      name: 'Fresh Strawberries',
-      price: 8.99,
-      image: 'https://images.unsplash.com/photo-1570767531016-b21faba25ea1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMHN0cmF3YmVycmllcyUyMGJhc2tldHxlbnwxfHx8fDE3Njg1NTk0NjZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    3: {
-      name: 'Organic Blueberries',
-      price: 9.99,
-      image: 'https://images.unsplash.com/photo-1554495644-8ce87fe3e713?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibHVlYmVycmllcyUyMGJvd2x8ZW58MXx8fHwxNzY4NDc0NTIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    4: {
-      name: 'Juicy Oranges',
-      price: 7.99,
-      image: 'https://images.unsplash.com/photo-1634781326658-8734696bb6d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcmFuZ2UlMjBjaXRydXMlMjBmcnVpdHxlbnwxfHx8fDE3Njg0NjE5ODd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    5: {
-      name: 'Crisp Red Apples',
-      price: 6.99,
-      image: 'https://images.unsplash.com/photo-1623815242959-fb20354f9b8d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWQlMjBhcHBsZSUyMGZyZXNofGVufDF8fHx8MTc2ODQ5MzIwMnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    6: {
-      name: 'Sweet Watermelon',
-      price: 11.99,
-      image: 'https://images.unsplash.com/photo-1629265824943-b0a19b32c7a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXRlcm1lbG9uJTIwc2xpY2VkJTIwZnJlc2h8ZW58MXx8fHwxNzY4NTU5NDY4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    7: {
-      name: 'Purple Grapes',
-      price: 10.99,
-      image: 'https://images.unsplash.com/photo-1567663803965-967e472241e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdXJwbGUlMjBncmFwZXMlMjBidW5jaHxlbnwxfHx8fDE3Njg1NTk0Njh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    8: {
-      name: 'Golden Pineapple',
-      price: 8.99,
-      image: 'https://images.unsplash.com/photo-1472352255192-75fb1f6b329c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaW5lYXBwbGUlMjB0cm9waWNhbCUyMGZydWl0fGVufDF8fHx8MTc2ODU1OTQ2OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    9: {
-      name: 'Organic Bananas',
-      price: 5.99,
-      image: 'https://images.unsplash.com/photo-1711208224791-2cc390f53744?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5hbmElMjBidW5jaCUyMHllbGxvd3xlbnwxfHx8fDE3Njg1NTk0Njl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    10: {
-      name: 'Fresh Kiwi',
-      price: 9.99,
-      image: 'https://images.unsplash.com/photo-1699029330848-335e7e2c073f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxraXdpJTIwZnJ1aXQlMjBzbGljZWR8ZW58MXx8fHwxNzY4NTU5NDY5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    11: {
-      name: 'Juicy Peaches',
-      price: 10.99,
-      image: 'https://images.unsplash.com/photo-1642372849486-f88b963cb734?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjaCUyMGZydWl0JTIwZnJlc2h8ZW58MXx8fHwxNzY4NTU5NDY5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-    12: {
-      name: 'Exotic Dragon Fruit',
-      price: 14.99,
-      image: 'https://images.unsplash.com/photo-1654786733736-aefca0247a5e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkcmFnb24lMjBmcnVpdCUyMHBpbmt8ZW58MXx8fHwxNzY4NTU5NDcwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    },
-  };
+interface MainLayoutProps {
+  children: React.ReactNode;
+  cartCount: number;
+  onCartClick: () => void;
+  cartItems: CartItem[];
+  onUpdateQuantity: (id: string | number, quantity: number) => void;
+  onRemoveItem: (id: string | number) => void;
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+}
 
-  const handleAddToCart = (productId: number) => {
-    setCartItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === productId);
-      
-      if (existingItem) {
-        return prevItems.map((item) =>
-          item.id === productId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      } else {
-        const product = productData[productId];
-        if (!product) {
-          console.error('Product not found:', productId);
-          return prevItems;
-        }
-        return [
-          ...prevItems,
-          {
-            id: productId,
-            name: product.name,
-            price: product.price,
-            quantity: 1,
-            image: product.image,
-          },
-        ];
-      }
-    });
-    
-    // Show cart drawer briefly
-    setIsCartOpen(true);
-  };
-
-  const handleUpdateQuantity = (productId: number, change: number) => {
-    setCartItems((prevItems) => {
-      return prevItems
-        .map((item) =>
-          item.id === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + change) }
-            : item
-        )
-        .filter((item) => item.quantity > 0);
-    });
-  };
-
-  const handleRemoveItem = (productId: number) => {
-    setCartItems((prevItems) => prevItems.filter((item) => item.id !== productId));
-  };
-
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-
+const MainLayout = memo(function MainLayout({
+  children,
+  cartCount,
+  onCartClick,
+  cartItems,
+  onUpdateQuantity,
+  onRemoveItem,
+  isCartOpen,
+  setIsCartOpen
+}: MainLayoutProps) {
+  const closeCart = useCallback(() => setIsCartOpen(false), [setIsCartOpen]);
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes
-          cartCount={cartCount}
-          cartItems={cartItems}
-          isCartOpen={isCartOpen}
-          setIsCartOpen={setIsCartOpen}
-          handleAddToCart={handleAddToCart}
-          handleUpdateQuantity={handleUpdateQuantity}
-          handleRemoveItem={handleRemoveItem}
-        />
-      </Router>
-    </AuthProvider>
+    <div className="relative min-h-screen bg-white flex flex-col">
+      <SeasonalEffects />
+      <Navbar cartCount={cartCount} onCartClick={onCartClick} />
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={closeCart}
+        items={cartItems}
+        onUpdateQuantity={onUpdateQuantity}
+        onRemoveItem={onRemoveItem}
+      />
+    </div>
+  );
+});
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <ThemeWrapper>
+        <AuthProvider>
+          <Router>
+            <AppRoutes />
+            <Toaster position="top-right" richColors closeButton />
+          </Router>
+        </AuthProvider>
+      </ThemeWrapper>
+    </StoreProvider>
   );
 }
 
-function AppRoutes({
-  cartCount,
-  cartItems,
-  isCartOpen,
-  setIsCartOpen,
-  handleAddToCart,
-  handleUpdateQuantity,
-  handleRemoveItem,
-}: {
-  cartCount: number;
-  cartItems: CartItem[];
-  isCartOpen: boolean;
-  setIsCartOpen: (open: boolean) => void;
-  handleAddToCart: (id: number) => void;
-  handleUpdateQuantity: (id: number, change: number) => void;
-  handleRemoveItem: (id: number) => void;
-}) {
+function AppRoutes() {
+  const {
+    cartItems,
+    isCartOpen,
+    setIsCartOpen,
+    handleAddToCart,
+    handleUpdateQuantity,
+    handleRemoveItem
+  } = useStore();
+
+  const cartCount = useMemo(
+    () => cartItems.reduce((sum: number, item: CartItem) => sum + item.quantity, 0),
+    [cartItems]
+  );
+
+  const onCartClick = useCallback(() => setIsCartOpen(true), [setIsCartOpen]);
+
+  const mainLayoutProps = useMemo(
+    () => ({
+      cartCount,
+      onCartClick,
+      cartItems,
+      onUpdateQuantity: handleUpdateQuantity,
+      onRemoveItem: handleRemoveItem,
+      isCartOpen,
+      setIsCartOpen
+    }),
+    [cartCount, onCartClick, cartItems, handleUpdateQuantity, handleRemoveItem, isCartOpen, setIsCartOpen]
+  );
+
   return (
     <>
       <ScrollToTop />
-      <Routes>
-        {/* Auth Routes - No Navbar/Footer */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignUpPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/login" element={<MainLayout {...mainLayoutProps}><LoginPage /></MainLayout>} />
+          <Route path="/signup" element={<MainLayout {...mainLayoutProps}><SignUpPage /></MainLayout>} />
+          <Route path="/forgot-password" element={<MainLayout {...mainLayoutProps}><ForgotPasswordPage /></MainLayout>} />
+          <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
 
-        {/* Main Routes - With Navbar/Footer */}
-        <Route
-          path="/"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <HomePage onAddToCart={handleAddToCart} />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/products"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <ProductsPage onAddToCart={handleAddToCart} />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/product/:id"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <ProductDetailPage onAddToCart={handleAddToCart} />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/about"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <AboutPage />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/contact"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <ContactPage />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/cart"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <CartPage items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/checkout"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <CheckoutPage items={cartItems} />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <ProfilePage />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="/subscription"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <SubscriptionPage />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <Layout>
-              <Navbar cartCount={cartCount} onCartClick={() => setIsCartOpen(true)} />
-              <NotFoundPage />
-              <Footer />
-              <CartDrawer
-                isOpen={isCartOpen}
-                onClose={() => setIsCartOpen(false)}
-                items={cartItems}
-                onUpdateQuantity={handleUpdateQuantity}
-                onRemoveItem={handleRemoveItem}
-              />
-            </Layout>
-          }
-        />
-      </Routes>
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'seller']} />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboardSwitcher />} />
+              <Route path="products" element={<AdminProductsPage />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="discounts" element={<AdminDiscountsPage />} />
+              <Route path="seller-dashboard" element={<SellerDashboard />} />
+              <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
+                <Route path="customers" element={<AdminCustomersPage />} />
+                <Route path="sellers" element={<AdminSellersPage />} />
+                <Route path="logistics" element={<AdminLogisticsPage />} />
+                <Route path="payouts" element={<AdminPayoutsPage />} />
+                <Route path="store" element={<AdminStorePage />} />
+                <Route path="themes" element={<AdminThemeEditor />} />
+                <Route path="pages" element={<AdminPagesPage />} />
+                <Route path="preferences" element={<AdminPreferencesPage />} />
+                <Route path="analytics" element={<AdminAnalyticsPage />} />
+                <Route path="taxes" element={<AdminTaxPage />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
+              </Route>
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Route>
+
+          <Route path="/" element={<MainLayout {...mainLayoutProps}><HomePage onAddToCart={handleAddToCart} /></MainLayout>} />
+          <Route path="/products" element={<MainLayout {...mainLayoutProps}><ProductsPage onAddToCart={handleAddToCart} /></MainLayout>} />
+          <Route path="/product/:id" element={<MainLayout {...mainLayoutProps}><ProductDetailPage onAddToCart={handleAddToCart} /></MainLayout>} />
+          <Route path="/about" element={<MainLayout {...mainLayoutProps}><AboutPage /></MainLayout>} />
+          <Route path="/contact" element={<MainLayout {...mainLayoutProps}><ContactPage /></MainLayout>} />
+          <Route path="/cart" element={<MainLayout {...mainLayoutProps}><CartPage items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} /></MainLayout>} />
+          <Route path="/checkout" element={<MainLayout {...mainLayoutProps}><CheckoutPage items={cartItems} /></MainLayout>} />
+          <Route path="/profile" element={<MainLayout {...mainLayoutProps}><ProfilePage /></MainLayout>} />
+          <Route path="/subscription" element={<MainLayout {...mainLayoutProps}><SubscriptionPage /></MainLayout>} />
+          <Route path="/onboarding" element={<MainLayout {...mainLayoutProps}><MerchantOnboardingPage /></MainLayout>} />
+
+          <Route path="*" element={<MainLayout {...mainLayoutProps}><NotFoundPage /></MainLayout>} />
+        </Routes>
+      </Suspense>
     </>
   );
 }

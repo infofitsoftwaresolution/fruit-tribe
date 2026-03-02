@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { cn, getRoundedClass } from '@/lib/utils';
 
 interface CartItem {
-  id: number;
+  id: string | number;
   name: string;
   price: number;
   quantity: number;
@@ -14,15 +15,27 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   items: CartItem[];
-  onUpdateQuantity: (id: number, change: number) => void;
-  onRemoveItem: (id: number) => void;
+  onUpdateQuantity: (id: string | number, change: number) => void;
+  onRemoveItem: (id: string | number) => void;
 }
 
+import { useStore } from '@/app/context/StoreContext';
+
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: CartDrawerProps) {
+  const { products, taxRates, theme } = useStore();
   const navigate = useNavigate();
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 50 ? 0 : 5.99;
-  const total = subtotal + shipping;
+  const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  const shipping = subtotal > 500 ? 0 : 49;
+
+  // Dynamic Tax Calculation based on Category
+  const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
+    const product = products.find(p => p.id === item.id);
+    const category = product?.category || 'Fruits';
+    const rate = taxRates[category] || 0;
+    return totalTax + (item.price * item.quantity * (rate / 100));
+  }, 0);
+
+  const total = subtotal + shipping + calculatedTax;
 
   const handleViewCart = () => {
     onClose();
@@ -88,7 +101,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={onClose}
-                    className="px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-full font-semibold shadow-lg"
+                    className={cn(
+                      "px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold shadow-lg",
+                      getRoundedClass(theme.buttonStyle)
+                    )}
                   >
                     Start Shopping
                   </motion.button>
@@ -117,7 +133,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-gray-800 mb-1 truncate">{item.name}</h3>
                         <p className="text-lg font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2">
-                          ${item.price.toFixed(2)}
+                          ₹{item.price.toFixed(2)}
                         </p>
 
                         {/* Quantity Controls */}
@@ -167,7 +183,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-semibold text-gray-800">${subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">₹{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Shipping:</span>
@@ -175,24 +191,28 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       {shipping === 0 ? (
                         <span className="text-green-600">FREE</span>
                       ) : (
-                        `$${shipping.toFixed(2)}`
+                        `₹${shipping.toFixed(2)}`
                       )}
                     </span>
                   </div>
-                  {subtotal > 0 && subtotal < 50 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Tax:</span>
+                    <span className="font-semibold text-gray-800">₹{calculatedTax.toFixed(2)}</span>
+                  </div>
+                  {subtotal > 0 && subtotal < 500 && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                     >
-                      Add ${(50 - subtotal).toFixed(2)} more for free shipping!
+                      Add ₹{(500 - subtotal).toFixed(2)} more for free shipping!
                     </motion.p>
                   )}
                   <div className="border-t border-gray-300 pt-3">
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-gray-800">Total:</span>
                       <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                        ${total.toFixed(2)}
+                        ₹{total.toFixed(2)}
                       </span>
                     </div>
                   </div>
@@ -204,7 +224,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={handleViewCart}
-                    className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                    className={cn(
+                      "w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2",
+                      getRoundedClass(theme.buttonStyle)
+                    )}
                   >
                     View Cart
                     <ArrowRight className="w-5 h-5" />
@@ -214,7 +237,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={onClose}
-                    className="w-full py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-all"
+                    className={cn(
+                      "w-full py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all",
+                      getRoundedClass(theme.buttonStyle)
+                    )}
                   >
                     Continue Shopping
                   </motion.button>

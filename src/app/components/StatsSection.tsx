@@ -1,100 +1,146 @@
-import { motion } from 'motion/react';
-import { Users, Award, TrendingUp, Globe } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Users, Award, TrendingUp, Globe, Activity, ShieldCheck, Zap, Microscope } from 'lucide-react';
+import { useStore } from '@/app/context/StoreContext';
+import { cn } from '@/lib/utils';
 
 export function StatsSection() {
+  const { theme, isEditing, updateTheme } = useStore();
+
+  const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
+    if (!isEditing) return;
+    const newText = e.currentTarget.innerText;
+    updateTheme({ [field]: newText });
+  };
+
   const stats = [
     {
-      icon: Users,
-      value: '50,000+',
-      label: 'Happy Customers',
-      color: 'from-blue-500 to-cyan-500',
-      bgColor: 'from-blue-50 to-cyan-50',
+      icon: Activity,
+      value: '99.9%',
+      label: 'Freshness',
+      sub: 'Quality maintained',
+      color: 'emerald',
     },
     {
-      icon: Award,
+      icon: Microscope,
       value: '100+',
-      label: 'Fruit Varieties',
-      color: 'from-orange-500 to-amber-500',
-      bgColor: 'from-orange-50 to-amber-50',
+      label: 'Varieties',
+      sub: 'To choose from',
+      color: 'amber',
     },
     {
-      icon: TrendingUp,
-      value: '4.9/5.0',
-      label: 'Customer Rating',
-      color: 'from-green-500 to-teal-500',
-      bgColor: 'from-green-50 to-teal-50',
+      icon: Zap,
+      value: '2Hr',
+      label: 'Avg dispatch',
+      sub: 'Quick shipping',
+      color: 'blue',
     },
     {
-      icon: Globe,
-      value: '20+',
-      label: 'Countries Served',
-      color: 'from-purple-500 to-pink-500',
-      bgColor: 'from-purple-50 to-pink-50',
+      icon: ShieldCheck,
+      value: 'Grade A',
+      label: 'Quality',
+      sub: 'Our standard',
+      color: 'purple',
     },
   ];
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-orange-50/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section className="relative py-32 bg-slate-900 overflow-hidden">
+      {/* Cinematic Grid Noise */}
+      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
+
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-16 mb-24">
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-[1px] w-12 bg-emerald-500" />
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em]">Our stats</span>
+            </div>
+
+            <h2 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter leading-none mb-6">
+              <span
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={handleTextChange('statsSectionTitle')}
+                className="outline-none"
+              >
+                {theme.statsSectionTitle || 'By the numbers'}
+              </span>
+            </h2>
+            <p
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              onBlur={handleTextChange('statsSectionSubtitle')}
+              className="text-[11px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed italic max-w-lg outline-none"
+            >
+              {theme.statsSectionSubtitle || 'Quality and speed we are proud of.'}
+            </p>
+          </motion.div>
+
+          {/* Status */}
+          <div className="bg-emerald-500/5 border border-emerald-500/20 px-8 py-4 rounded-3xl flex items-center gap-4">
+            <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
+            <span className="text-[10px] font-black text-emerald-100 uppercase tracking-[0.3em]">All systems running</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
             <motion.div
               key={index}
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
-              whileHover={{ y: -10, scale: 1.05 }}
-              className={`relative bg-gradient-to-br ${stat.bgColor} rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all group overflow-hidden`}
+              transition={{ delay: index * 0.1 }}
+              whileHover={{ y: -8, scale: 1.02 }}
+              className="group relative bg-white/5 backdrop-blur-3xl p-10 rounded-[3rem] border border-white/5 hover:border-emerald-500/30 hover:bg-white/10 transition-all duration-500 overflow-hidden"
             >
-              {/* Animated Background */}
-              <motion.div
-                className={`absolute inset-0 bg-gradient-to-br ${stat.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}
-              />
+              {/* Dynamic Glow Artifact */}
+              <div className={cn(
+                "absolute -top-10 -right-10 w-32 h-32 blur-[60px] opacity-10 group-hover:opacity-30 transition-all duration-700",
+                `bg-${stat.color}-500`
+              )} />
 
-              {/* Floating Particles */}
-              <motion.div
-                className="absolute -top-10 -right-10 w-32 h-32 bg-white/20 rounded-full blur-2xl"
-                animate={{
-                  scale: [1, 1.2, 1],
-                  opacity: [0.3, 0.6, 0.3],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
+              <div className="flex items-center justify-between mb-10">
+                <div className={cn(
+                  "h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110",
+                  `bg-${stat.color}-500/10 text-${stat.color}-400`
+                )}>
+                  <stat.icon className="h-6 w-6" />
+                </div>
+                <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Stat {index + 1}</span>
+              </div>
 
-              {/* Icon */}
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center mb-4 shadow-lg relative z-10`}
-              >
-                <stat.icon className="w-8 h-8 text-white" />
-              </motion.div>
-
-              {/* Value */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 + 0.2 }}
-                className="text-4xl md:text-5xl font-bold mb-2 relative z-10"
-              >
-                <span className={`bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`}>
+              <div className="space-y-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 + 0.2 }}
+                  className="text-5xl font-black text-white tracking-tighter"
+                >
                   {stat.value}
-                </span>
-              </motion.div>
+                </motion.div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">{stat.label}</p>
+                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest italic">{stat.sub}</p>
+                </div>
+              </div>
 
-              {/* Label */}
-              <p className="text-gray-700 font-medium relative z-10">{stat.label}</p>
-
-              {/* Glow Effect */}
-              <motion.div
-                className={`absolute inset-0 bg-gradient-to-r ${stat.color} opacity-0 group-hover:opacity-20 blur-2xl transition-opacity duration-500`}
-              />
+              {/* Technical Indicator */}
+              <div className="mt-10 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  whileInView={{ width: '100%' }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 2, delay: index * 0.1 + 0.5 }}
+                  className={cn("h-full", `bg-${stat.color}-500`)}
+                />
+              </div>
             </motion.div>
           ))}
         </div>

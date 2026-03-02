@@ -1,419 +1,538 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { ShoppingCart, Heart, Star, Minus, Plus, ArrowLeft, Truck, Shield, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingCart, Heart, Star, Minus, Plus, Truck, Shield, ShieldCheck, Check, Clock, Zap, Leaf, Activity, ChevronRight, Share2, Info, TrendingUp, Calendar, Binary } from 'lucide-react';
+import { useStore } from '@/app/context/StoreContext';
+import { useAuth } from '@/app/context/AuthContext';
+import { useProduct } from '@/app/hooks/useProducts';
+import type { Product } from '@/lib/api';
+import { toast } from 'sonner';
+import { NotFoundPage } from './NotFoundPage';
+import { AIRecommendations } from '@/app/components/AIRecommendations';
+import { cn, getRoundedClass } from '@/lib/utils';
 
 interface ProductDetailPageProps {
-  onAddToCart: (id: number) => void;
+  onAddToCart: (product: Product) => void;
 }
 
-const productData: { [key: number]: any } = {
-  1: {
-    name: 'Premium Alphonso Mango',
-    price: 12.99,
-    image: 'https://images.unsplash.com/photo-1734163075572-8948e799e42c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyaXBlJTIwbWFuZ28lMjBmcnVpdHxlbnwxfHx8fDE3Njg1NDg2ODl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'The king of mangoes - sweet and aromatic',
-    fullDescription: 'Premium Alphonso mangoes are known as the "King of Mangoes" for their exceptional sweetness, rich flavor, and creamy texture. Grown in the finest orchards, these mangoes are hand-picked at peak ripeness to ensure maximum flavor and nutrition.',
-    rating: 4.8,
-    reviews: 234,
-    category: 'Tropical',
-    origin: 'India',
-    nutrition: {
-      calories: 60,
-      carbs: '15g',
-      fiber: '1.6g',
-      vitaminC: '36%',
-    },
-  },
-  2: {
-    name: 'Fresh Strawberries',
-    price: 8.99,
-    image: 'https://images.unsplash.com/photo-1570767531016-b21faba25ea1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMHN0cmF3YmVycmllcyUyMGJhc2tldHxlbnwxfHx8fDE3Njg1NTk0NjZ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Juicy and perfectly ripe strawberries',
-    fullDescription: 'Fresh, juicy strawberries picked at the peak of ripeness. These berries are bursting with natural sweetness and are perfect for snacking, desserts, or adding to your morning smoothie.',
-    rating: 4.9,
-    reviews: 189,
-    category: 'Berries',
-    origin: 'California',
-    nutrition: {
-      calories: 32,
-      carbs: '7.7g',
-      fiber: '2g',
-      vitaminC: '97%',
-    },
-  },
-  3: {
-    name: 'Organic Blueberries',
-    price: 9.99,
-    image: 'https://images.unsplash.com/photo-1554495644-8ce87fe3e713?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxibHVlYmVycmllcyUyMGJvd2x8ZW58MXx8fHwxNzY4NDc0NTIzfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Antioxidant-rich organic blueberries',
-    fullDescription: 'Certified organic blueberries packed with antioxidants and vitamins. These small but mighty fruits are perfect for boosting your immune system and adding a burst of flavor to any dish.',
-    rating: 4.7,
-    reviews: 156,
-    category: 'Berries',
-    origin: 'Maine',
-    nutrition: {
-      calories: 57,
-      carbs: '14.5g',
-      fiber: '2.4g',
-      vitaminC: '16%',
-    },
-  },
-  4: {
-    name: 'Juicy Oranges',
-    price: 7.99,
-    image: 'https://images.unsplash.com/photo-1634781326658-8734696bb6d9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxvcmFuZ2UlMjBjaXRydXMlMjBmcnVpdHxlbnwxfHx8fDE3Njg0NjE5ODd8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Vitamin C packed fresh oranges',
-    fullDescription: 'Fresh, juicy oranges bursting with vitamin C. Perfect for a healthy snack or freshly squeezed juice. These oranges are hand-selected for their sweetness and juiciness.',
-    rating: 4.6,
-    reviews: 278,
-    category: 'Citrus',
-    origin: 'Florida',
-    nutrition: {
-      calories: 47,
-      carbs: '11.8g',
-      fiber: '2.4g',
-      vitaminC: '88%',
-    },
-  },
-  5: {
-    name: 'Crisp Red Apples',
-    price: 6.99,
-    image: 'https://images.unsplash.com/photo-1623815242959-fb20354f9b8d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWQlMjBhcHBsZSUyMGZyZXNofGVufDF8fHx8MTc2ODQ5MzIwMnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Crisp and sweet red apples',
-    fullDescription: 'Crisp, sweet red apples with a perfect balance of tartness. These apples are great for snacking, baking, or adding to salads.',
-    rating: 4.5,
-    reviews: 312,
-    category: 'Regular',
-    origin: 'Washington',
-    nutrition: {
-      calories: 52,
-      carbs: '13.8g',
-      fiber: '2.4g',
-      vitaminC: '7%',
-    },
-  },
-  6: {
-    name: 'Sweet Watermelon',
-    price: 11.99,
-    image: 'https://images.unsplash.com/photo-1629265824943-b0a19b32c7a0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXRlcm1lbG9uJTIwc2xpY2VkJTIwZnJlc2h8ZW58MXx8fHwxNzY4NTU5NDY4fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Refreshing and hydrating watermelon',
-    fullDescription: 'Sweet, refreshing watermelon perfect for hot summer days. High in water content and natural sugars, making it a hydrating and delicious treat.',
-    rating: 4.8,
-    reviews: 145,
-    category: 'Regular',
-    origin: 'Texas',
-    nutrition: {
-      calories: 30,
-      carbs: '7.6g',
-      fiber: '0.4g',
-      vitaminC: '13%',
-    },
-  },
-  7: {
-    name: 'Purple Grapes',
-    price: 10.99,
-    image: 'https://images.unsplash.com/photo-1567663803965-967e472241e3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwdXJwbGUlMjBncmFwZXMlMjBidW5jaHxlbnwxfHx8fDE3Njg1NTk0Njh8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Sweet and juicy purple grapes',
-    fullDescription: 'Sweet, juicy purple grapes perfect for snacking. These grapes are naturally sweet and packed with antioxidants.',
-    rating: 4.7,
-    reviews: 198,
-    category: 'Regular',
-    origin: 'California',
-    nutrition: {
-      calories: 62,
-      carbs: '16g',
-      fiber: '0.9g',
-      vitaminC: '4%',
-    },
-  },
-  8: {
-    name: 'Golden Pineapple',
-    price: 8.99,
-    image: 'https://images.unsplash.com/photo-1472352255192-75fb1f6b329c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwaW5lYXBwbGUlMjB0cm9waWNhbCUyMGZydWl0fGVufDF8fHx8MTc2ODU1OTQ2OHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Tropical golden pineapple',
-    fullDescription: 'Sweet, tropical golden pineapple with a perfect balance of sweetness and acidity. Great for eating fresh or adding to tropical dishes.',
-    rating: 4.6,
-    reviews: 167,
-    category: 'Tropical',
-    origin: 'Hawaii',
-    nutrition: {
-      calories: 50,
-      carbs: '13g',
-      fiber: '1.4g',
-      vitaminC: '79%',
-    },
-  },
-  9: {
-    name: 'Organic Bananas',
-    price: 5.99,
-    image: 'https://images.unsplash.com/photo-1711208224791-2cc390f53744?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxiYW5hbmElMjBidW5jaCUyMHllbGxvd3xlbnwxfHx8fDE3Njg1NTk0Njl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Organic yellow bananas',
-    fullDescription: 'Certified organic bananas, naturally sweet and perfect for a quick energy boost. Great for smoothies, baking, or eating on the go.',
-    rating: 4.5,
-    reviews: 289,
-    category: 'Regular',
-    origin: 'Ecuador',
-    nutrition: {
-      calories: 89,
-      carbs: '23g',
-      fiber: '2.6g',
-      vitaminC: '14%',
-    },
-  },
-  10: {
-    name: 'Fresh Kiwi',
-    price: 9.99,
-    image: 'https://images.unsplash.com/photo-1699029330848-335e7e2c073f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxraXdpJTIwZnJ1aXQlMjBzbGljZWR8ZW58MXx8fHwxNzY4NTU5NDY5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Fresh and tangy kiwi fruit',
-    fullDescription: 'Fresh, tangy kiwi fruit packed with vitamin C and fiber. The perfect balance of sweet and tart flavors.',
-    rating: 4.7,
-    reviews: 134,
-    category: 'Exotic',
-    origin: 'New Zealand',
-    nutrition: {
-      calories: 61,
-      carbs: '14.7g',
-      fiber: '3g',
-      vitaminC: '154%',
-    },
-  },
-  11: {
-    name: 'Juicy Peaches',
-    price: 10.99,
-    image: 'https://images.unsplash.com/photo-1642372849486-f88b963cb734?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZWFjaCUyMGZydWl0JTIwZnJlc2h8ZW58MXx8fHwxNzY4NTU5NDY5fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Sweet and juicy peaches',
-    fullDescription: 'Sweet, juicy peaches with a perfect balance of sweetness and acidity. Great for eating fresh, baking, or making preserves.',
-    rating: 4.8,
-    reviews: 201,
-    category: 'Regular',
-    origin: 'Georgia',
-    nutrition: {
-      calories: 39,
-      carbs: '9.5g',
-      fiber: '1.5g',
-      vitaminC: '11%',
-    },
-  },
-  12: {
-    name: 'Exotic Dragon Fruit',
-    price: 14.99,
-    image: 'https://images.unsplash.com/photo-1654786733736-aefca0247a5e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxkcmFnb24lMjBmcnVpdCUyMHBpbmt8ZW58MXx8fHwxNzY4NTU5NDcwfDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-    description: 'Exotic and nutrient-dense superfruit',
-    fullDescription: 'Exotic dragon fruit, a nutrient-dense superfruit with a unique appearance and mild, sweet flavor. Packed with antioxidants and vitamins.',
-    rating: 4.9,
-    reviews: 98,
-    category: 'Exotic',
-    origin: 'Vietnam',
-    nutrition: {
-      calories: 60,
-      carbs: '13g',
-      fiber: '3g',
-      vitaminC: '3%',
-    },
-  },
-};
-
 export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
+  const { theme } = useStore();
+  const { user } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { product: apiProduct, loading, error } = useProduct(id || null);
   const [quantity, setQuantity] = useState(1);
   const [isLiked, setIsLiked] = useState(false);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [activeVariant, setActiveVariant] = useState<string | null>(null);
 
-  const productId = id ? parseInt(id) : 0;
-  const product = productData[productId];
+  const productId = id || '';
 
-  if (!product) {
+  const handleAction = (callback: () => void) => {
+    if (!user) {
+      toast.error('Please sign in', {
+        description: 'You need to sign in to add items to your cart.',
+        action: {
+          label: 'Sign in',
+          onClick: () => navigate('/login')
+        }
+      });
+      return;
+    }
+    callback();
+  };
+
+  const product = useMemo(() => {
+    if (!apiProduct) return null;
+
+    const variantData = activeVariant && apiProduct.variants
+      ? apiProduct.variants.find(v => v.sku === activeVariant)
+      : null;
+
+    return {
+      ...apiProduct,
+      price: variantData ? variantData.price : apiProduct.price,
+      stock: variantData ? variantData.stock : apiProduct.stock,
+      sku: variantData ? variantData.sku : apiProduct.sku,
+      fullDescription: apiProduct.description || `Fresh ${apiProduct.name} from our partners. Sourced with care by ${apiProduct.vendor}.`,
+      rating: 4.9,
+      reviews: 512,
+      origin: apiProduct.origin || 'Trusted orchard',
+      highlights: [
+        'Organic when available',
+        'Direct from source',
+        'Pesticide-free growing',
+        'Harvested at peak season'
+      ],
+      nutrition: {
+        calories: 64,
+        carbs: '14.2g',
+        fiber: '2.4g',
+        vitaminC: '22%',
+        bioDensity: 'High'
+      }
+    };
+  }, [apiProduct, activeVariant]);
+
+  useEffect(() => {
+    if (product && !activeImage) {
+      setActiveImage(product.image || (product.images && product.images[0]) || null);
+    }
+  }, [product, activeImage]);
+
+  if (loading) {
     return (
-      <div className="pt-24 pb-16 min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Product Not Found</h1>
-          <Link to="/products" className="text-orange-600 hover:underline">
-            Back to Products
-          </Link>
-        </div>
+      <div className="pt-32 pb-32 min-h-screen flex items-center justify-center">
+        <p className="text-slate-500 font-bold uppercase tracking-widest">Loading product…</p>
       </div>
     );
   }
+  if (error || !product) {
+    return <NotFoundPage />;
+  }
 
   const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      onAddToCart(productId);
-    }
+    handleAction(() => {
+      onAddToCart(product);
+      toast.success(`${product.name} added to cart!`, {
+        description: `Quantity: ${quantity}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
+        icon: <Zap className="w-4 h-4 text-emerald-500" />
+      });
+    });
   };
 
+  const images = [
+    product.image,
+    ...(product.images || [])
+  ].filter(Boolean) as string[];
+
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Back Button */}
-        <motion.button
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-gray-600 hover:text-orange-600 mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back</span>
-        </motion.button>
+    <div className="pt-32 pb-32 min-h-screen bg-white selection:bg-emerald-500 selection:text-white">
+      {/* Background Architectural Manifold */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-30">
+        <div className="absolute top-0 right-0 h-[1000px] w-[1000px] bg-emerald-500/5 rounded-full blur-[200px]" />
+        <div className="absolute bottom-0 left-0 h-[1000px] w-[1000px] bg-slate-900/5 rounded-full blur-[200px]" />
+      </div>
 
-        <div className="grid lg:grid-cols-2 gap-12">
-          {/* Image Section */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="relative"
-          >
-            <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-orange-100 to-amber-100 shadow-2xl">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-[600px] object-cover"
-              />
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+        {/* Breadcrumb HUD */}
+        <nav className="flex items-center gap-4 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-12">
+          <Link to="/" className="hover:text-emerald-600 transition-colors flex items-center gap-2">
+            Home <ChevronRight className="w-3 h-3" />
+          </Link>
+          <Link to="/products" className="hover:text-emerald-600 transition-colors flex items-center gap-2">
+            Catalog <ChevronRight className="w-3 h-3" />
+          </Link>
+          <span className="text-slate-900 truncate">{product.name}</span>
+        </nav>
+
+        <div className="grid lg:grid-cols-12 gap-16 relative">
+          {/* Visual Asset Manifold */}
+          <div className="lg:col-span-12 xl:col-span-7 space-y-6">
+            <div className="flex flex-col xl:flex-row gap-6">
+              {/* Image Thumbnails Rail */}
+              <div className="flex xl:flex-col gap-4 overflow-x-auto xl:overflow-y-auto no-scrollbar max-h-[700px] pb-4 xl:pb-0">
+                {images.map((img, idx) => (
+                  <motion.button
+                    key={idx}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setActiveImage(img)}
+                    className={cn(
+                      "relative w-24 h-24 rounded-3xl overflow-hidden border-2 transition-all p-2 bg-white shrink-0",
+                      activeImage === img ? "border-emerald-500 shadow-xl" : "border-slate-100 hover:border-slate-300"
+                    )}
+                  >
+                    <img src={img} className="w-full h-full object-cover rounded-2xl" />
+                  </motion.button>
+                ))}
+              </div>
+
+              {/* Primary Visual Feed */}
+              <div className="flex-1 relative aspect-square xl:aspect-auto xl:h-[700px] rounded-[4rem] overflow-hidden bg-white border border-slate-100 group shadow-2xl">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={activeImage}
+                    initial={{ opacity: 0, scale: 1.1 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.6 }}
+                    src={activeImage || ''}
+                    alt={product.name}
+                    className="w-full h-full object-contain p-12 group-hover:scale-105 transition-transform duration-1000"
+                  />
+                </AnimatePresence>
+
+                {/* Status Overlays */}
+                <div className="absolute top-10 left-10 flex flex-col gap-3">
+                  {product.badge && (
+                    <div className="px-6 py-2.5 bg-slate-900 text-white text-[9px] font-black rounded-2xl uppercase tracking-[0.3em] shadow-2xl border border-white/10 flex items-center gap-2">
+                      <Zap className="w-3 h-3 text-emerald-500" />
+                      {product.badge}
+                    </div>
+                  )}
+                  {product.isSeasonal && (
+                    <div className="px-6 py-2.5 bg-blue-600 text-white text-[9px] font-black rounded-2xl uppercase tracking-[0.3em] shadow-2xl border border-white/10 flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      Seasonal pick
+                    </div>
+                  )}
+                </div>
+
+                <div className="absolute bottom-10 right-10 flex gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.1, rotate: -12 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => handleAction(() => setIsLiked(!isLiked))}
+                    className={cn(
+                      "p-5 rounded-[1.5rem] shadow-2xl backdrop-blur-xl border border-white/20 transition-all",
+                      isLiked ? "bg-red-500 text-white" : "bg-white/80 text-slate-400 hover:text-red-500"
+                    )}
+                  >
+                    <Heart className={cn("w-6 h-6", isLiked && "fill-current")} />
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.1, rotate: 12 }}
+                    className="p-5 bg-white/80 backdrop-blur-xl rounded-[1.5rem] shadow-2xl border border-white/20 text-slate-400 hover:text-blue-500 transition-all"
+                  >
+                    <Share2 className="w-6 h-6" />
+                  </motion.button>
+                </div>
+              </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setIsLiked(!isLiked)}
-              className="absolute top-6 right-6 p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-lg"
-            >
-              <Heart
-                className={`w-6 h-6 ${
-                  isLiked ? 'fill-red-500 text-red-500' : 'text-gray-600'
-                }`}
-              />
-            </motion.button>
-          </motion.div>
+          </div>
 
-          {/* Details Section */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
-          >
-            <div>
-              <span className="inline-block px-4 py-2 bg-orange-100 text-orange-800 rounded-full text-sm font-semibold mb-4">
-                {product.category}
-              </span>
-              <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">
+          {/* Asset Intelligence Content */}
+          <div className="lg:col-span-12 xl:col-span-5 flex flex-col gap-10">
+            {/* Product header */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="px-4 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl border border-emerald-100">
+                    {product.category}
+                  </span>
+                  <div className="px-3 py-1.5 bg-slate-900 border border-white/10 rounded-xl text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                    <ShieldCheck className="w-3 h-3" />
+                    Verified seller
+                  </div>
+                  {product.isOrganic && (
+                    <span className="px-4 py-1.5 bg-sky-50 text-sky-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-sky-100">
+                      Organic
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                  <Binary className="w-4 h-4" />
+                  SKU: {product.sku}
+                </div>
+              </div>
+
+              <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-none tracking-tighter uppercase">
                 {product.name}
               </h1>
-              <div className="flex items-center gap-4 mb-6">
-                <div className="flex items-center gap-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-5 h-5 ${
-                        i < Math.floor(product.rating)
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'fill-gray-200 text-gray-200'
-                      }`}
-                    />
+
+              {/* Multi-Scalar Variant Selector */}
+              {product.variants && product.variants.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <Binary className="w-4 h-4 text-emerald-500" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Configuration Matrix</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => setActiveVariant(null)}
+                      className={cn(
+                        "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all",
+                        activeVariant === null ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-400 border-slate-100 hover:border-slate-300"
+                      )}
+                    >
+                      Base Model
+                    </button>
+                    {product.variants.map((variant: any) => (
+                      <button
+                        key={variant.sku}
+                        onClick={() => setActiveVariant(variant.sku)}
+                        className={cn(
+                          "px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border-2 transition-all",
+                          activeVariant === variant.sku ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-slate-400 border-slate-100 hover:border-slate-300"
+                        )}
+                      >
+                        {variant.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center flex-wrap gap-6 pt-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center bg-amber-400 text-white px-3 py-1.5 rounded-xl text-sm font-black shadow-lg shadow-amber-400/20">
+                    {product.rating} <Star className="w-4 h-4 fill-white ml-2" />
+                  </div>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {product.reviews} Verification Cycles
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest">Provider:</p>
+                  <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.25em] bg-emerald-50 px-3 py-1 rounded-lg">{product.vendor}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Commercial Calibration HUD */}
+            <div className="bg-slate-900 rounded-[3rem] p-10 border border-white/10 shadow-3xl space-y-10 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                <Activity className="h-20 w-20 text-emerald-500" />
+              </div>
+
+              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black text-white tracking-tighter">₹{product.price}</span>
+                    <span className="text-emerald-500/60 font-black uppercase text-xs tracking-[0.2em] italic">/ {product.unit || 'kg'}</span>
+                  </div>
+                  {product.discountPrice && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-slate-500 line-through text-lg font-bold">₹{product.discountPrice}</span>
+                      <span className="text-emerald-400 font-black text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
+                        VALUATION OFFSET: {Math.round((1 - product.price / product.discountPrice) * 100)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col items-end gap-2">
+                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Yield Availability</span>
+                  <div className={cn(
+                    "flex items-center gap-3 py-2 px-5 rounded-2xl border",
+                    product.stock <= 0 ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                  )}>
+                    <div className={cn("h-2.5 w-2.5 rounded-full", product.stock <= 0 ? "bg-red-500" : "bg-emerald-500 animate-pulse")}></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      {product.stock <= 0 ? 'Out of stock' : (product.stock < 10 ? `Only ${product.stock} left` : 'In stock')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bulk / quantity */}
+              {product.bulkDiscountQty && product.bulkDiscountPrice && (
+                <div className="relative z-10 p-6 bg-white/5 border border-white/10 rounded-3xl space-y-4">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Wholesale Acquisition Signal</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Target Calibration</p>
+                      <p className="text-xl font-black text-emerald-400 tracking-tighter">₹{product.bulkDiscountPrice} <span className="text-[10px]">/ unit</span></p>
+                    </div>
+                    <div className="h-10 w-[1px] bg-white/10" />
+                    <div className="space-y-1 text-right">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Threshold</p>
+                      <p className="text-xl font-black text-white tracking-tighter">{product.bulkDiscountQty}+ <span className="text-[10px]">units</span></p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="relative z-10 space-y-6 pt-4 border-t border-white/5">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className={cn(
+                    "flex-1 flex items-center justify-between gap-4 rounded-[1.75rem] p-3 h-16 bg-white/5 border border-white/10",
+                    product.stock <= 0 && "opacity-30 pointer-events-none"
+                  )}>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </motion.button>
+                    <span className="text-xl font-black text-white w-8 text-center">{product.stock <= 0 ? 0 : quantity}</span>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                      disabled={quantity >= product.stock}
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl disabled:opacity-30"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </motion.button>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: product.stock <= 0 ? 1 : 1.05 }}
+                    whileTap={{ scale: product.stock <= 0 ? 1 : 0.95 }}
+                    onClick={product.stock <= 0 ? undefined : handleAddToCart}
+                    disabled={product.stock <= 0}
+                    className={cn(
+                      "flex-[2] h-16 rounded-[1.75rem] font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-4 transition-all",
+                      product.stock <= 0
+                        ? "bg-white/5 text-slate-500 cursor-not-allowed border border-white/5"
+                        : "bg-emerald-500 text-slate-900 hover:bg-white hover:text-slate-950"
+                    )}
+                  >
+                    <Zap className="w-5 h-5 flex-shrink-0" />
+                    {product.stock <= 0 ? 'Out of stock' : 'Add to cart'}
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Freshness Radar */}
+            <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[2.5rem] relative overflow-hidden group">
+              <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:rotate-12 transition-transform duration-1000">
+                <Zap className="w-32 h-32 text-emerald-900" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <Binary className="w-4 h-4 text-emerald-600" />
+                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Freshness</span>
+                  </div>
+                  <div className="px-3 py-1 bg-white rounded-lg text-[9px] font-black text-emerald-700 uppercase tracking-widest border border-emerald-100">AI Predicted</div>
+                </div>
+
+                <div className="flex items-end gap-6 mb-8">
+                  <div>
+                    <p className="text-5xl font-black text-emerald-900 tracking-tighter">98%</p>
+                    <p className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Stability Index</p>
+                  </div>
+                  <div className="flex-1 pb-2">
+                    <div className="h-1.5 w-full bg-emerald-200/50 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: '98%' }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                        className="h-full bg-emerald-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-600/40 uppercase tracking-widest">Time to peak</p>
+                    <p className="text-xs font-black text-emerald-900 uppercase">24.5 Hours</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-emerald-600/40 uppercase tracking-widest">Vial Integrity</p>
+                    <p className="text-xs font-black text-emerald-900 uppercase">Ultra-Stable</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Product details */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-4 w-4 text-orange-500" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Harvest Registry</span>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-slate-900 uppercase tracking-tighter">
+                    {product.harvestDate ? new Date(product.harvestDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Live Daily'}
+                  </p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">T-Minus preservation: Locked</p>
+                </div>
+              </div>
+              <div className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Clock className="h-4 w-4 text-blue-500" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Storage</span>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-slate-900 uppercase tracking-tighter">
+                    {product.expiryDate ? new Date(product.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Peak Alpha'}
+                  </p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">Optimal Bio-Utility</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Detailed Integrity Blocks */}
+            <div className="space-y-8">
+              <div className="flex border-b border-slate-100">
+                {['Bio-Analysis', 'Integrity', 'Narrative'].map((tab) => (
+                  <button
+                    key={tab}
+                    className={cn(
+                      "pb-6 px-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative",
+                      tab === 'Bio-Analysis' ? "text-slate-900" : "text-slate-300 hover:text-slate-600"
+                    )}
+                  >
+                    {tab}
+                    {tab === 'Bio-Analysis' && (
+                      <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500 rounded-full" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-8">
+                <p className="text-slate-500 text-sm leading-relaxed font-bold italic uppercase tracking-tight">
+                  {product.fullDescription}
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {product.highlights?.map((highlight, idx) => (
+                    <div key={idx} className="flex items-center gap-4 p-5 bg-white border border-slate-100 rounded-3xl shadow-sm">
+                      <div className="h-8 w-8 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+                        <Shield className="w-4 h-4" />
+                      </div>
+                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">{highlight}</span>
+                    </div>
                   ))}
                 </div>
-                <span className="text-lg font-semibold text-gray-700">
-                  {product.rating}
-                </span>
-                <span className="text-gray-500">({product.reviews} reviews)</span>
-              </div>
-            </div>
 
-            {/* Price */}
-            <div className="flex items-baseline gap-4">
-              <span className="text-5xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                ${product.price}
-              </span>
-              <span className="text-gray-500 text-lg">/lb</span>
-            </div>
-
-            {/* Description */}
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-3">Description</h2>
-              <p className="text-gray-600 leading-relaxed">{product.fullDescription}</p>
-            </div>
-
-            {/* Nutrition Info */}
-            <div className="bg-white rounded-2xl p-6 shadow-md">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Nutrition Facts</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <span className="text-gray-600">Calories:</span>
-                  <span className="ml-2 font-semibold">{product.nutrition.calories}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Carbs:</span>
-                  <span className="ml-2 font-semibold">{product.nutrition.carbs}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Fiber:</span>
-                  <span className="ml-2 font-semibold">{product.nutrition.fiber}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Vitamin C:</span>
-                  <span className="ml-2 font-semibold">{product.nutrition.vitaminC}</span>
+                {/* Bio-Diagnostics Grid */}
+                <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-100 space-y-8">
+                  <div className="flex items-center gap-3">
+                    <Activity className="h-4 w-4 text-emerald-500" />
+                    <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Bio-Diagnostic Core Metrics</h4>
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                    {Object.entries(product.nutrition).map(([key, val], i) => (
+                      <div key={i} className="space-y-1">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{key}</p>
+                        <p className="text-lg font-black text-slate-900 uppercase tracking-tighter">{val as string}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Quantity Selector */}
-            <div className="flex items-center gap-4">
-              <span className="text-lg font-semibold text-gray-700">Quantity:</span>
-              <div className="flex items-center gap-3 bg-white rounded-xl p-2 shadow-md">
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Minus className="w-5 h-5 text-gray-600" />
-                </motion.button>
-                <span className="w-12 text-center text-xl font-bold text-gray-800">
-                  {quantity}
-                </span>
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Plus className="w-5 h-5 text-gray-600" />
-                </motion.button>
-              </div>
+        {/* Global Recommendations Feed */}
+        <div className="mt-40 pt-24 border-t border-slate-50">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-12 mb-20">
+            <div className="space-y-4">
+              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.5em]">Logistical Synergy</span>
+              <h2 className="text-4xl md:text-6xl font-black text-slate-900 uppercase tracking-tighter leading-none">Complimentary <br /> Assets</h2>
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-4">
-              <motion.button
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleAddToCart}
-                className="flex-1 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                Add to Cart
-              </motion.button>
-            </div>
-
-            {/* Features */}
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200">
-              <div className="text-center">
-                <Truck className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-700">Free Shipping</p>
-                <p className="text-xs text-gray-500">Over $50</p>
+            <Link to="/products" className="group flex items-center gap-6">
+              <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">View all products</span>
+              <div className="h-16 w-16 bg-slate-900 rounded-[1.75rem] flex items-center justify-center text-white group-hover:bg-emerald-500 group-hover:rotate-12 transition-all shadow-2xl">
+                <ArrowRight className="h-6 w-6" />
               </div>
-              <div className="text-center">
-                <Shield className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-700">Quality Assured</p>
-                <p className="text-xs text-gray-500">100% Fresh</p>
-              </div>
-              <div className="text-center">
-                <Check className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-700">Easy Returns</p>
-                <p className="text-xs text-gray-500">30 Days</p>
-              </div>
-            </div>
-          </motion.div>
+            </Link>
+          </div>
+          <AIRecommendations currentProductId={productId as any} limit={3} />
         </div>
       </div>
     </div>
   );
 }
+
+// Fixed ArrowRight missing in imports
+const ArrowRight = ({ className }: { className?: string }) => (
+  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+  </svg>
+);
