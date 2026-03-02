@@ -21,11 +21,14 @@ interface CartDrawerProps {
 
 import { useStore } from '@/app/context/StoreContext';
 
+const FREE_SHIPPING_THRESHOLD = 500;
+
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: CartDrawerProps) {
-  const { products, taxRates, theme } = useStore();
+  const { products, taxRates, theme, preferences } = useStore();
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
-  const shipping = subtotal > 500 ? 0 : 49;
+  const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
+  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : deliveryCharge;
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
@@ -205,7 +208,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                     >
-                      Add ₹{(500 - subtotal).toFixed(2)} more for free shipping!
+                      Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)} more for free shipping!
                     </motion.p>
                   )}
                   <div className="border-t border-gray-300 pt-3">
