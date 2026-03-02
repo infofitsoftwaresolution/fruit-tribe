@@ -56,7 +56,7 @@ export class ProductService {
                         },
                         variants: true,
                         images: {
-                            where: { isPrimary: true },
+                            orderBy: [{ isPrimary: 'desc' }, { sortOrder: 'asc' }],
                             take: 1,
                         },
                     },

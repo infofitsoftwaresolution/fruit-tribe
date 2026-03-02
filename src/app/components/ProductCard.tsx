@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Heart, Star, ShieldCheck, Zap, ArrowRight, Activity } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,6 +6,30 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
+
+function ProductImage({ src, alt, isOutOfStock }: { src: string; alt: string; isOutOfStock: boolean }) {
+  const [effectiveSrc, setEffectiveSrc] = useState(() => (src && src.trim()) ? src : PLACEHOLDER_IMAGE);
+  useEffect(() => {
+    setEffectiveSrc((src && src.trim()) ? src : PLACEHOLDER_IMAGE);
+  }, [src]);
+  const handleError = () => {
+    setEffectiveSrc(PLACEHOLDER_IMAGE);
+  };
+  return (
+    <motion.img
+      src={effectiveSrc}
+      alt={alt}
+      onError={handleError}
+      className={cn(
+        'w-full h-full object-cover transition-all duration-[2s] group-hover:scale-110',
+        isOutOfStock ? 'grayscale opacity-40' : ''
+      )}
+      whileHover={{ rotate: 1 }}
+    />
+  );
+}
 
 interface ProductCardProps {
   id: string | number;
@@ -98,15 +122,7 @@ toast.error('Please sign in', {
 
       {/* Immersive Visual Asset Box */}
       <Link to={`/product/${id}`} className="relative h-80 overflow-hidden bg-slate-50 block shrink-0">
-        <motion.img
-          src={image || 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800'}
-          alt={name}
-          className={cn(
-            "w-full h-full object-cover transition-all duration-[2s] group-hover:scale-110",
-            isOutOfStock ? "grayscale opacity-40" : ""
-          )}
-          whileHover={{ rotate: 1 }}
-        />
+        <ProductImage src={image} alt={name} isOutOfStock={isOutOfStock} />
 
         {/* Global Stock Protocol Overlay */}
         {isOutOfStock && (
