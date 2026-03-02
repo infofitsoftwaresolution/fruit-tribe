@@ -358,7 +358,12 @@ export function ProfilePage() {
         {trackingOrder && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl" onClick={() => setTrackingOrder(null)} />
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 100 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 100 }} className="relative bg-white rounded-[4rem] p-10 md:p-14 max-w-4xl w-full shadow-6xl overflow-hidden border border-white/20">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 100 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 100 }}
+              className="relative bg-white rounded-[4rem] p-10 md:p-14 max-w-4xl w-full shadow-6xl border border-white/20 max-h-[90vh] overflow-y-auto custom-scrollbar"
+            >
               <div className="flex justify-between items-start mb-12">
                 <div>
                   <div className="flex items-center gap-2 mb-2">

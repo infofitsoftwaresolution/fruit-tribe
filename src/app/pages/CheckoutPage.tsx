@@ -75,6 +75,20 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }).catch(() => setWarehouses([]));
   }, []);
 
+  const updateDeliveryFromCoordinates = (lat: number, lng: number) => {
+    setMapCenter({ lat, lng });
+    const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
+    let minDistance = Infinity;
+    for (const wh of whList) {
+      const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
+      if (d < minDistance) minDistance = d;
+    }
+    const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
+    const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
+    const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
+    setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+  };
+
   useEffect(() => {
     const query = [formData.address, formData.city, formData.zipCode].filter(Boolean).join(', ');
     if (!query.trim()) {
@@ -94,17 +108,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         if (data && data[0]) {
           const lat = parseFloat(data[0].lat);
           const lng = parseFloat(data[0].lon);
-          setMapCenter({ lat, lng });
-          const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
-          let minDistance = Infinity;
-          for (const wh of whList) {
-            const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
-            if (d < minDistance) minDistance = d;
-          }
-          const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
-          const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
-          const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
-          setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+          updateDeliveryFromCoordinates(lat, lng);
         } else {
           setMapCenter(null);
         }
@@ -118,6 +122,66 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
     };
   }, [formData.address, formData.city, formData.zipCode, warehouses]);
+
+  const handleUseCurrentLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast.error('Location not supported on this device', {
+        description: 'Please enter your address manually.',
+      });
+      return;
+    }
+    setGeocodeLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        updateDeliveryFromCoordinates(latitude, longitude);
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+            { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
+          );
+          const data = await res.json();
+          const city =
+            data?.address?.city ||
+            data?.address?.town ||
+            data?.address?.village ||
+            data?.address?.state_district ||
+            formData.city;
+          const postcode = data?.address?.postcode || formData.zipCode;
+          const road = data?.address?.road || '';
+          const houseNumber = data?.address?.house_number || '';
+          const displayAddress = data?.display_name || formData.address;
+          setFormData((prev) => ({
+            ...prev,
+            address: displayAddress || `${houseNumber} ${road}`.trim() || prev.address,
+            city,
+            zipCode: postcode || prev.zipCode,
+          }));
+        } catch {
+          // ignore reverse geocode failure; we already updated map + stats
+        } finally {
+          setGeocodeLoading(false);
+        }
+      },
+      (error) => {
+        setGeocodeLoading(false);
+        if (error.code === error.PERMISSION_DENIED) {
+          toast.error('Location permission denied', {
+            description: 'Please allow location access or enter your address manually.',
+          });
+        } else {
+          toast.error('Could not detect your current location', {
+            description: 'Please try again or enter your address manually.',
+          });
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  };
 
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;
@@ -531,9 +595,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   </div>
                 </div>
 
-                {/* Map: shown when address is geocoded */}
+                {/* Map: shown when address is geocoded or current location is used */}
                 <div className="mt-8">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4 mb-3">Delivery location</p>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Delivery location</p>
+                    <button
+                      type="button"
+                      onClick={handleUseCurrentLocation}
+                      className="self-start sm:self-auto px-4 py-2 rounded-2xl border border-emerald-200 bg-emerald-50 text-[10px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2 hover:bg-emerald-100 transition-colors"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      Use my current location
+                    </button>
+                  </div>
                   {geocodeLoading && (
                     <div className="h-48 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center gap-2">
                       <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
