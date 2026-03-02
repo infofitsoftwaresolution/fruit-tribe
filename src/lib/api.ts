@@ -395,15 +395,18 @@ export async function validateCoupon(code: string): Promise<{
 export { API_BASE };
 
 /** Base URL of the backend server (no path). Use for static assets like /uploads/xxx */
-export const API_ORIGIN = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_ORIGIN
-  ? (import.meta as any).env.VITE_API_ORIGIN
-  : (() => {
-      try {
-        return new URL(API_BASE).origin;
-      } catch {
-        return 'http://localhost:3000';
-      }
-    })();
+export const API_ORIGIN = (() => {
+  if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_ORIGIN)
+    return (import.meta as any).env.VITE_API_ORIGIN;
+  // Relative API path (e.g. /api/v1 in production) → use current origin so images and verify-payment work
+  if (typeof API_BASE === 'string' && API_BASE.startsWith('/') && typeof window !== 'undefined' && window.location?.origin)
+    return window.location.origin;
+  try {
+    return new URL(API_BASE).origin;
+  } catch {
+    return typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'http://localhost:3000';
+  }
+})();
 
 /** Turn image URL or path into a full URL for display */
 export function getImageDisplayUrl(urlOrPath: string): string {

@@ -35,19 +35,19 @@ jobs:
             PROTOCOL="http"
           fi
 
+          # Use relative API path so payment verification always uses same origin (no mixed content).
+          # Frontend and API are same host via Nginx; relative /api/v1 works for both http and https.
+          echo "VITE_API_URL=/api/v1" >> $GITHUB_ENV
           if [ "${{ env.USE_IP_ONLY }}" = "true" ]; then
             echo "Using IP address for deployment"
-            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}/api/v1" >> $GITHUB_ENV
             echo "SERVER_ORIGIN=${{ secrets.EC2_HOST }}" >> $GITHUB_ENV
             echo "PROTOCOL=http" >> $GITHUB_ENV
           elif [ -n "$DETECTED_DOMAIN" ]; then
             echo "Using domain for deployment: $DETECTED_DOMAIN"
-            echo "VITE_API_URL=https://$DETECTED_DOMAIN/api/v1" >> $GITHUB_ENV
             echo "SERVER_ORIGIN=$DETECTED_DOMAIN" >> $GITHUB_ENV
             echo "PROTOCOL=https" >> $GITHUB_ENV
           else
             echo "Using IP address (no domain configured)"
-            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}/api/v1" >> $GITHUB_ENV
             echo "SERVER_ORIGIN=${{ secrets.EC2_HOST }}" >> $GITHUB_ENV
             echo "PROTOCOL=http" >> $GITHUB_ENV
           fi
@@ -247,7 +247,8 @@ jobs:
             else
               PROTOCOL="http"
               FRONTEND_URL="http://${{ secrets.EC2_HOST }}"
-              ALLOWED_ORIGINS="http://${{ secrets.EC2_HOST }},http://localhost,http://127.0.0.1"
+              # Allow both http and https so payment verification works regardless of how user opened the site
+              ALLOWED_ORIGINS="http://${{ secrets.EC2_HOST }},https://${{ secrets.EC2_HOST }},http://localhost,http://127.0.0.1"
             fi
 
             cat > .env << EOL
