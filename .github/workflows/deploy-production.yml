@@ -333,6 +333,7 @@ jobs:
                 sudo certbot certonly --webroot -w $DEPLOY_DIR/frontend-dist -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email "$LETSENCRYPT_EMAIL" --no-eff-email 2>/dev/null || true
               fi
               if [ -f "$SSL_CERT" ]; then
+                # Use Let's Encrypt only (never self-signed /etc/pki/nginx/)
                 sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_HTTPS
             server {
                 listen 80;
