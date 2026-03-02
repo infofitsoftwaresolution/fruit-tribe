@@ -2,11 +2,15 @@ import { motion } from 'framer-motion';
 import { Tag, Clock, TrendingUp, Gift, Zap, ShieldCheck, ArrowRight, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
+import { useProducts } from '@/app/hooks/useProducts';
 import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
 
 export function SpecialOffers() {
-  const { theme, isEditing, updateTheme } = useStore();
+  const { theme, isEditing, updateTheme, products: storeProducts } = useStore();
+  const { products: apiProducts } = useProducts({ limit: 100 });
+  const products = apiProducts.length > 0 ? apiProducts : storeProducts;
+  const bulkProducts = products.filter((p: { bulkDiscountQty?: number }) => (p.bulkDiscountQty ?? 0) > 0);
   const navigate = useNavigate();
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
@@ -180,7 +184,7 @@ export function SpecialOffers() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {useStore().products.filter((p: any) => (p.bulkDiscountQty ?? 0) > 0).slice(0, 3).map((product: any, index: number) => (
+            {bulkProducts.slice(0, 6).map((product: any, index: number) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -203,7 +207,7 @@ export function SpecialOffers() {
                 />
               </motion.div>
             ))}
-            {useStore().products.filter((p: any) => (p.bulkDiscountQty ?? 0) > 0).length === 0 && (
+            {bulkProducts.length === 0 && (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
                 <Tag className="h-10 w-10 text-slate-200 mx-auto mb-4" />
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No bulk deals available right now.</p>

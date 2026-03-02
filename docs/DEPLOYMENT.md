@@ -44,15 +44,18 @@ Point both to your EC2/server IP:
 - `ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;`
 It does **not** use self-signed certs from `/etc/pki/nginx/`. On first deploy with `SERVER_DOMAIN` set, certbot obtains trusted certs; on later deploys the workflow reuses existing certs and keeps these paths.
 
-### First-time SSL
+### First-time SSL (no manual certbot needed)
 
-On the first deploy with `SERVER_DOMAIN=thefruittribe.com` and DNS already pointing to the server, the workflow will:
+On each deploy with `SERVER_DOMAIN` set, the workflow will:
 
-1. Install Certbot if needed.
-2. Use the webroot at `frontend-dist` and the `/.well-known/acme-challenge/` location to complete the HTTP-01 challenge.
-3. Write the SSL paths into Nginx and reload.
+1. **If no cert exists:** Write HTTP-only Nginx config, reload Nginx, install Certbot if needed, then run Certbot (webroot) to obtain a certificate. Certbot output is shown in the deployment log; on failure it retries once after 45 seconds. You should **not** need to run `sudo certbot --nginx -d thefruittribe.com -d www.thefruittribe.com` manually.
+2. **If a cert already exists** (e.g. from a previous deploy or a one-time manual run): The workflow detects it and writes the HTTPS Nginx config, then reloads Nginx. HTTPS will work without running certbot again.
 
-After that, renewals are usually handled by a cron job (e.g. `certbot renew`). You can add on the server:
+**Why you had to run certbot manually before:** Earlier, Certbot errors were hidden (`2>/dev/null`), so when Certbot failed (e.g. DNS not ready, port 80 blocked, or install failure), the workflow still succeeded but left the site on HTTP. The workflow is now updated to show Certbot output, use a reliable certbot path, and retry once so SSL is obtained automatically when DNS and port 80 are correct.
+
+**Before first deploy:** Ensure DNS A records for `thefruittribe.com` and `www.thefruittribe.com` point to your server and that the EC2 Security Group allows **port 80** (and 443) from the internet. Otherwise Certbot cannot complete the challenge.
+
+After the first successful cert, renewals are handled by a cron job added by the workflow. You can also run on the server:
 
 ```bash
 # Optional: renew certs (run weekly via cron)

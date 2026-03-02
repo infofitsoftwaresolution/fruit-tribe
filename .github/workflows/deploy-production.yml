@@ -316,23 +316,48 @@ jobs:
                 sudo nginx -t && sudo systemctl reload nginx
                 sudo mkdir -p $DEPLOY_DIR/frontend-dist/.well-known/acme-challenge
                 sudo chown -R $USER:$(id -gn) $DEPLOY_DIR/frontend-dist/.well-known 2>/dev/null || true
-                if ! command -v certbot &>/dev/null; then
+                CERTBOT_CMD=""
+                if command -v certbot &>/dev/null; then
+                  CERTBOT_CMD="certbot"
+                elif [ -x /usr/bin/certbot ]; then
+                  CERTBOT_CMD="/usr/bin/certbot"
+                elif [ -x /opt/certbot/bin/certbot ]; then
+                  CERTBOT_CMD="/opt/certbot/bin/certbot"
+                fi
+                if [ -z "$CERTBOT_CMD" ]; then
                   if command -v apt-get &>/dev/null; then
                     sudo apt-get update -q && sudo apt-get install -y certbot python3-certbot-nginx
+                    CERTBOT_CMD="certbot"
                   elif command -v yum &>/dev/null; then
                     sudo yum install -y certbot 2>/dev/null || true
+                    CERTBOT_CMD="/usr/bin/certbot"
                   elif command -v dnf &>/dev/null; then
-                    if ! sudo python3 -m venv /opt/certbot/ 2>/dev/null; then true; fi
                     sudo dnf install -y augeas-libs 2>/dev/null || true
                     sudo python3 -m venv /opt/certbot/ 2>/dev/null || true
                     sudo /opt/certbot/bin/pip install --upgrade pip certbot 2>/dev/null || true
                     sudo ln -sf /opt/certbot/bin/certbot /usr/bin/certbot 2>/dev/null || true
+                    CERTBOT_CMD="/usr/bin/certbot"
+                    [ ! -x /usr/bin/certbot ] && CERTBOT_CMD="/opt/certbot/bin/certbot"
                   fi
                 fi
                 LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL || 'admin@thefruittribe.com' }}"
-                sudo certbot certonly --webroot -w $DEPLOY_DIR/frontend-dist -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email "$LETSENCRYPT_EMAIL" --no-eff-email 2>/dev/null || true
+                run_certbot() {
+                  sudo $CERTBOT_CMD certonly --webroot -w "$DEPLOY_DIR/frontend-dist" -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos --email "$LETSENCRYPT_EMAIL" --no-eff-email
+                }
+                if [ -n "$CERTBOT_CMD" ]; then
+                  echo "Obtaining SSL certificate for $DOMAIN and www.$DOMAIN..."
+                  if ! run_certbot; then
+                    echo "Certbot first attempt failed. Waiting 45s before retry (e.g. rate limit or DNS propagation)..."
+                    sleep 45
+                    run_certbot || echo "Certbot failed. Ensure DNS A records for $DOMAIN and www.$DOMAIN point to this server and port 80 is open. You can run: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN"
+                  fi
+                else
+                  echo "Certbot not available. Install it on the server and run: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN"
+                fi
+                sleep 2
               fi
               if [ -f "$SSL_CERT" ]; then
+                echo "SSL cert found. Configuring Nginx for HTTPS..."
                 # Use Let's Encrypt only (never self-signed /etc/pki/nginx/)
                 sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_HTTPS
             server {

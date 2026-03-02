@@ -131,54 +131,72 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       return;
     }
     setGeocodeLoading(true);
+    const PERMISSION_DENIED = 1;
+    const POSITION_UNAVAILABLE = 2;
+    const TIMEOUT = 3;
     navigator.geolocation.getCurrentPosition(
       async (position) => {
-        const { latitude, longitude } = position.coords;
-        updateDeliveryFromCoordinates(latitude, longitude);
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-            { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
-          );
-          const data = await res.json();
-          const city =
-            data?.address?.city ||
-            data?.address?.town ||
-            data?.address?.village ||
-            data?.address?.state_district ||
-            formData.city;
-          const postcode = data?.address?.postcode || formData.zipCode;
-          const road = data?.address?.road || '';
-          const houseNumber = data?.address?.house_number || '';
-          const displayAddress = data?.display_name || formData.address;
-          setFormData((prev) => ({
-            ...prev,
-            address: displayAddress || `${houseNumber} ${road}`.trim() || prev.address,
-            city,
-            zipCode: postcode || prev.zipCode,
-          }));
-        } catch {
-          // ignore reverse geocode failure; we already updated map + stats
+          const { latitude, longitude } = position.coords;
+          updateDeliveryFromCoordinates(latitude, longitude);
+          toast.success('Location detected', {
+            description: 'Distance and delivery time updated from your location.',
+            icon: <MapPin className="w-4 h-4 text-emerald-500" />,
+          });
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
+              { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
+            );
+            const data = await res.json();
+            const city =
+              data?.address?.city ||
+              data?.address?.town ||
+              data?.address?.village ||
+              data?.address?.state_district ||
+              formData.city;
+            const postcode = data?.address?.postcode || formData.zipCode;
+            const road = data?.address?.road || '';
+            const houseNumber = data?.address?.house_number || '';
+            const displayAddress = data?.display_name || formData.address;
+            setFormData((prev) => ({
+              ...prev,
+              address: displayAddress || `${houseNumber} ${road}`.trim() || prev.address,
+              city,
+              zipCode: postcode || prev.zipCode,
+            }));
+          } catch {
+            // ignore reverse geocode failure; we already updated map + stats
+          }
         } finally {
           setGeocodeLoading(false);
         }
       },
       (error) => {
         setGeocodeLoading(false);
-        if (error.code === error.PERMISSION_DENIED) {
+        const code = error?.code ?? 0;
+        if (code === PERMISSION_DENIED) {
           toast.error('Location permission denied', {
-            description: 'Please allow location access or enter your address manually.',
+            description: 'Allow location in browser settings or enter your address manually below.',
+          });
+        } else if (code === TIMEOUT) {
+          toast.error('Location request timed out', {
+            description: 'Your device took too long to get a fix. Try again or enter your address manually.',
+          });
+        } else if (code === POSITION_UNAVAILABLE) {
+          toast.error('Location unavailable', {
+            description: 'Your device could not determine position. Enter your address manually below.',
           });
         } else {
           toast.error('Could not detect your current location', {
-            description: 'Please try again or enter your address manually.',
+            description: 'Try again or enter your address manually below.',
           });
         }
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
+        timeout: 20000,
+        maximumAge: 0,
       }
     );
   };

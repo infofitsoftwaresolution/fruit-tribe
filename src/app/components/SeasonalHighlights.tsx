@@ -1,11 +1,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sun, Snowflake, Flower2, Leaf, Calendar, Zap, ArrowRight, ShieldCheck, Activity } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
+import { useProducts } from '@/app/hooks/useProducts';
 import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
 
 export function SeasonalHighlights() {
-  const { theme, isEditing, updateTheme, products } = useStore();
+  const { theme, isEditing, updateTheme, products: storeProducts } = useStore();
+  const { products: apiProducts } = useProducts({ limit: 100, showOutOfSeason: true });
+  const products = apiProducts.length > 0 ? apiProducts : storeProducts;
+  const seasonalProducts = products.filter((p: { isSeasonal?: boolean }) => !!p.isSeasonal);
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;
@@ -171,7 +175,7 @@ export function SeasonalHighlights() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {products.filter((p: any) => p.isSeasonal).slice(0, 3).map((product: any, index: number) => (
+            {seasonalProducts.slice(0, 6).map((product: any, index: number) => (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -194,7 +198,7 @@ export function SeasonalHighlights() {
                 />
               </motion.div>
             ))}
-            {products.filter((p: any) => p.isSeasonal).length === 0 && (
+            {seasonalProducts.length === 0 && (
               <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-white/50">
                 <Calendar className="h-10 w-10 text-slate-200 mx-auto mb-4" />
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No seasonal products right now.</p>
