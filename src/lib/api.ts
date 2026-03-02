@@ -3,6 +3,13 @@
  */
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
+/** Use for all fetch(): avoids mixed content by using relative /api/v1 when page is HTTPS and base is HTTP */
+function getEffectiveApiBase(): string {
+  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && API_BASE.startsWith('http://'))
+    return '/api/v1';
+  return API_BASE;
+}
+
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -138,13 +145,13 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
   if (filters.showOutOfSeason !== undefined) params.set('showOutOfSeason', String(filters.showOutOfSeason));
   const qs = params.toString();
-  const res = await fetch(`${API_BASE}/products${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/products${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 export async function getProduct(id: string): Promise<ApiProduct | null> {
-  const res = await fetch(`${API_BASE}/products/${id}`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, { headers: getAuthHeaders() });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
@@ -159,19 +166,19 @@ export interface Category {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  const res = await fetch(`${API_BASE}/categories`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/categories`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 export async function getSellers(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/sellers`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/sellers`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 export async function getOrders(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/orders`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/orders`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -184,7 +191,7 @@ export async function createOrder(body: {
   couponCode?: string;
   idempotencyKey?: string;
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
-  const res = await fetch(`${API_BASE}/orders`, {
+  const res = await fetch(`${getEffectiveApiBase()}/orders`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -207,7 +214,7 @@ export async function createOrder(body: {
 
 /** Update order status (admin/seller). Persists to database. */
 export async function updateOrderStatus(orderId: string, status: string): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ status }),
@@ -222,7 +229,7 @@ export async function createRazorpayOrder(
   amountInPaise: number,
   currency: string = 'INR'
 ): Promise<{ razorpayOrderId: string; keyId: string }> {
-  const res = await fetch(`${API_BASE}/orders/${orderId}/create-razorpay-order`, {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/create-razorpay-order`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ amountInPaise, currency }),
@@ -246,7 +253,7 @@ export async function verifyPayment(
   orderId: string,
   payload: { razorpayOrderId: string; razorpayPaymentId: string; signature: string }
 ): Promise<{ success: boolean }> {
-  const res = await fetch(`${API_BASE}/orders/${orderId}/verify-payment`, {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/verify-payment`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -256,7 +263,7 @@ export async function verifyPayment(
 }
 
 export async function getCustomers(): Promise<any[]> {
-  const res = await fetch(`${API_BASE}/auth/users`, { headers: getAuthHeaders() });
+  const res = await fetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -279,7 +286,7 @@ export async function createProduct(body: {
   variants?: Array<{ sku: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity: number }>;
   images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
 }): Promise<ApiProduct> {
-  const res = await fetch(`${API_BASE}/products`, {
+  const res = await fetch(`${getEffectiveApiBase()}/products`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -307,7 +314,7 @@ export async function updateProduct(
     images: Array<{ imageUrl: string; isPrimary?: boolean }>;
   }>
 ): Promise<ApiProduct> {
-  const res = await fetch(`${API_BASE}/products/${id}`, {
+  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -318,7 +325,7 @@ export async function updateProduct(
 
 /** Soft-delete product (auth required). */
 export async function deleteProduct(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/products/${id}`, {
+  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -327,7 +334,7 @@ export async function deleteProduct(id: string): Promise<void> {
 
 /** Approve seller application (admin only). */
 export async function approveSeller(sellerId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/sellers/${sellerId}/approve`, {
+  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/approve`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -336,14 +343,14 @@ export async function approveSeller(sellerId: string): Promise<void> {
 
 /** Get serviceable cities (where we deliver). Public. */
 export async function getServiceableAreas(): Promise<{ cities: string[] }> {
-  const res = await fetch(`${API_BASE}/settings/serviceable-areas`);
+  const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 /** Update serviceable cities (admin only). */
 export async function updateServiceableAreas(cities: string[]): Promise<{ cities: string[] }> {
-  const res = await fetch(`${API_BASE}/settings/serviceable-areas`, {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify({ cities }),
@@ -358,7 +365,7 @@ export async function getStoreSettings(): Promise<{
   preferences: Record<string, unknown> | null;
   deliveryCharge: number;
 }> {
-  const res = await fetch(`${API_BASE}/settings/store`);
+  const res = await fetch(`${getEffectiveApiBase()}/settings/store`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -369,7 +376,7 @@ export async function updateStoreSettings(body: {
   preferences?: Record<string, unknown>;
   deliveryCharge?: number;
 }): Promise<{ theme: Record<string, unknown> | null; preferences: Record<string, unknown> | null; deliveryCharge: number; message?: string }> {
-  const res = await fetch(`${API_BASE}/settings/store`, {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -387,12 +394,12 @@ export async function validateCoupon(code: string): Promise<{
   maxDiscount?: number | null;
   minOrderValue?: number | null;
 }> {
-  const res = await fetch(`${API_BASE}/settings/validate-coupon?code=${encodeURIComponent(code.trim())}`);
+  const res = await fetch(`${getEffectiveApiBase()}/settings/validate-coupon?code=${encodeURIComponent(code.trim())}`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
-export { API_BASE };
+export { API_BASE, getEffectiveApiBase };
 
 /** Base URL of the backend server (no path). Use for static assets like /uploads/xxx */
 export const API_ORIGIN = (() => {
@@ -408,9 +415,20 @@ export const API_ORIGIN = (() => {
   }
 })();
 
-/** Turn image URL or path into a full URL for display */
+/** Turn image URL or path into a full URL for display. Rewrites http to current origin when page is HTTPS to avoid mixed content. */
 export function getImageDisplayUrl(urlOrPath: string): string {
   if (!urlOrPath) return '';
-  if (urlOrPath.startsWith('http://') || urlOrPath.startsWith('https://')) return urlOrPath;
+  if (urlOrPath.startsWith('http://')) {
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:') {
+      try {
+        const u = new URL(urlOrPath);
+        return window.location.origin + u.pathname + u.search;
+      } catch {
+        return urlOrPath;
+      }
+    }
+    return urlOrPath;
+  }
+  if (urlOrPath.startsWith('https://')) return urlOrPath;
   return `${API_ORIGIN}${urlOrPath.startsWith('/') ? '' : '/'}${urlOrPath}`;
 }

@@ -3,7 +3,7 @@ import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { API_BASE, getImageDisplayUrl } from '@/lib/api';
+import { getEffectiveApiBase, getImageDisplayUrl } from '@/lib/api';
 
 interface ImageUploadProps {
     value: string[];
@@ -49,7 +49,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
 
         setIsUploading(true);
         try {
-            const response = await fetch(`${API_BASE}/uploads/multiple`, {
+            const response = await fetch(`${getEffectiveApiBase()}/uploads/multiple`, {
                 method: 'POST',
                 body: formData,
             });

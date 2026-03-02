@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
+import { getEffectiveApiBase } from '@/lib/api';
 
 export type UserRole = 'super_admin' | 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -27,8 +28,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
 function mapBackendRoleToFrontend(role: string | undefined): UserRole {
   if (!role) return 'customer';
@@ -59,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
+      const res = await fetch(`${getEffectiveApiBase()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

@@ -8,15 +8,13 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
-import { getServiceableAreas, updateServiceableAreas, getStoreSettings, updateStoreSettings } from '@/lib/api';
-
-const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
+import { getServiceableAreas, updateServiceableAreas, getStoreSettings, updateStoreSettings, getEffectiveApiBase } from '@/lib/api';
 
 async function saveRazorpayToBackend(razorpayKeyId: string, razorpayKeySecret: string): Promise<{ ok: boolean; message?: string }> {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     if (!token) return { ok: false, message: 'Not logged in. Log in as admin to sync credentials to backend.' };
     try {
-        const res = await fetch(`${API_BASE}/settings/payment`, {
+        const res = await fetch(`${getEffectiveApiBase()}/settings/payment`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
