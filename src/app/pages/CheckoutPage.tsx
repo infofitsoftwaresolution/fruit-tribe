@@ -6,7 +6,7 @@ import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
-import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment } from '@/lib/api';
+import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders } from '@/lib/api';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -302,10 +302,30 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           },
           modal: {
             ondismiss: () => {
-              toast.info('Payment cancelled. Order placed; you can pay from My Orders.', {
-                description: `Order #${orderNumber}`,
-              });
-              navigate('/profile', { state: { highlightOrders: true } });
+              // Fallback: Razorpay SDK may log "Refused to get unsafe header x-rtb-fingerprint-id" and
+              // in some environments the success handler might not run. Check backend for payment status.
+              const PAYMENT_POLL_DELAY_MS = 2500;
+              setTimeout(async () => {
+                try {
+                  const orders = await getOrders();
+                  const order = orders.find((o: { id: string; paymentStatus?: string }) => String(o.id) === String(orderId));
+                  if (order?.paymentStatus === 'PAID') {
+                    clearCart();
+                    toast.success('Order placed and payment successful.', {
+                      description: `Order #${orderNumber}`,
+                      icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
+                    });
+                    navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
+                    return;
+                  }
+                } catch {
+                  /* ignore */
+                }
+                toast.info('Payment cancelled. Order placed; you can pay from My Orders.', {
+                  description: `Order #${orderNumber}`,
+                });
+                navigate('/profile', { state: { highlightOrders: true } });
+              }, PAYMENT_POLL_DELAY_MS);
             },
           },
         });
@@ -341,14 +361,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
-      script.crossOrigin = 'anonymous';
+      // Do not set crossOrigin: Razorpay's script reads response headers that browsers forbid to JS
+      // (e.g. x-rtb-fingerprint-id), causing "Refused to get unsafe header". Loading without
+      // crossOrigin can reduce CORS-related behavior that triggers that path.
       script.onload = () => resolve();
       script.onerror = () => resolve();
       document.body.appendChild(script);
     });
   }
-  // Note: "Refused to get unsafe header x-rtb-fingerprint-id" is a browser console warning from
-  // Razorpay's script; it does not block payment. For best results, serve the site over HTTPS.
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
