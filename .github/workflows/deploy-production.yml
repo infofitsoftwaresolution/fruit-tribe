@@ -115,6 +115,7 @@ jobs:
       - name: Create deployment package with IP-agnostic configs
         run: |
           mkdir -p deploy/backend deploy/frontend-dist
+          ls -la backend/dist || true
           cp -r backend/dist deploy/backend/
           cp -r backend/prisma deploy/backend/
           cp backend/package.json deploy/backend/
@@ -152,6 +153,7 @@ jobs:
           echo "Deployment script execution complete."
           DEPLOY_SCRIPT
           chmod +x deploy/deploy.sh
+          test -f deploy/backend/dist/main.js || (echo "ERROR: deploy/backend/dist/main.js missing"; ls -la deploy/backend/; exit 1)
           tar -czf deploy.tar.gz deploy/
           ls -lh deploy.tar.gz
 
@@ -260,15 +262,27 @@ jobs:
             echo "Installing dependencies (Production)..."
             export CI=true
             npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
-            npx prisma generate || true
+            npx prisma@6.3.1 generate
             mkdir -p uploads
             chmod -R 755 uploads
 
-            echo "Starting application with PM2..."
+            echo "Verifying deploy structure..."
+            ls -la $DEPLOY_DIR/backend/ || true
+            ls -la $DEPLOY_DIR/backend/dist/ || true
+            MAIN_SCRIPT="$DEPLOY_DIR/backend/dist/main.js"
+            if [ ! -f "$MAIN_SCRIPT" ]; then
+              MAIN_SCRIPT="$DEPLOY_DIR/backend/main.js"
+            fi
+            if [ ! -f "$MAIN_SCRIPT" ]; then
+              echo "ERROR: Neither dist/main.js nor main.js found. Contents of backend:"
+              find $DEPLOY_DIR/backend -type f -name "*.js" | head -20
+              exit 1
+            fi
+            echo "Starting application with PM2 ($MAIN_SCRIPT)..."
             pm2 delete fruit-tribe-api 2>/dev/null || true
             pm2 kill 2>/dev/null || true
             sleep 2
-            PORT=3000 HOST=0.0.0.0 pm2 start $DEPLOY_DIR/backend/dist/main.js \
+            PORT=3000 HOST=0.0.0.0 pm2 start "$MAIN_SCRIPT" \
               --name fruit-tribe-api \
               --update-env \
               --output /home/${{ secrets.EC2_USERNAME }}/.pm2/logs/fruit-tribe-api-out.log \
