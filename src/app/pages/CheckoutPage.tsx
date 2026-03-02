@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2 } from 'lucide-react';
+import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote } from 'lucide-react';
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
@@ -33,10 +33,20 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const { products: storeProducts, taxRates, theme, preferences, clearCart } = useStore();
   const { products: productsFromApi } = useProducts({ limit: 500 });
   const products = productsFromApi.length > 0 ? productsFromApi : storeProducts;
+  const codAllowedForCart = useMemo(() => {
+    return items.every((item) => {
+      const p = products.find((pr) => String(pr.id) === String(item.id));
+      return (p as any)?.allowCashOnDelivery !== false;
+    });
+  }, [items, products]);
+  useEffect(() => {
+    if (!codAllowedForCart && paymentMethod === 'cod') setPaymentMethod('online');
+  }, [codAllowedForCart, paymentMethod]);
   const { user } = useAuth();
   const { cities: serviceableCities, isCityServiceable } = useServiceableAreas();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
@@ -242,6 +252,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       const payableAmount = Number((created as any).payableAmount ?? grandTotal);
       const amountInPaise = Math.round(payableAmount * 100);
 
+      if (paymentMethod === 'cod') {
+        clearCart();
+        toast.success('Order placed. Pay when you receive.', {
+          description: `Order #${orderNumber} — Cash on Delivery`,
+          icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
+        });
+        navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
+        setSubmitting(false);
+        return;
+      }
+
       try {
         const { razorpayOrderId, keyId } = await createRazorpayOrder(orderId, amountInPaise, 'INR');
         await loadRazorpayScript();
@@ -284,7 +305,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               toast.info('Payment cancelled. Order placed; you can pay from My Orders.', {
                 description: `Order #${orderNumber}`,
               });
-              navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
+              navigate('/profile', { state: { highlightOrders: true } });
             },
           },
         });
@@ -320,11 +341,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
       script.async = true;
+      script.crossOrigin = 'anonymous';
       script.onload = () => resolve();
       script.onerror = () => resolve();
       document.body.appendChild(script);
     });
   }
+  // Note: "Refused to get unsafe header x-rtb-fingerprint-id" is a browser console warning from
+  // Razorpay's script; it does not block payment. For best results, serve the site over HTTPS.
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -610,6 +634,61 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           <p className="text-4xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
                           <p className="text-[8px] font-black text-orange-500 uppercase mt-1">Split across sellers</p>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Payment method */}
+                    <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment method</p>
+                      <div className={cn('grid gap-4', codAllowedForCart ? 'grid-cols-2' : 'grid-cols-1')}>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('online')}
+                          className={cn(
+                            'p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                            paymentMethod === 'online'
+                              ? 'border-emerald-500 bg-emerald-50 text-slate-900'
+                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          )}
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                            <CreditCard className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="font-black text-sm uppercase tracking-tight">Pay online</p>
+                            <p className="text-[10px] text-slate-500">Card, UPI, Net banking</p>
+                          </div>
+                        </button>
+                        {codAllowedForCart ? (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('cod')}
+                            className={cn(
+                              'p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                              paymentMethod === 'cod'
+                                ? 'border-emerald-500 bg-emerald-50 text-slate-900'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                            )}
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                              <Banknote className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-black text-sm uppercase tracking-tight">Cash on delivery</p>
+                              <p className="text-[10px] text-slate-500">Pay when you receive</p>
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center gap-3 text-left opacity-80">
+                            <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center">
+                              <Banknote className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <p className="font-black text-sm uppercase tracking-tight text-slate-400">Cash on delivery</p>
+                              <p className="text-[10px] text-slate-400">Not available — some items in your cart do not allow COD</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

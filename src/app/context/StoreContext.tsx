@@ -30,6 +30,7 @@ export interface Product {
     seasonalMonths?: string[];
     bulkDiscountQty?: number;
     bulkDiscountPrice?: number;
+    allowCashOnDelivery?: boolean;
     isOrganic?: boolean;
     grade?: 'A' | 'B' | 'Premium';
     variants?: {

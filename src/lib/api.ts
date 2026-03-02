@@ -25,6 +25,7 @@ export interface ApiProduct {
   seasonalEnd?: string | null;
   bulkDiscountQty?: number | null;
   bulkDiscountPrice?: number | string | null;
+  allowCashOnDelivery?: boolean | null;
   harvestDate?: string | null;
   expiryDate?: string | null;
   isOrganic?: boolean;
@@ -62,6 +63,7 @@ export interface Product {
   seasonalEnd?: string;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
+  allowCashOnDelivery?: boolean;
   harvestDate?: string;
   expiryDate?: string;
   isOrganic?: boolean;
@@ -93,6 +95,7 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     seasonalEnd: p.seasonalEnd ?? undefined,
     bulkDiscountQty: p.bulkDiscountQty ?? undefined,
     bulkDiscountPrice: p.bulkDiscountPrice != null ? (typeof p.bulkDiscountPrice === 'string' ? parseFloat(p.bulkDiscountPrice) : p.bulkDiscountPrice) : undefined,
+    allowCashOnDelivery: p.allowCashOnDelivery ?? true,
     harvestDate: p.harvestDate ?? undefined,
     expiryDate: p.expiryDate ?? undefined,
     isOrganic: p.isOrganic,

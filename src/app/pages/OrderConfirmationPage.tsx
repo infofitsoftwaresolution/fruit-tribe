@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { CheckCircle, Package, Home, ShoppingBag, Download, ShieldCheck, Printer, Zap, FileText } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -19,9 +19,22 @@ import {
 
 export function OrderConfirmationPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const allOrders = location.state?.allOrders as string[] | undefined;
-  const primaryOrderId = location.state?.orderId || '12345';
+  const primaryOrderId = location.state?.orderId || '';
   const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    if (!location.state?.orderId && !location.state?.allOrders) {
+      navigate('/', { replace: true });
+    }
+  }, [location.state, navigate]);
+
+  if (!primaryOrderId && !allOrders?.length) {
+    return null;
+  }
+
+  const displayOrderId = primaryOrderId || (allOrders && allOrders[0]) || '—';
 
   const handleDownloadManifest = () => {
     setIsPrinting(true);
@@ -84,7 +97,7 @@ export function OrderConfirmationPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10 pb-10 border-b border-slate-200/50">
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Order ID</p>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">#{primaryOrderId}</h2>
+                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">#{displayOrderId}</h2>
               </div>
               <div className="flex gap-3">
                 <button

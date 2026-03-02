@@ -87,6 +87,11 @@ export class CreateProductDto {
     @IsNumber()
     bulkDiscountPrice?: number;
 
+    @ApiProperty({ example: true, description: 'Allow Cash on Delivery for this product', required: false })
+    @IsOptional()
+    @IsBoolean()
+    allowCashOnDelivery?: boolean;
+
     @ApiProperty({ type: [ProductVariantDto], required: false })
     @IsOptional()
     @IsArray()

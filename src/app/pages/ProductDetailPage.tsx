@@ -148,18 +148,18 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 ))}
               </div>
 
-              {/* Primary Visual Feed */}
-              <div className="flex-1 relative aspect-square xl:aspect-auto xl:h-[700px] rounded-[4rem] overflow-hidden bg-white border border-slate-100 group shadow-2xl">
+              {/* Primary Visual Feed — image fills whole card */}
+              <div className="flex-1 relative aspect-square xl:aspect-auto xl:h-[700px] rounded-[4rem] overflow-hidden bg-slate-100 border border-slate-100 group shadow-2xl">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={activeImage}
-                    initial={{ opacity: 0, scale: 1.1 }}
+                    initial={{ opacity: 0, scale: 1.05 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
                     transition={{ duration: 0.6 }}
                     src={activeImage || ''}
                     alt={product.name}
-                    className="w-full h-full object-contain p-12 group-hover:scale-105 transition-transform duration-1000"
+                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
                   />
                 </AnimatePresence>
 

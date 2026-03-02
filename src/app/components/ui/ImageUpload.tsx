@@ -20,6 +20,28 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
         const files = e.target.files;
         if (!files || files.length === 0) return;
 
+        for (const file of Array.from(files)) {
+            if (!file.type.startsWith('image/')) continue;
+            const dims = await new Promise<{ w: number; h: number } | null>((resolve) => {
+                const img = new Image();
+                const url = URL.createObjectURL(file);
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    resolve({ w: img.naturalWidth, h: img.naturalHeight });
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+                img.src = url;
+            });
+            if (dims && (dims.w < 400 || dims.h < 400)) {
+                toast.info('Low resolution image', {
+                    description: `This image is ${dims.w}×${dims.h} px. Use at least 800×800 px for better quality on the store.`,
+                });
+            }
+        }
+
         const formData = new FormData();
         Array.from(files).forEach((file) => {
             formData.append('files', file);
@@ -57,10 +79,15 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
 
     return (
         <div className="space-y-6">
-            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <ImageIcon className="w-4 h-4" />
-                {label}
-            </h3>
+            <div className="flex flex-col gap-1">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    {label}
+                </h3>
+                <p className="text-[10px] text-slate-500">
+                    For best quality use images at least 800×800 px. JPG/PNG/WebP recommended.
+                </p>
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <AnimatePresence>

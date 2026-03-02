@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "allow_cod" BOOLEAN NOT NULL DEFAULT true;

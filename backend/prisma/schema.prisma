@@ -129,6 +129,9 @@ model Product {
   bulkDiscountQty   Int?           @map("bulk_discount_qty")
   bulkDiscountPrice Decimal?       @db.Decimal(10, 2) @map("bulk_discount_price")
 
+  // Payment: seller can disable Cash on Delivery for this product
+  allowCashOnDelivery Boolean @default(true) @map("allow_cod")
+
   variants    ProductVariant[]
   images      ProductImage[]
   reviews     Review[]

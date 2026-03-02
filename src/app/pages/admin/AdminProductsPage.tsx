@@ -63,6 +63,7 @@ export function AdminProductsPage() {
         seasonalEnd: '',
         bulkDiscountQty: '',
         bulkDiscountPrice: '',
+        allowCashOnDelivery: true,
         variants: [] as { name: string; price: string; stock: string; sku: string }[]
     });
 
@@ -143,6 +144,7 @@ export function AdminProductsPage() {
             seasonalEnd: product.seasonalEnd || '',
             bulkDiscountQty: product.bulkDiscountQty?.toString() || '',
             bulkDiscountPrice: product.bulkDiscountPrice?.toString() || '',
+            allowCashOnDelivery: (product as any).allowCashOnDelivery !== false,
             variants: product.variants?.map((v: any) => ({ name: v.name, price: String(v.price), stock: String(v.stock), sku: v.sku || '' })) || []
         });
         setIsModalOpen(true);
@@ -187,6 +189,7 @@ export function AdminProductsPage() {
                     seasonalEnd: formData.seasonalEnd || null,
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
                     bulkDiscountPrice: formData.bulkDiscountPrice ? parseFloat(formData.bulkDiscountPrice) : undefined,
+                    allowCashOnDelivery: formData.allowCashOnDelivery,
                     isActive: editingProduct.status === 'Active',
                     images: imagesPayload,
                 });
@@ -206,6 +209,7 @@ export function AdminProductsPage() {
                     seasonalEnd: formData.seasonalEnd,
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
                     bulkDiscountPrice: formData.bulkDiscountPrice ? parseFloat(formData.bulkDiscountPrice) : undefined,
+                    allowCashOnDelivery: formData.allowCashOnDelivery,
                     variants: formData.variants.filter(v => v.sku || v.name).map(v => ({
                         sku: v.sku || `SKU-${Date.now()}-${v.name.replace(/\s/g, '')}`,
                         attributeValue: v.name,
@@ -252,7 +256,7 @@ export function AdminProductsPage() {
                                 sku: '', image: '', images: [''], description: '', unit: 'kg',
                                 nutritionalInfo: '', origin: '', flashSale: false, expiryDate: '',
                                 harvestDate: '', isOrganic: false, grade: 'A', isSeasonal: false,
-                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '', variants: []
+                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '', allowCashOnDelivery: true, variants: []
                             });
                             setIsModalOpen(true);
                         }}
@@ -629,6 +633,12 @@ export function AdminProductsPage() {
                                                     checked={formData.flashSale}
                                                     onChange={(v: boolean) => setFormData({ ...formData, flashSale: v })}
                                                     color="orange"
+                                                />
+                                                <ToggleItem
+                                                    label="Available for Cash on Delivery"
+                                                    checked={formData.allowCashOnDelivery !== false}
+                                                    onChange={(v: boolean) => setFormData({ ...formData, allowCashOnDelivery: v })}
+                                                    color="emerald"
                                                 />
                                             </div>
                                         </div>

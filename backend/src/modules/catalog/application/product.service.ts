@@ -127,6 +127,7 @@ export class ProductService {
                     seasonalEnd: dto.seasonalEnd ? new Date(dto.seasonalEnd) : undefined,
                     bulkDiscountQty: dto.bulkDiscountQty ?? undefined,
                     bulkDiscountPrice: dto.bulkDiscountPrice ?? undefined,
+                    allowCashOnDelivery: dto.allowCashOnDelivery ?? true,
                 },
             });
 
@@ -180,6 +181,7 @@ export class ProductService {
                     ...(dto.seasonalEnd !== undefined && { seasonalEnd: dto.seasonalEnd ? new Date(dto.seasonalEnd) : null }),
                     ...(dto.bulkDiscountQty !== undefined && { bulkDiscountQty: dto.bulkDiscountQty }),
                     ...(dto.bulkDiscountPrice !== undefined && { bulkDiscountPrice: dto.bulkDiscountPrice }),
+                    ...(dto.allowCashOnDelivery !== undefined && { allowCashOnDelivery: dto.allowCashOnDelivery }),
                     ...(dto.isActive !== undefined && { isActive: dto.isActive }),
                 },
             });
