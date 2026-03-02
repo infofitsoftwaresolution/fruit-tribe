@@ -297,6 +297,31 @@ jobs:
 
             if [ -n "$DOMAIN" ]; then
               SSL_CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+              # If no SSL cert yet: serve HTTP first, then obtain cert with Certbot
+              if [ ! -f "$SSL_CERT" ]; then
+                echo "SSL cert not found. Writing HTTP config and obtaining certificate..."
+                sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_HTTP_INIT
+            server {
+                listen 80;
+                server_name $DOMAIN www.$DOMAIN ${{ secrets.EC2_HOST }};
+                client_max_body_size 50M;
+                root $DEPLOY_DIR/frontend-dist;
+                index index.html index.htm;
+                location / { try_files \$uri \$uri/ /index.html; }
+                location /api { rewrite ^/api(.*)$ \$1 break; proxy_pass http://localhost:3000; proxy_http_version 1.1; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; proxy_cache_bypass \$http_upgrade; }
+                location /uploads { alias $DEPLOY_DIR/backend/uploads; expires 30d; add_header Cache-Control "public, immutable"; }
+                location /.well-known/acme-challenge/ { root $DEPLOY_DIR/frontend-dist; }
+            }
+            NGINX_HTTP_INIT
+                sudo nginx -t && sudo systemctl reload nginx
+                sudo mkdir -p $DEPLOY_DIR/frontend-dist/.well-known/acme-challenge
+                sudo chown -R $USER:$(id -gn) $DEPLOY_DIR/frontend-dist/.well-known 2>/dev/null || true
+                if ! command -v certbot &>/dev/null; then
+                  if command -v apt-get &>/dev/null; then sudo apt-get update -q && sudo apt-get install -y certbot; elif command -v yum &>/dev/null; then sudo yum install -y certbot; fi
+                fi
+                LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL || 'admin@thefruittribe.com' }}"
+                sudo certbot certonly --webroot -w $DEPLOY_DIR/frontend-dist -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email "$LETSENCRYPT_EMAIL" --no-eff-email 2>/dev/null || true
+              fi
               if [ -f "$SSL_CERT" ]; then
                 sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_HTTPS
             server {
