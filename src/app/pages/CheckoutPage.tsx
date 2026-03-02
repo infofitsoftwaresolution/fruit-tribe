@@ -6,7 +6,7 @@ import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
-import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders } from '@/lib/api';
+import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders, getWarehouses } from '@/lib/api';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -14,9 +14,8 @@ interface CheckoutPageProps {
   items: CartItem[];
 }
 
-// Warehouse center (e.g. Kolkata) for distance calculation
-const WAREHOUSE_LAT = 22.5726;
-const WAREHOUSE_LNG = 88.3639;
+const DEFAULT_WAREHOUSE_LAT = 22.5726;
+const DEFAULT_WAREHOUSE_LNG = 88.3639;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -67,7 +66,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   });
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocodeLoading, setGeocodeLoading] = useState(false);
+  const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    getWarehouses(true).then((list) => {
+      setWarehouses(list.map((w) => ({ latitude: Number(w.latitude), longitude: Number(w.longitude) })));
+    }).catch(() => setWarehouses([]));
+  }, []);
 
   useEffect(() => {
     const query = [formData.address, formData.city, formData.zipCode].filter(Boolean).join(', ');
@@ -89,7 +95,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           const lat = parseFloat(data[0].lat);
           const lng = parseFloat(data[0].lon);
           setMapCenter({ lat, lng });
-          const distanceKm = Math.round(haversineKm(WAREHOUSE_LAT, WAREHOUSE_LNG, lat, lng) * 10) / 10;
+          const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
+          let minDistance = Infinity;
+          for (const wh of whList) {
+            const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
+            if (d < minDistance) minDistance = d;
+          }
+          const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
           const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
           const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
           setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
@@ -105,7 +117,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     return () => {
       if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
     };
-  }, [formData.address, formData.city, formData.zipCode]);
+  }, [formData.address, formData.city, formData.zipCode, warehouses]);
 
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;

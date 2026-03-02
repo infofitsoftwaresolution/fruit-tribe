@@ -385,6 +385,83 @@ export async function updateStoreSettings(body: {
   return res.json();
 }
 
+/** List warehouses (for checkout distance/ETA). Public. */
+export async function getWarehouses(activeOnly = true): Promise<Array<{
+  id: string;
+  name: string;
+  address: string;
+  latitude: number | string;
+  longitude: number | string;
+  isActive: boolean;
+}>> {
+  const res = await fetch(`${getEffectiveApiBase()}/warehouses?activeOnly=${activeOnly}`);
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Create warehouse (admin only). */
+export async function createWarehouse(data: { name: string; address: string; latitude: number; longitude: number; isActive?: boolean }): Promise<{ id: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/warehouses`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Update warehouse (admin only). */
+export async function updateWarehouse(id: string, data: Partial<{ name: string; address: string; latitude: number; longitude: number; isActive: boolean }>): Promise<unknown> {
+  const res = await fetch(`${getEffectiveApiBase()}/warehouses/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Delete warehouse (admin only). */
+export async function deleteWarehouse(id: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/warehouses/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
+/** List delivery partners / in-house delivery staff (admin only). */
+export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string }>> {
+  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Create delivery partner (admin only). */
+export async function createDeliveryPartner(data: { name: string; phone: string; vehicle?: string; status?: string }): Promise<{ id: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Update delivery partner (admin only). */
+export async function updateDeliveryPartner(id: string, data: Partial<{ name: string; phone: string; vehicle: string; status: string }>): Promise<unknown> {
+  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Delete delivery partner (admin only). */
+export async function deleteDeliveryPartner(id: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
 /** Validate a promo/coupon code (public). Returns discount info if valid. */
 export async function validateCoupon(code: string): Promise<{
   valid: boolean;

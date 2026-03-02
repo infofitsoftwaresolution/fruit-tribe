@@ -1,14 +1,24 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
-import { getOrders } from '@/lib/api';
+import {
+    getOrders,
+    getWarehouses,
+    createWarehouse,
+    updateWarehouse,
+    deleteWarehouse,
+    getDeliveryPartners,
+    createDeliveryPartner,
+    updateDeliveryPartner,
+    deleteDeliveryPartner,
+} from '@/lib/api';
 import {
     Truck, MapPin, Navigation, Clock, CheckCircle2,
     AlertCircle, Search, Filter, MoreHorizontal,
     ChevronRight, Map as MapIcon, Calendar, User,
     TrendingUp, Shield, Smartphone, Zap, Activity,
     Box, ExternalLink, Signal, Globe, Navigation2,
-    X, MoreVertical
+    X, MoreVertical, Plus, Warehouse as WarehouseIcon, UserCircle, Edit2, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -46,13 +56,22 @@ function mapApiDeliveryToDelivery(d: any, order: any): Delivery {
     };
 }
 
+type SectionTab = 'deliveries' | 'warehouses' | 'staff';
+
 export function AdminLogisticsPage() {
     const { theme } = useStore();
+    const [sectionTab, setSectionTab] = useState<SectionTab>('deliveries');
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('Active');
     const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [loading, setLoading] = useState(true);
+    const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; address: string; latitude: number | string; longitude: number | string; isActive: boolean }>>([]);
+    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string }>>([]);
+    const [warehouseModal, setWarehouseModal] = useState<{ open: boolean; editing?: { id: string; name: string; address: string; latitude: number; longitude: number; isActive: boolean } }>({ open: false });
+    const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; vehicle: string; status: string } }>({ open: false });
+    const [warehouseForm, setWarehouseForm] = useState({ name: '', address: '', latitude: '', longitude: '', isActive: true });
+    const [staffForm, setStaffForm] = useState({ name: '', phone: '', vehicle: '', status: 'ACTIVE' });
 
     useEffect(() => {
         let cancelled = false;
@@ -69,6 +88,16 @@ export function AdminLogisticsPage() {
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, []);
+
+    useEffect(() => {
+        if (sectionTab !== 'warehouses') return;
+        getWarehouses(false).then(setWarehouses).catch(() => setWarehouses([]));
+    }, [sectionTab]);
+
+    useEffect(() => {
+        if (sectionTab !== 'staff') return;
+        getDeliveryPartners().then(setDeliveryPartners).catch(() => setDeliveryPartners([]));
+    }, [sectionTab]);
 
     const filteredDeliveries = useMemo(() => {
         return deliveries.filter(d => {
@@ -88,6 +117,50 @@ export function AdminLogisticsPage() {
         { label: 'Delivery success', value: deliveries.length ? `${Math.round((deliveries.filter(d => d.status === 'Delivered').length / deliveries.length) * 100)}%` : '0%', icon: CheckCircle2, color: 'purple', trend: 'Verified' },
         { label: 'Total Consignments', value: String(deliveries.length), icon: Signal, color: 'orange', trend: 'All time' }
     ], [deliveries]);
+
+    const handleSaveWarehouse = async () => {
+        const lat = parseFloat(warehouseForm.latitude);
+        const lng = parseFloat(warehouseForm.longitude);
+        if (!warehouseForm.name.trim() || !warehouseForm.address.trim() || isNaN(lat) || isNaN(lng)) {
+            toast.error('Name, address, and valid lat/lng required');
+            return;
+        }
+        try {
+            if (warehouseModal.editing) {
+                await updateWarehouse(warehouseModal.editing.id, { ...warehouseForm, latitude: lat, longitude: lng });
+                toast.success('Warehouse updated');
+            } else {
+                await createWarehouse({ name: warehouseForm.name, address: warehouseForm.address, latitude: lat, longitude: lng, isActive: warehouseForm.isActive });
+                toast.success('Warehouse added');
+            }
+            setWarehouseModal({ open: false });
+            setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true });
+            getWarehouses(false).then(setWarehouses).catch(() => {});
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to save warehouse');
+        }
+    };
+
+    const handleSaveStaff = async () => {
+        if (!staffForm.name.trim() || !staffForm.phone.trim()) {
+            toast.error('Name and phone required');
+            return;
+        }
+        try {
+            if (staffModal.editing) {
+                await updateDeliveryPartner(staffModal.editing.id, { ...staffForm, vehicle: staffForm.vehicle || undefined });
+                toast.success('Delivery partner updated');
+            } else {
+                await createDeliveryPartner({ name: staffForm.name, phone: staffForm.phone, vehicle: staffForm.vehicle || undefined, status: staffForm.status });
+                toast.success('Delivery partner added');
+            }
+            setStaffModal({ open: false });
+            setStaffForm({ name: '', phone: '', vehicle: '', status: 'ACTIVE' });
+            getDeliveryPartners().then(setDeliveryPartners).catch(() => {});
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to save');
+        }
+    };
 
     return (
         <div className="space-y-10 pb-20">
@@ -116,6 +189,99 @@ export function AdminLogisticsPage() {
                 </div>
             </div>
 
+            {/* Section tabs: Deliveries | Warehouses | Delivery staff */}
+            <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm w-fit">
+                {(['deliveries', 'warehouses', 'staff'] as const).map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setSectionTab(tab)}
+                        className={cn(
+                            'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                            sectionTab === tab ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                        )}
+                    >
+                        {tab === 'deliveries' && 'Deliveries'}
+                        {tab === 'warehouses' && 'Warehouses'}
+                        {tab === 'staff' && 'Delivery staff'}
+                    </button>
+                ))}
+            </div>
+
+            {sectionTab === 'warehouses' && (
+                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                                <WarehouseIcon className="w-5 h-5 text-emerald-500" />
+                                Warehouses
+                            </h2>
+                            <p className="text-slate-500 text-sm mt-1">Used for checkout distance &amp; ETA. Add warehouse addresses (lat/lng).</p>
+                        </div>
+                        <button onClick={() => { setWarehouseModal({ open: true }); setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
+                            <Plus className="w-4 h-4" /> Add warehouse
+                        </button>
+                    </div>
+                    <div className="p-8 grid gap-4 min-h-[300px]">
+                        {warehouses.length === 0 ? (
+                            <p className="text-slate-400 text-sm py-8">No warehouses yet. Add one to enable distance/ETA at checkout.</p>
+                        ) : (
+                            warehouses.map((w) => (
+                                <div key={w.id} className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all">
+                                    <div>
+                                        <p className="font-black text-slate-900">{w.name}</p>
+                                        <p className="text-sm text-slate-500 mt-1">{w.address}</p>
+                                        <p className="text-[10px] text-slate-400 mt-1">Lat: {Number(w.latitude).toFixed(4)}, Lng: {Number(w.longitude).toFixed(4)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => { setWarehouseModal({ open: true, editing: { id: w.id, name: w.name, address: w.address, latitude: Number(w.latitude), longitude: Number(w.longitude), isActive: w.isActive } }); setWarehouseForm({ name: w.name, address: w.address, latitude: String(w.latitude), longitude: String(w.longitude), isActive: w.isActive }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={async () => { if (confirm('Remove this warehouse?')) { try { await deleteWarehouse(w.id); toast.success('Warehouse removed'); getWarehouses(false).then(setWarehouses); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {sectionTab === 'staff' && (
+                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                                <UserCircle className="w-5 h-5 text-emerald-500" />
+                                In-house delivery staff
+                            </h2>
+                            <p className="text-slate-500 text-sm mt-1">People who deliver your products.</p>
+                        </div>
+                        <button onClick={() => { setStaffModal({ open: true }); setStaffForm({ name: '', phone: '', vehicle: '', status: 'ACTIVE' }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
+                            <Plus className="w-4 h-4" /> Add delivery staff
+                        </button>
+                    </div>
+                    <div className="p-8 grid gap-4 min-h-[300px]">
+                        {deliveryPartners.length === 0 ? (
+                            <p className="text-slate-400 text-sm py-8">No delivery staff yet. Add in-house delivery people.</p>
+                        ) : (
+                            deliveryPartners.map((dp) => (
+                                <div key={dp.id} className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all">
+                                    <div>
+                                        <p className="font-black text-slate-900">{dp.name}</p>
+                                        <p className="text-sm text-slate-500 mt-1">{dp.phone}</p>
+                                        {dp.vehicle && <p className="text-[10px] text-slate-400 mt-1">Vehicle: {dp.vehicle}</p>}
+                                        <span className={cn('inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase', dp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{dp.status}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status } }); setStaffForm({ name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={async () => { if (confirm('Remove this delivery partner?')) { try { await deleteDeliveryPartner(dp.id); toast.success('Removed'); getDeliveryPartners().then(setDeliveryPartners); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {sectionTab === 'deliveries' && (
+            <>
             {/* Logistics Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statsFromData.map((stat, i) => (
@@ -254,6 +420,8 @@ export function AdminLogisticsPage() {
                     )}
                 </div>
             </div>
+            </>
+            )}
 
             {/* Hyperlocal Telemetry Panel (Modal style) */}
             {selectedDelivery && createPortal(
@@ -379,6 +547,49 @@ export function AdminLogisticsPage() {
                         </motion.div>
                     </div>
                 </AnimatePresence>,
+                document.body
+            )}
+
+            {/* Warehouse add/edit modal */}
+            {warehouseModal.open && createPortal(
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onClick={() => setWarehouseModal({ open: false })}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-black text-slate-900 mb-6">{warehouseModal.editing ? 'Edit warehouse' : 'Add warehouse'}</h3>
+                        <div className="space-y-4">
+                            <input placeholder="Name" value={warehouseForm.name} onChange={e => setWarehouseForm({ ...warehouseForm, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <textarea placeholder="Address" value={warehouseForm.address} onChange={e => setWarehouseForm({ ...warehouseForm, address: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 min-h-[80px]" />
+                            <input type="number" step="any" placeholder="Latitude" value={warehouseForm.latitude} onChange={e => setWarehouseForm({ ...warehouseForm, latitude: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <input type="number" step="any" placeholder="Longitude" value={warehouseForm.longitude} onChange={e => setWarehouseForm({ ...warehouseForm, longitude: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                        </div>
+                        <div className="flex gap-3 mt-8">
+                            <button type="button" onClick={() => setWarehouseModal({ open: false })} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold">Cancel</button>
+                            <button type="button" onClick={handleSaveWarehouse} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold">Save</button>
+                        </div>
+                    </motion.div>
+                </div>,
+                document.body
+            )}
+
+            {/* Delivery staff add/edit modal */}
+            {staffModal.open && createPortal(
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onClick={() => setStaffModal({ open: false })}>
+                    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-slate-100" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-xl font-black text-slate-900 mb-6">{staffModal.editing ? 'Edit delivery staff' : 'Add delivery staff'}</h3>
+                        <div className="space-y-4">
+                            <input placeholder="Name" value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <input placeholder="Phone" value={staffForm.phone} onChange={e => setStaffForm({ ...staffForm, phone: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <input placeholder="Vehicle (optional)" value={staffForm.vehicle} onChange={e => setStaffForm({ ...staffForm, vehicle: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <select value={staffForm.status} onChange={e => setStaffForm({ ...staffForm, status: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900">
+                                <option value="ACTIVE">Active</option>
+                                <option value="INACTIVE">Inactive</option>
+                            </select>
+                        </div>
+                        <div className="flex gap-3 mt-8">
+                            <button type="button" onClick={() => setStaffModal({ open: false })} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold">Cancel</button>
+                            <button type="button" onClick={handleSaveStaff} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold">Save</button>
+                        </div>
+                    </motion.div>
+                </div>,
                 document.body
             )}
         </div>

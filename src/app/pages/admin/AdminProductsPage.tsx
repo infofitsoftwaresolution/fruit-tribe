@@ -696,12 +696,13 @@ export function AdminProductsPage() {
                                         </div>
                                     )}
 
-                                    {/* Section 5: Bulk Acquisition Protocol */}
+                                    {/* Section 5: Sell in bulk — admin/seller configure bulk pricing */}
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <TrendingUp className="w-4 h-4 text-emerald-500" />
-                                            Bulk Acquisition Protocol
+                                            Sell in bulk
                                         </h3>
+                                        <p className="text-[10px] text-slate-500 -mt-2">Min quantity and price per unit for bulk purchase. Leave empty to disable.</p>
                                         <div className="grid grid-cols-2 gap-6 p-8 bg-emerald-50/20 border border-emerald-100 rounded-[2.5rem]">
                                             <FormInput
                                                 label="Threshold Quantity (Units)"

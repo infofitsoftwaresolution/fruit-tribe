@@ -39,6 +39,8 @@ Point both to your EC2/server IP:
    - Writes Nginx HTTPS config and redirects HTTP → HTTPS.
 4. If the cert already exists (e.g. after first run), it only writes the HTTPS config.
 
+**Certificate paths:** The workflow uses **only Let's Encrypt** paths (`/etc/letsencrypt/live/$DOMAIN/fullchain.pem` and `privkey.pem`). It does not use self-signed certs from `/etc/pki/nginx/`.
+
 ### First-time SSL
 
 On the first deploy with `SERVER_DOMAIN=thefruittribe.com` and DNS already pointing to the server, the workflow will:
