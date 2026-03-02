@@ -167,28 +167,6 @@ export function LoginPage() {
             </button>
           </form>
 
-          {/* Demo accounts (optional, for testing) */}
-          <div className="mt-5 pt-4 border-t border-slate-200">
-            <p className="text-xs font-medium text-slate-500 mb-2">Demo logins (for testing)</p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[
-                { label: 'Admin', email: 'admin@fruittribe.com', color: 'emerald' },
-                { label: 'Seller', email: 'seller@fruittribe.com', color: 'blue' },
-                { label: 'Customer', email: 'buyer@example.com', color: 'slate' }
-              ].map(acc => (
-                <button
-                  key={acc.label}
-                  type="button"
-                  onClick={() => setFormData({ email: acc.email, password: acc.label === 'Customer' ? 'password' : acc.label === 'Admin' ? 'Admin@1234' : 'Seller@1234' })}
-                  className="p-2 rounded-lg border border-white/50 bg-white/40 backdrop-blur-sm hover:bg-white/60 hover:border-emerald-300/60 transition-all text-center"
-                >
-                  <p className="text-[11px] font-medium text-slate-700">{acc.label}</p>
-                  <p className="text-[9px] text-slate-500 truncate mt-0.5">{acc.email}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
           <p className="mt-4 text-center text-sm text-slate-500">
             Don't have an account?{' '}
             <Link to="/signup" className="font-medium text-emerald-600 hover:text-emerald-700">Create account</Link>

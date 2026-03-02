@@ -12,6 +12,15 @@ export function AboutSection() {
     updateTheme({ [field]: newText });
   };
 
+  const colorClasses: Record<string, string> = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    amber: 'bg-amber-50 text-amber-600',
+    blue: 'bg-blue-50 text-blue-600',
+    purple: 'bg-purple-50 text-purple-600',
+    slate: 'bg-slate-100 text-slate-700',
+    pink: 'bg-pink-50 text-pink-600',
+  };
+
   const features = [
     {
       icon: Microscope,
@@ -129,9 +138,9 @@ export function AboutSection() {
               <div className="flex items-start justify-between mb-10">
                 <div className={cn(
                   "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110",
-                  `bg-${feature.color}-50 text-${feature.color}-600`
+                  colorClasses[feature.color] || 'bg-slate-100 text-slate-700'
                 )}>
-                  <feature.icon className="h-8 w-8" />
+                  <feature.icon className="h-8 w-8" strokeWidth={2} />
                 </div>
                 <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em]">Feature {index + 1}</span>
               </div>

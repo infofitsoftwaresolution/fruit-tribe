@@ -317,7 +317,17 @@ jobs:
                 sudo mkdir -p $DEPLOY_DIR/frontend-dist/.well-known/acme-challenge
                 sudo chown -R $USER:$(id -gn) $DEPLOY_DIR/frontend-dist/.well-known 2>/dev/null || true
                 if ! command -v certbot &>/dev/null; then
-                  if command -v apt-get &>/dev/null; then sudo apt-get update -q && sudo apt-get install -y certbot; elif command -v yum &>/dev/null; then sudo yum install -y certbot; fi
+                  if command -v apt-get &>/dev/null; then
+                    sudo apt-get update -q && sudo apt-get install -y certbot python3-certbot-nginx
+                  elif command -v yum &>/dev/null; then
+                    sudo yum install -y certbot 2>/dev/null || true
+                  elif command -v dnf &>/dev/null; then
+                    if ! sudo python3 -m venv /opt/certbot/ 2>/dev/null; then true; fi
+                    sudo dnf install -y augeas-libs 2>/dev/null || true
+                    sudo python3 -m venv /opt/certbot/ 2>/dev/null || true
+                    sudo /opt/certbot/bin/pip install --upgrade pip certbot 2>/dev/null || true
+                    sudo ln -sf /opt/certbot/bin/certbot /usr/bin/certbot 2>/dev/null || true
+                  fi
                 fi
                 LETSENCRYPT_EMAIL="${{ secrets.LETSENCRYPT_EMAIL || 'admin@thefruittribe.com' }}"
                 sudo certbot certonly --webroot -w $DEPLOY_DIR/frontend-dist -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email "$LETSENCRYPT_EMAIL" --no-eff-email 2>/dev/null || true
@@ -400,4 +410,8 @@ jobs:
             echo "DEPLOYMENT COMPLETE"
             echo "App: http://${{ secrets.EC2_HOST }}"
             if [ -n "$DOMAIN" ]; then echo "Domain: https://$DOMAIN"; fi
+            if [ -n "$DOMAIN" ] && command -v certbot &>/dev/null; then
+              echo "Setting up SSL auto-renewal..."
+              (sudo crontab -l 2>/dev/null | grep -v 'certbot renew' || true; echo "0 0 * * * /usr/bin/certbot renew --quiet --post-hook 'systemctl reload nginx'") | sudo crontab - 2>/dev/null || true
+            fi
             pm2 status fruit-tribe-api
