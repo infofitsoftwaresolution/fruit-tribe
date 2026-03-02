@@ -39,6 +39,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       return (p as any)?.allowCashOnDelivery !== false;
     });
   }, [items, products]);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   useEffect(() => {
     if (!codAllowedForCart && paymentMethod === 'cod') setPaymentMethod('online');
   }, [codAllowedForCart, paymentMethod]);
@@ -46,7 +47,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const { cities: serviceableCities, isCityServiceable } = useServiceableAreas();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'online' | 'cod'>('online');
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
