@@ -20,7 +20,7 @@ export function AdminAnalyticsPage() {
     const { products } = useProducts({ limit: 500 });
     const [orders, setOrders] = useState<any[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState('Last 7 Days');
+    const [timeRange, setTimeRange] = useState<'Last 7 Days' | 'Last 30 Days' | 'Last Year'>('Last 7 Days');
 
     useEffect(() => {
         let cancelled = false;
@@ -32,13 +32,32 @@ export function AdminAnalyticsPage() {
     }, []);
 
     const stats = useMemo(() => {
-        const orderTotals = orders.map((o: any) => ({
+        const now = new Date();
+        let rangeStart: Date | null = null;
+        if (timeRange === 'Last 7 Days') {
+            rangeStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        } else if (timeRange === 'Last 30 Days') {
+            rangeStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        } else if (timeRange === 'Last Year') {
+            rangeStart = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        }
+
+        // Only include paid orders within the selected range
+        const filteredOrders = orders.filter((o: any) => {
+            const created = o.createdAt ? new Date(o.createdAt) : null;
+            if (!created) return false;
+            if (rangeStart && created < rangeStart) return false;
+            if (o.paymentStatus && String(o.paymentStatus).toUpperCase() !== 'PAID') return false;
+            return true;
+        });
+
+        const orderTotals = filteredOrders.map((o: any) => ({
             total: Number(o.payableAmount ?? o.totalAmount ?? 0),
             items: o.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0,
             date: o.createdAt ? new Date(o.createdAt).toISOString().slice(0, 10) : null,
         }));
         const totalRevenue = orderTotals.reduce((sum, o) => sum + o.total, 0);
-        const avgOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
+        const avgOrderValue = filteredOrders.length > 0 ? totalRevenue / filteredOrders.length : 0;
         const totalItemsSold = orderTotals.reduce((sum, o) => sum + o.items, 0);
         const lowStockCount = products.filter(p => p.stock < 10 && p.stock >= 0).length;
 
@@ -72,7 +91,7 @@ export function AdminAnalyticsPage() {
 
         // Best sellers: from order items aggregated by product
         const productSales: Record<string, { quantity: number; revenue: number }> = {};
-        orders.forEach((o: any) => {
+        filteredOrders.forEach((o: any) => {
             o.items?.forEach((item: any) => {
                 const id = item.productId;
                 if (!id) return;
@@ -96,7 +115,7 @@ export function AdminAnalyticsPage() {
             products.slice(0, 5).forEach(p => (bestSellers as any).push({ ...p, sales: 0, revenue: 0 }));
         }
 
-        return {
+            return {
             totalRevenue,
             avgOrderValue,
             totalItemsSold,
@@ -105,7 +124,7 @@ export function AdminAnalyticsPage() {
             categoryData,
             bestSellers
         };
-    }, [orders, products]);
+    }, [orders, products, timeRange]);
 
     const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
 
