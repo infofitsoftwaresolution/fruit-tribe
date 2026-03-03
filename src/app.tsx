@@ -21,6 +21,7 @@ const CartPage = lazy(() => import('@/app/pages/CartPage').then(m => ({ default:
 const ProfilePage = lazy(() => import('@/app/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = lazy(() => import('@/app/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const SignUpPage = lazy(() => import('@/app/pages/SignUpPage').then(m => ({ default: m.SignUpPage })));
+const VerifyEmailPage = lazy(() => import('@/app/pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
 const ForgotPasswordPage = lazy(() => import('@/app/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const CheckoutPage = lazy(() => import('@/app/pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
 const OrderConfirmationPage = lazy(() => import('@/app/pages/OrderConfirmationPage').then(m => ({ default: m.OrderConfirmationPage })));
@@ -155,6 +156,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/login" element={<MainLayout {...mainLayoutProps}><LoginPage /></MainLayout>} />
           <Route path="/signup" element={<MainLayout {...mainLayoutProps}><SignUpPage /></MainLayout>} />
+          <Route path="/verify-email" element={<MainLayout {...mainLayoutProps}><VerifyEmailPage /></MainLayout>} />
           <Route path="/forgot-password" element={<MainLayout {...mainLayoutProps}><ForgotPasswordPage /></MainLayout>} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
 

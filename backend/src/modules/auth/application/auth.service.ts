@@ -8,8 +8,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { RegisterDto, LoginDto } from './dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
+import { MailService } from '../../../common/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -19,29 +20,69 @@ export class AuthService {
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
         private readonly config: ConfigService,
+        private readonly mailService: MailService,
     ) { }
 
     async register(dto: RegisterDto) {
+        // Clean up stale, never-verified users older than 24h
+        await this.prisma.user.deleteMany({
+            where: {
+                otpCode: { not: null },
+                otpExpiry: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            },
+        });
+
         const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
         if (existing) throw new ConflictException('Email already registered');
 
         const passwordHash = await bcrypt.hash(dto.password, 12);
 
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
         // Get default CUSTOMER role
         const customerRole = await this.prisma.role.findUnique({ where: { name: 'CUSTOMER' } });
 
-        const user = await this.prisma.user.create({
-            data: {
-                email: dto.email,
-                passwordHash,
-                firstName: dto.firstName,
-                lastName: dto.lastName,
-                roleId: customerRole?.id,
-            },
-            select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
+        const user = await this.prisma.$transaction(async (tx) => {
+            const created = await tx.user.create({
+                data: {
+                    email: dto.email,
+                    passwordHash,
+                    firstName: dto.firstName,
+                    lastName: dto.lastName,
+                    roleId: customerRole?.id,
+                    otpCode: code,
+                    otpExpiry: expiry,
+                    isActive: false,
+                },
+                select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
+            });
+
+            await tx.cart.create({
+                data: { userId: created.id },
+            });
+
+            await tx.wishlist.create({
+                data: { userId: created.id },
+            });
+
+            await tx.otpLog.create({
+                data: {
+                    userId: created.id,
+                    otp: code,
+                    expiresAt: expiry,
+                },
+            });
+
+            return created;
         });
 
-        return { message: 'Registration successful', user };
+        await this.mailService.sendVerificationEmail(user.email, code);
+
+        return {
+            message: 'Registration successful. Please check your email for the verification code.',
+            user,
+        };
     }
 
     async login(dto: LoginDto) {
@@ -52,6 +93,10 @@ export class AuthService {
 
         if (!user) throw new UnauthorizedException('Invalid credentials');
         if (!user.isActive) throw new UnauthorizedException('Account is inactive');
+
+        if (user.otpCode && user.otpExpiry && user.otpExpiry > new Date()) {
+            throw new UnauthorizedException('Please verify your email with the code sent to you.');
+        }
 
         // Account lockout check
         if (user.lockedUntil && user.lockedUntil > new Date()) {
@@ -100,6 +145,77 @@ export class AuthService {
                 role: user.role?.name,
             },
         };
+    }
+
+    async verifyEmail(dto: VerifyEmailDto) {
+        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        if (!user) throw new BadRequestException('Invalid email or code');
+        if (!user.otpCode || !user.otpExpiry) {
+            throw new BadRequestException('No active verification code. Please register again.');
+        }
+        if (user.otpCode !== dto.code) {
+            throw new BadRequestException('Invalid verification code');
+        }
+        if (user.otpExpiry < new Date()) {
+            throw new BadRequestException('Verification code has expired. Please register again.');
+        }
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: user.id },
+                data: {
+                    otpCode: null,
+                    otpExpiry: null,
+                    isActive: true,
+                },
+            });
+            await tx.otpLog.updateMany({
+                where: { userId: user.id, otp: dto.code, verified: false },
+                data: { verified: true },
+            });
+        });
+
+        return { message: 'Email verified successfully. You can now log in.' };
+    }
+
+    async resendEmail(dto: ResendEmailDto) {
+        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        if (!user) {
+            // Do not leak that email does not exist
+            return { message: 'If this email exists, a new code has been sent.' };
+        }
+
+        // If already verified, nothing to resend
+        if (!user.otpCode || !user.otpExpiry || user.otpExpiry < new Date()) {
+            return { message: 'Account is already verified or has no pending code.' };
+        }
+
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+        const recentOtps = await this.prisma.otpLog.count({
+            where: {
+                userId: user.id,
+                createdAt: { gte: fifteenMinutesAgo },
+            },
+        });
+        if (recentOtps >= 5) {
+            throw new BadRequestException('Too many verification attempts. Please try again later.');
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: user.id },
+                data: { otpCode: code, otpExpiry: expiry },
+            });
+            await tx.otpLog.create({
+                data: { userId: user.id, otp: code, expiresAt: expiry },
+            });
+        });
+
+        await this.mailService.sendVerificationEmail(user.email, code);
+        return { message: 'A new verification code has been sent if the email exists.' };
     }
 
     async getProfile(userId: string) {

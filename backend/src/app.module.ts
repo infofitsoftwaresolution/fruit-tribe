@@ -10,6 +10,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { UploadsModule } from './common/uploads/uploads.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { DeliveryPartnerModule } from './modules/delivery-partner/delivery-partner.module';
+import { MailService } from './common/mail/mail.service';
 
 @Module({
     imports: [
@@ -31,5 +32,6 @@ import { DeliveryPartnerModule } from './modules/delivery-partner/delivery-partn
         WarehouseModule,
         DeliveryPartnerModule,
     ],
+    providers: [MailService],
 })
 export class AppModule { }

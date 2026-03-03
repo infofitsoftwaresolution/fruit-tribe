@@ -147,14 +147,14 @@ export function AdminAnalyticsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <MetricNode
                     label="Gross Yield"
-                    value={`₹${(stats.totalRevenue / 100000).toFixed(2)}L`}
+                    value={`₹${stats.totalRevenue.toFixed(2)}`}
                     trend={orders.length > 0 ? '+0%' : '—'}
                     icon={IndianRupee}
                     color="emerald"
                 />
                 <MetricNode
                     label="Basket Velocity"
-                    value={`₹${(stats.avgOrderValue / 1000).toFixed(1)}K`}
+                    value={`₹${stats.avgOrderValue.toFixed(2)}`}
                     trend={orders.length > 0 ? '+0%' : '—'}
                     icon={Zap}
                     color="blue"

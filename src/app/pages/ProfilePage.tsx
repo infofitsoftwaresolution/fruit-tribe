@@ -35,6 +35,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
   return {
     id: api.orderNumber ?? api.id,
     orderId: api.id,
+    createdAt: api.createdAt,
     customer: userName,
     items: api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0,
     date: api.createdAt ? new Date(api.createdAt).toLocaleDateString() : '—',
@@ -83,7 +84,11 @@ export function ProfilePage() {
   const userOrders = useMemo(() => {
     if (!user) return [];
     if (ordersLoading) return [];
-    return [...apiOrders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...apiOrders].sort((a, b) => {
+      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return db - da;
+    });
   }, [user, ordersLoading, apiOrders]);
 
   useEffect(() => {

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
-import { RegisterDto, LoginDto } from '../application/dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -31,6 +31,18 @@ export class AuthController {
     @Post('login')
     async login(@Body() dto: LoginDto) {
         return this.authService.login(dto);
+    }
+
+    @ApiOperation({ summary: 'Verify email with OTP code' })
+    @Post('verify-email')
+    async verifyEmail(@Body() dto: VerifyEmailDto) {
+        return this.authService.verifyEmail(dto);
+    }
+
+    @ApiOperation({ summary: 'Resend email verification code' })
+    @Post('resend-email-code')
+    async resendEmail(@Body() dto: ResendEmailDto) {
+        return this.authService.resendEmail(dto);
     }
 
     @ApiBearerAuth()

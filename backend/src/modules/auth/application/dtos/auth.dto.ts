@@ -37,3 +37,20 @@ export class RefreshTokenDto {
     @IsString()
     refreshToken: string;
 }
+
+export class VerifyEmailDto {
+    @ApiProperty({ example: 'user@example.com' })
+    @IsEmail()
+    email: string;
+
+    @ApiProperty({ example: '123456' })
+    @IsString()
+    @MinLength(4)
+    code: string;
+}
+
+export class ResendEmailDto {
+    @ApiProperty({ example: 'user@example.com' })
+    @IsEmail()
+    email: string;
+}

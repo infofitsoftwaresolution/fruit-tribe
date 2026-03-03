@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { UserPlus, Eye, EyeOff, Shield, Loader2 } from 'lucide-react';
@@ -9,6 +9,9 @@ const AUTH_BG_IMAGE = 'https://images.unsplash.com/photo-1610348725531-843dff563
 
 export function SignUpPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const next = params.get('next') || '/';
   const { signup } = useAuth();
   const { theme } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -46,7 +49,7 @@ export function SignUpPage() {
 
     try {
       await signup(formData.name, formData.email, formData.password);
-      navigate('/');
+      navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
     } catch (err) {
       setError('Sign up failed. This email may already be in use.');
     } finally {

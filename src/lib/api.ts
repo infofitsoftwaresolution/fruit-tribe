@@ -262,6 +262,44 @@ export async function verifyPayment(
   return res.json();
 }
 
+export async function registerUser(payload: { name: string; email: string; password: string }): Promise<{ message: string }> {
+  const [firstName, ...rest] = payload.name.split(' ');
+  const lastName = rest.join(' ');
+  const body = {
+    email: payload.email,
+    password: payload.password,
+    firstName: firstName || undefined,
+    lastName: lastName || undefined,
+  };
+  const res = await fetch(`${getEffectiveApiBase()}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function verifyEmailCode(email: string, code: string): Promise<{ message: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function resendEmailCode(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/resend-email-code`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
 export async function getCustomers(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));

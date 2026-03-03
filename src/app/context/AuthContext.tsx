@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
-import { getEffectiveApiBase } from '@/lib/api';
+import { getEffectiveApiBase, registerUser } from '@/lib/api';
 
 export type UserRole = 'super_admin' | 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -100,24 +100,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (name: string, email: string, password: string, role: UserRole = 'customer') => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      const userData: User = {
-        id: Date.now().toString(),
-        name: name,
-        email: email,
-        role: role,
-        phone: '',
-        address: '',
-        memberSince: new Date().getFullYear().toString(),
-      };
-
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      toast.success('Account created successfully!');
+      await registerUser({ name, email, password });
+      // Store pending credentials for optional auto-login after verification
+      try {
+        sessionStorage.setItem('pendingSignup', JSON.stringify({ email, password }));
+      } catch {
+        // ignore storage failures
+      }
+      toast.success('Account created. We emailed you a verification code.', {
+        description: 'Enter the code to complete your registration.',
+      });
     } catch (error) {
-      toast.error('Signup failed. Please try again.');
+      const msg = (error as any)?.message || 'Signup failed. Please try again.';
+      toast.error(msg);
       throw error;
     }
   };
