@@ -93,9 +93,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
   const handleAddToCart = () => {
     handleAction(() => {
-      onAddToCart(product);
+      const safeQty = Math.max(1, Math.min(quantity, product.stock || quantity));
+      for (let i = 0; i < safeQty; i++) {
+        onAddToCart(product);
+      }
       toast.success(`${product.name} added to cart!`, {
-        description: `Quantity: ${quantity}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
+        description: `Quantity: ${safeQty}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
         icon: <Zap className="w-4 h-4 text-emerald-500" />
       });
     });

@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { useStore, Order, Product } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { getOrders, updateOrderStatus } from '@/lib/api';
@@ -19,6 +20,7 @@ import { cn, getRoundedClass } from '@/lib/utils';
 export function AdminOrdersPage() {
     const { updateOrder, theme } = useStore();
     const { user } = useAuth();
+    const location = useLocation();
     const { products: productsFromApi } = useProducts({ limit: 100 });
     const [orders, setOrders] = useState<Order[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
@@ -62,6 +64,12 @@ export function AdminOrdersPage() {
     }
 
     useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const q = params.get('search') || '';
+        setSearchQuery(q);
+    }, [location.search]);
+
+    useEffect(() => {
         let cancelled = false;
         getOrders()
             .then((data) => { if (!cancelled) setOrders((data || []).map(mapApiOrderToOrder)); })
@@ -96,12 +104,25 @@ export function AdminOrdersPage() {
         });
     }, [orders, activeTab, searchQuery, user, products]);
 
-    const stats = useMemo(() => ({
-        total: displayedOrders.length,
-        pending: displayedOrders.filter(o => o.fulfillment === 'Unfulfilled').length,
-        revenue: displayedOrders.reduce((sum, o) => sum + (o.payment === 'Paid' ? o.total : 0), 0),
-        vols: displayedOrders.reduce((sum, o) => sum + (o.items || 0), 0)
-    }), [displayedOrders]);
+    const stats = useMemo(() => {
+        const baseOrders = orders;
+        const activePipeline = baseOrders.filter(
+            (o) => o.status !== 'Delivered' && o.status !== 'Cancelled'
+        );
+        const stagingArea = activePipeline.filter((o) => o.fulfillment === 'Unfulfilled');
+        const revenue = baseOrders.reduce(
+            (sum, o) => sum + (o.payment === 'Paid' ? o.total : 0),
+            0
+        );
+        const volume = activePipeline.reduce((sum, o) => sum + (o.items || 0), 0);
+
+        return {
+            total: activePipeline.length,
+            pending: stagingArea.length,
+            revenue,
+            vols: volume,
+        };
+    }, [orders]);
 
     const handleStatusChange = useCallback(async (id: string, newStatus: Order['status']) => {
         const statusMap: Record<Order['status'], string> = {

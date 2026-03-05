@@ -35,6 +35,19 @@ export function SignUpPage() {
     e.preventDefault();
     setError('');
 
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const email = formData.email.trim();
+
+    if (!emailPattern.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      setError('Please enter a valid Gmail address (e.g. you@gmail.com).');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match. Please try again.');
       return;
@@ -51,14 +64,37 @@ export function SignUpPage() {
       await signup(formData.name, formData.email, formData.password);
       navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
     } catch (err) {
-      setError('Sign up failed. This email may already be in use.');
+      const msg = (err as any)?.message || '';
+      if (msg === 'EMAIL_PENDING_VERIFICATION') {
+        setError('You already started registration. Please verify your email.');
+        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
+      } else if (msg === 'EMAIL_ALREADY_REGISTERED') {
+        setError('This email is already registered. Please sign in instead.');
+      } else {
+        setError('Sign up failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    const nextForm = { ...formData, [name]: value };
+    setFormData(nextForm);
+
+    // Real-time password validation
+    if (name === 'password' || name === 'confirmPassword') {
+      if (nextForm.password && nextForm.password.length < 6) {
+        setError('Password must be at least 6 characters.');
+        return;
+      }
+      if (nextForm.confirmPassword && nextForm.password !== nextForm.confirmPassword) {
+        setError('Passwords do not match. Please try again.');
+        return;
+      }
+      setError('');
+    }
   };
 
   return (

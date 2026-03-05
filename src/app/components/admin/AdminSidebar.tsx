@@ -54,9 +54,32 @@ export function AdminSidebar() {
 
     useEffect(() => {
         let cancelled = false;
-        getOrders().then((data) => { if (!cancelled) setOrderCount((data || []).length); }).catch(() => { if (!cancelled) setOrderCount(0); });
-        getSellers().then((data) => { if (!cancelled) setSellerCount((data || []).length); }).catch(() => { if (!cancelled) setSellerCount(0); });
-        return () => { cancelled = true; };
+
+        const fetchCounts = () => {
+            getOrders()
+                .then((data) => {
+                    if (!cancelled) setOrderCount((data || []).length);
+                })
+                .catch(() => {
+                    if (!cancelled) setOrderCount(0);
+                });
+
+            getSellers()
+                .then((data) => {
+                    if (!cancelled) setSellerCount((data || []).length);
+                })
+                .catch(() => {
+                    if (!cancelled) setSellerCount(0);
+                });
+        };
+
+        fetchCounts();
+        const interval = setInterval(fetchCounts, 30000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
     }, []);
 
     const userRole = user?.role || 'customer';

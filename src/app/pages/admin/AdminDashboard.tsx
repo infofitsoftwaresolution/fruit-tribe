@@ -35,7 +35,7 @@ export function AdminDashboard() {
     const isAdmin = user?.role === 'admin' || user?.role === 'ADMIN';
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
 
-    const intel = useMemo(() => {
+        const intel = useMemo(() => {
         const fullOrders = orders.map((o: any) => ({
             id: o.id,
             orderNumber: o.orderNumber,
@@ -55,7 +55,9 @@ export function AdminDashboard() {
 
         const grossSales = baseOrders.reduce((sum, o) => sum + o.total, 0);
         const volume = baseOrders.length;
-        const pending = baseOrders.filter(o => o.status !== 'DELIVERED').length;
+        const pending = baseOrders.filter(
+            (o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
+        ).length;
         const recent = [...baseOrders]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .slice(0, 5)
@@ -68,7 +70,10 @@ export function AdminDashboard() {
                 payment: o.payment,
             }));
 
-        const globalRevenue = fullOrders.reduce((sum, o) => sum + o.total, 0);
+        const globalRevenue = fullOrders.reduce(
+            (sum, o) => sum + (o.payment === 'Paid' ? o.total : 0),
+            0
+        );
         const buyerBase = customers.length;
         const vendorBase = sellers.length;
 

@@ -68,4 +68,27 @@ export class SellerService {
             return updatedSeller;
         });
     }
+
+    async suspend(sellerId: string, adminUserId: string) {
+        const seller = await this.prisma.seller.findUnique({ where: { id: sellerId } });
+        if (!seller) {
+            throw new BadRequestException('Seller not found');
+        }
+
+        if (seller.status === 'SUSPENDED') {
+            return seller;
+        }
+
+        const updated = await this.prisma.seller.update({
+            where: { id: sellerId },
+            data: {
+                status: 'SUSPENDED',
+                isOpen: false,
+                vacationMode: true,
+            },
+        });
+
+        this.logger.log(`Seller ${sellerId} suspended by Admin ${adminUserId}`);
+        return updated;
+    }
 }

@@ -4,10 +4,14 @@ import { Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 export function Footer() {
   const { theme } = useStore();
   const { cities: deliveryCities } = useServiceableAreas();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterError, setNewsletterError] = useState('');
+  const [newsletterSuccess, setNewsletterSuccess] = useState('');
 
   const socialLinks = [
     { icon: Facebook, href: theme.socialFacebook || '#', label: 'Facebook' },
@@ -154,17 +158,46 @@ export function Footer() {
 
             {/* Newsletter */}
             <div className="pt-6">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-4">Subscribe to our newsletter</p>
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Subscribe to our newsletter</p>
+              {newsletterError && (
+                <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-1">{newsletterError}</p>
+              )}
+              {newsletterSuccess && !newsletterError && (
+                <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-1">{newsletterSuccess}</p>
+              )}
               <div className="flex gap-2">
                 <input
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="you@gmail.com"
+                  value={newsletterEmail}
+                  onChange={(e) => {
+                    setNewsletterEmail(e.target.value);
+                    setNewsletterError('');
+                    setNewsletterSuccess('');
+                  }}
                   className="flex-1 h-14 px-6 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all shadow-inner"
                 />
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="h-14 w-14 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all"
+                  onClick={() => {
+                    const value = newsletterEmail.trim();
+                    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!pattern.test(value)) {
+                      setNewsletterError('Please enter a valid email address.');
+                      setNewsletterSuccess('');
+                      return;
+                    }
+                    if (!value.toLowerCase().endsWith('@gmail.com')) {
+                      setNewsletterError('Please use a valid Gmail address (e.g. you@gmail.com).');
+                      setNewsletterSuccess('');
+                      return;
+                    }
+                    setNewsletterError('');
+                    setNewsletterSuccess('Subscribed successfully. Check your inbox soon!');
+                    setNewsletterEmail('');
+                  }}
                 >
                   <Zap className="w-5 h-5" />
                 </motion.button>

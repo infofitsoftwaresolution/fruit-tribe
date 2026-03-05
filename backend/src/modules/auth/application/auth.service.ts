@@ -39,7 +39,13 @@ export class AuthService {
         });
 
         const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-        if (existing) throw new ConflictException('Email already registered');
+        if (existing) {
+            // If user has a pending OTP (not yet verified), hint frontend to redirect to verify-email
+            if (existing.otpCode && existing.otpExpiry && existing.isActive === false) {
+                throw new ConflictException('EMAIL_PENDING_VERIFICATION');
+            }
+            throw new ConflictException('EMAIL_ALREADY_REGISTERED');
+        }
 
         const passwordHash = await bcrypt.hash(dto.password, 12);
 

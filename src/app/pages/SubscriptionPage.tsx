@@ -4,9 +4,11 @@ import { Check, Sparkles, Gift, Truck, Star, Calendar, Zap, Heart, ShieldCheck, 
 import { useStore } from '@/app/context/StoreContext';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/app/context/AuthContext';
 
 export function SubscriptionPage() {
   const { theme, setSubscription, subscription } = useStore();
+  const { user } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [customBox, setCustomBox] = useState<string[]>([]);
@@ -37,6 +39,13 @@ export function SubscriptionPage() {
   }, [customBox]);
 
   const handleSelectPlan = (id: string) => {
+    if (!user) {
+      toast.info('Please sign in to start a subscription.', {
+        description: 'You need an account so we can manage your deliveries.',
+      });
+      window.location.hash = `#/login?next=/subscription`;
+      return;
+    }
     setSelectedPlan(id);
     setIsCustomizing(true);
   };
@@ -48,6 +57,13 @@ export function SubscriptionPage() {
   };
 
   const handleSubscribe = () => {
+    if (!user) {
+      toast.info('Please sign in to confirm your subscription.', {
+        description: 'Log in and try again.',
+      });
+      window.location.hash = `#/login?next=/subscription`;
+      return;
+    }
     if (!selectedPlan) return;
 
     const plan = plans.find(p => p.id === selectedPlan);
@@ -147,8 +163,35 @@ export function SubscriptionPage() {
                 <p className="text-emerald-100 font-medium">Next Delivery: <span className="font-black underline decoration-2 underline-offset-4">{subscription.nextDelivery}</span></p>
               </div>
               <div className="flex gap-4">
-                <button className="px-6 py-3 bg-white text-emerald-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all">Modify Box</button>
-                <button className="px-6 py-3 bg-emerald-700/50 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-800 transition-all">Pause Tribe</button>
+                <button
+                  onClick={() => {
+                    // Re-open customization modal with current plan
+                    if (subscription?.planName) {
+                      const plan = plans.find(p => p.name === subscription.planName);
+                      if (plan) {
+                        setSelectedPlan(plan.id);
+                        setIsCustomizing(true);
+                      }
+                    }
+                  }}
+                  className="px-6 py-3 bg-white text-emerald-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all"
+                >
+                  Modify Box
+                </button>
+                <button
+                  onClick={() => {
+                    if (!subscription) return;
+                    setSubscription({ ...subscription, status: subscription.status === 'Paused' ? 'Active' : 'Paused' });
+                    toast.info(
+                      subscription.status === 'Paused'
+                        ? 'Subscription resumed.'
+                        : 'Subscription paused. You can resume anytime from this page.'
+                    );
+                  }}
+                  className="px-6 py-3 bg-emerald-700/50 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-800 transition-all"
+                >
+                  {subscription?.status === 'Paused' ? 'Resume Tribe' : 'Pause Tribe'}
+                </button>
               </div>
             </div>
           </motion.div>
@@ -258,7 +301,9 @@ export function SubscriptionPage() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Genetic Selection</span>
                       </div>
                       <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Box Curation</h2>
-                      <p className="text-slate-500 mt-2 font-medium">Select varieties to cycle in your weekly drop.</p>
+                      <p className="text-slate-500 mt-2 font-medium">
+                        Select varieties to cycle in your weekly drop. Delivery days are scheduled for <span className="font-semibold underline">next week</span>, not the current week.
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">

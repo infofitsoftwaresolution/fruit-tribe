@@ -8,6 +8,7 @@ export function NewsletterSection() {
   const { theme, isEditing, updateTheme } = useStore();
   const [email, setEmail] = useState('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [error, setError] = useState('');
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;
@@ -17,6 +18,12 @@ export function NewsletterSection() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!pattern.test(email.trim())) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    setError('');
     setIsSubscribed(true);
     setTimeout(() => {
       setIsSubscribed(false);
@@ -108,6 +115,9 @@ export function NewsletterSection() {
                 <div className="space-y-2">
                   <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Subscribe</h3>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Enter your email below</p>
+                  {error && (
+                    <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest">{error}</p>
+                  )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">

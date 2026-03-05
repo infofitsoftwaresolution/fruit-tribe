@@ -1,11 +1,14 @@
 import { Bell, Search, ExternalLink, Command, Shield, Zap, Activity } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useState, KeyboardEvent } from 'react';
 
 export function AdminHeader() {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const [globalSearch, setGlobalSearch] = useState('');
 
     const showNotifications = () => {
         toast.info('New order #1005', {
@@ -31,6 +34,15 @@ export function AdminHeader() {
                         type="text"
                         placeholder="Search orders, products, customers..."
                         className="block w-full h-12 pl-14 pr-6 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-inner"
+                        value={globalSearch}
+                        onChange={(e) => setGlobalSearch(e.target.value)}
+                        onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                            if (e.key === 'Enter') {
+                                const query = globalSearch.trim();
+                                if (!query) return;
+                                navigate(`/admin/orders?search=${encodeURIComponent(query)}`);
+                            }
+                        }}
                     />
                     <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
                         <kbd className="h-6 px-1.5 border border-slate-200 bg-white rounded-lg text-[10px] font-black text-slate-300 shadow-sm flex items-center justify-center">

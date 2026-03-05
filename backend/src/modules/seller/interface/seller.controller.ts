@@ -49,4 +49,15 @@ export class SellerController {
     ) {
         return this.sellerService.approve(sellerId, req.user.id);
     }
+
+    @ApiOperation({ summary: 'Suspend a seller (Admin only)' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Patch(':id/suspend')
+    async suspend(
+        @Param('id', ParseUUIDPipe) sellerId: string,
+        @Request() req: any,
+    ) {
+        return this.sellerService.suspend(sellerId, req.user.id);
+    }
 }

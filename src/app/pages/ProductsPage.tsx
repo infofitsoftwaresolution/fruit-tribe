@@ -30,8 +30,11 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   });
 
   const filteredProducts = useMemo(() => {
-    return storeProducts;
-  }, [storeProducts]);
+    if (!searchQuery.trim()) return storeProducts;
+    const q = searchQuery.trim().toLowerCase();
+    // Ensure search is strictly by product name on the client so we don't show unrelated items
+    return storeProducts.filter((p) => p.name?.toLowerCase().includes(q));
+  }, [storeProducts, searchQuery]);
 
   const categoryOptions = useMemo(() => {
     const list = [{ id: '', name: 'All' }, ...categories.map((c) => ({ id: c.id, name: c.name }))];
@@ -212,8 +215,14 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 <Package className="h-10 w-10 text-slate-200" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Zero Nodes Detected</h3>
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest italic">No assets match the current filtration parameters.</p>
+                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">
+                  No products found
+                </h3>
+                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest italic">
+                  {searchQuery.trim()
+                    ? `No products found for “${searchQuery.trim()}”.`
+                    : 'No products match the current filters.'}
+                </p>
               </div>
               <button
                 onClick={() => { setSelectedCategoryId(''); setSearchQuery(''); }}

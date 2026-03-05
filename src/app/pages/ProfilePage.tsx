@@ -32,6 +32,9 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
       subtotal: Number(i.subtotal ?? i.pricePerUnit * i.quantity ?? 0),
     };
   });
+  const total = Number(api.payableAmount ?? api.totalAmount ?? 0);
+  const platformFeeRate = 0.02; // 2% platform fee
+  const platformFee = Math.round(total * platformFeeRate * 100) / 100;
   return {
     id: api.orderNumber ?? api.id,
     orderId: api.id,
@@ -39,13 +42,14 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     customer: userName,
     items: api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0,
     date: api.createdAt ? new Date(api.createdAt).toLocaleDateString() : '—',
-    total: Number(api.payableAmount ?? api.totalAmount ?? 0),
+    total,
     payment: paymentMap[api.paymentStatus] || 'Pending',
     fulfillment: api.status === 'DELIVERED' ? 'Fulfilled' : 'Unfulfilled',
     status: statusMap[api.status] || 'Created',
     channel: 'Online Store' as const,
     itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
     orderItems,
+    platformFee,
   };
 }
 
@@ -376,7 +380,14 @@ export function ProfilePage() {
                     <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Tracking</span>
                   </div>
                   <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Order #{trackingOrder.id}</h2>
-                  <p className="text-slate-500 mt-2 font-medium">Placed on {trackingOrder.date} · Total ₹{trackingOrder.total}</p>
+                          <p className="text-slate-500 mt-2 font-medium">
+                            Placed on {trackingOrder.date} · Total ₹{trackingOrder.total}
+                          </p>
+                          {typeof trackingOrder.platformFee === 'number' && trackingOrder.platformFee > 0 && (
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                              Platform fee (2%): ₹{trackingOrder.platformFee.toFixed(2)}
+                            </p>
+                          )}
                 </div>
                 <button onClick={() => setTrackingOrder(null)} className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-black">✕</button>
               </div>
@@ -444,7 +455,14 @@ export function ProfilePage() {
                     <Phone className="w-4 h-4" />
                     Call driver
                   </button>
-                  <button className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-2">
+                  <button
+                    className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-2"
+                    onClick={() => {
+                      toast.info('Your latest order status is shown above.', {
+                        description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
+                      });
+                    }}
+                  >
                     <ExternalLink className="w-4 h-4" />
                     Track order
                   </button>

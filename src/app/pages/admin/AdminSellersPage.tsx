@@ -11,7 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
-import { getSellers, approveSeller as approveSellerApi } from '@/lib/api';
+import { getSellers, approveSeller as approveSellerApi, suspendSeller as suspendSellerApi } from '@/lib/api';
 
 interface Seller {
     id: string;
@@ -445,7 +445,25 @@ export function AdminSellersPage() {
                                         </button>
                                     </>
                                 ) : (
-                                    <button className="w-full h-16 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95">
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                await suspendSellerApi(selectedSeller.id);
+                                                setSellers(prev =>
+                                                    prev.map(s =>
+                                                        s.id === selectedSeller.id
+                                                            ? { ...s, status: 'SUSPENDED' as const }
+                                                            : s
+                                                    )
+                                                );
+                                                toast.success('Vendor suspended successfully.');
+                                                setSelectedSeller(null);
+                                            } catch (e: any) {
+                                                toast.error(e?.message || 'Failed to suspend vendor');
+                                            }
+                                        }}
+                                        className="w-full h-16 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95"
+                                    >
                                         <Ban className="h-5 w-5 text-red-400" />
                                         Suspend Commercial Rights
                                     </button>

@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || 'Invalid email or password.');
+        // Do not surface raw backend error messages to the user
+        throw new Error('Invalid email or password.');
       }
 
       const data = await res.json();
@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error(error?.message || 'Login failed. Please check your credentials.');
+      toast.error('Login failed. Please check your email and password.');
       throw error;
     }
   };
@@ -111,8 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: 'Enter the code to complete your registration.',
       });
     } catch (error) {
-      const msg = (error as any)?.message || 'Signup failed. Please try again.';
-      toast.error(msg);
       throw error;
     }
   };

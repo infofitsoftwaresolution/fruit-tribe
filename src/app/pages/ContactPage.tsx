@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
 import { cn, getRoundedClass } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export function ContactPage() {
   const { theme } = useStore();
@@ -15,8 +16,20 @@ export function ContactPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission
-    alert('Thank you for your message! We will get back to you soon.');
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(formData.email.trim())) {
+      toast.error('Please enter a valid email address.', {
+        description: 'Use a proper email so we can reply to you.',
+      });
+      return;
+    }
+    if (!formData.message.trim()) {
+      toast.error('Please enter a message.');
+      return;
+    }
+    toast.success('Thank you for your message!', {
+      description: 'We will get back to you soon.',
+    });
     setFormData({ name: '', email: '', subject: '', message: '' });
   };
 

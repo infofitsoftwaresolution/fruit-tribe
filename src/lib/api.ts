@@ -177,6 +177,15 @@ export async function getSellers(): Promise<any[]> {
   return res.json();
 }
 
+/** Suspend seller (admin only). */
+export async function suspendSeller(sellerId: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/suspend`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
 export async function getOrders(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -276,7 +285,16 @@ export async function registerUser(payload: { name: string; email: string; passw
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      if (typeof data?.message === 'string') message = data.message;
+    } catch {
+      message = await res.text().catch(() => res.statusText);
+    }
+    throw new Error(message || 'Signup failed');
+  }
   return res.json();
 }
 

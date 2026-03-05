@@ -145,7 +145,13 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => onUpdateQuantity(item.id, -1)}
+                              onClick={() => {
+                                if (item.quantity <= 1) {
+                                  onRemoveItem(item.id);
+                                } else {
+                                  onUpdateQuantity(item.id, -1);
+                                }
+                              }}
                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
                             >
                               <Minus className="w-4 h-4 text-gray-600" />

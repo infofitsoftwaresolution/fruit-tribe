@@ -551,13 +551,27 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Last Name</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">
+                      Last Name<span className="text-red-500 ml-0.5">*</span>
+                    </label>
                     <input
                       type="text"
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
                       required
+                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Phone number</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      required
+                      placeholder="e.g. 9876543210"
                       className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
                     />
                   </div>
