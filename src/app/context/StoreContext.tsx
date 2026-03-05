@@ -42,7 +42,10 @@ export interface Product {
 }
 
 export interface Order {
+    /** Internal UUID from the database */
     id: string;
+    /** Human-facing order number (e.g. FT-1234); may be undefined for legacy/local orders */
+    orderNumber?: string;
     customer: string;
     items: number;
     date: string;

@@ -51,6 +51,7 @@ export function AdminOrdersPage() {
         const itemCount = api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0;
         return {
             id: api.id,
+            orderNumber: api.orderNumber,
             customer: userName,
             items: itemCount,
             date: api.createdAt ? new Date(api.createdAt).toLocaleDateString() : '—',
@@ -92,7 +93,7 @@ export function AdminOrdersPage() {
             const matchesSearch =
                 order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 order.id.includes(searchQuery) ||
-                (order as any).orderNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+                (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
             if (!matchesSearch) return false;
             switch (activeTab) {
                 case 'Unfulfilled': return order.fulfillment === 'Unfulfilled';
@@ -323,6 +324,7 @@ export function AdminOrdersPage() {
                             <AnimatePresence mode='popLayout'>
                                 {displayedOrders.map((order, idx) => {
                                     const variant = getStatusVariant(order.status);
+                                    const displayId = (order as any).orderNumber || order.id;
                                     return (
                                         <motion.tr
                                             key={order.id}
@@ -335,7 +337,7 @@ export function AdminOrdersPage() {
                                         >
                                             <td className="px-10 py-10">
                                                 <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{order.id}</span>
+                                                    <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{displayId}</span>
                                                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{order.date}</span>
                                                 </div>
                                             </td>
@@ -442,8 +444,8 @@ export function AdminOrdersPage() {
                                         <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
                                             <FileText className="w-5 h-5 text-emerald-400" />
                                         </div>
-                                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            Payload Inspection #{selectedOrder.id}
+                                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
+                                            Payload Inspection #{(selectedOrder as any).orderNumber || selectedOrder.id}
                                         </h2>
                                     </div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secure Ledger Analysis v4.2</p>

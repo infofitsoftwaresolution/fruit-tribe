@@ -41,7 +41,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
   const platformFee = Math.round(total * platformFeeRate * 100) / 100;
   const rawStatus: string = api.status ?? 'CREATED';
 
-  const timeline = (api.statusLogs || []).map((log: any) => {
+  let timeline = (api.statusLogs || []).map((log: any) => {
     const raw = (log.status || '').toUpperCase();
     return {
       rawStatus: raw,
@@ -51,6 +51,22 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
       byName: log.changedByName || null,
     };
   });
+
+  // Fallback: if there are no explicit status logs yet (older orders),
+  // synthesize a simple linear timeline up to the current status.
+  if (!timeline.length) {
+    const ordered = ['CREATED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'] as const;
+    const upper = rawStatus.toUpperCase();
+    const idx = ordered.indexOf(upper as any);
+    const endIndex = idx === -1 ? 0 : idx;
+    timeline = ordered.slice(0, endIndex + 1).map((code) => ({
+      rawStatus: code,
+      label: statusMap[code] || code,
+      at: null,
+      byRole: null,
+      byName: null,
+    }));
+  }
 
   return {
     id: api.orderNumber ?? api.id,
@@ -440,46 +456,73 @@ export function ProfilePage() {
 
               <div className="mb-12">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
-                <div className="grid md:grid-cols-3 gap-8">
-                  {(trackingOrder.statusTimeline || []).length > 0
-                    ? (trackingOrder.statusTimeline as any[]).map((step: any, idx: number) => {
-                        const isLast = idx === (trackingOrder.statusTimeline.length - 1);
-                        const isComplete = step.rawStatus === 'DELIVERED' || !isLast;
+                {((trackingOrder.statusTimeline || []) as any[]).length > 0 ? (
+                  <div className="space-y-4">
+                    {/* Progress line */}
+                    <div className="relative flex items-center justify-between">
+                      {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number, arr: any[]) => {
+                        const currentIndex = arr.length - 1;
+                        const isCompleted = idx <= currentIndex && step.rawStatus !== 'CANCELLED';
+                        const isCurrent = idx === currentIndex;
                         return (
-                          <div
-                            key={`${step.rawStatus}-${idx}`}
-                            className={cn(
-                              "p-6 rounded-3xl border-2 transition-all flex flex-col gap-3 relative overflow-hidden",
-                              isComplete ? "bg-emerald-50 border-emerald-100 text-emerald-900" : "bg-slate-50 border-slate-50 text-slate-300"
-                            )}
-                          >
-                            {isLast && !isComplete && (
-                              <div className="absolute top-0 right-0 h-1 w-full bg-emerald-500 animate-shimmer" />
-                            )}
-                            <div className="flex justify-between items-center">
-                              <span className="text-[9px] font-black uppercase tracking-widest italic">Step {idx + 1}</span>
-                              {isComplete && <CheckCircle className="w-4 h-4" />}
+                          <div key={`${step.rawStatus}-${idx}`} className="flex-1 flex items-center">
+                            <div className="relative flex flex-col items-center">
+                              <div
+                                className={cn(
+                                  "h-5 w-5 rounded-full border-2 flex items-center justify-center text-[10px] font-black z-10",
+                                  isCompleted
+                                    ? "bg-emerald-500 border-emerald-500 text-white"
+                                    : "bg-white border-slate-300 text-slate-400"
+                                )}
+                              >
+                                {isCompleted ? <CheckCircle className="w-3 h-3" /> : idx + 1}
+                              </div>
+                              {isCurrent && (
+                                <span className="mt-2 h-1 w-6 rounded-full bg-emerald-400 animate-pulse" />
+                              )}
                             </div>
-                            <p className="text-lg font-black uppercase tracking-tight leading-none">
-                              {step.label}
-                            </p>
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                              {step.at ? step.at.toLocaleString() : 'Pending'}
-                            </p>
-                            {step.byRole && (
-                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                Updated by {step.byName || (step.byRole === 'ADMIN' ? 'Admin' : step.byRole === 'SELLER' ? 'Seller' : 'System')}
-                              </p>
+                            {idx < arr.length - 1 && (
+                              <div
+                                className={cn(
+                                  "h-1 flex-1 mx-1 rounded-full",
+                                  idx < currentIndex && step.rawStatus !== 'CANCELLED'
+                                    ? "bg-emerald-500"
+                                    : "bg-slate-200"
+                                )}
+                              />
                             )}
                           </div>
                         );
-                      })
-                    : (
-                      <div className="p-6 rounded-3xl border-2 bg-slate-50 border-slate-100 text-slate-500 text-sm font-medium">
-                        Tracking information will appear here as your order moves through processing, shipping and delivery.
-                      </div>
-                    )}
-                </div>
+                      })}
+                    </div>
+                    {/* Labels and who updated */}
+                    <div className="grid md:grid-cols-((trackingOrder.statusTimeline || []).length || 1) gap-4">
+                      {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number) => (
+                        <div key={`label-${step.rawStatus}-${idx}`} className="text-xs">
+                          <p className="font-black text-slate-900 uppercase tracking-tight">{step.label}</p>
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            {step.at ? step.at.toLocaleString() : step.label}
+                          </p>
+                          {step.byRole && (
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                              Updated by{" "}
+                              {step.byName ||
+                                (step.byRole === 'ADMIN'
+                                  ? 'Admin'
+                                  : step.byRole === 'SELLER'
+                                  ? 'Seller'
+                                  : 'System')}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 rounded-3xl border-2 bg-slate-50 border-slate-100 text-slate-500 text-sm font-medium">
+                    Tracking information will appear here as your order moves through processing, shipping and delivery.
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-900 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-10">
