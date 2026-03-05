@@ -34,6 +34,16 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
 
   const total = subtotal + shipping + calculatedTax;
 
+  // Important: keep hooks before any conditional returns to avoid React hook order errors.
+  const groupedItems = useMemo(() => {
+    return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
+      const vendor = item.vendor || 'The Fruit Tribe';
+      if (!acc[vendor]) acc[vendor] = [];
+      acc[vendor].push(item);
+      return acc;
+    }, {});
+  }, [items]);
+
   if (items.length === 0) {
     return (
       <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
@@ -64,15 +74,6 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
       </div>
     );
   }
-
-  const groupedItems = useMemo(() => {
-    return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
-      const vendor = item.vendor || 'The Fruit Tribe';
-      if (!acc[vendor]) acc[vendor] = [];
-      acc[vendor].push(item);
-      return acc;
-    }, {});
-  }, [items]);
 
   return (
     <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
