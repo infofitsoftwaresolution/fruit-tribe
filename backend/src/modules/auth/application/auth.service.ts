@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto } from './dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../../../common/mail/mail.service';
 
@@ -294,5 +294,68 @@ export class AuthService {
                     verificationStatus,
                 };
             });
+    }
+
+    async forgotPassword(dto: ForgotPasswordDto) {
+        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        // Do not leak whether the email exists
+        if (!user) {
+            return { message: 'If this email exists, a reset code has been sent.' };
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000);
+
+        await this.prisma.otpLog.create({
+            data: {
+                userId: user.id,
+                otp: code,
+                expiresAt: expiry,
+            },
+        });
+
+        await this.mailService.sendPasswordResetEmail(user.email, code);
+        return { message: 'If this email exists, a reset code has been sent.' };
+    }
+
+    async resetPassword(dto: ResetPasswordDto) {
+        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        if (!user) {
+            throw new BadRequestException('Invalid email or code');
+        }
+
+        const now = new Date();
+        const otpLog = await this.prisma.otpLog.findFirst({
+            where: {
+                userId: user.id,
+                otp: dto.code,
+                expiresAt: { gt: now },
+                verified: false,
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        if (!otpLog) {
+            throw new BadRequestException('Invalid or expired reset code');
+        }
+
+        const newHash = await bcrypt.hash(dto.newPassword, 12);
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: user.id },
+                data: {
+                    passwordHash: newHash,
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
+                },
+            });
+            await tx.otpLog.update({
+                where: { id: otpLog.id },
+                data: { verified: true },
+            });
+        });
+
+        return { message: 'Password reset successful. You can now log in.' };
     }
 }

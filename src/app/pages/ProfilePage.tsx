@@ -178,15 +178,17 @@ export function ProfilePage() {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-                <Leaf className="w-6 h-6" />
+            {typeof user.loyaltyPoints === 'number' && (
+              <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-4">
+                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+                  <Leaf className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rewards points</p>
+                  <p className="text-xl font-black text-slate-900 tracking-tighter">{user.loyaltyPoints}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rewards points</p>
-                <p className="text-xl font-black text-slate-900 tracking-tighter">{user.loyaltyPoints || 1250}</p>
-              </div>
-            </div>
+            )}
             <button onClick={handleLogout} className="h-20 w-20 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center hover:bg-red-500 transition-all shadow-2xl">
               <LogOut className="w-6 h-6" />
             </button>

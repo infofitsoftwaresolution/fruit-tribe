@@ -50,5 +50,33 @@ export class MailService {
             this.logger.error(`Failed to send verification email to ${to}: ${err?.message || err}`);
         }
     }
+
+    async sendPasswordResetEmail(to: string, code: string): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn(`Cannot send password reset email to ${to}: transporter not configured.`);
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+
+        const subject = 'Reset your password for The Fruit Tribe';
+        const text = `We received a request to reset your password for The Fruit Tribe.\n\n` +
+            `Your password reset code is: ${code}\n\n` +
+            `Enter this code in the app to choose a new password. This code will expire in 15 minutes.\n\n` +
+            `If you did not request this, you can ignore this email and your password will stay the same.`;
+        const html = `<p>We received a request to reset your password for <strong>The Fruit Tribe</strong>.</p>
+<p>Your password reset code is:</p>
+<p style="font-size:24px;font-weight:bold;letter-spacing:4px">${code}</p>
+<p>This code will expire in 15 minutes.</p>
+<p>If you did not request this, you can safely ignore this email and your password will remain unchanged.</p>`;
+
+        try {
+            await this.transporter.sendMail({ from, to, subject, text, html });
+            this.logger.log(`Password reset email sent to ${to}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send password reset email to ${to}: ${err?.message || err}`);
+        }
+    }
 }
 

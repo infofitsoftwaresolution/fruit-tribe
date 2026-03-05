@@ -318,6 +318,26 @@ export async function resendEmailCode(email: string): Promise<{ message: string 
   return res.json();
 }
 
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/forgot-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function resetPasswordWithCode(email: string, code: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/reset-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, newPassword }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
 export async function getCustomers(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));

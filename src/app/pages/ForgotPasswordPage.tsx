@@ -2,19 +2,43 @@ import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
+import { toast } from 'sonner';
+import { requestPasswordReset, resetPasswordWithCode } from '@/lib/api';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [step, setStep] = useState<'request' | 'reset' | 'done'>('request');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoading(false);
-    setIsSubmitted(true);
+    try {
+      if (step === 'request') {
+        await requestPasswordReset(email.trim());
+        toast.success('If this email exists, a reset code has been sent.');
+        setStep('reset');
+      } else if (step === 'reset') {
+        if (newPassword.length < 8) {
+          toast.error('Password must be at least 8 characters.');
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          toast.error('Passwords do not match.');
+          return;
+        }
+        await resetPasswordWithCode(email.trim(), code.trim(), newPassword);
+        toast.success('Password reset successful. You can now log in.');
+        setStep('done');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -24,8 +48,8 @@ export function ForgotPasswordPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
-          {!isSubmitted ? (
+          <div className="bg-white rounded-3xl shadow-2xl p-8">
+          {step === 'request' && (
             <>
               {/* Header */}
               <div className="text-center mb-8">
@@ -39,7 +63,7 @@ export function ForgotPasswordPage() {
                 </p>
               </div>
 
-              {/* Form */}
+              {/* Request reset code form */}
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
                   <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -88,7 +112,8 @@ export function ForgotPasswordPage() {
                 </Link>
               </div>
             </>
-          ) : (
+          )}
+          {step === 'reset' && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -97,12 +122,69 @@ export function ForgotPasswordPage() {
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Send className="w-10 h-10 text-green-600" />
               </div>
-              <h2 className="text-3xl font-bold text-gray-800 mb-4">Check Your Email</h2>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Enter Reset Code</h2>
               <p className="text-gray-600 mb-6">
-                We've sent password reset instructions to <strong>{email}</strong>
+                We've sent a password reset code to <strong>{email}</strong>. Enter it below with your new password.
               </p>
-              <p className="text-sm text-gray-500 mb-8">
-                Didn't receive the email? Check your spam folder or try again.
+              <form onSubmit={handleSubmit} className="space-y-4 text-left">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Reset code</label>
+                  <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    required
+                    maxLength={6}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors tracking-[0.4em] text-center uppercase"
+                    placeholder="123456"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">New password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors"
+                    placeholder="New secure password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm new password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-orange-500 focus:outline-none transition-colors"
+                    placeholder="Repeat new password"
+                  />
+                </div>
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  whileHover={{ scale: isLoading ? 1 : 1.02, y: isLoading ? 0 : -2 }}
+                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                  className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Updating...' : 'Reset Password'}
+                </motion.button>
+              </form>
+            </motion.div>
+          )}
+          {step === 'done' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center"
+            >
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Send className="w-10 h-10 text-green-600" />
+              </div>
+              <h2 className="text-3xl font-bold text-gray-800 mb-4">Password Updated</h2>
+              <p className="text-gray-600 mb-6">
+                Your password has been reset successfully. You can now sign in with your new password.
               </p>
               <Link to="/login">
                 <motion.button

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto } from '../application/dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -43,6 +43,18 @@ export class AuthController {
     @Post('resend-email-code')
     async resendEmail(@Body() dto: ResendEmailDto) {
         return this.authService.resendEmail(dto);
+    }
+
+    @ApiOperation({ summary: 'Request password reset code' })
+    @Post('forgot-password')
+    async forgotPassword(@Body() dto: ForgotPasswordDto) {
+        return this.authService.forgotPassword(dto);
+    }
+
+    @ApiOperation({ summary: 'Reset password using email + code' })
+    @Post('reset-password')
+    async resetPassword(@Body() dto: ResetPasswordDto) {
+        return this.authService.resetPassword(dto);
     }
 
     @ApiBearerAuth()
