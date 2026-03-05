@@ -410,6 +410,8 @@ model OrderStatusLog {
   order     Order    @relation(fields: [orderId], references: [id])
   status    String
   createdAt DateTime @default(now()) @map("changed_at")
+  changedByRole String? @map("changed_by_role")
+  changedByName String? @map("changed_by_name")
 
   @@map("order_status_logs")
 }

@@ -74,7 +74,7 @@ export function AdminDashboard() {
             (sum, o) => sum + (o.payment === 'Paid' ? o.total : 0),
             0
         );
-        const buyerBase = customers.length;
+        const buyerBase = customers.filter((c: any) => c.verificationStatus === 'Verified').length || 0;
         const vendorBase = sellers.length;
 
         return {

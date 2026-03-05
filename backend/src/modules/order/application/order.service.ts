@@ -130,6 +130,15 @@ export class OrderService {
                 });
             }
 
+            await tx.orderStatusLog.create({
+                data: {
+                    orderId: order.id,
+                    status: 'CREATED',
+                    changedByRole: 'CUSTOMER',
+                    changedByName: null,
+                },
+            });
+
             this.logger.log(`Order ${order.orderNumber} created for user ${userId}`);
             return order;
         });
@@ -156,6 +165,9 @@ export class OrderService {
                         },
                     },
                 },
+                statusLogs: {
+                    orderBy: { createdAt: 'asc' },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -174,6 +186,9 @@ export class OrderService {
                 },
                 payments: true,
                 deliveries: true,
+                statusLogs: {
+                    orderBy: { createdAt: 'asc' },
+                },
             },
         });
 
@@ -194,6 +209,9 @@ export class OrderService {
                     },
                 },
                 deliveries: true,
+                statusLogs: {
+                    orderBy: { createdAt: 'asc' },
+                },
             },
             orderBy: { createdAt: 'desc' },
         });
@@ -223,10 +241,40 @@ export class OrderService {
         if (!isAdmin && !isSeller) {
             throw new NotFoundException('Order not found');
         }
+        const actorRole = isAdmin ? 'ADMIN' : isSeller ? 'SELLER' : 'SYSTEM';
+        let actorName: string | null = null;
+
+        if (isAdmin) {
+            const adminUser = await this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { firstName: true, lastName: true, email: true },
+            });
+            if (adminUser) {
+                const name = [adminUser.firstName, adminUser.lastName].filter(Boolean).join(' ');
+                actorName = name || adminUser.email || 'Admin';
+            }
+        } else if (isSeller) {
+            const sellerProfile = await this.prisma.seller.findUnique({
+                where: { userId },
+                select: { storeName: true },
+            });
+            actorName = sellerProfile?.storeName || 'Seller';
+        }
+
         await this.prisma.order.update({
             where: { id: orderId },
             data: { status: nextStatus },
         });
+
+        await this.prisma.orderStatusLog.create({
+            data: {
+                orderId,
+                status: nextStatus,
+                changedByRole: actorRole,
+                changedByName: actorName,
+            },
+        });
+
         return this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
@@ -237,6 +285,9 @@ export class OrderService {
                         variant: true,
                         seller: { select: { storeName: true } },
                     },
+                },
+                statusLogs: {
+                    orderBy: { createdAt: 'asc' },
                 },
             },
         });

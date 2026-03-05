@@ -18,7 +18,15 @@ export function AdminCustomersPage() {
     const { user } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-    const [customers, setCustomers] = useState<Array<{ id: string; name: string; email: string; orderCount: number; totalSpent: number; createdAt: string }>>([]);
+    const [customers, setCustomers] = useState<Array<{
+        id: string;
+        name: string;
+        email: string;
+        orderCount: number;
+        totalSpent: number;
+        createdAt: string;
+        verificationStatus?: 'Verified' | 'Unverified';
+    }>>([]);
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -45,6 +53,7 @@ export function AdminCustomersPage() {
             spent: c.totalSpent,
             joined: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—',
             status: (c.totalSpent >= 10000 ? 'VIP' : c.orderCount > 0 ? 'Active' : 'Inactive') as 'Active' | 'VIP' | 'Inactive',
+            verificationStatus: (c.verificationStatus === 'Verified' ? 'Verified' : 'Unverified') as 'Verified' | 'Unverified',
         }));
         if (!searchQuery) return base;
         const q = searchQuery.toLowerCase();
@@ -52,11 +61,15 @@ export function AdminCustomersPage() {
     }, [customers, searchQuery]);
 
     const stats = useMemo(() => {
+        const total = filteredCustomers.length;
+        const vip = filteredCustomers.filter(c => c.status === 'VIP').length;
+        const active = filteredCustomers.filter(c => c.status === 'Active').length;
+        const verified = filteredCustomers.filter(c => c.verificationStatus === 'Verified').length;
         return {
-            total: filteredCustomers.length,
-            vip: filteredCustomers.filter(c => c.status === 'VIP').length,
-            active: filteredCustomers.filter(c => c.status === 'Active').length,
-            growth: '+12%'
+            total,
+            vip,
+            active,
+            growth: `${verified}/${total} verified`,
         };
     }, [filteredCustomers]);
 
@@ -166,7 +179,17 @@ export function AdminCustomersPage() {
                                             </div>
                                         </td>
                                         <td className="px-8 py-6">
-                                            <span className="text-xs font-bold text-slate-500">{customer.email}</span>
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-bold text-slate-500">{customer.email}</span>
+                                                <span className={cn(
+                                                    "inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest w-fit",
+                                                    customer.verificationStatus === 'Verified'
+                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                                                        : 'bg-amber-50 text-amber-700 border border-amber-100'
+                                                )}>
+                                                    {customer.verificationStatus === 'Verified' ? 'Verified' : 'Unverified'}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-8 py-6 text-center">
                                             <span className="text-sm font-black text-slate-900">{customer.orders} Orders</span>

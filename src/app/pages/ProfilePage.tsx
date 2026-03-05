@@ -35,6 +35,19 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
   const total = Number(api.payableAmount ?? api.totalAmount ?? 0);
   const platformFeeRate = 0.02; // 2% platform fee
   const platformFee = Math.round(total * platformFeeRate * 100) / 100;
+  const rawStatus: string = api.status ?? 'CREATED';
+
+  const timeline = (api.statusLogs || []).map((log: any) => {
+    const raw = (log.status || '').toUpperCase();
+    return {
+      rawStatus: raw,
+      label: statusMap[raw] || raw || 'Created',
+      at: log.createdAt ? new Date(log.createdAt) : null,
+      byRole: log.changedByRole || null,
+      byName: log.changedByName || null,
+    };
+  });
+
   return {
     id: api.orderNumber ?? api.id,
     orderId: api.id,
@@ -45,11 +58,13 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     total,
     payment: paymentMap[api.paymentStatus] || 'Pending',
     fulfillment: api.status === 'DELIVERED' ? 'Fulfilled' : 'Unfulfilled',
-    status: statusMap[api.status] || 'Created',
+    status: statusMap[rawStatus] || 'Created',
+    rawStatus,
     channel: 'Online Store' as const,
     itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
     orderItems,
     platformFee,
+    statusTimeline: timeline,
   };
 }
 
@@ -419,24 +434,48 @@ export function ProfilePage() {
                 </div>
               )}
 
-              <div className="grid md:grid-cols-3 gap-8 mb-12">
-                {['Processing', 'Shipped', 'Out for delivery', 'Delivered'].map((status, i) => {
-                  const isActive = (i < 2) || (trackingOrder.status === 'Delivered');
-                  const isCurrent = (i === 1 && trackingOrder.status !== 'Delivered');
-                  return (
-                    <div key={status} className={cn(
-                      "p-6 rounded-3xl border-2 transition-all flex flex-col gap-4 relative overflow-hidden",
-                      isActive ? "bg-emerald-50 border-emerald-100 text-emerald-900" : "bg-slate-50 border-slate-50 text-slate-300"
-                    )}>
-                      {isCurrent && <div className="absolute top-0 right-0 h-1 w-full bg-emerald-500 animate-shimmer" />}
-                      <div className="flex justify-between items-center">
-                        <span className="text-[9px] font-black uppercase tracking-widest italic">Step {i + 1}</span>
-                        {isActive && <CheckCircle className="w-4 h-4" />}
+              <div className="mb-12">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
+                <div className="grid md:grid-cols-3 gap-8">
+                  {(trackingOrder.statusTimeline || []).length > 0
+                    ? (trackingOrder.statusTimeline as any[]).map((step: any, idx: number) => {
+                        const isLast = idx === (trackingOrder.statusTimeline.length - 1);
+                        const isComplete = step.rawStatus === 'DELIVERED' || !isLast;
+                        return (
+                          <div
+                            key={`${step.rawStatus}-${idx}`}
+                            className={cn(
+                              "p-6 rounded-3xl border-2 transition-all flex flex-col gap-3 relative overflow-hidden",
+                              isComplete ? "bg-emerald-50 border-emerald-100 text-emerald-900" : "bg-slate-50 border-slate-50 text-slate-300"
+                            )}
+                          >
+                            {isLast && !isComplete && (
+                              <div className="absolute top-0 right-0 h-1 w-full bg-emerald-500 animate-shimmer" />
+                            )}
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] font-black uppercase tracking-widest italic">Step {idx + 1}</span>
+                              {isComplete && <CheckCircle className="w-4 h-4" />}
+                            </div>
+                            <p className="text-lg font-black uppercase tracking-tight leading-none">
+                              {step.label}
+                            </p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                              {step.at ? step.at.toLocaleString() : 'Pending'}
+                            </p>
+                            {step.byRole && (
+                              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                                Updated by {step.byName || (step.byRole === 'ADMIN' ? 'Admin' : step.byRole === 'SELLER' ? 'Seller' : 'System')}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })
+                    : (
+                      <div className="p-6 rounded-3xl border-2 bg-slate-50 border-slate-100 text-slate-500 text-sm font-medium">
+                        Tracking information will appear here as your order moves through processing, shipping and delivery.
                       </div>
-                      <p className="text-lg font-black uppercase tracking-tight leading-none">{status}</p>
-                    </div>
-                  );
-                })}
+                    )}
+                </div>
               </div>
 
               <div className="bg-slate-900 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-10">

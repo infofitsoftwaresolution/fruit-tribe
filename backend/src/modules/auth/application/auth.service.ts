@@ -24,6 +24,13 @@ export class AuthService {
     ) { }
 
     async register(dto: RegisterDto) {
+        // Extra safety: reject clearly invalid email formats before hitting the database,
+        // even though class-validator already enforces @IsEmail on the DTO.
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(dto.email)) {
+            throw new BadRequestException('Please enter a valid email address.');
+        }
+
         // Soft-clean stale, never-verified users older than 24h
         // (cannot hard-delete because of foreign key constraints from carts, etc.)
         await this.prisma.user.updateMany({
@@ -256,6 +263,9 @@ export class AuthService {
                 firstName: true,
                 lastName: true,
                 createdAt: true,
+                isActive: true,
+                otpCode: true,
+                otpExpiry: true,
                 _count: { select: { orders: true } },
                 orders: {
                     select: { payableAmount: true },
@@ -263,15 +273,26 @@ export class AuthService {
             },
             orderBy: { createdAt: 'desc' },
         });
-        return users.map((u) => ({
-            id: u.id,
-            email: u.email,
-            firstName: u.firstName,
-            lastName: u.lastName,
-            name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
-            createdAt: u.createdAt,
-            orderCount: u._count.orders,
-            totalSpent: u.orders.reduce((sum, o) => sum + Number(o.payableAmount), 0),
-        }));
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        return users
+            // Hide obviously invalid legacy emails from the admin dashboard
+            .filter((u) => emailPattern.test(u.email))
+            .map((u) => {
+                const now = new Date();
+                const hasActiveOtp = !!u.otpCode && !!u.otpExpiry && u.otpExpiry > now;
+                const verificationStatus = u.isActive && !hasActiveOtp ? 'Verified' : 'Unverified';
+                return {
+                    id: u.id,
+                    email: u.email,
+                    firstName: u.firstName,
+                    lastName: u.lastName,
+                    name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
+                    createdAt: u.createdAt,
+                    orderCount: u._count.orders,
+                    totalSpent: u.orders.reduce((sum, o) => sum + Number(o.payableAmount), 0),
+                    verificationStatus,
+                };
+            });
     }
 }
