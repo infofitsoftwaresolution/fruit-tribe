@@ -348,6 +348,12 @@ export class AuthService {
                     passwordHash: newHash,
                     failedLoginAttempts: 0,
                     lockedUntil: null,
+                    // If the account was pending verification but the user
+                    // successfully proved email ownership via reset code,
+                    // treat it as verified.
+                    isActive: true,
+                    otpCode: null,
+                    otpExpiry: null,
                 },
             });
             await tx.otpLog.update({

@@ -7,7 +7,7 @@ import { getOrders, getImageDisplayUrl } from '@/lib/api';
 import {
   User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf,
   Package, Truck, CheckCircle, Clock, ChevronRight, Box,
-  Star, Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink
+  Star, Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -85,6 +85,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     orderItems,
     platformFee,
     statusTimeline: timeline,
+    shippingAddress: api.shippingAddress || null,
   };
 }
 
@@ -96,6 +97,8 @@ export function ProfilePage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<any | null>(null);
+  const [trackingMapCenter, setTrackingMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [trackingMapLoading, setTrackingMapLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -119,6 +122,49 @@ export function ProfilePage() {
       .finally(() => { if (!cancelled) setOrdersLoading(false); });
     return () => { cancelled = true; };
   }, [user]);
+
+  // When a tracking order is opened, geocode its shipping address to show a mini map.
+  useEffect(() => {
+    if (!trackingOrder) {
+      setTrackingMapCenter(null);
+      setTrackingMapLoading(false);
+      return;
+    }
+    const addr = trackingOrder.shippingAddress || {};
+    const parts = [addr.address, addr.city, addr.zipCode, addr.pincode]
+      .filter((v: any) => typeof v === 'string' && v.trim())
+      .join(', ');
+    if (!parts.trim()) {
+      setTrackingMapCenter(null);
+      setTrackingMapLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setTrackingMapLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(parts)}&limit=1`,
+          { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Tracking/1.0' } }
+        );
+        const data = await res.json();
+        if (!cancelled && data && data[0]) {
+          const lat = parseFloat(data[0].lat);
+          const lng = parseFloat(data[0].lon);
+          setTrackingMapCenter({ lat, lng });
+        } else if (!cancelled) {
+          setTrackingMapCenter(null);
+        }
+      } catch {
+        if (!cancelled) setTrackingMapCenter(null);
+      } finally {
+        if (!cancelled) setTrackingMapLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trackingOrder]);
 
   const userOrders = useMemo(() => {
     if (!user) return [];
@@ -457,6 +503,35 @@ export function ProfilePage() {
               )}
 
               <div className="mb-12">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Delivery map</p>
+                {trackingMapLoading && (
+                  <div className="h-48 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center gap-2 mb-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+                    <span className="text-xs font-medium text-slate-500">Loading map…</span>
+                  </div>
+                )}
+                {!trackingMapLoading && trackingMapCenter && (
+                  <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner mb-8">
+                    <iframe
+                      title="Order delivery map"
+                      src={`https://www.openstreetmap.org/export/embed.html?center=${trackingMapCenter.lat},${trackingMapCenter.lng}&zoom=14&marker=${trackingMapCenter.lat},${trackingMapCenter.lng}`}
+                      className="w-full h-52 border-0"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-2 pl-1 pb-2">
+                      Pin shows the delivery location from your shipping address.
+                    </p>
+                  </div>
+                )}
+                {!trackingMapLoading && !trackingMapCenter && trackingOrder.shippingAddress && (
+                  <div className="h-32 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center mb-8">
+                    <span className="text-xs text-slate-400 text-center px-4">
+                      Map will appear here when we can locate your delivery address.
+                    </span>
+                  </div>
+                )}
+
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
                 {((trackingOrder.statusTimeline || []) as any[]).length > 0 ? (
                   <div className="space-y-4">
