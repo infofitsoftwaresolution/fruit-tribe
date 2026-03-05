@@ -24,11 +24,17 @@ export class AuthService {
     ) { }
 
     async register(dto: RegisterDto) {
-        // Clean up stale, never-verified users older than 24h
-        await this.prisma.user.deleteMany({
+        // Soft-clean stale, never-verified users older than 24h
+        // (cannot hard-delete because of foreign key constraints from carts, etc.)
+        await this.prisma.user.updateMany({
             where: {
                 otpCode: { not: null },
                 otpExpiry: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+            },
+            data: {
+                otpCode: null,
+                otpExpiry: null,
+                isActive: false,
             },
         });
 
