@@ -15,8 +15,12 @@ import { cn } from '@/lib/utils';
 /** Map backend order to Profile order-history shape (includes product details per item) */
 function mapApiOrderToProfileOrder(api: any, userName: string) {
   const statusMap: Record<string, string> = {
-    CREATED: 'Created', CONFIRMED: 'Confirmed', PACKED: 'Packed',
-    SHIPPED: 'Shipped', DELIVERED: 'Delivered', CANCELLED: 'Cancelled',
+    CREATED: 'Processing',
+    CONFIRMED: 'Confirmed',
+    PACKED: 'Packed',
+    SHIPPED: 'Shipped',
+    DELIVERED: 'Delivered',
+    CANCELLED: 'Cancelled',
   };
   const paymentMap: Record<string, 'Paid' | 'Pending' | 'Refunded'> = {
     PAID: 'Paid', PENDING: 'Pending', REFUNDED: 'Refunded',

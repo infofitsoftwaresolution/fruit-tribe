@@ -206,12 +206,12 @@ export function AdminOrdersPage() {
 
     const getStatusVariant = (status: string) => {
         switch (status) {
-            case 'Created': return { color: 'blue', label: 'Initialized' };
-            case 'Confirmed': return { color: 'indigo', label: 'Verified' };
-            case 'Packed': return { color: 'amber', label: 'Staged' };
-            case 'Shipped': return { color: 'purple', label: 'In Transit' };
-            case 'Delivered': return { color: 'emerald', label: 'Completed' };
-            case 'Cancelled': return { color: 'red', label: 'Aborted' };
+            case 'Created': return { color: 'blue', label: 'Processing' };
+            case 'Confirmed': return { color: 'indigo', label: 'Confirmed' };
+            case 'Packed': return { color: 'amber', label: 'Packed' };
+            case 'Shipped': return { color: 'purple', label: 'Shipped' };
+            case 'Delivered': return { color: 'emerald', label: 'Delivered' };
+            case 'Cancelled': return { color: 'red', label: 'Cancelled' };
             default: return { color: 'slate', label: status };
         }
     };
