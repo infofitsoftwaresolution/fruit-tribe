@@ -18,8 +18,15 @@ export class DeliveryPartnerService {
     }
 
     async create(data: { name: string; phone: string; email: string; vehicle?: string; status?: string }) {
-        // Create or reuse role DELIVERY_PARTNER
-        const role = await this.prisma.role.findUnique({ where: { name: 'DELIVERY_PARTNER' } });
+        // Create or reuse role DELIVERY_PARTNER so delivery staff get the right dashboard
+        const role = await this.prisma.role.upsert({
+            where: { name: 'DELIVERY_PARTNER' },
+            update: {},
+            create: {
+                name: 'DELIVERY_PARTNER',
+                permissions: {},
+            },
+        });
         const tempPassword = Math.random().toString(36).slice(-10);
         const passwordHash = await bcrypt.hash(tempPassword, 12);
 
@@ -30,7 +37,7 @@ export class DeliveryPartnerService {
                     phone: data.phone,
                     passwordHash,
                     firstName: data.name,
-                    roleId: role?.id ?? undefined,
+                    roleId: role.id,
                     isActive: true,
                     requirePasswordChange: true,
                 },
@@ -78,7 +85,14 @@ export class DeliveryPartnerService {
 
         // If an email is now provided and this partner has no linked user, provision one and send welcome email.
         if (data.email && !existing.user) {
-            const role = await this.prisma.role.findUnique({ where: { name: 'DELIVERY_PARTNER' } });
+            const role = await this.prisma.role.upsert({
+                where: { name: 'DELIVERY_PARTNER' },
+                update: {},
+                create: {
+                    name: 'DELIVERY_PARTNER',
+                    permissions: {},
+                },
+            });
             const tempPassword = Math.random().toString(36).slice(-10);
             const passwordHash = await bcrypt.hash(tempPassword, 12);
 
@@ -87,8 +101,8 @@ export class DeliveryPartnerService {
                     email: data.email,
                     phone: data.phone ?? existing.phone,
                     passwordHash,
-                    firstName: data.name ?? existing.name,
-                    roleId: role?.id ?? undefined,
+                            firstName: data.name ?? existing.name,
+                            roleId: role.id,
                     isActive: true,
                     requirePasswordChange: true,
                 },

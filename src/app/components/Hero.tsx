@@ -1,14 +1,15 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowRight, Sparkles, Leaf, TrendingUp, Zap, ShieldCheck, Globe, PlayCircle } from 'lucide-react';
+import { ArrowRight, Sparkles, Leaf, TrendingUp, Zap, ShieldCheck, Globe, PlayCircle, MapPin, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { cn } from '@/lib/utils';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 export function Hero() {
   const navigate = useNavigate();
   const { theme, isEditing, updateTheme } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState('');
 
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
@@ -69,18 +70,58 @@ export function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight max-w-xl mx-auto lg:mx-0 leading-relaxed italic"
+                className="text-lg md:text-xl text-slate-500 font-bold max-w-xl mx-auto lg:mx-0 leading-relaxed"
               >
                 {theme.heroSubtitle}
               </motion.p>
+
+              {/* Location + trust strip */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.25 }}
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-3 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500"
+              >
+                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  <MapPin className="w-3 h-3" />
+                  Delivering in Bengaluru
+                </div>
+                <span className="hidden md:inline text-slate-300">•</span>
+                <span>Farm fresh • Same-day delivery • Secure payments</span>
+              </motion.div>
             </div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="flex flex-wrap gap-6 justify-center lg:justify-start"
+              className="flex flex-col gap-4 justify-center lg:justify-start max-w-xl"
             >
+              {/* Search bar */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 text-slate-300" />
+                </div>
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const trimmed = query.trim();
+                      if (trimmed) {
+                        navigate(`/products?q=${encodeURIComponent(trimmed)}`);
+                      } else {
+                        navigate('/products');
+                      }
+                    }
+                  }}
+                  placeholder="Search fresh fruits..."
+                  className="w-full h-14 pl-12 pr-4 rounded-[1.75rem] border border-slate-200 bg-white/80 text-xs md:text-sm font-black uppercase tracking-[0.25em] text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
               <button
                 onClick={() => navigate('/products')}
                 className="h-20 px-12 bg-slate-900 text-white rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
@@ -96,6 +137,7 @@ export function Hero() {
                 Heritage Manual
                 <PlayCircle className="w-5 h-5 text-emerald-500" />
               </button>
+              </div>
             </motion.div>
 
             {/* Signal Telemetry Stats */}

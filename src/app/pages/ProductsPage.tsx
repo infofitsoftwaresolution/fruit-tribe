@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ProductCard } from '@/app/components/ProductCard';
 import { Search, Filter, Grid, List, Activity, Sparkles, Zap, Package, Compass } from 'lucide-react';
 import { useProducts } from '@/app/hooks/useProducts';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getCategories, type Category } from '@/lib/api';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -12,14 +13,38 @@ interface ProductsPageProps {
 }
 
 export function ProductsPage({ onAddToCart }: ProductsPageProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [initialCategoryName, setInitialCategoryName] = useState<string | null>(null);
+
+  // Initialize search and category from URL query (?q=apple&categoryName=Fruits)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const q = params.get('q') ?? '';
+    setSearchQuery(q);
+    const catName = params.get('categoryName');
+    setInitialCategoryName(catName);
+    if (!catName) {
+      setSelectedCategoryId('');
+    }
+  }, [location.search]);
 
   useEffect(() => {
     getCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  // Map initialCategoryName from URL to actual category id once categories load
+  useEffect(() => {
+    if (!initialCategoryName || !categories.length) return;
+    const match = categories.find((c) => c.name === initialCategoryName);
+    if (match) {
+      setSelectedCategoryId(match.id);
+    }
+  }, [initialCategoryName, categories]);
 
   const { products: storeProducts, loading, error } = useProducts({
     limit: 50,
@@ -108,7 +133,17 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               type="text"
               placeholder="Search by product name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchQuery(value);
+                const params = new URLSearchParams(location.search);
+                if (value) {
+                  params.set('q', value);
+                } else {
+                  params.delete('q');
+                }
+                navigate({ pathname: '/products', search: params.toString() }, { replace: true });
+              }}
               className="w-full h-24 pl-20 pr-10 bg-white border border-slate-100 rounded-[2rem] text-xl font-black uppercase tracking-tight placeholder:text-slate-200 outline-none focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-[0_20px_60px_rgba(0,0,0,0.03)]"
             />
             <div className="absolute inset-y-0 right-8 flex items-center">

@@ -49,6 +49,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
+  const [deliverySlot, setDeliverySlot] = useState<string>('');
   const [formData, setFormData] = useState({
     firstName: user?.name?.split(' ')[0] || '',
     lastName: user?.name?.split(' ').slice(1).join(' ') || '',
@@ -68,6 +69,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Hydrate saved address if available
+    try {
+      const saved = localStorage.getItem('saved_checkout_address');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFormData((prev) => ({
+          ...prev,
+          ...parsed,
+        }));
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     getWarehouses(true).then((list) => {
@@ -293,6 +310,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       });
       return;
     }
+    if (!deliverySlot) {
+      toast.error('Please choose a delivery slot', {
+        description: 'Select a convenient time window for your delivery.',
+      });
+      return;
+    }
 
     const orderItems: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }> = [];
     const uuidLike = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
@@ -340,11 +363,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         shippingAddress,
         billingAddress: shippingAddress,
         couponCode: appliedCoupon?.code || undefined,
+        deliverySlot: deliverySlot || undefined,
       });
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const payableAmount = Number((created as any).payableAmount ?? grandTotal);
       const amountInPaise = Math.round(payableAmount * 100);
+
+      // Persist address for next checkout
+      try {
+        localStorage.setItem('saved_checkout_address', JSON.stringify(formData));
+      } catch {
+        // ignore
+      }
 
       if (paymentMethod === 'cod') {
         clearCart();
@@ -627,8 +658,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   </div>
                 </div>
 
-                {/* Map: shown when address is geocoded or current location is used */}
-                <div className="mt-8">
+                {/* Map & delivery slot */}
+                <div className="mt-8 space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Delivery location</p>
                     <button
@@ -670,6 +701,39 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <span className="text-sm text-slate-400">Map will appear when you enter your address</span>
                     </div>
                   )}
+
+                  {/* Delivery slot selection */}
+                  <div className="pt-4 border-t border-slate-100 mt-6">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-4">
+                      Choose delivery slot
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        `Today · in ~${Math.max(45, deliveryStats.estimatedMins)} mins`,
+                        'Today · 6pm – 8pm',
+                        'Tomorrow · 8am – 10am',
+                      ].map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setDeliverySlot(slot)}
+                          className={cn(
+                            "px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] text-left transition-all",
+                            deliverySlot === slot
+                              ? "bg-slate-900 text-white border-slate-900"
+                              : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-500 hover:bg-white"
+                          )}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                    {!deliverySlot && (
+                      <p className="mt-2 text-[10px] font-bold text-slate-400 pl-4">
+                        We recommend choosing a slot so our delivery partners can plan better.
+                      </p>
+                    )}
+                  </div>
                 </div>
               </motion.div>
 

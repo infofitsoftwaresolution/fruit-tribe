@@ -198,6 +198,7 @@ export async function createOrder(body: {
   shippingAddress: Record<string, unknown>;
   billingAddress?: Record<string, unknown>;
   couponCode?: string;
+  deliverySlot?: string;
   idempotencyKey?: string;
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, {
