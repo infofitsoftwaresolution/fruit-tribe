@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto } from '../application/dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -55,6 +55,14 @@ export class AuthController {
     @Post('reset-password')
     async resetPassword(@Body() dto: ResetPasswordDto) {
         return this.authService.resetPassword(dto);
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Change password for logged-in user (force after first login if required)' })
+    @UseGuards(JwtAuthGuard)
+    @Post('change-password')
+    async changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+        return this.authService.changePassword(req.user.id, dto);
     }
 
     @ApiBearerAuth()

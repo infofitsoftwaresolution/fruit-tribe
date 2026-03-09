@@ -37,6 +37,7 @@ model User {
   otpExpiry            DateTime? @map("otp_expiry")
   lastLogin            DateTime? @map("last_login")
   refreshTokenHash     String?   @map("refresh_token_hash")
+  requirePasswordChange Boolean  @default(false) @map("require_password_change")
   seller               Seller?
   orders               Order[]
   carts                Cart?
@@ -237,6 +238,8 @@ model Order {
   payments         Payment[]
   deliveries       Delivery[]
   statusLogs       OrderStatusLog[]
+  deliveryEarnings DeliveryEarning[]
+  codTransactions  CodTransaction[]
   supportTickets   SupportTicket[]
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
@@ -290,6 +293,9 @@ model Delivery {
   actualDelivery     DateTime? @map("actual_delivery")
   geoLocation        Json?     @map("geo_location")
   createdAt          DateTime  @default(now()) @map("created_at")
+
+  trackingEvents     DeliveryTracking[]
+  earnings           DeliveryEarning[]
 
   @@map("deliveries")
 }
@@ -514,9 +520,70 @@ model DeliveryPartner {
   phone      String
   vehicle    String?
   status     String   @default("ACTIVE")
-  deliveries Delivery[]
+  // Operational fields for delivery app
+  onlineStatus        String    @default("OFFLINE") @map("online_status")
+  currentLat          Decimal?  @db.Decimal(9, 6) @map("current_lat")
+  currentLng          Decimal?  @db.Decimal(9, 6) @map("current_lng")
+  rating              Decimal   @default(0.0) @db.Decimal(3, 2)
+  completedDeliveries Int       @default(0) @map("completed_deliveries")
+
+  deliveries          Delivery[]
+  trackingEvents      DeliveryTracking[]
+  earnings            DeliveryEarning[]
+  codTransactions     CodTransaction[]
 
   @@map("delivery_partners")
+}
+
+model DeliveryTracking {
+  id                String    @id @default(uuid()) @db.Uuid
+  deliveryId        String    @db.Uuid @map("delivery_id")
+  delivery          Delivery  @relation(fields: [deliveryId], references: [id])
+  deliveryPartnerId String?   @db.Uuid @map("delivery_partner_id")
+  deliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  status            String
+  lat               Decimal?  @db.Decimal(9, 6)
+  lng               Decimal?  @db.Decimal(9, 6)
+  note              String?
+  source            String    @default("APP")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  @@map("delivery_tracking")
+}
+
+model DeliveryEarning {
+  id                String         @id @default(uuid()) @db.Uuid
+  deliveryPartnerId String         @db.Uuid @map("delivery_partner_id")
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id])
+  orderId           String         @db.Uuid @map("order_id")
+  order             Order          @relation(fields: [orderId], references: [id])
+  deliveryId        String?        @db.Uuid @map("delivery_id")
+  delivery          Delivery?      @relation(fields: [deliveryId], references: [id])
+  baseFee           Decimal        @db.Decimal(10, 2) @map("base_fee")
+  distanceFee       Decimal        @default(0) @db.Decimal(10, 2) @map("distance_fee")
+  incentive         Decimal        @default(0) @db.Decimal(10, 2)
+  penalty           Decimal        @default(0) @db.Decimal(10, 2)
+  total             Decimal        @db.Decimal(10, 2)
+  payoutStatus      String         @default("PENDING") @map("payout_status")
+  payoutDate        DateTime?      @map("payout_date")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  @@map("delivery_earnings")
+}
+
+model CodTransaction {
+  id                String         @id @default(uuid()) @db.Uuid
+  deliveryPartnerId String         @db.Uuid @map("delivery_partner_id")
+  deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id])
+  orderId           String?        @db.Uuid @map("order_id")
+  order             Order?         @relation(fields: [orderId], references: [id])
+  amount            Decimal        @db.Decimal(10, 2)
+  type              String         @map("type")
+  paymentMode       String?        @map("payment_mode")
+  reference         String?        @map("reference")
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  @@map("cod_transactions")
 }
 
 model StoreSetting {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { getEffectiveApiBase, registerUser } from '@/lib/api';
+import { useStore } from '@/app/context/StoreContext';
 
 export type UserRole = 'super_admin' | 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -21,6 +22,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  requirePasswordChange: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => void;
@@ -41,6 +43,7 @@ function mapBackendRoleToFrontend(role: string | undefined): UserRole {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const store = useStore();
   const [user, setUser] = useState<User | null>(() => {
     // Check for stored user in localStorage
     const storedUser = localStorage.getItem('user');
@@ -54,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return parsedUser;
     }
     return null;
+  });
+  const [requirePasswordChange, setRequirePasswordChange] = useState<boolean>(() => {
+    const stored = localStorage.getItem('requirePasswordChange');
+    return stored === 'true';
   });
 
   const login = async (email: string, password: string) => {
@@ -90,7 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('requirePasswordChange', String(!!u.requirePasswordChange));
       setUser(userData);
+      setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
       toast.error('Login failed. Please check your email and password.');
@@ -117,9 +126,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
+    setRequirePasswordChange(false);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('requirePasswordChange');
+    try {
+      store.clearCart();
+      localStorage.removeItem('store_cart');
+    } catch {
+      // ignore cart clearing failures
+    }
     toast.info('Logged out successfully');
   };
 
@@ -139,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
+        requirePasswordChange,
         login,
         signup,
         logout,

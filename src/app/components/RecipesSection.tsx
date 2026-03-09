@@ -1,10 +1,12 @@
-import { motion } from 'framer-motion';
-import { ChefHat, Clock, Users, ArrowRight, Zap, Target, Activity } from 'lucide-react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, Users, ArrowRight, Zap, X } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
 import { cn } from '@/lib/utils';
 
 export function RecipesSection() {
   const { theme, isEditing, updateTheme } = useStore();
+  const [activeRecipeIndex, setActiveRecipeIndex] = useState<number | null>(null);
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;
@@ -41,6 +43,33 @@ export function RecipesSection() {
       color: 'blue',
     },
   ];
+
+  const colorClasses: Record<string, string> = {
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+    blue: 'bg-blue-500',
+  };
+
+  const RECIPE_PLACEHOLDER =
+    'https://images.unsplash.com/photo-1547514701-42782101795e?q=80&w=800&auto=format&fit=crop';
+
+  function RecipeImage({ src, alt }: { src: string; alt: string }) {
+    const [effectiveSrc, setEffectiveSrc] = useState(
+      () => (src && src.trim()) ? src : RECIPE_PLACEHOLDER,
+    );
+    const handleError = () => {
+      setEffectiveSrc(RECIPE_PLACEHOLDER);
+    };
+    return (
+      <motion.img
+        src={effectiveSrc}
+        alt={alt}
+        onError={handleError}
+        loading="lazy"
+        className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
+      />
+    );
+  }
 
   return (
     <section className="relative py-32 bg-white overflow-hidden">
@@ -108,11 +137,7 @@ export function RecipesSection() {
               className="group relative bg-white rounded-[3rem] overflow-hidden border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-3xl hover:border-emerald-500 transition-all duration-700 flex flex-col h-full"
             >
               <div className="relative h-72 overflow-hidden shrink-0">
-                <motion.img
-                  src={recipe.image}
-                  alt={recipe.title}
-                  className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110"
-                />
+                <RecipeImage src={recipe.image} alt={recipe.title} />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 {/* Recipe info */}
@@ -157,8 +182,10 @@ export function RecipesSection() {
                     whileTap={{ scale: 0.95 }}
                     className={cn(
                       "h-12 w-full flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-widest transition-all shadow-xl",
-                      `bg-slate-900 text-white group-hover:bg-${recipe.color}-500 rounded-2xl`
+                      "bg-slate-900 text-white rounded-2xl",
+                      `group-hover:${colorClasses[recipe.color] || 'bg-emerald-500'}`
                     )}
+                    onClick={() => setActiveRecipeIndex(index)}
                   >
                     Execute Integration
                     <Zap className="h-3 w-3 group-hover:scale-125 transition-transform" />
@@ -168,6 +195,79 @@ export function RecipesSection() {
             </motion.div>
           ))}
         </div>
+        <AnimatePresence>
+          {activeRecipeIndex !== null && (
+            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 40 }}
+                className="bg-white rounded-[3rem] max-w-2xl w-full mx-4 overflow-hidden border border-slate-100 shadow-2xl"
+              >
+                {(() => {
+                  const recipe = recipes[activeRecipeIndex];
+                  return (
+                    <>
+                      <div className="relative h-64 overflow-hidden">
+                        <RecipeImage src={recipe.image} alt={recipe.title} />
+                        <button
+                          onClick={() => setActiveRecipeIndex(null)}
+                          className="absolute top-4 right-4 h-9 w-9 rounded-2xl bg-white/90 text-slate-500 hover:text-red-500 shadow-md flex items-center justify-center"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="p-8 space-y-6">
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">
+                            Recipe
+                          </p>
+                          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
+                            {recipe.title}
+                          </h3>
+                          <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                            {recipe.description}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-xs text-slate-600 font-bold uppercase tracking-widest">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-emerald-500" />
+                            <span>Prep time: {recipe.execution}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-emerald-500" />
+                            <span>Serves: {recipe.yield}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            Ingredients
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                            {recipe.ingredients.map((ing, i) => (
+                              <li key={i}>{ing}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            Simple method
+                          </p>
+                          <ol className="list-decimal pl-5 space-y-1 text-sm text-slate-700">
+                            <li>Prepare all ingredients as listed above.</li>
+                            <li>Combine fruits in a large bowl.</li>
+                            <li>Add any herbs, yogurt or honey as desired.</li>
+                            <li>Toss gently and serve chilled.</li>
+                          </ol>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </section>
   );

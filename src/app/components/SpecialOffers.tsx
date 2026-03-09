@@ -7,7 +7,7 @@ import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
 
 export function SpecialOffers() {
-  const { theme, isEditing, updateTheme, products: storeProducts } = useStore();
+  const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart } = useStore();
   const { products: apiProducts } = useProducts({ limit: 100 });
   const products = apiProducts.length > 0 ? apiProducts : storeProducts;
   const bulkProducts = products.filter((p: { bulkDiscountQty?: number }) => (p.bulkDiscountQty ?? 0) > 0);
@@ -22,26 +22,35 @@ export function SpecialOffers() {
   const offers = [
     {
       icon: TrendingUp,
-      title: '25% off',
-      subtitle: 'Exotic fruits',
-      description: 'Great deals on dragon fruit, kiwi, and other tropical favorites.',
+      title: theme.specialOffer1Title || '25% off',
+      subtitle: theme.specialOffer1Subtitle || 'Exotic fruits',
+      description: theme.specialOffer1Description || 'Great deals on dragon fruit, kiwi, and other tropical favorites.',
       color: 'emerald',
+      titleField: 'specialOffer1Title',
+      subtitleField: 'specialOffer1Subtitle',
+      descriptionField: 'specialOffer1Description',
     },
     {
       icon: Clock,
-      title: 'Limited time',
-      subtitle: 'Berry bundle',
-      description: 'Strawberries, blueberries and grapes at a special price.',
+      title: theme.specialOffer2Title || 'Limited time',
+      subtitle: theme.specialOffer2Subtitle || 'Berry bundle',
+      description: theme.specialOffer2Description || 'Strawberries, blueberries and grapes at a special price.',
       color: 'amber',
+      titleField: 'specialOffer2Title',
+      subtitleField: 'specialOffer2Subtitle',
+      descriptionField: 'specialOffer2Description',
     },
     {
       icon: Gift,
-      title: 'Buy 2 get 1',
-      subtitle: 'Seasonal offer',
-      description: 'Buy two items and get one complimentary fruit of the season.',
+      title: theme.specialOffer3Title || 'Buy 2 get 1',
+      subtitle: theme.specialOffer3Subtitle || 'Seasonal offer',
+      description: theme.specialOffer3Description || 'Buy two items and get one complimentary fruit of the season.',
       color: 'blue',
+      titleField: 'specialOffer3Title',
+      subtitleField: 'specialOffer3Subtitle',
+      descriptionField: 'specialOffer3Description',
     },
-  ];
+  ] as const;
 
   return (
     <section className="relative py-32 bg-white overflow-hidden">
@@ -119,13 +128,28 @@ export function SpecialOffers() {
                 </div>
 
                 <div className="space-y-4">
-                  <h3 className={cn("text-4xl font-black tracking-tighter uppercase leading-none", `text-${offer.color}-400`)}>
+                  <h3
+                    className={cn("text-4xl font-black tracking-tighter uppercase leading-none", `text-${offer.color}-400`)}
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning
+                    onBlur={handleTextChange(offer.titleField)}
+                  >
                     {offer.title}
                   </h3>
-                  <h4 className="text-xl font-black text-white uppercase tracking-tight">
+                  <h4
+                    className="text-xl font-black text-white uppercase tracking-tight"
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning
+                    onBlur={handleTextChange(offer.subtitleField)}
+                  >
                     {offer.subtitle}
                   </h4>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed italic">
+                  <p
+                    className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed italic"
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning
+                    onBlur={handleTextChange(offer.descriptionField)}
+                  >
                     {offer.description}
                   </p>
                 </div>
@@ -203,7 +227,16 @@ export function SpecialOffers() {
                   isSeasonal={product.isSeasonal}
                   bulkDiscountQty={product.bulkDiscountQty}
                   bulkDiscountPrice={product.bulkDiscountPrice}
-                  onAddToCart={() => { }}
+                  onAddToCart={(payload: any) => {
+                    const p =
+                      typeof payload === 'object'
+                        ? payload
+                        : products.find((pr: any) => String(pr.id) === String(payload));
+                    if (!p) return;
+                    handleAddToCart(p);
+                  }}
+                  product={product}
+                  bulkDealMode
                 />
               </motion.div>
             ))}

@@ -58,7 +58,13 @@ export function AdminSidebar() {
         const fetchCounts = () => {
             getOrders()
                 .then((data) => {
-                    if (!cancelled) setOrderCount((data || []).length);
+                    if (cancelled) return;
+                    const list = Array.isArray(data) ? data : [];
+                    // Count only active (non-delivered, non-cancelled) orders so badge reflects open workload.
+                    const active = list.filter(
+                        (o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED',
+                    );
+                    setOrderCount(active.length);
                 })
                 .catch(() => {
                     if (!cancelled) setOrderCount(0);

@@ -44,6 +44,13 @@ export function HowItWorks() {
     },
   ];
 
+  const colorClasses: Record<string, string> = {
+    emerald: 'bg-emerald-500 text-white',
+    amber: 'bg-amber-500 text-white',
+    blue: 'bg-blue-500 text-white',
+    slate: 'bg-slate-900 text-white',
+  };
+
   return (
     <section className="relative py-32 overflow-hidden bg-white">
       {/* Background Architectural Elements */}
@@ -95,10 +102,12 @@ export function HowItWorks() {
                 {/* Number Watermark */}
                 <span className="absolute -top-10 -right-4 text-[120px] font-black text-slate-900/5 select-none pointer-events-none">{step.number}</span>
 
-                <div className={cn(
-                  "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-xl",
-                  `bg-${step.color}-500 text-white`
-                )}>
+                <div
+                  className={cn(
+                    "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-xl",
+                    colorClasses[step.color] || 'bg-slate-900 text-white'
+                  )}
+                >
                   <step.icon className="h-8 w-8" />
                 </div>
 

@@ -51,6 +51,15 @@ export function WhyChooseUs() {
     },
   ];
 
+  const colorClasses: Record<string, string> = {
+    emerald: 'bg-emerald-500',
+    amber: 'bg-amber-500',
+    blue: 'bg-blue-500',
+    purple: 'bg-purple-500',
+    slate: 'bg-slate-900',
+    pink: 'bg-pink-500',
+  };
+
   return (
     <section className="relative py-32 bg-white overflow-hidden">
       {/* Background Architectural Manifold */}
@@ -101,16 +110,20 @@ export function WhyChooseUs() {
               className="group relative bg-white rounded-[3rem] p-12 border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-3xl hover:shadow-emerald-900/10 hover:border-emerald-500 transition-all duration-500 overflow-hidden flex flex-col h-full"
             >
               {/* Dynamic Glow Artifact */}
-              <div className={cn(
-                "absolute -top-10 -right-10 w-40 h-40 blur-3xl opacity-0 group-hover:opacity-10 transition-all duration-700",
-                `bg-${feature.color}-500`
-              )} />
+              <div
+                className={cn(
+                  "absolute -top-10 -right-10 w-40 h-40 blur-3xl opacity-0 group-hover:opacity-10 transition-all duration-700",
+                  colorClasses[feature.color] || 'bg-slate-900'
+                )}
+              />
 
               <div className="flex items-start justify-between mb-12">
-                <div className={cn(
-                  "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-xl",
-                  `bg-${feature.color}-500 text-white`
-                )}>
+                <div
+                  className={cn(
+                    "h-16 w-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-xl text-white",
+                    colorClasses[feature.color] || 'bg-slate-900'
+                  )}
+                >
                   <feature.icon className="h-8 w-8" />
                 </div>
                 <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest">Feature {index + 1}</span>

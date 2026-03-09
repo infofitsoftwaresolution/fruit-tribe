@@ -69,6 +69,19 @@ export function AdminProductsPage() {
 
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
 
+    // For seller users, auto-bind their own sellerId when opening the form
+    useEffect(() => {
+        if (!isSeller || !user || formData.sellerId || !sellers.length) return;
+        const match = sellers.find(
+            (s) =>
+                s.user?.id === (user as any).id ||
+                (s.user?.email && s.user.email.toLowerCase() === (user.email || '').toLowerCase())
+        );
+        if (match) {
+            setFormData((prev) => ({ ...prev, sellerId: match.id }));
+        }
+    }, [isSeller, user, sellers, formData.sellerId]);
+
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
             if (isSeller && product.vendor !== (user as any)?.name) return false;
@@ -153,7 +166,18 @@ export function AdminProductsPage() {
     const handleSubmitProduct = async (e: React.FormEvent) => {
         e.preventDefault();
         const categoryId = formData.categoryId || categories.find(c => c.name === formData.category)?.id;
-        if (!editingProduct && !formData.sellerId) {
+
+        // Resolve sellerId: admins choose from dropdown; sellers get their own sellerId auto-bound
+        let sellerId = formData.sellerId;
+        if (!editingProduct && !sellerId && isSeller) {
+            const match = sellers.find(
+                (s) =>
+                    s.user?.id === (user as any).id ||
+                    (s.user?.email && s.user.email.toLowerCase() === (user.email || '').toLowerCase())
+            );
+            if (match) sellerId = match.id;
+        }
+        if (!editingProduct && !sellerId) {
             toast.error('Please select a seller');
             return;
         }
@@ -200,7 +224,7 @@ export function AdminProductsPage() {
                     name: formData.name,
                     description: formData.description || undefined,
                     basePrice: parseFloat(formData.price),
-                    sellerId: formData.sellerId,
+                    sellerId: sellerId as string,
                     categoryId,
                     harvestDate: formData.harvestDate,
                     expiryDate: formData.expiryDate,
@@ -597,12 +621,15 @@ export function AdminProductsPage() {
                                                     { label: 'Fruits', value: 'Fruits' }, { label: 'Vegetables', value: 'Vegetables' }
                                                 ]}
                                             />
-                                            {!editingProduct && (
+                                            {!editingProduct && !isSeller && (
                                                 <FormSelect
                                                     label="Seller / Merchant"
                                                     value={formData.sellerId}
                                                     onChange={(v: string) => setFormData({ ...formData, sellerId: v })}
-                                                    options={sellers.map(s => ({ label: s.storeName, value: s.id }))}
+                                                    options={[
+                                                        { label: 'Select seller', value: '' },
+                                                        ...sellers.map(s => ({ label: s.storeName, value: s.id }))
+                                                    ]}
                                                 />
                                             )}
                                         </div>

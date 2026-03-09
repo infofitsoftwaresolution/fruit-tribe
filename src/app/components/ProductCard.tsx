@@ -22,6 +22,7 @@ function ProductImage({ src, alt, isOutOfStock }: { src: string; alt: string; is
       src={effectiveSrc}
       alt={alt}
       onError={handleError}
+      loading="lazy"
       className={cn(
         'w-full h-full object-cover transition-all duration-[2s] group-hover:scale-110',
         isOutOfStock ? 'grayscale opacity-40' : ''
@@ -42,13 +43,19 @@ interface ProductCardProps {
   isSeasonal?: boolean;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
-  onAddToCart: (id: string | number) => void;
+  onAddToCart: (payload: any, quantity?: number) => void;
   /** When provided, onAddToCart will be called with this product (for API-driven cart) */
   product?: import('@/lib/api').Product;
+  /** When true, enforce bulk quantity semantics (used in bulk deals grid) */
+  bulkDealMode?: boolean;
 }
 
-export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product }: ProductCardProps) => {
+export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode }: ProductCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [quantity, setQuantity] = useState(() => {
+    if (bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0) return bulkDiscountQty;
+    return 1;
+  });
   const { user } = useAuth();
   const { theme } = useStore();
   const navigate = useNavigate();
@@ -140,7 +147,7 @@ toast.error('Please sign in', {
       {/* Intelligence & Telemetry Content */}
       <div className="p-8 flex flex-col flex-1 relative">
         {/* Rating Topology */}
-        <div className="flex items-center gap-1.5 mb-6 shrink-0">
+        <div className="flex items-center gap-1.5 mb-4 shrink-0">
           <div className="flex -space-x-1">
             {[...Array(5)].map((_, i) => (
               <Star
@@ -155,6 +162,53 @@ toast.error('Please sign in', {
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-2">Rated 4.8</span>
         </div>
 
+        {/* Stock & ETA */}
+        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">
+          <span>
+            {isOutOfStock ? 'Out of stock' : stock <= 10 ? `Only ${stock} left` : `${stock} in stock`}
+          </span>
+          <span className="text-emerald-500">Delivery: 1–2 days</span>
+        </div>
+
+        {/* Quick quantity selector */}
+        {!isOutOfStock && (
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+              Quantity
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const minQty = bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0 ? bulkDiscountQty : 1;
+                  setQuantity((q) => Math.max(minQty, q - 1));
+                }}
+                className="h-7 w-7 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 text-xs font-black hover:bg-slate-50"
+              >
+                -
+              </button>
+              <span className="min-w-[2.5rem] text-center text-[11px] font-black text-slate-800">
+                {quantity} kg
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setQuantity((q) => {
+                    const next = q + 1;
+                    if (stock && next > stock) return stock;
+                    return next;
+                  });
+                }}
+                className="h-7 w-7 rounded-xl border border-slate-900 bg-slate-900 text-white flex items-center justify-center text-xs font-black hover:bg-emerald-500 hover:border-emerald-500"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 space-y-3">
           <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-tight group-hover:text-emerald-600 transition-colors">
             {name}
@@ -166,7 +220,7 @@ toast.error('Please sign in', {
         </div>
 
         {/* Transaction Rail */}
-        <div className="flex items-center justify-between gap-6 mt-10 pt-8 border-t border-slate-50">
+        <div className="flex items-center justify-between gap-6 mt-8 pt-8 border-t border-slate-50">
           <div className="shrink-0 space-y-1">
             <div className="flex items-baseline gap-1">
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest mr-1">INR</span>
@@ -193,8 +247,15 @@ toast.error('Please sign in', {
             disabled={isOutOfStock}
             onClick={(e) => {
               e.preventDefault();
+              if (isOutOfStock) return;
               const payload = product ?? id;
-              !isOutOfStock && handleAction(() => onAddToCart(payload as any));
+              let safeQty = Math.max(1, quantity);
+              if (bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0) {
+                // When coming from a bulk deal context, ensure at least the bulk threshold
+                safeQty = Math.max(bulkDiscountQty, safeQty);
+              }
+              const finalQty = safeQty;
+              handleAction(() => onAddToCart(payload as any, finalQty));
             }}
             className={cn(
               "h-16 px-8 flex items-center gap-4 transition-all duration-500 shadow-2xl",

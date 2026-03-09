@@ -338,6 +338,16 @@ export async function resetPasswordWithCode(email: string, code: string, newPass
   return res.json();
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/change-password`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
 export async function getCustomers(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -504,14 +514,14 @@ export async function deleteWarehouse(id: string): Promise<void> {
 }
 
 /** List delivery partners / in-house delivery staff (admin only). */
-export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string }>> {
+export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; user?: { email: string } }>> {
   const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
-/** Create delivery partner (admin only). */
-export async function createDeliveryPartner(data: { name: string; phone: string; vehicle?: string; status?: string }): Promise<{ id: string }> {
+/** Create delivery partner (admin only). Also provisions login with temp password. */
+export async function createDeliveryPartner(data: { name: string; phone: string; email: string; vehicle?: string; status?: string }): Promise<{ id: string }> {
   const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, {
     method: 'POST',
     headers: getAuthHeaders(),

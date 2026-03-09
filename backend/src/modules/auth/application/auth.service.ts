@@ -8,7 +8,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto } from './dtos/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../../../common/mail/mail.service';
 
@@ -162,6 +162,7 @@ export class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role?.name,
+                requirePasswordChange: user.requirePasswordChange,
             },
         };
     }
@@ -363,5 +364,29 @@ export class AuthService {
         });
 
         return { message: 'Password reset successful. You can now log in.' };
+    }
+
+    async changePassword(userId: string, dto: ChangePasswordDto) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            throw new BadRequestException('User not found');
+        }
+
+        const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+        if (!valid) {
+            throw new BadRequestException('Current password is incorrect');
+        }
+
+        const newHash = await bcrypt.hash(dto.newPassword, 12);
+
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordHash: newHash,
+                requirePasswordChange: false,
+            },
+        });
+
+        return { message: 'Password changed successfully.' };
     }
 }

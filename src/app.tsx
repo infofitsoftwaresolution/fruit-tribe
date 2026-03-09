@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
 import { StoreProvider, useStore, type CartItem } from '@/app/context/StoreContext';
 import { Navbar } from '@/app/components/Navbar';
+import { MobileBottomNav } from '@/app/components/MobileBottomNav';
 import { Footer } from '@/app/components/Footer';
 import { CartDrawer } from '@/app/components/CartDrawer';
 import { ScrollToTop } from '@/app/components/ScrollToTop';
@@ -23,6 +24,7 @@ const LoginPage = lazy(() => import('@/app/pages/LoginPage').then(m => ({ defaul
 const SignUpPage = lazy(() => import('@/app/pages/SignUpPage').then(m => ({ default: m.SignUpPage })));
 const VerifyEmailPage = lazy(() => import('@/app/pages/VerifyEmailPage').then(m => ({ default: m.VerifyEmailPage })));
 const ForgotPasswordPage = lazy(() => import('@/app/pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ChangePasswordPage = lazy(() => import('@/app/pages/ChangePasswordPage').then(m => ({ default: m.ChangePasswordPage })));
 const CheckoutPage = lazy(() => import('@/app/pages/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
 const OrderConfirmationPage = lazy(() => import('@/app/pages/OrderConfirmationPage').then(m => ({ default: m.OrderConfirmationPage })));
 const NotFoundPage = lazy(() => import('@/app/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
@@ -30,6 +32,7 @@ const SubscriptionPage = lazy(() => import('@/app/pages/SubscriptionPage').then(
 const MerchantOnboardingPage = lazy(() => import('@/app/pages/MerchantOnboardingPage').then(m => ({ default: m.MerchantOnboardingPage })));
 
 const AdminLayout = lazy(() => import('@/app/layouts/AdminLayout').then(m => ({ default: m.AdminLayout })));
+const DeliveryLayout = lazy(() => import('@/app/layouts/DeliveryLayout').then(m => ({ default: m.DeliveryLayout })));
 const AdminDashboard = lazy(() => import('@/app/pages/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const AdminProductsPage = lazy(() => import('@/app/pages/admin/AdminProductsPage').then(m => ({ default: m.AdminProductsPage })));
 const AdminOrdersPage = lazy(() => import('@/app/pages/admin/AdminOrdersPage').then(m => ({ default: m.AdminOrdersPage })));
@@ -46,6 +49,10 @@ const AdminSellersPage = lazy(() => import('@/app/pages/admin/AdminSellersPage')
 const AdminLogisticsPage = lazy(() => import('@/app/pages/admin/AdminLogisticsPage').then(m => ({ default: m.AdminLogisticsPage })));
 const AdminPayoutsPage = lazy(() => import('@/app/pages/admin/AdminPayoutsPage').then(m => ({ default: m.AdminPayoutsPage })));
 const SellerDashboard = lazy(() => import('@/app/pages/seller/SellerDashboard').then(m => ({ default: m.SellerDashboard })));
+const DeliveryDashboard = lazy(() => import('@/app/pages/delivery/DeliveryDashboard').then(m => ({ default: m.DeliveryDashboard })));
+const DeliveryAssignmentsPage = lazy(() => import('@/app/pages/delivery/DeliveryAssignmentsPage').then(m => ({ default: m.DeliveryAssignmentsPage })));
+const DeliveryAssignmentDetailPage = lazy(() => import('@/app/pages/delivery/DeliveryAssignmentDetailPage').then(m => ({ default: m.DeliveryAssignmentDetailPage })));
+const DeliveryEarningsPage = lazy(() => import('@/app/pages/delivery/DeliveryEarningsPage').then(m => ({ default: m.DeliveryEarningsPage })));
 
 function PageFallback() {
   return (
@@ -85,13 +92,44 @@ const MainLayout = memo(function MainLayout({
   setIsCartOpen
 }: MainLayoutProps) {
   const closeCart = useCallback(() => setIsCartOpen(false), [setIsCartOpen]);
+  const [showLocationPrompt, setShowLocationPrompt] = React.useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('locationPromptSeen') !== 'true';
+  });
+
+  const handleDismissLocation = useCallback(() => {
+    setShowLocationPrompt(false);
+    try {
+      localStorage.setItem('locationPromptSeen', 'true');
+    } catch {
+      // ignore storage issues
+    }
+  }, []);
+
+  const handleEnableLocation = useCallback(() => {
+    if (!('geolocation' in navigator)) {
+      handleDismissLocation();
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        handleDismissLocation();
+      },
+      () => {
+        handleDismissLocation();
+      },
+      { enableHighAccuracy: true, timeout: 7000 }
+    );
+  }, [handleDismissLocation]);
+
   return (
     <div className="relative min-h-screen bg-white flex flex-col">
       <SeasonalEffects />
       <Navbar cartCount={cartCount} onCartClick={onCartClick} />
-      <main className="flex-1">
+      <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
+      <MobileBottomNav cartCount={cartCount} onCartClick={onCartClick} />
       <Footer />
       <CartDrawer
         isOpen={isCartOpen}
@@ -100,6 +138,40 @@ const MainLayout = memo(function MainLayout({
         onUpdateQuantity={onUpdateQuantity}
         onRemoveItem={onRemoveItem}
       />
+      {showLocationPrompt && (
+        <div className="fixed inset-0 z-[140] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+          <div className="w-full sm:max-w-md mx-4 mb-6 sm:mb-0 rounded-3xl bg-white shadow-2xl border border-slate-100 p-6 space-y-4">
+            <div>
+              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">
+                Delivery area check
+              </p>
+              <h2 className="mt-2 text-lg font-black text-slate-900 tracking-tight">
+                We currently deliver in Bengaluru only
+              </h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Enable location so we can confirm if your address is within our Bengaluru service area and show accurate delivery info.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleEnableLocation}
+                className="flex-1 h-10 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.25em]"
+              >
+                Enable location
+              </button>
+              <button
+                onClick={handleDismissLocation}
+                className="flex-1 h-10 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-[0.25em]"
+              >
+                Not now
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              We only use your location to check if we can deliver to you in Bengaluru.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -158,6 +230,7 @@ function AppRoutes() {
           <Route path="/signup" element={<MainLayout {...mainLayoutProps}><SignUpPage /></MainLayout>} />
           <Route path="/verify-email" element={<MainLayout {...mainLayoutProps}><VerifyEmailPage /></MainLayout>} />
           <Route path="/forgot-password" element={<MainLayout {...mainLayoutProps}><ForgotPasswordPage /></MainLayout>} />
+          <Route path="/change-password" element={<MainLayout {...mainLayoutProps}><ChangePasswordPage /></MainLayout>} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
 
           <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'seller']} />}>
@@ -181,6 +254,15 @@ function AppRoutes() {
                 <Route path="settings" element={<AdminSettingsPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Route>
+
+          <Route element={<ProtectedRoute allowedRoles={['delivery_partner']} />}>
+            <Route path="/delivery" element={<DeliveryLayout />}>
+              <Route index element={<DeliveryDashboard />} />
+              <Route path="assignments" element={<DeliveryAssignmentsPage />} />
+              <Route path="assignments/:id" element={<DeliveryAssignmentDetailPage />} />
+              <Route path="earnings" element={<DeliveryEarningsPage />} />
             </Route>
           </Route>
 

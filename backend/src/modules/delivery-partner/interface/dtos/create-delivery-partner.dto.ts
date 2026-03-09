@@ -1,14 +1,18 @@
-import { IsString, IsOptional } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsEmail } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateDeliveryPartnerDto {
-    @ApiPropertyOptional()
+    @ApiProperty()
     @IsString()
     name: string;
 
-    @ApiPropertyOptional()
+    @ApiProperty()
     @IsString()
     phone: string;
+
+    @ApiProperty()
+    @IsEmail()
+    email: string;
 
     @ApiPropertyOptional()
     @IsOptional()

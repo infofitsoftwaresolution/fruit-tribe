@@ -175,8 +175,8 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
             <motion.div
               layout
               className={cn(
-                "grid gap-10",
-                viewMode === 'grid' ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"
+                "grid gap-6 sm:gap-8",
+                viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
               )}
             >
               {filteredProducts.map((product, index) => (

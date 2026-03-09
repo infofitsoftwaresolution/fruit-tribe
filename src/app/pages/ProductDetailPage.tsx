@@ -12,7 +12,7 @@ import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, getRoundedClass } from '@/lib/utils';
 
 interface ProductDetailPageProps {
-  onAddToCart: (product: Product) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
 }
 
 export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
@@ -94,9 +94,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const handleAddToCart = () => {
     handleAction(() => {
       const safeQty = Math.max(1, Math.min(quantity, product.stock || quantity));
-      for (let i = 0; i < safeQty; i++) {
-        onAddToCart(product);
-      }
+      onAddToCart(product, safeQty);
       toast.success(`${product.name} added to cart!`, {
         description: `Quantity: ${safeQty}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
         icon: <Zap className="w-4 h-4 text-emerald-500" />

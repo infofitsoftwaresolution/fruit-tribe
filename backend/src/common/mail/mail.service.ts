@@ -78,5 +78,39 @@ export class MailService {
             this.logger.error(`Failed to send password reset email to ${to}: ${err?.message || err}`);
         }
     }
+
+    async sendDeliveryStaffWelcomeEmail(to: string, tempPassword: string): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn(`Cannot send delivery staff welcome email to ${to}: transporter not configured.`);
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+
+        const subject = 'Your delivery account for The Fruit Tribe';
+        const loginUrl = this.config.get<string>('APP_LOGIN_URL') || 'https://thefruittribe.com/#/login';
+        const text =
+            `Welcome to The Fruit Tribe delivery network!\n\n` +
+            `An admin has created a delivery staff account for you.\n\n` +
+            `Login email: ${to}\n` +
+            `Temporary password: ${tempPassword}\n\n` +
+            `Please log in at ${loginUrl} and you will be asked to change this password immediately.\n\n` +
+            `If you did not expect this email, please contact the store owner.`;
+
+        const html = `<p>Welcome to <strong>The Fruit Tribe</strong> delivery network!</p>
+<p>An admin has created a delivery staff account for you.</p>
+<p><strong>Login email:</strong> ${to}<br/>
+<strong>Temporary password:</strong> ${tempPassword}</p>
+<p>Please log in at <a href="${loginUrl}" target="_blank" rel="noopener noreferrer">${loginUrl}</a> and you will be asked to change this password immediately.</p>
+<p>If you did not expect this email, please contact the store owner.</p>`;
+
+        try {
+            await this.transporter.sendMail({ from, to, subject, text, html });
+            this.logger.log(`Delivery staff welcome email sent to ${to}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send delivery staff welcome email to ${to}: ${err?.message || err}`);
+        }
+    }
 }
 

@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, requirePasswordChange } = useAuth();
 
     useEffect(() => {
         if (isAuthenticated && allowedRoles && user && !allowedRoles.includes(user.role)) {
@@ -18,6 +18,11 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
 
     if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
+    }
+
+    // Force password change before allowing access to protected areas
+    if (requirePasswordChange && window.location.hash !== '#/change-password') {
+        return <Navigate to="/change-password" replace />;
     }
 
     if (allowedRoles && user && !allowedRoles.includes(user.role)) {

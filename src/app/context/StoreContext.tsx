@@ -174,6 +174,16 @@ export interface ThemeSettings {
     socialTwitter?: string;
     socialInstagram?: string;
     socialLinkedIn?: string;
+    // Special Offers cards (home page)
+    specialOffer1Title?: string;
+    specialOffer1Subtitle?: string;
+    specialOffer1Description?: string;
+    specialOffer2Title?: string;
+    specialOffer2Subtitle?: string;
+    specialOffer2Description?: string;
+    specialOffer3Title?: string;
+    specialOffer3Subtitle?: string;
+    specialOffer3Description?: string;
 }
 
 export interface CartItem {
@@ -242,7 +252,7 @@ interface StoreContextType {
     deletePage: (id: string) => void;
     taxRates: Record<string, number>;
     updateTaxRate: (category: string, rate: number) => void;
-    handleAddToCart: (product: Product) => void;
+    handleAddToCart: (product: Product, quantity?: number) => void;
     handleUpdateQuantity: (id: string | number, change: number) => void;
     handleRemoveItem: (id: string | number) => void;
     clearCart: () => void;
@@ -459,7 +469,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return () => { cancelled = true; };
     }, []);
 
-    const handleAddToCart = useCallback((product: Product) => {
+    const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
+        const desiredQty = Math.max(1, Math.floor(quantity));
         if (product.stock <= 0) {
             toast.error(`${product.name} is currently out of stock`);
             return;
@@ -467,23 +478,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         setCartItems(prevItems => {
             const existingItem = prevItems.find(item => item.id === product.id);
+            const currentQty = existingItem?.quantity ?? 0;
+            const maxStock = product.stock;
+            const newQty = Math.min(currentQty + desiredQty, maxStock);
+
+            if (currentQty >= maxStock) {
+                toast.error(`Only ${product.stock} units available in stock`);
+                return prevItems;
+            }
+
             if (existingItem) {
-                if (existingItem.quantity >= product.stock) {
-                    toast.error(`Only ${product.stock} units available in stock`);
-                    return prevItems;
-                }
                 const updatedItems = prevItems.map(item =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+                    item.id === product.id ? { ...item, quantity: newQty } : item
                 );
-                toast.success(`Increased ${existingItem.name} quantity`);
+                const added = newQty - currentQty;
+                toast.success(`Updated ${existingItem.name} quantity to ${newQty} (added ${added})`);
                 return updatedItems;
             } else {
-                toast.success(`${product.name} added to cart!`);
+                toast.success(`${product.name} added to cart (${newQty} units)!`);
                 return [...prevItems, {
                     id: product.id,
                     name: product.name,
                     price: product.price,
-                    quantity: 1,
+                    quantity: newQty,
                     image: product.image,
                     vendor: product.vendor,
                     stock: product.stock

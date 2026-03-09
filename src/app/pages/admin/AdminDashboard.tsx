@@ -35,6 +35,11 @@ export function AdminDashboard() {
     const isAdmin = user?.role === 'admin' || user?.role === 'ADMIN';
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
 
+    const lowStockCount = useMemo(
+        () => products.filter((p) => p.stock < 10 && p.stock > 0).length,
+        [products]
+    );
+
         const intel = useMemo(() => {
         const fullOrders = orders.map((o: any) => ({
             id: o.id,
@@ -317,7 +322,11 @@ export function AdminDashboard() {
                             </div>
                             <div className="flex-1">
                                 <p className="text-[9px] font-black text-amber-800/60 uppercase tracking-widest mb-1">Attention Required</p>
-                                <p className="text-xs font-black text-amber-900 leading-tight">3 products nearing stock exhaustion.</p>
+                                <p className="text-xs font-black text-amber-900 leading-tight">
+                                    {lowStockCount > 0
+                                        ? `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} nearing stock exhaustion.`
+                                        : 'All products have healthy stock.'}
+                                </p>
                             </div>
                         </div>
                         <div className="p-6 bg-purple-50 rounded-[2.5rem] border border-purple-100 flex items-start gap-4">

@@ -67,11 +67,11 @@ export function AdminLogisticsPage() {
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [loading, setLoading] = useState(true);
     const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; address: string; latitude: number | string; longitude: number | string; isActive: boolean }>>([]);
-    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string }>>([]);
+    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; user?: { email: string } }>>([]);
     const [warehouseModal, setWarehouseModal] = useState<{ open: boolean; editing?: { id: string; name: string; address: string; latitude: number; longitude: number; isActive: boolean } }>({ open: false });
-    const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; vehicle: string; status: string } }>({ open: false });
+    const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; email: string; vehicle: string; status: string } }>({ open: false });
     const [warehouseForm, setWarehouseForm] = useState({ name: '', address: '', latitude: '', longitude: '', isActive: true });
-    const [staffForm, setStaffForm] = useState({ name: '', phone: '', vehicle: '', status: 'ACTIVE' });
+    const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
 
     useEffect(() => {
         let cancelled = false;
@@ -142,20 +142,20 @@ export function AdminLogisticsPage() {
     };
 
     const handleSaveStaff = async () => {
-        if (!staffForm.name.trim() || !staffForm.phone.trim()) {
-            toast.error('Name and phone required');
+        if (!staffForm.name.trim() || !staffForm.phone.trim() || !staffForm.email.trim()) {
+            toast.error('Name, phone and email required');
             return;
         }
         try {
             if (staffModal.editing) {
-                await updateDeliveryPartner(staffModal.editing.id, { ...staffForm, vehicle: staffForm.vehicle || undefined });
-                toast.success('Delivery partner updated');
+                await updateDeliveryPartner(staffModal.editing.id, { name: staffForm.name, phone: staffForm.phone, email: staffForm.email, vehicle: staffForm.vehicle || undefined, status: staffForm.status });
+                toast.success('Delivery partner updated. If this staff had no login before, we have emailed them a temporary password.');
             } else {
-                await createDeliveryPartner({ name: staffForm.name, phone: staffForm.phone, vehicle: staffForm.vehicle || undefined, status: staffForm.status });
-                toast.success('Delivery partner added');
+                await createDeliveryPartner({ name: staffForm.name, phone: staffForm.phone, email: staffForm.email, vehicle: staffForm.vehicle || undefined, status: staffForm.status });
+                toast.success('Delivery partner added. We emailed them a temporary password.');
             }
             setStaffModal({ open: false });
-            setStaffForm({ name: '', phone: '', vehicle: '', status: 'ACTIVE' });
+            setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
             getDeliveryPartners().then(setDeliveryPartners).catch(() => {});
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save');
@@ -266,11 +266,12 @@ export function AdminLogisticsPage() {
                                     <div>
                                         <p className="font-black text-slate-900">{dp.name}</p>
                                         <p className="text-sm text-slate-500 mt-1">{dp.phone}</p>
+                                        {dp.user?.email && <p className="text-xs text-slate-400 mt-0.5">{dp.user.email}</p>}
                                         {dp.vehicle && <p className="text-[10px] text-slate-400 mt-1">Vehicle: {dp.vehicle}</p>}
                                         <span className={cn('inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase', dp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{dp.status}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status } }); setStaffForm({ name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status, email: dp.user?.email || '' } }); setStaffForm({ name: dp.name, phone: dp.phone, email: dp.user?.email || '', vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
                                         <button onClick={async () => { if (confirm('Remove this delivery partner?')) { try { await deleteDeliveryPartner(dp.id); toast.success('Removed'); getDeliveryPartners().then(setDeliveryPartners); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
@@ -574,10 +575,16 @@ export function AdminLogisticsPage() {
             {staffModal.open && createPortal(
                 <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md" onClick={() => setStaffModal({ open: false })}>
                     <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full border border-slate-100" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-xl font-black text-slate-900 mb-6">{staffModal.editing ? 'Edit delivery staff' : 'Add delivery staff'}</h3>
+                        <h3 className="text-xl font-black text-slate-900 mb-2">{staffModal.editing ? 'Edit delivery staff' : 'Add delivery staff'}</h3>
+                        {!staffModal.editing && (
+                            <p className="text-[11px] text-slate-500 mb-4">
+                                We will create a delivery login for this staff member and email them a temporary password.
+                            </p>
+                        )}
                         <div className="space-y-4">
                             <input placeholder="Name" value={staffForm.name} onChange={e => setStaffForm({ ...staffForm, name: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
                             <input placeholder="Phone" value={staffForm.phone} onChange={e => setStaffForm({ ...staffForm, phone: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
+                            <input placeholder="Email (used for login)" value={staffForm.email} onChange={e => setStaffForm({ ...staffForm, email: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
                             <input placeholder="Vehicle (optional)" value={staffForm.vehicle} onChange={e => setStaffForm({ ...staffForm, vehicle: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900" />
                             <select value={staffForm.status} onChange={e => setStaffForm({ ...staffForm, status: e.target.value })} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900">
                                 <option value="ACTIVE">Active</option>
