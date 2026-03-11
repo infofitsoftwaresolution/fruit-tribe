@@ -80,6 +80,7 @@ export class OrderService {
                     orderNumber,
                     userId,
                     totalAmount: subtotal,
+                    deliverySlot: dto.deliverySlot,
                     discountAmount,
                     shippingFee,
                     taxAmount,

@@ -47,6 +47,11 @@ export class CreateOrderDto {
     @IsString()
     couponCode?: string;
 
+  @ApiProperty({ required: false, description: 'Chosen delivery slot label for this order' })
+  @IsOptional()
+  @IsString()
+  deliverySlot?: string;
+
     @ApiProperty({ required: false })
     @IsOptional()
     @IsString()
