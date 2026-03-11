@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Menu, X, Search, User, LogIn, ChevronRight, LayoutDashboard, Globe, Zap, ArrowUpRight } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, User, LogIn, ChevronRight, LayoutDashboard, Globe, Zap, ArrowUpRight, Truck } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
@@ -20,6 +20,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   const { isAuthenticated, user } = useAuth();
 
   const isAdmin = user && ['super_admin', 'admin', 'seller'].includes(user.role);
+  const isDeliveryPartner = user?.role === 'delivery_partner';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -124,6 +125,12 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 <Link to="/admin" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/20">
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   Admin
+                </Link>
+              )}
+              {isDeliveryPartner && (
+                <Link to="/delivery" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-slate-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-slate-900/20">
+                  <Truck className="w-3.5 h-3.5" />
+                  Delivery
                 </Link>
               )}
 

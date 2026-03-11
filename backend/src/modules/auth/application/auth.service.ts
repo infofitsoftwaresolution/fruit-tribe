@@ -105,7 +105,7 @@ export class AuthService {
     }
 
     async login(dto: LoginDto) {
-        const user = await this.prisma.user.findUnique({
+        let user = await this.prisma.user.findUnique({
             where: { email: dto.email },
             include: { role: true },
         });
@@ -131,14 +131,49 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Reset failed attempts on successful login
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: {
-                failedLoginAttempts: 0,
-                lastLogin: new Date(),
-            },
-        });
+        // If this user is a delivery partner but has no role yet, attach DELIVERY_PARTNER role.
+        if (!user.role) {
+            const deliveryPartner = await this.prisma.deliveryPartner.findUnique({
+                where: { userId: user.id },
+            });
+            if (deliveryPartner) {
+                const role = await this.prisma.role.upsert({
+                    where: { name: 'DELIVERY_PARTNER' },
+                    update: {},
+                    create: {
+                        name: 'DELIVERY_PARTNER',
+                        permissions: {},
+                    },
+                });
+                user = await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        roleId: role.id,
+                        failedLoginAttempts: 0,
+                        lastLogin: new Date(),
+                    },
+                    include: { role: true },
+                });
+            } else {
+                // Not a delivery partner: still reset attempts and lastLogin.
+                await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        failedLoginAttempts: 0,
+                        lastLogin: new Date(),
+                    },
+                });
+            }
+        } else {
+            // Reset failed attempts on successful login
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    failedLoginAttempts: 0,
+                    lastLogin: new Date(),
+                },
+            });
+        }
 
         const payload = { sub: user.id, email: user.email, role: user.role?.name };
         const accessToken = this.jwtService.sign(payload);
