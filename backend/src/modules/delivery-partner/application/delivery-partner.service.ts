@@ -10,6 +10,43 @@ export class DeliveryPartnerService {
         private readonly mailService: MailService,
     ) { }
 
+    /** Admin: assign an order to a delivery partner (creates or rebinds Delivery row). */
+    async assignOrderToPartner(orderId: string, partnerId: string) {
+        const [order, partner] = await Promise.all([
+            this.prisma.order.findUnique({ where: { id: orderId } }),
+            this.prisma.deliveryPartner.findUnique({ where: { id: partnerId } }),
+        ]);
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+        if (!partner) {
+            throw new NotFoundException('Delivery partner not found');
+        }
+
+        // Create or update a Delivery record linking this order and partner.
+        const existing = await this.prisma.delivery.findFirst({
+            where: { orderId: order.id },
+        });
+
+        if (existing) {
+            return this.prisma.delivery.update({
+                where: { id: existing.id },
+                data: {
+                    deliveryPartnerId: partner.id,
+                    status: existing.status ?? 'ASSIGNED',
+                },
+            });
+        }
+
+        return this.prisma.delivery.create({
+            data: {
+                orderId: order.id,
+                deliveryPartnerId: partner.id,
+                status: 'ASSIGNED',
+            },
+        });
+    }
+
     async findAll() {
         return this.prisma.deliveryPartner.findMany({
             orderBy: { name: 'asc' },

@@ -37,6 +37,8 @@ export function LoginPage() {
         const user = JSON.parse(storedUser);
         if (['super_admin', 'admin', 'seller'].includes(user.role)) {
           navigate('/admin');
+        } else if (user.role === 'delivery_partner') {
+          navigate('/delivery');
         } else {
           navigate('/');
         }

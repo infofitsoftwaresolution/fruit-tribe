@@ -41,6 +41,10 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
   const platformFee = Math.round(total * platformFeeRate * 100) / 100;
   const rawStatus: string = api.status ?? 'CREATED';
 
+  const firstDelivery = (api.deliveries || [])[0] || null;
+  const courierName: string | null = firstDelivery?.deliveryPartner?.name ?? null;
+  const courierStatus: string | null = (firstDelivery?.status as string | null) ?? null;
+
   let timeline = (api.statusLogs || []).map((log: any) => {
     const raw = (log.status || '').toUpperCase();
     return {
@@ -86,6 +90,8 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     platformFee,
     statusTimeline: timeline,
     shippingAddress: api.shippingAddress || null,
+    courierName,
+    courierStatus,
   };
 }
 
@@ -602,24 +608,31 @@ export function ProfilePage() {
                 )}
               </div>
 
-              <div className="bg-slate-900 rounded-[3rem] p-10 text-white flex flex-col md:flex-row items-center justify-between gap-10">
-                <div className="flex items-center gap-6">
+              <div className="bg-slate-900 rounded-[3rem] p-6 sm:p-8 md:p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6 md:gap-10">
+                <div className="flex items-center gap-4 sm:gap-6">
                   <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10">
                     <Navigation className="w-8 h-8" />
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Courier</p>
-                    <p className="text-xl font-black tracking-tight">Driver: RAJU-451</p>
-                    <p className="text-xs text-emerald-400 font-bold mt-1">Status: Out for delivery</p>
+                    <p className="text-base sm:text-lg font-black tracking-tight">
+                      Driver: {trackingOrder.courierName || 'Assigning soon'}
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-emerald-400 font-bold mt-1">
+                      Status:{' '}
+                      {(trackingOrder.courierStatus as string | null)?.toString()
+                        ? (trackingOrder.courierStatus as string).replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())
+                        : trackingOrder.status}
+                    </p>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <button className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+                  <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
                     <Phone className="w-4 h-4" />
                     Call driver
                   </button>
                   <button
-                    className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-2"
+                    className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
                     onClick={() => {
                       toast.info('Your latest order status is shown above.', {
                         description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,

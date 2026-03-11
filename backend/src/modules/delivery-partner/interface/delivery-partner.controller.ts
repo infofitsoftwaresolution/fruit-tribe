@@ -37,4 +37,13 @@ export class DeliveryPartnerController {
     async remove(@Param('id', ParseUUIDPipe) id: string) {
         return this.deliveryPartnerService.remove(id);
     }
+
+  @ApiOperation({ summary: 'Assign an order to a delivery partner (admin)' })
+  @Post('assign')
+  async assignOrder(
+      @Body('orderId', new ParseUUIDPipe()) orderId: string,
+      @Body('partnerId', new ParseUUIDPipe()) partnerId: string,
+  ) {
+      return this.deliveryPartnerService.assignOrderToPartner(orderId, partnerId);
+  }
 }

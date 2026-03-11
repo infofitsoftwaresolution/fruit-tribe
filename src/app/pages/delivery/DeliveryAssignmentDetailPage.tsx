@@ -148,8 +148,16 @@ export function DeliveryAssignmentDetailPage() {
         [assignment.order.user.firstName, assignment.order.user.lastName].filter(Boolean).join(' ') ||
         assignment.order.user.phone ||
         'Customer';
-    const address = (assignment.order.shippingAddress as any)?.addressLine1 || 'Address not available';
-    const encodedDestination = encodeURIComponent(address);
+    const rawAddress = assignment.order.shippingAddress as any;
+    const addressParts = [
+        rawAddress?.addressLine1 || rawAddress?.address || '',
+        rawAddress?.addressLine2 || '',
+        rawAddress?.city || '',
+        rawAddress?.state || '',
+        rawAddress?.pincode || rawAddress?.zipCode || '',
+    ].filter((v: string) => v && v.trim());
+    const address = addressParts.length ? addressParts.join(', ') : 'Address not available';
+    const encodedDestination = encodeURIComponent(address === 'Address not available' ? '' : address);
     const currentStatus = assignment.status || 'ASSIGNED';
 
     return (

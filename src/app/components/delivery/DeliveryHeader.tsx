@@ -1,9 +1,13 @@
-import { Bell, Search, ExternalLink, Truck, Activity } from 'lucide-react';
+import { Bell, Search, ExternalLink, Truck, Activity, Menu } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
-export function DeliveryHeader() {
+interface DeliveryHeaderProps {
+    onOpenSidebar?: () => void;
+}
+
+export function DeliveryHeader({ onOpenSidebar }: DeliveryHeaderProps) {
     const { user } = useAuth();
 
     const showNotifications = () => {
@@ -13,9 +17,17 @@ export function DeliveryHeader() {
     };
 
     return (
-        <header className="flex h-20 items-center justify-between bg-white px-10 border-b border-slate-100 sticky top-0 z-[60] shadow-sm shadow-slate-950/5">
-            {/* Logo + Search */}
-            <div className="flex items-center gap-6 flex-1 max-w-2xl">
+        <header className="flex h-20 items-center justify-between bg-white px-4 md:px-10 border-b border-slate-100 sticky top-0 z-[60] shadow-sm shadow-slate-950/5">
+            {/* Mobile sidebar toggle + Logo + Search */}
+            <div className="flex items-center gap-3 md:gap-6 flex-1 max-w-2xl">
+                <button
+                    type="button"
+                    onClick={onOpenSidebar}
+                    className="inline-flex md:hidden h-10 w-10 items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-900 hover:text-white transition-all"
+                    aria-label="Open delivery navigation"
+                >
+                    <Menu className="h-5 w-5" />
+                </button>
                 <img
                     src="/logo.png"
                     alt="The Fruit Tribe"
@@ -35,7 +47,7 @@ export function DeliveryHeader() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-6 ml-10">
+            <div className="flex items-center gap-4 md:gap-6 ml-4 md:ml-10">
                 {/* Status pill - match Admin */}
                 <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-emerald-50/50 border border-emerald-100 rounded-xl">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />

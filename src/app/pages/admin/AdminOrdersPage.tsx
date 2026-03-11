@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { useStore, Order, Product } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
-import { getOrders, updateOrderStatus } from '@/lib/api';
+import { getOrders, updateOrderStatus, getDeliveryPartners, assignDeliveryPartner } from '@/lib/api';
 import { useProducts } from '@/app/hooks/useProducts';
 import {
     Plus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
@@ -37,6 +37,7 @@ export function AdminOrdersPage() {
 
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
+    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string }>>([]);
 
     const products = productsFromApi;
 
@@ -49,6 +50,9 @@ export function AdminOrdersPage() {
             PAID: 'Paid', PENDING: 'Pending', REFUNDED: 'Refunded',
         };
         const itemCount = api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0;
+        const firstDelivery = (api.deliveries || [])[0] || null;
+        const courierName: string | null = firstDelivery?.deliveryPartner?.name ?? null;
+
         return {
             id: api.id,
             orderNumber: api.orderNumber,
@@ -61,7 +65,9 @@ export function AdminOrdersPage() {
             status: statusMap[api.status] || 'Created',
             channel: 'Online Store',
             itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
-        };
+            shippingAddress: api.shippingAddress || null,
+            courierName,
+        } as any;
     }
 
     useEffect(() => {
@@ -78,6 +84,26 @@ export function AdminOrdersPage() {
             .finally(() => { if (!cancelled) setOrdersLoading(false); });
         return () => { cancelled = true; };
     }, []);
+
+    // Load delivery partners for admin so they can assign riders
+    useEffect(() => {
+        let cancelled = false;
+        if (user?.role !== 'admin' && user?.role !== 'ADMIN') return;
+        getDeliveryPartners()
+            .then((list) => {
+                if (!cancelled) {
+                    setDeliveryPartners((list || []).map((p: any) => ({ id: p.id, name: p.name })));
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setDeliveryPartners([]);
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user]);
 
     const displayedOrders = useMemo(() => {
         let filtered = orders;
@@ -136,6 +162,16 @@ export function AdminOrdersPage() {
             toast.success(`Order status updated to ${newStatus}`);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to update order status');
+        }
+    }, []);
+
+    const handleAssignDelivery = useCallback(async (orderId: string, partnerId: string) => {
+        if (!partnerId) return;
+        try {
+            await assignDeliveryPartner(orderId, partnerId);
+            toast.success('Delivery partner assigned to order');
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to assign delivery partner');
         }
     }, []);
 
@@ -387,19 +423,39 @@ export function AdminOrdersPage() {
                                                 <span className="text-lg font-black text-slate-900 tracking-tighter leading-none">₹{order.total.toLocaleString()}</span>
                                             </td>
                                             <td className="px-10 py-10">
-                                                <div className="flex items-center justify-center gap-3" onClick={e => e.stopPropagation()}>
-                                                    <button
-                                                        onClick={() => handleViewDetails(order)}
-                                                        className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:shadow-xl transition-all"
-                                                    >
-                                                        <Eye className="w-5 h-5" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => toast.info('Printing Manifest...')}
-                                                        className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all"
-                                                    >
-                                                        <Printer className="w-5 h-5" />
-                                                    </button>
+                                                <div className="flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-3">
+                                                        <button
+                                                            onClick={() => handleViewDetails(order)}
+                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:shadow-xl transition-all"
+                                                        >
+                                                            <Eye className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => toast.info('Printing Manifest...')}
+                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all"
+                                                        >
+                                                            <Printer className="w-5 h-5" />
+                                                        </button>
+                                                    </div>
+                                                    {deliveryPartners.length > 0 && (user?.role === 'admin' || user?.role === 'ADMIN') && (
+                                                        <div className="mt-2">
+                                                            <select
+                                                                defaultValue=""
+                                                                onChange={(e) => {
+                                                                    const partnerId = e.target.value;
+                                                                    if (!partnerId) return;
+                                                                    handleAssignDelivery(order.id, partnerId);
+                                                                }}
+                                                                className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.18em] px-4 py-2 rounded-full border border-slate-800 shadow-lg cursor-pointer"
+                                                            >
+                                                                <option value="">Assign rider…</option>
+                                                                {deliveryPartners.map((p) => (
+                                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </motion.tr>
@@ -554,17 +610,27 @@ export function AdminOrdersPage() {
                                             Shipping Matrix
                                         </h3>
                                         <div className="p-8 bg-slate-900 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group">
-                                            <div className="relative z-10">
-                                                <p className="text-[11px] font-black text-white uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-500">
-                                                    402, Green Valley Apartments, <br />
-                                                    Western Hills, Mumbai, 400053 <br />
-                                                    Maharashtra, India
+                                            <div className="relative z-10 space-y-4">
+                                                <p className="text-[11px] md:text-xs font-black text-white uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-500 break-words">
+                                                    {(() => {
+                                                        const addr = (selectedOrder as any).shippingAddress || {};
+                                                        const parts = [
+                                                            addr.addressLine1 || addr.address || '',
+                                                            addr.addressLine2 || '',
+                                                            addr.city || '',
+                                                            addr.state || '',
+                                                            addr.pincode || addr.zipCode || '',
+                                                        ].filter((v: string) => v && String(v).trim());
+                                                        return parts.length ? parts.join(', ') : 'Shipping address not available';
+                                                    })()}
                                                 </p>
-                                                <div className="mt-8 flex items-center gap-3">
+                                                <div className="mt-4 flex items-center gap-3">
                                                     <div className="h-8 w-8 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400">
                                                         <Truck className="w-4 h-4" />
                                                     </div>
-                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Aesthetic Express Delivery</span>
+                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
+                                                        {(selectedOrder as any).courierName || 'Delivery partner not assigned yet'}
+                                                    </span>
                                                 </div>
                                             </div>
                                             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/20 transition-all duration-700" />

@@ -166,6 +166,11 @@ export class OrderService {
                         },
                     },
                 },
+                deliveries: {
+                    include: {
+                        deliveryPartner: { select: { name: true } },
+                    },
+                },
                 statusLogs: {
                     orderBy: { createdAt: 'asc' },
                 },
@@ -209,7 +214,11 @@ export class OrderService {
                         seller: { select: { storeName: true } },
                     },
                 },
-                deliveries: true,
+                deliveries: {
+                    include: {
+                        deliveryPartner: { select: { name: true } },
+                    },
+                },
                 statusLogs: {
                     orderBy: { createdAt: 'asc' },
                 },

@@ -549,6 +549,16 @@ export async function deleteDeliveryPartner(id: string): Promise<void> {
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
 }
 
+/** Assign an order to a delivery partner (admin only). */
+export async function assignDeliveryPartner(orderId: string, partnerId: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/assign`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ orderId, partnerId }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
 /** Validate a promo/coupon code (public). Returns discount info if valid. */
 export async function validateCoupon(code: string): Promise<{
   valid: boolean;

@@ -115,7 +115,15 @@ export function DeliveryAssignmentsPage() {
                                 [a.order.user.firstName, a.order.user.lastName].filter(Boolean).join(' ') ||
                                 a.order.user.phone ||
                                 'Customer';
-                            const address = (a.order.shippingAddress as any)?.addressLine1 || 'Address not available';
+                            const rawAddress = a.order.shippingAddress as any;
+                            const addressParts = [
+                                rawAddress?.addressLine1 || rawAddress?.address || '',
+                                rawAddress?.addressLine2 || '',
+                                rawAddress?.city || '',
+                                rawAddress?.state || '',
+                                rawAddress?.pincode || rawAddress?.zipCode || '',
+                            ].filter((v: string) => v && v.trim());
+                            const address = addressParts.length ? addressParts.join(', ') : 'Address not available';
                             const status = a.status || 'ASSIGNED';
                             return (
                                 <motion.div
