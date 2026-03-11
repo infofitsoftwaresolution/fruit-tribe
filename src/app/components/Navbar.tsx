@@ -60,8 +60,8 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
           className={cn(
             "max-w-[1400px] mx-auto h-20 rounded-[2.5rem] border border-white/20 transition-all duration-700 pointer-events-auto overflow-hidden",
             isScrolled
-              ? "bg-slate-900/90 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)] h-16"
-              : "bg-white/10 backdrop-blur-xl border-white/10 h-20"
+              ? "bg-slate-900/90 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
+              : "bg-white/10 backdrop-blur-xl border-white/10"
           )}
         >
           <div className="h-full px-8 flex items-center justify-between">

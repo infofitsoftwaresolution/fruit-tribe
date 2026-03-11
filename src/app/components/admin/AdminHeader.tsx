@@ -1,11 +1,15 @@
-import { Bell, Search, ExternalLink, Command, Shield, Zap, Activity } from 'lucide-react';
+import { Bell, Search, ExternalLink, Command, Shield, Zap, Activity, Menu } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, KeyboardEvent } from 'react';
 
-export function AdminHeader() {
+interface AdminHeaderProps {
+    onOpenSidebar?: () => void;
+}
+
+export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [globalSearch, setGlobalSearch] = useState('');
@@ -22,9 +26,18 @@ export function AdminHeader() {
     };
 
     return (
-        <header className="flex h-20 items-center justify-between bg-white px-10 border-b border-slate-100 sticky top-0 z-[60] shadow-sm shadow-slate-950/5">
-            {/* Logo + Global Command */}
-            <div className="flex items-center gap-6 flex-1 max-w-2xl">
+        <header className="flex h-20 items-center justify-between bg-white px-4 md:px-10 border-b border-slate-100 sticky top-0 z-[60] shadow-sm shadow-slate-950/5">
+            {/* Mobile sidebar toggle */}
+            <div className="flex items-center gap-3 flex-1 max-w-2xl">
+                <button
+                    type="button"
+                    onClick={onOpenSidebar}
+                    className="inline-flex md:hidden h-10 w-10 items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-900 hover:text-white transition-all"
+                    aria-label="Open admin navigation"
+                >
+                    <Menu className="h-5 w-5" />
+                </button>
+                {/* Logo + Global Command */}
                 <img src="/logo.png" alt="The Fruit Tribe" className="h-10 w-10 object-contain flex-shrink-0 rounded-xl hidden sm:block" />
                 <div className="relative group flex-1">
                     <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
@@ -55,7 +68,7 @@ export function AdminHeader() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-6 ml-10">
+            <div className="flex items-center gap-4 md:gap-6 ml-4 md:ml-10">
                 {/* System Pulsar */}
                 <div className="hidden xl:flex items-center gap-3 px-4 py-2 bg-emerald-50/50 border border-emerald-100 rounded-xl">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />

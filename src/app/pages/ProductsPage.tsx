@@ -211,7 +211,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               layout
               className={cn(
                 "grid gap-6 sm:gap-8",
-                viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
+                viewMode === 'grid' ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1"
               )}
             >
               {filteredProducts.map((product, index) => (

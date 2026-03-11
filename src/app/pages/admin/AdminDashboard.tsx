@@ -125,6 +125,28 @@ export function AdminDashboard() {
                 </div>
             </div>
 
+            {/* Mobile quick nav (replaces sidebar on small screens) */}
+            <div className="md:hidden -mx-2 mb-4">
+                <div className="flex gap-2 overflow-x-auto px-2 pb-2 no-scrollbar">
+                    {[
+                        { label: 'Dashboard', href: '/admin' },
+                        { label: 'Orders', href: '/admin/orders' },
+                        { label: 'Catalog', href: '/admin/products' },
+                        { label: 'Customers', href: '/admin/customers' },
+                        { label: 'Vendors', href: '/admin/sellers' },
+                        { label: 'Analytics', href: '/admin/analytics' },
+                    ].map((item) => (
+                        <button
+                            key={item.href}
+                            onClick={() => navigate(item.href)}
+                            className="px-4 py-2 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.18em] border border-slate-200 whitespace-nowrap shadow-sm"
+                        >
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Top Tier Metrics: Platform-wide or Seller Gross */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {(isSuperAdmin || isAdmin) ? (
