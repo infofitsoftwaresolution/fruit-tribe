@@ -24,7 +24,10 @@ export interface ApiProduct {
   slug: string;
   description?: string | null;
   basePrice: number | string;
-  stock: number;
+  stock: number; // mapped to availableQuantity
+  availableQuantity: number;
+  reservedQuantity: number;
+  lowStockThreshold?: number;
   unit: string;
   isActive: boolean;
   isSeasonal?: boolean;
@@ -45,6 +48,8 @@ export interface ApiProduct {
     attributeValue?: string | null;
     priceOverride?: number | string | null;
     stockQuantity: number;
+    availableQuantity: number;
+    reservedQuantity: number;
   }>;
   images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
 }
@@ -56,7 +61,10 @@ export interface Product {
   price: number;
   discountPrice?: number;
   category: string;
-  stock: number;
+  stock: number; // For compatibility
+  availableStock: number;
+  reservedStock: number;
+  lowStockThreshold?: number;
   image: string;
   images?: string[];
   vendor: string;
@@ -74,7 +82,7 @@ export interface Product {
   harvestDate?: string;
   expiryDate?: string;
   isOrganic?: boolean;
-  variants?: { id: string; name: string; price: number; stock: number; sku: string }[];
+  variants?: { id: string; name: string; price: number; stock: number; availableStock: number; reservedStock: number; sku: string }[];
   badge?: string;
 }
 
@@ -89,6 +97,9 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     price,
     category: p.category?.name ?? 'Uncategorized',
     stock: p.stock ?? 0,
+    availableStock: p.availableQuantity ?? p.stock ?? 0,
+    reservedStock: p.reservedQuantity ?? 0,
+    lowStockThreshold: p.lowStockThreshold ?? 5,
     image: getImageDisplayUrl(imageUrl),
     images: p.images?.map((i) => i.imageUrl) ?? [],
     vendor: p.seller?.storeName ?? 'Store',
@@ -110,7 +121,9 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
       id: v.id,
       name: v.attributeValue || v.sku,
       price: v.priceOverride != null ? (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : v.priceOverride) : price,
-      stock: v.stockQuantity,
+      stock: v.stockQuantity ?? 0,
+      availableStock: v.availableQuantity ?? v.stockQuantity,
+      reservedStock: v.reservedQuantity ?? 0,
       sku: v.sku,
     })),
   };
@@ -200,6 +213,7 @@ export async function createOrder(body: {
   couponCode?: string;
   deliverySlot?: string;
   idempotencyKey?: string;
+  paymentMethod?: 'online' | 'cod';
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, {
     method: 'POST',
@@ -370,8 +384,10 @@ export async function createProduct(body: {
   seasonalEnd?: string;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
+  allowCashOnDelivery?: boolean;
   variants?: Array<{ sku: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity: number }>;
   images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
+  lowStockThreshold?: number;
 }): Promise<ApiProduct> {
   const res = await fetch(`${getEffectiveApiBase()}/products`, {
     method: 'POST',
@@ -397,8 +413,11 @@ export async function updateProduct(
     seasonalEnd: string | null;
     bulkDiscountQty: number;
     bulkDiscountPrice: number;
+    allowCashOnDelivery: boolean;
     isActive: boolean;
     images: Array<{ imageUrl: string; isPrimary?: boolean }>;
+    variants?: Array<{ id?: string; sku?: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity?: number; lowStockThreshold?: number }>;
+    lowStockThreshold?: number;
   }>
 ): Promise<ApiProduct> {
   const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {
