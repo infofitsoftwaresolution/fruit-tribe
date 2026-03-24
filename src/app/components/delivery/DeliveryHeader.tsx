@@ -11,8 +11,8 @@ export function DeliveryHeader({ onOpenSidebar }: DeliveryHeaderProps) {
     const { user } = useAuth();
 
     const showNotifications = () => {
-        toast.info('New assignment', {
-            description: 'Order #FT-1005 ready for pickup.',
+        toast.info('Notifications', {
+            description: 'No new notifications right now.',
         });
     };
 

@@ -18,15 +18,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
+import { useLocation } from 'react-router-dom';
+
+function toDateInputValue(value?: string | null): string {
+    if (!value) return '';
+    // Browser date inputs require yyyy-MM-dd only.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 10);
+}
 
 export function AdminProductsPage() {
     const { user } = useAuth();
+    const location = useLocation();
     const { products, refetch: refetchProducts } = useProducts({ limit: 500 });
     const [categories, setCategories] = useState<Array<{ id: string; name: string; slug: string }>>([]);
     const [sellers, setSellers] = useState<Array<{ id: string; storeName: string; user?: any }>>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [activeCategory, setActiveCategory] = useState('All');
+    const [inventoryFilter, setInventoryFilter] = useState<'All' | 'Low' | 'Out'>('All');
 
     useEffect(() => {
         let cancelled = false;
@@ -64,10 +76,23 @@ export function AdminProductsPage() {
         bulkDiscountQty: '',
         bulkDiscountPrice: '',
         allowCashOnDelivery: true,
-        variants: [] as { name: string; price: string; stock: string; sku: string }[]
+        variants: [] as { id?: string; name: string; price: string; stock: string; sku: string; lowStockThreshold?: string }[]
     });
 
-    const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
+    const isSeller = user?.role === 'seller';
+
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const focusProductId = params.get('focusProductId');
+        if (!focusProductId) return;
+
+        const target = products.find((p) => String(p.id) === focusProductId);
+        if (!target) return;
+
+        setSearchQuery(target.name);
+        setActiveCategory('All');
+        setInventoryFilter('All');
+    }, [location.search, products]);
 
     // For seller users, auto-bind their own sellerId when opening the form
     useEffect(() => {
@@ -93,19 +118,23 @@ export function AdminProductsPage() {
 
             const matchesCategory = activeCategory === 'All' || product.category === activeCategory;
 
-            return matchesSearch && matchesCategory;
+            const matchesInventory = inventoryFilter === 'All' ||
+                (inventoryFilter === 'Low' && (product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) && (product.availableStock ?? product.stock) > 0) ||
+                (inventoryFilter === 'Out' && (product.availableStock ?? product.stock) === 0);
+
+            return matchesSearch && matchesCategory && matchesInventory;
         }).sort((a, b) => {
             if (sortOrder === 'asc') return a.price - b.price;
             return b.price - a.price;
         });
-    }, [products, user, searchQuery, sortOrder, activeCategory, isSeller]);
+    }, [products, user, searchQuery, sortOrder, activeCategory, inventoryFilter, isSeller]);
 
     const stats = useMemo(() => {
         const base = isSeller ? products.filter(p => p.vendor === (user as any)?.name) : products;
         return {
             total: base.length,
-            lowStock: base.filter(p => p.stock < 10 && p.stock > 0).length,
-            outOfStock: base.filter(p => p.stock === 0).length,
+            lowStock: base.filter(p => p.availableStock <= (p.lowStockThreshold ?? 5) && p.availableStock > 0).length,
+            outOfStock: base.filter(p => p.availableStock === 0).length,
             seasonal: base.filter(p => p.isSeasonal).length
         };
     }, [products, isSeller, user]);
@@ -136,7 +165,11 @@ export function AdminProductsPage() {
             name: product.name,
             price: product.price.toString(),
             discountPrice: product.discountPrice?.toString() || '',
-            stock: product.stock.toString(),
+            stock: String(
+                product.variants?.length
+                    ? product.variants.reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0)
+                    : product.stock
+            ),
             category: product.category,
             categoryId,
             sellerId,
@@ -148,17 +181,24 @@ export function AdminProductsPage() {
             nutritionalInfo: '',
             origin: '',
             flashSale: product.badge === 'Flash Sale',
-            expiryDate: product.expiryDate || '',
-            harvestDate: product.harvestDate || '',
+            expiryDate: toDateInputValue(product.expiryDate),
+            harvestDate: toDateInputValue(product.harvestDate),
             isOrganic: product.isOrganic || false,
             grade: 'A',
             isSeasonal: product.isSeasonal || false,
-            seasonalStart: product.seasonalStart || '',
-            seasonalEnd: product.seasonalEnd || '',
+            seasonalStart: toDateInputValue(product.seasonalStart),
+            seasonalEnd: toDateInputValue(product.seasonalEnd),
             bulkDiscountQty: product.bulkDiscountQty?.toString() || '',
             bulkDiscountPrice: product.bulkDiscountPrice?.toString() || '',
             allowCashOnDelivery: (product as any).allowCashOnDelivery !== false,
-            variants: product.variants?.map((v: any) => ({ name: v.name, price: String(v.price), stock: String(v.stock), sku: v.sku || '' })) || []
+            variants: product.variants?.map((v: any) => ({ 
+                id: v.id, 
+                name: v.name || v.attributeValue, 
+                price: String(v.price), 
+                stock: String(v.stockQuantity ?? v.stock), 
+                sku: v.sku || '',
+                lowStockThreshold: String(v.lowStockThreshold ?? 5)
+            })) || []
         });
         setIsModalOpen(true);
     };
@@ -166,6 +206,7 @@ export function AdminProductsPage() {
     const handleSubmitProduct = async (e: React.FormEvent) => {
         e.preventDefault();
         const categoryId = formData.categoryId || categories.find(c => c.name === formData.category)?.id;
+        const parsedStock = parseInt(formData.stock, 10) || 0;
 
         // Resolve sellerId: admins choose from dropdown; sellers get their own sellerId auto-bound
         let sellerId = formData.sellerId;
@@ -199,9 +240,50 @@ export function AdminProductsPage() {
             const imagesPayload = imagePaths.length > 0
                 ? imagePaths.map((imageUrl, i) => ({ imageUrl, isPrimary: i === 0 }))
                 : undefined;
+            const normalizedVariants = formData.variants
+                .map(v => ({
+                    id: v.id,
+                    sku: v.sku,
+                    attributeValue: v.name,
+                    priceOverride: parseFloat(v.price) || undefined,
+                    stockQuantity: parseInt(v.stock, 10) || 0,
+                    lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
+                }))
+                .filter(v => v.sku || v.attributeValue);
+
+            // Keep stock truly wired to what backend persists (variants).
+            // - No variants: create one default variant from stock field.
+            // - Single variant: stock field controls that variant's stock.
+            let variantsPayload =
+                normalizedVariants.length === 0
+                    ? [{
+                        sku: formData.sku || `SKU-${Date.now()}`,
+                        attributeValue: 'Default',
+                        priceOverride: undefined,
+                        stockQuantity: parsedStock,
+                        lowStockThreshold: 5,
+                    }]
+                    : normalizedVariants.length === 1
+                        ? normalizedVariants.map(v => ({ ...v, stockQuantity: parsedStock }))
+                        : normalizedVariants;
+
+            // If user edits top-level stock for multi-variant products, keep backend in sync by
+            // applying the delta to the first variant instead of silently ignoring it.
+            if (variantsPayload.length > 1) {
+                const currentTotal = variantsPayload.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
+                const diff = parsedStock - currentTotal;
+                if (diff !== 0) {
+                    const first = variantsPayload[0];
+                    const nextFirstStock = Math.max(0, (first.stockQuantity || 0) + diff);
+                    variantsPayload = [
+                        { ...first, stockQuantity: nextFirstStock },
+                        ...variantsPayload.slice(1),
+                    ];
+                }
+            }
 
             if (editingProduct) {
-                await updateProductApi(String(editingProduct.id), {
+                const updated = await updateProductApi(String(editingProduct.id), {
                     name: formData.name,
                     description: formData.description || undefined,
                     basePrice: parseFloat(formData.price),
@@ -216,8 +298,17 @@ export function AdminProductsPage() {
                     allowCashOnDelivery: formData.allowCashOnDelivery,
                     isActive: editingProduct.status === 'Active',
                     images: imagesPayload,
+                    variants: variantsPayload,
                 });
-                toast.success('Inventory record updated');
+                const updatedVariantCount = updated.variants?.length ?? variantsPayload.length;
+                const updatedStock = Number(updated.stock ?? variantsPayload.reduce((sum, v) => sum + (v.stockQuantity || 0), 0));
+                const previousStock = Number(editingProduct.stock ?? 0);
+                const stockChanged = updatedStock !== previousStock;
+                toast.success(`${formData.name} updated`, {
+                    description: stockChanged
+                        ? `${updatedVariantCount} variant${updatedVariantCount === 1 ? '' : 's'} · ${updatedStock} total stock`
+                        : 'Product details updated successfully',
+                });
                 await refetchProducts();
             } else {
                 await createProductApi({
@@ -234,11 +325,12 @@ export function AdminProductsPage() {
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
                     bulkDiscountPrice: formData.bulkDiscountPrice ? parseFloat(formData.bulkDiscountPrice) : undefined,
                     allowCashOnDelivery: formData.allowCashOnDelivery,
-                    variants: formData.variants.filter(v => v.sku || v.name).map(v => ({
-                        sku: v.sku || `SKU-${Date.now()}-${v.name.replace(/\s/g, '')}`,
-                        attributeValue: v.name,
-                        priceOverride: parseFloat(v.price) || undefined,
-                        stockQuantity: parseInt(v.stock) || 0,
+                    variants: variantsPayload.map(v => ({
+                        sku: v.sku || `SKU-${Date.now()}`,
+                        attributeValue: v.attributeValue,
+                        priceOverride: v.priceOverride,
+                        stockQuantity: v.stockQuantity,
+                        lowStockThreshold: v.lowStockThreshold,
                     })),
                     images: imagesPayload,
                 });
@@ -253,15 +345,15 @@ export function AdminProductsPage() {
 
     return (
         <div className="space-y-8 pb-20">
-            {/* Ultra-Premium Header */}
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <ShoppingBag className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Catalog Intel</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Product Management</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Inventory Suite</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg">Advanced curation and stock management for the premium orchard network.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Products & Inventory</h1>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg">Add products, update stock, and manage catalog details.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -269,7 +361,7 @@ export function AdminProductsPage() {
                         className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                         <Download className="w-4 h-4" />
-                        Export Ledger
+                        Export Products
                     </button>
                     <button
                         onClick={() => {
@@ -280,14 +372,15 @@ export function AdminProductsPage() {
                                 sku: '', image: '', images: [''], description: '', unit: 'kg',
                                 nutritionalInfo: '', origin: '', flashSale: false, expiryDate: '',
                                 harvestDate: '', isOrganic: false, grade: 'A', isSeasonal: false,
-                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '', allowCashOnDelivery: true, variants: []
+                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '', allowCashOnDelivery: true, 
+                                variants: []
                             });
                             setIsModalOpen(true);
                         }}
                         className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
                     >
                         <Plus className="h-4 w-4" />
-                        Create Entry
+                        Add Product
                     </button>
                 </div>
             </div>
@@ -295,25 +388,49 @@ export function AdminProductsPage() {
             {/* Catalog Discovery Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Active Catalog', value: stats.total, icon: Package, color: 'emerald' },
-                    { label: 'Critical Stock', value: stats.lowStock, icon: AlertTriangle, color: 'orange' },
-                    { label: 'Seasonal products', value: stats.seasonal, icon: Clock, color: 'blue' },
-                    { label: 'Depleted', value: stats.outOfStock, icon: Ban, color: 'red' }
+                    { id: 'All' as const, label: 'All Products', value: stats.total, icon: Package, color: 'emerald' },
+                    { id: 'Low' as const, label: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'orange' },
+                    { id: 'All' as const, label: 'Seasonal products', value: stats.seasonal, icon: Clock, color: 'blue', secondary: true },
+                    { id: 'Out' as const, label: 'Out of Stock', value: stats.outOfStock, icon: Ban, color: 'red' }
                 ].map((stat, i) => (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        key={stat.label}
-                        className="bg-white p-7 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:ring-2 ring-transparent hover:ring-emerald-500/10 transition-all"
+                        key={stat.label + i}
+                        onClick={() => !stat.secondary && setInventoryFilter(stat.id)}
+                        className={cn(
+                            "bg-white p-7 rounded-[2.5rem] border shadow-sm relative overflow-hidden group transition-all cursor-pointer",
+                            !stat.secondary && inventoryFilter === stat.id 
+                                ? "ring-2 ring-emerald-500 border-emerald-100 shadow-md scale-[1.02]" 
+                                : "border-slate-100 hover:border-slate-200 hover:shadow-md"
+                        )}
                     >
                         <div className="relative z-10">
-                            <div className={cn("p-4 rounded-3xl w-fit mb-6 shadow-sm", `bg-${stat.color}-50 text-${stat.color}-600`)}>
+                            <div className={cn(
+                                "p-4 rounded-3xl w-fit mb-6 shadow-sm", 
+                                stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
+                                stat.color === 'orange' ? "bg-orange-50 text-orange-600" :
+                                stat.color === 'blue' ? "bg-blue-50 text-blue-600" :
+                                "bg-red-50 text-red-600"
+                            )}>
                                 <stat.icon className="w-6 h-6" />
                             </div>
                             <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1 leading-none">{stat.value}</p>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
                         </div>
+                        {inventoryFilter === stat.id && !stat.secondary && (
+                            <div className="absolute top-4 right-6">
+                                <span className={cn(
+                                    "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    stat.color === 'emerald' ? "bg-emerald-500 text-white" :
+                                    stat.color === 'orange' ? "bg-orange-500 text-white" :
+                                    "bg-red-500 text-white"
+                                )}>
+                                    Filtered
+                                </span>
+                            </div>
+                        )}
                     </motion.div>
                 ))}
             </div>
@@ -363,10 +480,11 @@ export function AdminProductsPage() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Entity Identity</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Protocol Type</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Telemetry</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Valuation</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Product</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Category</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Stock</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Price</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Actions</th>
                             </tr>
@@ -411,12 +529,30 @@ export function AdminProductsPage() {
                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">SKU: {product.sku}</span>
                                             </div>
                                         </td>
-                                        <td className="px-10 py-8">
-                                            <div className="flex flex-col">
+                                        <td className="px-10 py-8 text-right">
+                                            <div className="flex flex-col items-end">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={cn(
+                                                        "text-sm font-black tracking-tight",
+                                                        (product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) ? 'text-orange-600' : 'text-slate-900'
+                                                    )}>
+                                                        {product.availableStock ?? product.stock} / {product.stock} Available
+                                                    </span>
+                                                    {(product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) && (
+                                                        <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
+                                                    )}
+                                                </div>
+                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                                    Reserved: {product.reservedStock ?? 0} {product.unit}s • Total: {product.stock}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-10 py-8 text-right">
+                                            <div className="flex flex-col items-end">
                                                 {!product.isSeasonal ? (
-                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 leading-none">
                                                         <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500" />
-                                                        Year-Round
+                                                        Stable
                                                     </span>
                                                 ) : (() => {
                                                     const now = new Date();
@@ -425,35 +561,20 @@ export function AdminProductsPage() {
                                                     const isInSeason = start && end && now >= start && now <= end;
                                                     return (
                                                         <span className={cn(
-                                                            "text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5",
+                                                            "text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 leading-none",
                                                             isInSeason ? 'text-blue-600' : 'text-orange-500'
                                                         )}>
                                                             <Clock className="w-2.5 h-2.5" />
-                                                            {isInSeason ? 'In Season' : 'Off Season'}
+                                                            {isInSeason ? 'In Season' : 'Paused'}
                                                         </span>
                                                     );
                                                 })()}
-                                            </div>
-                                        </td>
-                                        <td className="px-10 py-8 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={cn(
-                                                        "text-sm font-black tracking-tight",
-                                                        product.stock < 10 ? 'text-orange-600' : 'text-slate-900'
-                                                    )}>
-                                                        {product.stock} {product.unit}s
-                                                    </span>
-                                                    {product.stock < 10 && (
-                                                        <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_10px_rgba(249,115,22,0.5)]" />
-                                                    )}
-                                                </div>
                                                 {product.expiryDate && (
                                                     <span className={cn(
-                                                        "text-[9px] font-black uppercase tracking-widest mt-1 italic",
+                                                        "text-[9px] font-black uppercase tracking-widest mt-2 italic",
                                                         new Date(product.expiryDate).getTime() - new Date().getTime() < 86400000 * 3 ? 'text-red-500' : 'text-slate-400'
                                                     )}>
-                                                        Exp: {Math.ceil((new Date(product.expiryDate).getTime() - new Date().getTime()) / 86400000)} Days Left
+                                                        {Math.ceil((new Date(product.expiryDate).getTime() - new Date().getTime()) / 86400000)}d shelf life
                                                     </span>
                                                 )}
                                             </div>
@@ -505,14 +626,14 @@ export function AdminProductsPage() {
                     {filteredProducts.length === 0 && (
                         <div className="py-32 text-center">
                             <ShoppingBag className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Zero Entities Detected</h3>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Products Found</h3>
                             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No products match your filters.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Entity Configuration Side-Sheet (Add/Edit Modal) */}
+            {/* Product form side panel */}
             {isModalOpen && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[120] flex justify-end">
@@ -538,7 +659,7 @@ export function AdminProductsPage() {
                                             <Package className="w-5 h-5 text-emerald-400" />
                                         </div>
                                         <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            {editingProduct ? 'Modify Catalog Node' : 'Initialize New Entity'}
+                                            {editingProduct ? 'Edit Product' : 'Add New Product'}
                                         </h2>
                                     </div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Product images</p>
@@ -550,11 +671,11 @@ export function AdminProductsPage() {
 
                             <form onSubmit={handleSubmitProduct} className="flex-1 flex flex-col overflow-hidden">
                                 <div className="flex-1 overflow-y-auto p-12 space-y-10 custom-scrollbar bg-white">
-                                    {/* Section 1: Core Intelligence */}
+                                    {/* Section 1: Basic Details */}
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <Zap className="w-4 h-4" />
-                                            Core Intelligence
+                                            Basic Details
                                         </h3>
                                         <div className="grid grid-cols-1 gap-6">
                                             <FormInput
@@ -566,7 +687,7 @@ export function AdminProductsPage() {
                                             />
                                             <div className="grid grid-cols-2 gap-6">
                                                 <FormInput
-                                                    label="Value Mapping (₹ INR)"
+                                                    label="Price (₹)"
                                                     type="number"
                                                     value={formData.price}
                                                     onChange={(v: string) => setFormData({ ...formData, price: v })}
@@ -574,7 +695,7 @@ export function AdminProductsPage() {
                                                     required
                                                 />
                                                 <FormInput
-                                                    label="Promotion Floor (₹ INR)"
+                                                    label="Discount Price (₹)"
                                                     type="number"
                                                     value={formData.discountPrice}
                                                     onChange={(v: string) => setFormData({ ...formData, discountPrice: v })}
@@ -584,15 +705,15 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 2: Logistical Telemetry */}
+                                    {/* Section 2: Stock & Category */}
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <Clock className="w-4 h-4" />
-                                            Logistical Telemetry
+                                            Stock & Category
                                         </h3>
                                         <div className="grid grid-cols-3 gap-6">
                                             <FormInput
-                                                label="Stock Flux"
+                                                label="Stock"
                                                 type="number"
                                                 value={formData.stock}
                                                 onChange={(v: string) => setFormData({ ...formData, stock: v })}
@@ -611,7 +732,7 @@ export function AdminProductsPage() {
                                                 ]}
                                             />
                                             <FormSelect
-                                                label="Fulfillment Catalog"
+                                                label="Category"
                                                 value={formData.categoryId || formData.category}
                                                 onChange={(v: string) => {
                                                     const cat = categories.find(c => c.id === v || c.name === v);
@@ -635,28 +756,28 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 3: Merchant Verification */}
+                                    {/* Section 3: Product Options */}
                                     <div className="grid grid-cols-2 gap-10">
                                         <div className="space-y-6">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <ShieldCheck className="w-4 h-4" />
-                                                Compliance
+                                                Product Options
                                             </h3>
                                             <div className="space-y-4">
                                                 <ToggleItem
-                                                    label="Organic Verification"
+                                                    label="Organic Product"
                                                     checked={formData.isOrganic}
                                                     onChange={(v: boolean) => setFormData({ ...formData, isOrganic: v })}
                                                     color="emerald"
                                                 />
                                                 <ToggleItem
-                                                    label="Seasonal Availability"
+                                                    label="Seasonal Product"
                                                     checked={formData.isSeasonal}
                                                     onChange={(v: boolean) => setFormData({ ...formData, isSeasonal: v })}
                                                     color="blue"
                                                 />
                                                 <ToggleItem
-                                                    label="Flash Sale Priority"
+                                                    label="Flash Sale"
                                                     checked={formData.flashSale}
                                                     onChange={(v: boolean) => setFormData({ ...formData, flashSale: v })}
                                                     color="orange"
@@ -685,7 +806,7 @@ export function AdminProductsPage() {
                                                 ]}
                                             />
                                             <FormInput
-                                                label="Expiration Chronology"
+                                                label="Expiry Date"
                                                 type="date"
                                                 value={formData.expiryDate}
                                                 onChange={(v: string) => setFormData({ ...formData, expiryDate: v })}
@@ -699,22 +820,22 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 4: Seasonal Configuration */}
+                                    {/* Section 4: Seasonal Dates */}
                                     {formData.isSeasonal && (
                                         <div className="space-y-6">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <Clock className="w-4 h-4 text-blue-500" />
-                                                Seasonal Temporal Manifold
+                                                Seasonal Dates
                                             </h3>
                                             <div className="grid grid-cols-2 gap-6 p-8 bg-blue-50/30 border border-blue-100 rounded-[2.5rem]">
                                                 <FormInput
-                                                    label="Cycle Initialization (Start)"
+                                                    label="Season Start"
                                                     type="date"
                                                     value={formData.seasonalStart}
                                                     onChange={(v: string) => setFormData({ ...formData, seasonalStart: v })}
                                                 />
                                                 <FormInput
-                                                    label="Cycle Termination (End)"
+                                                    label="Season End"
                                                     type="date"
                                                     value={formData.seasonalEnd}
                                                     onChange={(v: string) => setFormData({ ...formData, seasonalEnd: v })}
@@ -739,7 +860,7 @@ export function AdminProductsPage() {
                                                 placeholder="e.g. 5"
                                             />
                                             <FormInput
-                                                label="Bulk Valuation (₹ / Unit)"
+                                                label="Bulk Price (₹ / Unit)"
                                                 type="number"
                                                 value={formData.bulkDiscountPrice}
                                                 onChange={(v: string) => setFormData({ ...formData, bulkDiscountPrice: v })}
@@ -748,18 +869,18 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 6: Variant Dynamics */}
+                                    {/* Section 6: Variants */}
                                     <div className="space-y-6">
                                         <div className="flex items-center justify-between">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                 <Binary className="w-4 h-4 text-emerald-500" />
-                                                Variant Dynamics (Multi-Scalar)
+                                                Product Variants
                                             </h3>
                                             <button
                                                 type="button"
                                                 onClick={() => setFormData({
                                                     ...formData,
-                                                    variants: [...formData.variants, { name: '', price: '', stock: '', sku: '' }]
+                                                    variants: [...formData.variants, { name: '', price: '', stock: '', sku: '', lowStockThreshold: '5' }]
                                                 })}
                                                 className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
                                             >
@@ -805,7 +926,7 @@ export function AdminProductsPage() {
                                                             placeholder="0.00"
                                                         />
                                                         <FormInput
-                                                            label="Stock Flux"
+                                                            label="Stock"
                                                             type="number"
                                                             value={variant.stock}
                                                             onChange={(v: string) => {
@@ -824,6 +945,17 @@ export function AdminProductsPage() {
                                                                 setFormData({ ...formData, variants: n });
                                                             }}
                                                             placeholder="Auto"
+                                                        />
+                                                        <FormInput
+                                                            label="Low Stock Alert"
+                                                            type="number"
+                                                            value={variant.lowStockThreshold || ''}
+                                                            onChange={(v: string) => {
+                                                                const n = [...formData.variants];
+                                                                n[i].lowStockThreshold = v;
+                                                                setFormData({ ...formData, variants: n });
+                                                            }}
+                                                            placeholder="5"
                                                         />
                                                     </div>
                                                 </div>
@@ -862,7 +994,7 @@ export function AdminProductsPage() {
                                         type="submit"
                                         className="flex-1 h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"
                                     >
-                                        {editingProduct ? 'Commit Data Migration' : 'Authorize Core Entry'}
+                                        {editingProduct ? 'Save Changes' : 'Create Product'}
                                     </button>
                                 </div>
                             </form>

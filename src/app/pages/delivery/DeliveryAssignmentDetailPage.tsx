@@ -9,6 +9,7 @@ import {
     Truck,
     XCircle,
     Loader,
+    KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
 import { getEffectiveApiBase } from '@/lib/api';
@@ -27,6 +28,9 @@ interface DeliveryAssignmentDetail {
     id: string;
     status: string | null;
     createdAt: string;
+    hasActiveOtp?: boolean;
+    otpGeneratedAt?: string | null;
+    otpExpiresAt?: string | null;
     order: {
         id: string;
         orderNumber: string;
@@ -52,6 +56,12 @@ export function DeliveryAssignmentDetailPage() {
     const [assignment, setAssignment] = useState<DeliveryAssignmentDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
+    const [generatingOtp, setGeneratingOtp] = useState(false);
+    const [otpMeta, setOtpMeta] = useState<{ generatedAt: string | null; expiresAt: string | null; active: boolean }>({
+        generatedAt: null,
+        expiresAt: null,
+        active: false,
+    });
 
     useEffect(() => {
         if (!id) return;
@@ -62,7 +72,13 @@ export function DeliveryAssignmentDetailPage() {
                     headers: { Authorization: token ? `Bearer ${token}` : '' },
                 });
                 if (!res.ok) throw new Error('Failed to load assignment');
-                setAssignment(await res.json());
+                const detail = await res.json();
+                setAssignment(detail);
+                setOtpMeta({
+                    generatedAt: detail?.otpGeneratedAt ?? null,
+                    expiresAt: detail?.otpExpiresAt ?? null,
+                    active: !!detail?.hasActiveOtp,
+                });
             } catch (e: any) {
                 toast.error(e?.message || 'Unable to load assignment');
             } finally {
@@ -74,6 +90,36 @@ export function DeliveryAssignmentDetailPage() {
 
     const handleUpdateStatus = async (status: string) => {
         if (!id) return;
+        if (status === 'DELIVERED') {
+            const otp = (window.prompt('Enter 6-digit OTP from customer') || '').trim();
+            if (!otp) {
+                toast.error('OTP is required to complete delivery.');
+                return;
+            }
+            setUpdating(true);
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${getEffectiveApiBase()}/delivery/assignments/${id}/verify-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: token ? `Bearer ${token}` : '',
+                    },
+                    body: JSON.stringify({ otp }),
+                });
+                const body = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(body?.message || 'Failed to verify OTP');
+                setAssignment((prev) => (prev ? { ...prev, status: 'DELIVERED' } : prev));
+                setOtpMeta({ generatedAt: null, expiresAt: null, active: false });
+                toast.success(body?.message || 'Delivery completed successfully.');
+            } catch (e: any) {
+                toast.error(e?.message || 'Unable to verify OTP');
+            } finally {
+                setUpdating(false);
+            }
+            return;
+        }
+
         let reason: string | undefined;
         if (status === 'FAILED') {
             reason = window.prompt('Reason for failed delivery? (e.g. customer unavailable, payment issue)') || '';
@@ -114,6 +160,32 @@ export function DeliveryAssignmentDetailPage() {
             toast.error(e?.message || 'Unable to update status');
         } finally {
             setUpdating(false);
+        }
+    };
+
+    const handleGenerateOtp = async () => {
+        if (!id) return;
+        setGeneratingOtp(true);
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch(`${getEffectiveApiBase()}/delivery/assignments/${id}/generate-otp`, {
+                method: 'POST',
+                headers: {
+                    Authorization: token ? `Bearer ${token}` : '',
+                },
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body?.message || 'Failed to generate OTP');
+            setOtpMeta({
+                generatedAt: body?.generatedAt || new Date().toISOString(),
+                expiresAt: body?.expiresAt || null,
+                active: true,
+            });
+            toast.success(body?.message || 'OTP generated successfully.');
+        } catch (e: any) {
+            toast.error(e?.message || 'Unable to generate OTP');
+        } finally {
+            setGeneratingOtp(false);
         }
     };
 
@@ -270,6 +342,45 @@ export function DeliveryAssignmentDetailPage() {
                     </p>
                 </div>
                 <div className="p-8">
+                    <div className="mb-6">
+                        <div className="mb-3">
+                            {otpMeta.active ? (
+                                <div className="inline-flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-700">
+                                        OTP sent
+                                    </span>
+                                    {otpMeta.generatedAt && (
+                                        <span className="text-[9px] font-bold text-emerald-700">
+                                            at {new Date(otpMeta.generatedAt).toLocaleTimeString()}
+                                        </span>
+                                    )}
+                                    {otpMeta.expiresAt && (
+                                        <span className="text-[9px] font-bold text-emerald-700">
+                                            · expires {new Date(otpMeta.expiresAt).toLocaleTimeString()}
+                                        </span>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">
+                                        No active OTP
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            disabled={generatingOtp || updating}
+                            onClick={handleGenerateOtp}
+                            className="w-full sm:w-auto flex items-center justify-center gap-3 h-12 px-6 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                        >
+                            {generatingOtp ? (
+                                <Loader className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <KeyRound className="w-4 h-4 text-emerald-400" />
+                            )}
+                            Generate Customer OTP
+                        </button>
+                    </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {STATUS_OPTIONS.map((opt) => {
                             const Icon = opt.icon;

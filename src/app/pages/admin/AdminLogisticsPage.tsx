@@ -169,22 +169,22 @@ export function AdminLogisticsPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Navigation2 className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Fleet Control Matrix</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Operations</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Operations Intel</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Strategic last-mile monitoring and delivery telemetry.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Logistics Overview</h1>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Track deliveries, staff, and warehouses in one place.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm">
                         <Globe className="w-4 h-4" />
-                        Network Graph
+                        Delivery Map
                     </button>
                     <button
                         onClick={() => toast.info('Opening dispatch...')}
                         className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
                     >
                         <Zap className="h-4 w-4 text-emerald-400" />
-                        Initiate Sort
+                        Open Dispatch
                     </button>
                 </div>
             </div>
@@ -307,7 +307,7 @@ export function AdminLogisticsPage() {
                 ))}
             </div>
 
-            {/* Consignment Flux Nexus */}
+            {/* Delivery list */}
             <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
                     <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
@@ -370,7 +370,7 @@ export function AdminLogisticsPage() {
                                     </div>
                                     <div className="flex flex-col">
                                         <p className="text-lg font-black text-slate-900 uppercase tracking-tighter group-hover:text-emerald-600 transition-colors">{delivery.id.slice(0, 8)}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Protocol #{delivery.orderNumber || delivery.orderId}</p>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Order #{delivery.orderNumber || delivery.orderId}</p>
                                     </div>
                                 </div>
 
@@ -407,7 +407,7 @@ export function AdminLogisticsPage() {
                                     </div>
                                     <button className="h-14 px-8 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center gap-3 active:scale-95">
                                         <Smartphone className="w-4 h-4 text-emerald-400" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Direct Comms</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Contact</span>
                                     </button>
                                 </div>
                             </motion.div>
@@ -415,7 +415,7 @@ export function AdminLogisticsPage() {
                     ) : (
                         <div className="py-32 text-center">
                             <Box className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Fleet Vacuum</h3>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Deliveries Found</h3>
                             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No deliveries found.</p>
                         </div>
                     )}
@@ -424,7 +424,7 @@ export function AdminLogisticsPage() {
             </>
             )}
 
-            {/* Hyperlocal Telemetry Panel (Modal style) */}
+            {/* Delivery details panel */}
             {selectedDelivery && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[120] flex justify-end">
@@ -450,10 +450,10 @@ export function AdminLogisticsPage() {
                                             <Signal className="w-5 h-5 text-emerald-400" />
                                         </div>
                                         <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            Telemetry: {selectedDelivery.id}
+                                            Delivery: {selectedDelivery.id}
                                         </h2>
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Logistics Stream v8.4</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery Details</p>
                                 </div>
                                 <button onClick={() => setSelectedDelivery(null)} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-300 hover:text-red-500 hover:shadow-xl transition-all">
                                     <X className="h-6 w-6" />
@@ -487,7 +487,7 @@ export function AdminLogisticsPage() {
                                             <div className="h-24 w-24 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-[0_0_50px_rgba(16,185,129,0.4)] ring-8 ring-emerald-500/20 mb-6 animate-bounce">
                                                 <Navigation className="w-12 h-12" />
                                             </div>
-                                            <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-2">Tactical Map Visualization</h3>
+                                            <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] mb-2">Delivery Map Preview</h3>
                                             <p className="text-[10px] font-medium text-emerald-400/60 uppercase tracking-widest italic animate-pulse tracking-widest">Loading...</p>
                                         </div>
 
@@ -542,7 +542,7 @@ export function AdminLogisticsPage() {
                                     className="flex-1 h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-3"
                                 >
                                     <Smartphone className="w-5 h-5 text-emerald-400" />
-                                    Push Alert to Carrier
+                                    Send Update to Rider
                                 </button>
                             </div>
                         </motion.div>

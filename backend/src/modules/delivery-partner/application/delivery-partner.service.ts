@@ -5,16 +5,52 @@ import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DeliveryPartnerService {
+    private parseDeliveryOtpMeta(raw: string | null | undefined) {
+        if (!raw) return { hasActiveOtp: false as const };
+        const parts = raw.split('|');
+        // Backward compatibility: old format was otp|expiresAt
+        const expiresAt = Number(parts[1] || 0);
+        const generatedAt = Number(parts[2] || 0);
+        if (!expiresAt) return { hasActiveOtp: false as const };
+        const now = Date.now();
+        if (now > expiresAt) return { hasActiveOtp: false as const };
+        return {
+            hasActiveOtp: true as const,
+            otpExpiresAt: new Date(expiresAt).toISOString(),
+            otpGeneratedAt: generatedAt ? new Date(generatedAt).toISOString() : null,
+        };
+    }
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly mailService: MailService,
     ) { }
 
+    private buildAddressText(addr: any): string {
+        if (!addr || typeof addr !== 'object') return 'Address available in app';
+        const parts = [
+            addr.addressLine1 || addr.address || '',
+            addr.addressLine2 || '',
+            addr.city || '',
+            addr.state || '',
+            addr.pincode || addr.zipCode || '',
+        ].filter((v: string) => !!String(v || '').trim());
+        return parts.length ? parts.join(', ') : 'Address available in app';
+    }
+
     /** Admin: assign an order to a delivery partner (creates or rebinds Delivery row). */
     async assignOrderToPartner(orderId: string, partnerId: string) {
         const [order, partner] = await Promise.all([
-            this.prisma.order.findUnique({ where: { id: orderId } }),
-            this.prisma.deliveryPartner.findUnique({ where: { id: partnerId } }),
+            this.prisma.order.findUnique({
+                where: { id: orderId },
+                include: {
+                    user: { select: { email: true, firstName: true, lastName: true } },
+                },
+            }),
+            this.prisma.deliveryPartner.findUnique({
+                where: { id: partnerId },
+                include: { user: { select: { email: true } } },
+            }),
         ]);
         if (!order) {
             throw new NotFoundException('Order not found');
@@ -28,23 +64,39 @@ export class DeliveryPartnerService {
             where: { orderId: order.id },
         });
 
+        let assignedDelivery: any;
         if (existing) {
-            return this.prisma.delivery.update({
+            assignedDelivery = await this.prisma.delivery.update({
                 where: { id: existing.id },
                 data: {
                     deliveryPartnerId: partner.id,
                     status: existing.status ?? 'ASSIGNED',
                 },
             });
+        } else {
+            assignedDelivery = await this.prisma.delivery.create({
+                data: {
+                    orderId: order.id,
+                    deliveryPartnerId: partner.id,
+                    status: 'ASSIGNED',
+                },
+            });
         }
 
-        return this.prisma.delivery.create({
-            data: {
-                orderId: order.id,
-                deliveryPartnerId: partner.id,
-                status: 'ASSIGNED',
-            },
-        });
+        if (partner.user?.email) {
+            const customerName =
+                [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ') || undefined;
+            this.mailService
+                .sendDeliveryAssignmentEmail(partner.user.email, {
+                    orderNumber: order.orderNumber,
+                    customerName,
+                    deliverySlot: order.deliverySlot,
+                    address: this.buildAddressText(order.shippingAddress),
+                })
+                .catch(() => { /* Mail service logs errors */ });
+        }
+
+        return assignedDelivery;
     }
 
     async findAll() {
@@ -300,6 +352,7 @@ export class DeliveryPartnerService {
                                 firstName: true,
                                 lastName: true,
                                 phone: true,
+                                email: true,
                             },
                         },
                     },
@@ -312,7 +365,129 @@ export class DeliveryPartnerService {
         if (!delivery) {
             throw new NotFoundException('Delivery assignment not found');
         }
-        return delivery;
+        const otpMeta = this.parseDeliveryOtpMeta(delivery.otpCode);
+        return {
+            ...delivery,
+            hasActiveOtp: otpMeta.hasActiveOtp,
+            otpGeneratedAt: (otpMeta as any).otpGeneratedAt ?? null,
+            otpExpiresAt: (otpMeta as any).otpExpiresAt ?? null,
+        };
+    }
+
+    async generateDeliveryOtpForUser(deliveryId: string, userId: string) {
+        const partner = await this.getPartnerForUser(userId);
+        const delivery = await this.prisma.delivery.findFirst({
+            where: { id: deliveryId, deliveryPartnerId: partner.id },
+            include: {
+                order: {
+                    include: { user: { select: { email: true } } },
+                },
+            },
+        });
+        if (!delivery) {
+            throw new NotFoundException('Delivery assignment not found');
+        }
+        if ((delivery.status || '').toUpperCase() === 'DELIVERED') {
+            throw new BadRequestException('Order is already delivered.');
+        }
+
+        const otp = String(Math.floor(100000 + Math.random() * 900000));
+        const expiresInMinutes = 10;
+        const generatedAt = Date.now();
+        const expiresAt = generatedAt + expiresInMinutes * 60 * 1000;
+        await this.prisma.delivery.update({
+            where: { id: delivery.id },
+            data: {
+                otpCode: `${otp}|${expiresAt}|${generatedAt}`,
+            },
+        });
+
+        if (delivery.order.user?.email) {
+            this.mailService
+                .sendDeliveryOtpToCustomerEmail(delivery.order.user.email, {
+                    orderNumber: delivery.order.orderNumber,
+                    otp,
+                    expiresInMinutes,
+                })
+                .catch(() => { /* Mail service logs errors */ });
+        }
+
+        return {
+            ok: true,
+            message: delivery.order.user?.email
+                ? 'OTP generated and sent to customer email.'
+                : 'OTP generated, but customer email is not available.',
+            expiresInMinutes,
+            generatedAt: new Date(generatedAt).toISOString(),
+            expiresAt: new Date(expiresAt).toISOString(),
+        };
+    }
+
+    async verifyDeliveryOtpForUser(deliveryId: string, userId: string, code: string) {
+        const partner = await this.getPartnerForUser(userId);
+        if (!code || !/^\d{6}$/.test(code)) {
+            throw new BadRequestException('Invalid OTP format.');
+        }
+
+        return this.prisma.$transaction(async (tx) => {
+            const delivery = await tx.delivery.findFirst({
+                where: { id: deliveryId, deliveryPartnerId: partner.id },
+                include: { order: true },
+            });
+            if (!delivery) {
+                throw new NotFoundException('Delivery assignment not found');
+            }
+            if ((delivery.status || '').toUpperCase() === 'DELIVERED') {
+                return { ok: true, message: 'Order already marked as delivered.' };
+            }
+            if (!delivery.otpCode) {
+                throw new BadRequestException('Please generate OTP before delivery.');
+            }
+
+            const [storedOtp, expiresRaw] = delivery.otpCode.split('|');
+            const expiresAt = Number(expiresRaw || 0);
+            if (!storedOtp || !expiresAt) {
+                throw new BadRequestException('OTP is invalid. Generate a new OTP.');
+            }
+            if (Date.now() > expiresAt) {
+                throw new BadRequestException('OTP has expired. Generate a new OTP.');
+            }
+            if (storedOtp !== code) {
+                throw new BadRequestException('Incorrect OTP.');
+            }
+
+            await tx.delivery.update({
+                where: { id: delivery.id },
+                data: {
+                    status: 'DELIVERED',
+                    actualDelivery: new Date(),
+                    otpCode: null,
+                },
+            });
+            await tx.deliveryTracking.create({
+                data: {
+                    deliveryId: delivery.id,
+                    deliveryPartnerId: partner.id,
+                    status: 'DELIVERED',
+                    source: 'APP',
+                    note: 'Customer OTP verified',
+                },
+            });
+            await tx.order.update({
+                where: { id: delivery.orderId },
+                data: { status: 'DELIVERED' },
+            });
+            await tx.orderStatusLog.create({
+                data: {
+                    orderId: delivery.orderId,
+                    status: 'DELIVERED',
+                    changedByRole: 'DELIVERY_PARTNER',
+                    changedByName: partner.name,
+                },
+            });
+
+            return { ok: true, message: 'Delivery OTP verified. Order marked as delivered.' };
+        });
     }
 
     async updateAssignmentStatusForUser(
@@ -379,18 +554,9 @@ export class DeliveryPartnerService {
 
             // When the partner marks the order as DELIVERED, also update the order status timeline.
             if (normalizedStatus === 'DELIVERED') {
-                await tx.order.update({
-                    where: { id: delivery.orderId },
-                    data: { status: 'DELIVERED' },
-                });
-                await tx.orderStatusLog.create({
-                    data: {
-                        orderId: delivery.orderId,
-                        status: 'DELIVERED',
-                        changedByRole: 'DELIVERY_PARTNER',
-                        changedByName: partner.name,
-                    },
-                });
+                throw new BadRequestException(
+                    'Use OTP verification endpoint to mark delivery as DELIVERED.',
+                );
             }
 
             return updated;

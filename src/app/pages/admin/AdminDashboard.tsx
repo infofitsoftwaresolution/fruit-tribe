@@ -3,7 +3,7 @@ import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
     ShoppingBag, Clock, ShieldCheck, Zap, LayoutDashboard,
-    ArrowRight, Star, ExternalLink, Activity
+    ArrowRight, Star, ExternalLink, Activity, Ban
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -36,7 +36,27 @@ export function AdminDashboard() {
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
 
     const lowStockCount = useMemo(
-        () => products.filter((p) => p.stock < 10 && p.stock > 0).length,
+        () => products.filter((p) => (p.availableStock ?? p.stock) < (p.lowStockThreshold ?? 5) && (p.availableStock ?? p.stock) > 0).length,
+        [products]
+    );
+
+    const inventoryIntel = useMemo(() => {
+        const totalProducts = products.length;
+        const totalUnits = products.reduce((sum, p) => sum + (p.stock ?? 0), 0);
+        const outOfStock = products.filter((p) => (p.availableStock ?? p.stock) <= 0).length;
+        const lowStock = products.filter(
+            (p) => (p.availableStock ?? p.stock) > 0 && (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5)
+        ).length;
+        const healthy = Math.max(0, totalProducts - outOfStock - lowStock);
+        return { totalProducts, totalUnits, outOfStock, lowStock, healthy };
+    }, [products]);
+
+    const lowStockPreview = useMemo(
+        () =>
+            products
+                .filter((p) => (p.availableStock ?? p.stock) > 0 && (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5))
+                .sort((a, b) => (a.availableStock ?? a.stock) - (b.availableStock ?? b.stock))
+                .slice(0, 5),
         [products]
     );
 
@@ -96,7 +116,7 @@ export function AdminDashboard() {
 
     return (
         <div className="space-y-10 pb-20">
-            {/* Command Center Header */}
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -104,20 +124,20 @@ export function AdminDashboard() {
                 >
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Nexus Console</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Admin Dashboard</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {isSeller ? `Store Intel: ${user?.name}` : 'Command Center'}
+                        {isSeller ? `${user?.name} Store Overview` : 'Dashboard Overview'}
                     </h1>
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic">
-                        {isSuperAdmin ? 'Global ecosystem telemetry and performance analytics.' : 'Real-time monitoring of your commercial fruit pipeline.'}
+                        {isSuperAdmin ? 'Track business performance across the platform.' : 'Track orders, products, customers, and stock in one place.'}
                     </p>
                 </motion.div>
 
                 <div className="flex items-center gap-3">
                     <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-2 shadow-sm">
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Secure Uplink Verified</span>
+                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">System Running</span>
                     </div>
                     <button className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-500 hover:shadow-xl transition-all">
                         <ExternalLink className="w-5 h-5" />
@@ -152,25 +172,25 @@ export function AdminDashboard() {
                 {(isSuperAdmin || isAdmin) ? (
                     <>
                         <MetricGlassCard
-                            label="Global Volume"
+                            label="Total Revenue"
                             value={`₹${intel.globalRevenue.toLocaleString()}`}
-                            sub="Consolidated Revenue"
+                            sub="Paid orders"
                             color="emerald"
                             icon={IndianRupee}
                             trend="+24%"
                         />
                         <MetricGlassCard
-                            label="Merchant Partners"
+                            label="Active Sellers"
                             value={intel.vendorBase}
-                            sub="Active Supply Nodes"
+                            sub="Sellers on platform"
                             color="blue"
                             icon={Store}
                             trend="+2"
                         />
                         <MetricGlassCard
-                            label="Consumer Base"
+                            label="Verified Customers"
                             value={intel.buyerBase}
-                            sub="Registered Entities"
+                            sub="Approved accounts"
                             color="purple"
                             icon={Users}
                             trend="+48"
@@ -180,13 +200,13 @@ export function AdminDashboard() {
                             className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden"
                         >
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4">System Integrity</p>
-                                <p className="text-2xl font-black uppercase tracking-tighter mb-2 italic">Optimal Ops</p>
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4">System Health</p>
+                                <p className="text-2xl font-black uppercase tracking-tighter mb-2 italic">All Good</p>
                                 <div className="flex flex-col gap-1">
                                     <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
                                         <div className="h-full bg-emerald-500 w-[94%]" />
                                     </div>
-                                    <span className="text-[8px] font-black text-white/40 uppercase">Load: 0.12ms / Uptime: 99.9%</span>
+                                    <span className="text-[8px] font-black text-white/40 uppercase">Service Load / Uptime</span>
                                 </div>
                             </div>
                             <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
@@ -195,7 +215,7 @@ export function AdminDashboard() {
                 ) : (
                     <>
                         <MetricGlassCard
-                            label="Gross Store Sales"
+                            label="Store Revenue"
                             value={`₹${intel.grossSales.toLocaleString()}`}
                             sub="Settled & Pending"
                             color="emerald"
@@ -203,17 +223,17 @@ export function AdminDashboard() {
                             trend="+12%"
                         />
                         <MetricGlassCard
-                            label="Order Volume"
+                            label="Total Orders"
                             value={intel.volume}
-                            sub="Life-time Batches"
+                            sub="All time"
                             color="blue"
                             icon={ShoppingBag}
                             trend="+5"
                         />
                         <MetricGlassCard
-                            label="Fulfillment Load"
+                            label="Pending Orders"
                             value={intel.pending}
-                            sub="Action Required"
+                            sub="Need action"
                             color="orange"
                             icon={Clock}
                             trend="Urgent"
@@ -221,7 +241,7 @@ export function AdminDashboard() {
                         <MetricGlassCard
                             label="Store Rating"
                             value="4.9"
-                            sub="Consumer Feedback"
+                            sub="Customer reviews"
                             color="purple"
                             icon={Star}
                             trend="+0.1"
@@ -230,14 +250,92 @@ export function AdminDashboard() {
                 )}
             </div>
 
-            {/* Business Intel Feed & Ops Split */}
+            {/* Inventory Overview */}
+            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
+                <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
+                    <div>
+                        <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Inventory Overview</h3>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            Live stock summary from your products
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/admin/products')}
+                        className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
+                        Open Catalog
+                    </button>
+                </div>
+
+                <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-5">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <StatPill label="Products" value={inventoryIntel.totalProducts} tone="slate" />
+                            <StatPill label="Units" value={inventoryIntel.totalUnits} tone="emerald" />
+                            <StatPill label="Low" value={inventoryIntel.lowStock} tone="amber" />
+                            <StatPill label="Out" value={inventoryIntel.outOfStock} tone="purple" />
+                        </div>
+
+                        <div className="space-y-3">
+                            <InventoryBar
+                                label="Healthy"
+                                value={inventoryIntel.healthy}
+                                total={Math.max(1, inventoryIntel.totalProducts)}
+                                colorClass="bg-emerald-500"
+                            />
+                            <InventoryBar
+                                label="Low stock"
+                                value={inventoryIntel.lowStock}
+                                total={Math.max(1, inventoryIntel.totalProducts)}
+                                colorClass="bg-amber-500"
+                            />
+                            <InventoryBar
+                                label="Out of stock"
+                                value={inventoryIntel.outOfStock}
+                                total={Math.max(1, inventoryIntel.totalProducts)}
+                                colorClass="bg-violet-500"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-5">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Restock First</p>
+                        <div className="space-y-3">
+                            {lowStockPreview.length ? lowStockPreview.map((p) => (
+                                <button
+                                    key={String(p.id)}
+                                    type="button"
+                                    onClick={() => navigate(`/admin/products?focusProductId=${encodeURIComponent(String(p.id))}`)}
+                                    className="w-full flex items-center justify-between gap-3 rounded-xl p-2 -m-2 hover:bg-white transition-all text-left"
+                                >
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-black text-slate-900 truncate">{p.name}</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                                            Threshold {(p.lowStockThreshold ?? 5)}
+                                        </p>
+                                    </div>
+                                    <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest">
+                                        {p.availableStock ?? p.stock} left
+                                    </span>
+                                </button>
+                            )) : (
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    No low-stock products right now.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Orders and Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Recent Commercial Stream */}
+                {/* Recent Orders */}
                 <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                     <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
                         <div>
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Stream: Live Transactions</h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time throughput analysis</p>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Recent Transactions</h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Latest order activity</p>
                         </div>
                         <Link to="/admin/orders" className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all">
                             <ArrowRight className="h-4 w-4 text-slate-400" />
@@ -276,7 +374,7 @@ export function AdminDashboard() {
                         )) : (
                             <div className="py-20 text-center">
                                 <Activity className="h-12 w-12 text-slate-100 mx-auto mb-4" />
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Awaiting commercial signals...</p>
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No recent transactions.</p>
                             </div>
                         )}
                     </div>
@@ -285,12 +383,12 @@ export function AdminDashboard() {
                             onClick={() => navigate('/admin/orders')}
                             className="w-full h-14 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all"
                         >
-                            Access Full Transactional History
+                            View All Orders
                         </button>
                     </div>
                 </div>
 
-                {/* Growth Protocols & Quick Actions */}
+                {/* Quick Actions */}
                 <div className="space-y-6">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -300,11 +398,11 @@ export function AdminDashboard() {
                         <div className="relative z-10">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-6">
                                 <Zap className="h-4 w-4 fill-emerald-500" />
-                                Optimization Protocol
+                                Quick Actions
                             </div>
-                            <h3 className="text-4xl font-black mb-4 tracking-tighter leading-none">Scale your <br />Fruit Tribe.</h3>
+                            <h3 className="text-4xl font-black mb-4 tracking-tighter leading-none">Manage your <br />store faster.</h3>
                             <p className="text-slate-400 text-sm mb-10 leading-relaxed max-w-sm">
-                                Deploy our premium distribution network tools to accelerate market penetration and logistics efficiency.
+                                Use shortcuts to update products, orders, and storefront settings.
                             </p>
 
                             <div className="grid gap-3">
@@ -313,7 +411,7 @@ export function AdminDashboard() {
                                         <div className="h-10 w-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/20">
                                             <Package className="h-5 w-5 text-emerald-500" />
                                         </div>
-                                        <span className="text-sm font-black uppercase tracking-tight">Expand Catalog Depth</span>
+                                        <span className="text-sm font-black uppercase tracking-tight">Manage Products</span>
                                     </div>
                                     <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
                                 </Link>
@@ -324,7 +422,7 @@ export function AdminDashboard() {
                                             <div className="h-10 w-10 bg-blue-500/20 rounded-2xl flex items-center justify-center border border-blue-500/20">
                                                 <LayoutDashboard className="h-5 w-5 text-blue-500" />
                                             </div>
-                                            <span className="text-sm font-black uppercase tracking-tight">Refine Visual Identity</span>
+                                            <span className="text-sm font-black uppercase tracking-tight">Store Settings</span>
                                         </div>
                                         <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
                                     </Link>
@@ -336,17 +434,17 @@ export function AdminDashboard() {
                         <div className="absolute -top-24 -left-24 h-64 w-64 bg-blue-600/10 rounded-full blur-[80px] pointer-events-none" />
                     </motion.div>
 
-                    {/* Quick System Alerts (Secondary Action Area) */}
+                    {/* Alerts */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="p-6 bg-amber-50 rounded-[2.5rem] border border-amber-100 flex items-start gap-4">
                             <div className="p-3 bg-white rounded-2xl text-amber-600 shadow-sm">
                                 <AlertCircle className="w-5 h-5" />
                             </div>
                             <div className="flex-1">
-                                <p className="text-[9px] font-black text-amber-800/60 uppercase tracking-widest mb-1">Attention Required</p>
+                                <p className="text-[9px] font-black text-amber-800/60 uppercase tracking-widest mb-1">Stock Alert</p>
                                 <p className="text-xs font-black text-amber-900 leading-tight">
                                     {lowStockCount > 0
-                                        ? `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} nearing stock exhaustion.`
+                                        ? `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} running low.`
                                         : 'All products have healthy stock.'}
                                 </p>
                             </div>
@@ -356,8 +454,8 @@ export function AdminDashboard() {
                                 <ShieldCheck className="w-5 h-5" />
                             </div>
                             <div className="flex-1">
-                                <p className="text-[9px] font-black text-purple-800/60 uppercase tracking-widest mb-1">Compliance Log</p>
-                                <p className="text-xs font-black text-purple-900 leading-tight">All vendor KYC nodes are healthy.</p>
+                                <p className="text-[9px] font-black text-purple-800/60 uppercase tracking-widest mb-1">Verification</p>
+                                <p className="text-xs font-black text-purple-900 leading-tight">All seller KYC records are verified.</p>
                             </div>
                         </div>
                     </div>
@@ -404,5 +502,46 @@ function MetricGlassCard({ label, value, sub, color, icon: Icon, trend }: any) {
             {/* Ambient Background Glow */}
             <div className={cn("absolute -right-8 -bottom-8 w-32 h-32 blur-[40px] opacity-10 transition-opacity group-hover:opacity-20", `bg-${color}-400`)} />
         </motion.div>
+    );
+}
+
+function StatPill({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'emerald' | 'amber' | 'purple' }) {
+    const tones = {
+        slate: 'bg-slate-100 text-slate-700',
+        emerald: 'bg-emerald-100 text-emerald-700',
+        amber: 'bg-amber-100 text-amber-700',
+        purple: 'bg-violet-100 text-violet-700',
+    } as const;
+
+    return (
+        <div className="p-4 rounded-2xl border border-slate-100 bg-white">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
+            <p className={cn('text-2xl font-black tracking-tighter leading-none', tones[tone])}>{value.toLocaleString()}</p>
+        </div>
+    );
+}
+
+function InventoryBar({
+    label,
+    value,
+    total,
+    colorClass,
+}: {
+    label: string;
+    value: number;
+    total: number;
+    colorClass: string;
+}) {
+    const pct = Math.max(0, Math.min(100, Math.round((value / Math.max(1, total)) * 100)));
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
+                <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">{value} ({pct}%)</p>
+            </div>
+            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div className={cn('h-full rounded-full', colorClass)} style={{ width: `${pct}%` }} />
+            </div>
+        </div>
     );
 }

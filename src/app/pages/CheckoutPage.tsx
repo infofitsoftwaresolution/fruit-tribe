@@ -1,12 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote } from 'lucide-react';
+import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, Trash2 } from 'lucide-react';
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
-import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders, getWarehouses } from '@/lib/api';
+import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders, getWarehouses, getAvailableOffers, type AvailableOffer } from '@/lib/api';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -29,7 +29,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 export function CheckoutPage({ items }: CheckoutPageProps) {
-  const { products: storeProducts, taxRates, theme, preferences, clearCart } = useStore();
+  const { products: storeProducts, taxRates, theme, preferences, clearCart, handleUpdateQuantity, handleRemoveItem } = useStore();
   const { products: productsFromApi } = useProducts({ limit: 500 });
   const products = productsFromApi.length > 0 ? productsFromApi : storeProducts;
   const codAllowedForCart = useMemo(() => {
@@ -49,6 +49,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
+  const [availableOffers, setAvailableOffers] = useState<AvailableOffer[]>([]);
   const [deliverySlot, setDeliverySlot] = useState<string>('');
   const [formData, setFormData] = useState({
     firstName: user?.name?.split(' ')[0] || '',
@@ -91,6 +92,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setWarehouses(list.map((w) => ({ latitude: Number(w.latitude), longitude: Number(w.longitude) })));
     }).catch(() => setWarehouses([]));
   }, []);
+
+  useEffect(() => {
+    const cartProductIds = items.map((i) => String(i.id));
+    const cartCategoryNames = items
+      .map((item) => products.find((p) => String(p.id) === String(item.id))?.category)
+      .filter((name): name is string => !!name);
+    getAvailableOffers({ cartProductIds, cartCategoryNames }).then(setAvailableOffers).catch(() => setAvailableOffers([]));
+  }, [items, products]);
 
   const updateDeliveryFromCoordinates = (lat: number, lng: number) => {
     setMapCenter({ lat, lng });
@@ -221,6 +230,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;
   const deliveryEfficiency = deliveryStats.onTimeRate;
+  const etaMin = Math.max(20, Math.round(deliveryStats.estimatedMins * 0.8));
+  const etaMax = Math.max(etaMin + 10, Math.round(deliveryStats.estimatedMins * 1.2));
+  const etaLabel = `${etaMin}-${etaMax} mins`;
 
   const groupedItems = useMemo(() => {
     return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
@@ -232,7 +244,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }, [items]);
 
   const vendorSummaries = useMemo(() => {
-    const deliveryChargeTotal = Number(preferences.deliveryCharge) || 0;
+    const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
+    const rules = (preferences.deliveryFeeRules || []).slice().sort((a, b) => a.upToKm - b.upToKm);
+    const matched = rules.find((r) => deliveryStats.distanceKm <= r.upToKm);
+    const deliveryChargeTotal = matched ? Number(matched.fee) : fallbackDeliveryCharge;
     const entries = Object.entries(groupedItems);
     return entries.map(([vendor, vendorItems], i) => {
       const vSubtotal = vendorItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -251,7 +266,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         total: vSubtotal + vTax + shipping,
       };
     });
-  }, [groupedItems, products, taxRates, preferences.deliveryCharge]);
+  }, [groupedItems, products, taxRates, preferences.deliveryCharge, preferences.deliveryFeeRules, deliveryStats.distanceKm]);
 
   const subtotalOnly = vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0);
   const discountAmount = useMemo(() => {
@@ -267,15 +282,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const grandTotal = Math.max(0, vendorSummaries.reduce((sum, s) => sum + s.total, 0) - discountAmount);
 
-  const handleApplyPromo = async () => {
-    const code = promoCode.trim();
+  const applyPromoCode = async (rawCode: string) => {
+    const code = rawCode.trim();
     if (!code) {
       toast.error('Enter a promo code');
       return;
     }
     setApplyingPromo(true);
     try {
-      const result = await validateCoupon(code);
+      const cartProductIds = items.map((i) => String(i.id));
+      const cartCategoryNames = items
+        .map((item) => products.find((p) => String(p.id) === String(item.id))?.category)
+        .filter((name): name is string => !!name);
+      const result = await validateCoupon(code, { cartProductIds, cartCategoryNames });
       if (result.valid && result.discountType != null && result.discountValue != null) {
         setAppliedCoupon({
           code,
@@ -295,6 +314,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     } finally {
       setApplyingPromo(false);
     }
+  };
+
+  const handleApplyPromo = async () => {
+    await applyPromoCode(promoCode);
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedCoupon(null);
+    setPromoCode('');
+    toast.success('Promo code removed');
+  };
+
+  const isOfferEligible = (offer: AvailableOffer, subtotal: number) => {
+    if (offer.minOrderValue != null && subtotal < offer.minOrderValue) return false;
+    if (offer.usageLeft != null && offer.usageLeft <= 0) return false;
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -364,6 +399,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         billingAddress: shippingAddress,
         couponCode: appliedCoupon?.code || undefined,
         deliverySlot: deliverySlot || undefined,
+        distanceKm: deliveryStats.distanceKm,
+        paymentMethod: paymentMethod,
       });
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
@@ -512,33 +549,33 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }
 
   return (
-    <div className="pt-28 pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         {/* Delivery info */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-6"
+          className="mb-8 sm:mb-12 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6"
         >
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-6">
+          <div className="bg-white p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-4 sm:gap-6 min-h-[88px]">
             <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
               <Navigation className="w-6 h-6" />
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery area</p>
-              <p className="text-2xl font-black text-slate-900 tracking-tighter">{deliveryDistance} km</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">{deliveryDistance} km</p>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-6">
+          <div className="bg-white p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-4 sm:gap-6 min-h-[88px]">
             <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
               <Activity className="w-6 h-6" />
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-time rate</p>
-              <p className="text-2xl font-black text-slate-900 tracking-tighter">{deliveryEfficiency}%</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">{deliveryEfficiency}%</p>
             </div>
           </div>
-          <div className="bg-slate-900 p-6 rounded-[2.5rem] text-white shadow-2xl flex items-center gap-6 relative overflow-hidden group">
+          <div className="bg-slate-900 p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] text-white shadow-2xl flex items-center gap-4 sm:gap-6 relative overflow-hidden group min-h-[88px]">
             <div className="absolute right-0 top-0 p-4 opacity-10">
               <Globe className="w-20 h-20" />
             </div>
@@ -547,26 +584,29 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
             <div>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Est. delivery</p>
-              <p className="text-2xl font-black text-white tracking-tighter">~{deliveryStats.estimatedMins} Mins</p>
+              <p className="text-xl sm:text-2xl font-black text-white tracking-tighter">{etaLabel}</p>
+              <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                Based on {deliveryDistance} km from nearest warehouse
+              </p>
             </div>
           </div>
         </motion.div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-12 gap-10">
+          <div className="grid lg:grid-cols-12 gap-6 sm:gap-10">
             {/* Left Column - Forms */}
             <div className="lg:col-span-8 space-y-10">
               {/* Shipping Information */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl"
+                className="bg-white rounded-3xl sm:rounded-[3.5rem] p-5 sm:p-10 border border-slate-100 shadow-2xl"
               >
                 <div className="flex items-center gap-4 mb-10">
                   <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center">
                     <MapPin className="w-6 h-6 text-emerald-400" />
                   </div>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
@@ -578,7 +618,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       value={formData.firstName}
                       onChange={handleChange}
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                    className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
                     />
                   </div>
                   <div className="space-y-2">
@@ -591,7 +631,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       value={formData.lastName}
                       onChange={handleChange}
                       required
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
                     />
                   </div>
                   <div className="space-y-2">
@@ -603,7 +643,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="e.g. 9876543210"
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -615,7 +655,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="Street address"
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
                     />
                   </div>
                   <div className="space-y-2">
@@ -628,7 +668,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       required
                       placeholder="e.g. Bangalore"
                       className={cn(
-                        "w-full px-6 py-4 rounded-2xl border-2 bg-slate-50 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400",
+                        "w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 bg-slate-50 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]",
                         formData.city?.trim() && serviceableCities.length > 0 && !isCityServiceable(formData.city)
                           ? "border-amber-400 focus:border-amber-500"
                           : "border-slate-200 focus:border-orange-500"
@@ -653,7 +693,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="e.g. 700001"
-                      className="w-full px-6 py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
                     />
                   </div>
                 </div>
@@ -709,7 +749,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[
-                        `Today · in ~${Math.max(45, deliveryStats.estimatedMins)} mins`,
+                        `Today · in ${etaLabel}`,
                         'Today · 6pm – 8pm',
                         'Tomorrow · 8am – 10am',
                       ].map((slot) => (
@@ -717,8 +757,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           key={slot}
                           type="button"
                           onClick={() => setDeliverySlot(slot)}
-                          className={cn(
-                            "px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] text-left transition-all",
+                        className={cn(
+                            "px-4 py-3.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] text-left transition-all min-h-[44px]",
                             deliverySlot === slot
                               ? "bg-slate-900 text-white border-slate-900"
                               : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-500 hover:bg-white"
@@ -741,15 +781,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
             {/* Right Column - Order Summary */}
             <div className="lg:col-span-4">
-              <div className="sticky top-28 space-y-6">
+              <div className="lg:sticky lg:top-28 space-y-6">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl relative overflow-hidden"
+                  className="bg-white rounded-3xl sm:rounded-[3.5rem] p-5 sm:p-10 border border-slate-100 shadow-2xl relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16" />
 
-                  <h2 className="text-2xl font-black text-slate-900 mb-8 uppercase tracking-tight">Order summary</h2>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 sm:mb-8 uppercase tracking-tight">Order summary</h2>
 
                   <div className="space-y-8 mb-10 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {vendorSummaries.map((summary) => (
@@ -769,6 +809,66 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                               <div className="flex-1 min-w-0">
                                 <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tight">{item.name}</p>
                                 <p className="text-[9px] font-bold text-slate-400 uppercase">{item.quantity} UNITS @ ₹{item.price}</p>
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.quantity <= 1) {
+                                        handleRemoveItem(item.id);
+                                      } else {
+                                        handleUpdateQuantity(item.id, -1);
+                                      }
+                                    }}
+                                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50"
+                                  >
+                                    <Minus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={item.quantity}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === '') {
+                                        handleUpdateQuantity(item.id, -item.quantity);
+                                        return;
+                                      }
+                                      const num = parseInt(val, 10);
+                                      if (!Number.isNaN(num)) {
+                                        const product = products.find((p: any) => String(p.id) === String(item.id));
+                                        const maxStock = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 999);
+                                        const target = Math.min(maxStock, Math.max(0, num));
+                                        handleUpdateQuantity(item.id, target - item.quantity);
+                                      }
+                                    }}
+                                    onBlur={() => {
+                                      if (item.quantity < 1) handleUpdateQuantity(item.id, 1 - item.quantity);
+                                    }}
+                                    className="w-10 h-7 rounded-lg border border-slate-200 text-center text-xs font-black text-slate-800"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const product = products.find((p: any) => String(p.id) === String(item.id));
+                                      const avail = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 0);
+                                      if (!product || item.quantity < avail) {
+                                        handleUpdateQuantity(item.id, 1);
+                                      } else {
+                                        toast.error(`Only ${avail} units available`);
+                                      }
+                                    }}
+                                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveItem(item.id)}
+                                    className="ml-1 h-7 w-7 rounded-lg border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                               <p className="text-xs font-black text-slate-900">₹{item.price * item.quantity}</p>
                             </div>
@@ -784,7 +884,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <span className="text-slate-900">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
                     </div>
                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Shipping</span>
+                      <span>Shipping ({deliveryDistance} km)</span>
                       <span className="text-emerald-500">
                         {vendorSummaries.reduce((sum, s) => sum + s.shipping, 0) === 0 ? 'Free' : `₹${vendorSummaries.reduce((sum, s) => sum + s.shipping, 0)}`}
                       </span>
@@ -797,30 +897,118 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     {/* Promo code */}
                     <div className="pt-4 space-y-2">
                       <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Promo code</label>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="text"
                           value={promoCode}
                           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                           placeholder="e.g. SAVE10"
-                          className="flex-1 h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium uppercase"
+                          className="flex-1 h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium uppercase min-h-[44px]"
                         />
                         <button
                           type="button"
                           onClick={handleApplyPromo}
-                          disabled={applyingPromo || !promoCode.trim()}
-                          className="h-12 px-5 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={applyingPromo || !promoCode.trim() || !!appliedCoupon}
+                          className={cn(
+                            "h-12 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all disabled:cursor-not-allowed",
+                            appliedCoupon
+                              ? "bg-emerald-600 text-white"
+                              : "bg-slate-900 text-white hover:bg-black disabled:opacity-50"
+                          )}
                         >
-                          {applyingPromo ? '…' : 'Apply'}
+                          {applyingPromo ? '…' : appliedCoupon ? 'Applied' : 'Apply'}
                         </button>
                       </div>
                       {appliedCoupon && (
-                        <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
-                          <Zap className="w-3.5 h-3.5" />
-                          {appliedCoupon.code} applied — ₹{discountAmount.toFixed(2)} off
-                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
+                            <Zap className="w-3.5 h-3.5" />
+                            {appliedCoupon.code} applied — ₹{discountAmount.toFixed(2)} off
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleRemovePromo}
+                            className="h-7 px-2.5 rounded-lg border border-red-200 text-red-600 text-[10px] font-black uppercase tracking-wider hover:bg-red-50 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </div>
+
+                    {/* Live offers list */}
+                    {availableOffers.length > 0 && (
+                      <div className="pt-4 space-y-3">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                          Available offers
+                        </p>
+                        <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                          {availableOffers.map((offer) => {
+                            const eligible = isOfferEligible(offer, subtotalOnly);
+                            const isApplied = appliedCoupon?.code?.toUpperCase() === offer.code.toUpperCase();
+                            const offerText = offer.discountType === 'PERCENTAGE'
+                              ? `${offer.discountValue}% OFF${offer.maxDiscount != null ? ` up to ₹${offer.maxDiscount}` : ''}`
+                              : `₹${offer.discountValue} OFF`;
+                            return (
+                              <div key={offer.code} className="border border-slate-200 rounded-2xl p-3 bg-slate-50">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{offer.code}</p>
+                                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{offerText}</p>
+                                    {offer.minOrderValue != null ? (
+                                      <p className="text-[10px] text-slate-500 font-semibold">
+                                        Min order: ₹{offer.minOrderValue}
+                                      </p>
+                                    ) : null}
+                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                      {offer.scopeType === 'ALL' ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">All products</span>
+                                      ) : null}
+                                      {offer.scopeType === 'CATEGORY' ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                          Category offer
+                                        </span>
+                                      ) : null}
+                                      {offer.scopeType === 'PRODUCT' ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                                          Product offer
+                                        </span>
+                                      ) : null}
+                                      {offer.expiryDate ? (
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                                          Expires: {new Date(offer.expiryDate).toLocaleDateString()}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPromoCode(offer.code);
+                                      void applyPromoCode(offer.code);
+                                    }}
+                                    disabled={isApplied || !eligible || applyingPromo}
+                                    className={cn(
+                                      "h-9 sm:h-10 shrink-0 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed min-h-[44px]",
+                                      isApplied
+                                        ? "bg-emerald-600 text-white"
+                                        : "bg-slate-900 text-white disabled:opacity-40"
+                                    )}
+                                  >
+                                    {isApplied ? 'Applied' : 'Apply'}
+                                  </button>
+                                </div>
+                                {!eligible && offer.minOrderValue != null && subtotalOnly < offer.minOrderValue ? (
+                                  <p className="mt-1 text-[10px] font-semibold text-amber-600">
+                                    Add ₹{(offer.minOrderValue - subtotalOnly).toFixed(2)} more to unlock this offer.
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest">
@@ -901,7 +1089,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     whileHover={{ scale: submitting ? 1 : 1.02 }}
                     whileTap={{ scale: submitting ? 1 : 0.98 }}
                     className={cn(
-                      "w-full py-6 mt-10 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.3em] shadow-3xl hover:bg-black transition-all flex items-center justify-center gap-2",
+                      "w-full py-4 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.25em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-all flex items-center justify-center gap-2 min-h-[48px]",
                       submitting && "opacity-70 cursor-wait",
                       getRoundedClass(theme.buttonStyle)
                     )}

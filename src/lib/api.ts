@@ -212,6 +212,7 @@ export async function createOrder(body: {
   billingAddress?: Record<string, unknown>;
   couponCode?: string;
   deliverySlot?: string;
+  distanceKm?: number;
   idempotencyKey?: string;
   paymentMethod?: 'online' | 'cod';
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
@@ -470,6 +471,7 @@ export async function getStoreSettings(): Promise<{
   theme: Record<string, unknown> | null;
   preferences: Record<string, unknown> | null;
   deliveryCharge: number;
+  deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -481,7 +483,14 @@ export async function updateStoreSettings(body: {
   theme?: Record<string, unknown>;
   preferences?: Record<string, unknown>;
   deliveryCharge?: number;
-}): Promise<{ theme: Record<string, unknown> | null; preferences: Record<string, unknown> | null; deliveryCharge: number; message?: string }> {
+  deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+}): Promise<{
+  theme: Record<string, unknown> | null;
+  preferences: Record<string, unknown> | null;
+  deliveryCharge: number;
+  deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+  message?: string;
+}> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {
     method: 'PUT',
     headers: getAuthHeaders(),
@@ -579,7 +588,12 @@ export async function assignDeliveryPartner(orderId: string, partnerId: string):
 }
 
 /** Validate a promo/coupon code (public). Returns discount info if valid. */
-export async function validateCoupon(code: string): Promise<{
+export async function validateCoupon(code: string, context?: {
+  productId?: string;
+  categoryName?: string;
+  cartProductIds?: string[];
+  cartCategoryNames?: string[];
+}): Promise<{
   valid: boolean;
   message?: string;
   discountType?: string;
@@ -587,9 +601,132 @@ export async function validateCoupon(code: string): Promise<{
   maxDiscount?: number | null;
   minOrderValue?: number | null;
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/validate-coupon?code=${encodeURIComponent(code.trim())}`);
+  const params = new URLSearchParams();
+  params.set('code', code.trim());
+  if (context?.productId) params.set('productId', context.productId);
+  if (context?.categoryName) params.set('categoryName', context.categoryName);
+  if (context?.cartProductIds?.length) params.set('cartProductIds', context.cartProductIds.join(','));
+  if (context?.cartCategoryNames?.length) params.set('cartCategoryNames', context.cartCategoryNames.join(','));
+  const res = await fetch(`${getEffectiveApiBase()}/settings/validate-coupon?${params.toString()}`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
+}
+
+export interface AvailableOffer {
+  code: string;
+  discountType: string;
+  discountValue: number;
+  maxDiscount: number | null;
+  minOrderValue: number | null;
+  expiryDate: string | null;
+  usageLeft: number | null;
+  scopeType: 'ALL' | 'CATEGORY' | 'PRODUCT';
+  categoryNames: string[];
+  productIds: string[];
+}
+
+export interface AdminCoupon {
+  id: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minOrderValue: number | null;
+  maxDiscount: number | null;
+  expiryDate: string | null;
+  usageLimit: number | null;
+  usedCount: number;
+  isActive: boolean;
+}
+
+export interface CouponScopeRule {
+  code: string;
+  scopeType: 'ALL' | 'CATEGORY' | 'PRODUCT';
+  categoryNames?: string[];
+  productIds?: string[];
+}
+
+/** Get public list of active offers for storefront surfaces. */
+export async function getAvailableOffers(filters?: {
+  productId?: string;
+  categoryName?: string;
+  cartProductIds?: string[];
+  cartCategoryNames?: string[];
+}): Promise<AvailableOffer[]> {
+  const params = new URLSearchParams();
+  if (filters?.productId) params.set('productId', filters.productId);
+  if (filters?.categoryName) params.set('categoryName', filters.categoryName);
+  if (filters?.cartProductIds?.length) params.set('cartProductIds', filters.cartProductIds.join(','));
+  if (filters?.cartCategoryNames?.length) params.set('cartCategoryNames', filters.cartCategoryNames.join(','));
+  const qs = params.toString();
+  const res = await fetch(`${getEffectiveApiBase()}/settings/offers${qs ? `?${qs}` : ''}`);
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return Array.isArray(data?.offers) ? data.offers : [];
+}
+
+export async function getAdminCoupons(): Promise<AdminCoupon[]> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return Array.isArray(data?.coupons) ? data.coupons : [];
+}
+
+export async function createAdminCoupon(body: {
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  minOrderValue?: number | null;
+  maxDiscount?: number | null;
+  expiryDate?: string | null;
+  usageLimit?: number | null;
+  isActive?: boolean;
+}): Promise<AdminCoupon> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/create`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return data.coupon;
+}
+
+export async function updateAdminCoupon(id: string, body: {
+  code?: string;
+  discountType?: 'PERCENTAGE' | 'FIXED';
+  discountValue?: number;
+  minOrderValue?: number | null;
+  maxDiscount?: number | null;
+  expiryDate?: string | null;
+  usageLimit?: number | null;
+  isActive?: boolean;
+}): Promise<AdminCoupon> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return data.coupon;
+}
+
+export async function getCouponScopes(): Promise<CouponScopeRule[]> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return Array.isArray(data?.scopes) ? data.scopes : [];
+}
+
+export async function updateCouponScopes(scopes: CouponScopeRule[]): Promise<CouponScopeRule[]> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ scopes }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json();
+  return Array.isArray(data?.scopes) ? data.scopes : [];
 }
 
 export { API_BASE, getEffectiveApiBase };

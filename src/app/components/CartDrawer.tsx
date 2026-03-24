@@ -67,7 +67,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[130] flex flex-col"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-r from-orange-600 to-amber-600 rounded-full flex items-center justify-center shadow-md">
                   <ShoppingBag className="w-5 h-5 text-white" />
@@ -81,14 +81,14 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
-                className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
               >
                 <X className="w-5 h-5 text-gray-600" />
               </motion.button>
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
               {items.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -121,10 +121,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       exit={{ opacity: 0, x: -20 }}
-                      className="bg-gradient-to-r from-gray-50 to-orange-50/30 rounded-2xl p-4 flex gap-4 shadow-md"
+                      className="bg-gradient-to-r from-gray-50 to-orange-50/30 rounded-2xl p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-md"
                     >
                       {/* Image */}
-                      <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-md">
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-md">
                         <img
                           src={item.image}
                           alt={item.name}
@@ -142,31 +142,61 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                         {/* Quantity Controls */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => {
-                                if (item.quantity <= 1) {
-                                  onRemoveItem(item.id);
-                                } else {
-                                  onUpdateQuantity(item.id, -1);
-                                }
-                              }}
-                              className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
-                            >
-                              <Minus className="w-4 h-4 text-gray-600" />
-                            </motion.button>
-                            <span className="w-8 text-center font-semibold text-gray-800">
-                              {item.quantity}
-                            </span>
-                            <motion.button
-                              whileHover={{ scale: 1.1 }}
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => onUpdateQuantity(item.id, 1)}
-                              className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
-                            >
-                              <Plus className="w-4 h-4 text-gray-600" />
-                            </motion.button>
+                             <motion.button
+                               whileHover={{ scale: 1.1 }}
+                               whileTap={{ scale: 0.9 }}
+                               onClick={() => {
+                                 if (item.quantity <= 1) {
+                                   onRemoveItem(item.id);
+                                 } else {
+                                   onUpdateQuantity(item.id, -1);
+                                 }
+                               }}
+                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
+                             >
+                               <Minus className="w-4 h-4 text-gray-600" />
+                             </motion.button>
+                            <input
+                               type="text"
+                               inputMode="numeric"
+                               value={item.quantity}
+                               onChange={(e) => {
+                                 const val = e.target.value;
+                                 if (val === '') {
+                                   onUpdateQuantity(item.id, -item.quantity);
+                                   return;
+                                 }
+                                  const num = parseInt(val);
+                                  if (!isNaN(num)) {
+                                    const product = products.find(p => p.id === item.id);
+                                    const maxStock = product?.availableStock ?? product?.stock ?? 999;
+                                    const target = Math.min(maxStock, Math.max(0, num));
+                                    onUpdateQuantity(item.id, target - item.quantity);
+                                  }
+                               }}
+                               onBlur={() => {
+                                 if (item.quantity < 1) {
+                                   onUpdateQuantity(item.id, 1 - item.quantity);
+                                 }
+                               }}
+                               className="w-10 text-center font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0 text-base"
+                             />
+                             <motion.button
+                               whileHover={{ scale: 1.1 }}
+                               whileTap={{ scale: 0.9 }}
+                               onClick={() => {
+                                 const product = products.find(p => p.id === item.id);
+                                 const maxAvailable = product?.availableStock ?? product?.stock ?? 0;
+                                 if (!product || item.quantity < maxAvailable) {
+                                   onUpdateQuantity(item.id, 1);
+                                 } else {
+                                   toast.error(`Only ${maxAvailable} units available`);
+                                 }
+                               }}
+                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
+                             >
+                               <Plus className="w-4 h-4 text-gray-600" />
+                             </motion.button>
                           </div>
 
                           <motion.button
@@ -187,7 +217,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
             {/* Footer */}
             {items.length > 0 && (
-              <div className="border-t border-gray-200 p-6 bg-gradient-to-r from-orange-50 to-amber-50">
+              <div className="border-t border-gray-200 p-4 sm:p-6 bg-gradient-to-r from-orange-50 to-amber-50">
                 {/* Summary */}
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm">
@@ -234,7 +264,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileTap={{ scale: 0.98 }}
                     onClick={handleViewCart}
                     className={cn(
-                      "w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2",
+                      "w-full min-h-[44px] py-3.5 sm:py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >
@@ -247,7 +277,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileTap={{ scale: 0.98 }}
                     onClick={onClose}
                     className={cn(
-                      "w-full py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all",
+                      "w-full min-h-[44px] py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >

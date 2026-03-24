@@ -187,7 +187,7 @@ export function AdminSellersPage() {
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Merchant Identity</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Compliance Status</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Yield Stats</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Protocol Rate</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Rating</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Merchant Portal</th>
                             </tr>
                         </thead>
@@ -349,14 +349,14 @@ export function AdminSellersPage() {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <ShieldCheck className="w-4 h-4" />
-                                            KYC Documentation Audit
+                                            KYC Document Check
                                         </h3>
                                         <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Digital Vault Secure</span>
                                     </div>
                                     <div className="space-y-4">
                                         {[
                                             { label: 'Global Trade Identifier (GST/TIN)', status: 'VERIFIED', date: 'Oct 12, 2023' },
-                                            { label: 'Food Safety Protocols (FSSAI)', status: 'VERIFIED', date: 'Oct 14, 2023' },
+                                            { label: 'Food Safety License (FSSAI)', status: 'VERIFIED', date: 'Oct 14, 2023' },
                                             { label: 'Merchant Identification (KYC)', status: selectedSeller.kycStatus === 'REJECTED' ? 'REJECTED' : 'PENDING', date: 'Processing...' }
                                         ].map((doc, i) => (
                                             <div key={i} className="flex items-center justify-between p-6 bg-white border border-slate-100 rounded-[2rem] hover:shadow-xl hover:shadow-slate-200/20 transition-all">
@@ -384,11 +384,11 @@ export function AdminSellersPage() {
                                     </div>
                                 </div>
 
-                                {/* Merchant Intelligence */}
+                                {/* Seller details */}
                                 <div className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                         <Binary className="w-4 h-4" />
-                                        Merchant Intelligence
+                                        Seller Overview
                                     </h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl">
@@ -402,13 +402,13 @@ export function AdminSellersPage() {
                                     </div>
                                 </div>
 
-                                {/* Economic Protocol */}
+                                {/* Payment summary */}
                                 <div className="p-8 bg-slate-900 rounded-[3rem] text-white relative overflow-hidden group">
                                     <div className="absolute inset-0 bg-emerald-600 opacity-0 group-hover:opacity-10 transition-opacity duration-700" />
                                     <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-8">
                                             <div>
-                                                <h3 className="text-xl font-black uppercase tracking-tighter leading-none mb-1">Economic Protocol</h3>
+                                                <h3 className="text-xl font-black uppercase tracking-tighter leading-none mb-1">Payment Summary</h3>
                                                 <p className="text-emerald-400/60 text-[10px] font-black uppercase tracking-widest">Platform Commission Scale</p>
                                             </div>
                                             <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center border border-white/10">
@@ -465,7 +465,7 @@ export function AdminSellersPage() {
                                         className="w-full h-16 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95"
                                     >
                                         <Ban className="h-5 w-5 text-red-400" />
-                                        Suspend Commercial Rights
+                                        Suspend Seller
                                     </button>
                                 )}
                             </div>

@@ -7,6 +7,53 @@ const KEY_SERVICEABLE_CITIES = 'serviceable_cities';
 const KEY_STORE_THEME = 'store_theme';
 const KEY_STORE_PREFERENCES = 'store_preferences';
 const KEY_DELIVERY_CHARGE = 'delivery_charge';
+const KEY_DELIVERY_FEE_RULES = 'delivery_fee_rules';
+const KEY_COUPON_SCOPES = 'coupon_scopes';
+
+export interface DeliveryFeeRule {
+    upToKm: number;
+    fee: number;
+}
+
+export interface PublicCouponOffer {
+    code: string;
+    discountType: string;
+    discountValue: number;
+    maxDiscount: number | null;
+    minOrderValue: number | null;
+    expiryDate: string | null;
+    usageLeft: number | null;
+    scopeType: 'ALL' | 'CATEGORY' | 'PRODUCT';
+    categoryNames: string[];
+    productIds: string[];
+}
+
+export interface AdminCoupon {
+    id: string;
+    code: string;
+    discountType: string;
+    discountValue: number;
+    minOrderValue: number | null;
+    maxDiscount: number | null;
+    expiryDate: string | null;
+    usageLimit: number | null;
+    usedCount: number;
+    isActive: boolean;
+}
+
+export interface CouponScopeRule {
+    code: string;
+    scopeType: 'ALL' | 'CATEGORY' | 'PRODUCT';
+    categoryNames?: string[];
+    productIds?: string[];
+}
+
+interface CouponContext {
+    productId?: string | null;
+    categoryName?: string | null;
+    cartProductIds?: string[];
+    cartCategoryNames?: string[];
+}
 
 @Injectable()
 export class SettingsService {
@@ -117,18 +164,84 @@ export class SettingsService {
         await this.set(KEY_DELIVERY_CHARGE, String(n));
     }
 
+    /** Get distance-based delivery fee rules. */
+    async getDeliveryFeeRules(): Promise<DeliveryFeeRule[]> {
+        const raw = await this.get(KEY_DELIVERY_FEE_RULES);
+        if (!raw?.trim()) {
+            // default slabs
+            return [
+                { upToKm: 3, fee: 20 },
+                { upToKm: 8, fee: 40 },
+                { upToKm: 15, fee: 60 },
+                { upToKm: 9999, fee: 90 },
+            ];
+        }
+        try {
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) throw new Error('Invalid rules');
+            const normalized = parsed
+                .map((r: any) => ({
+                    upToKm: Number(r?.upToKm),
+                    fee: Number(r?.fee),
+                }))
+                .filter((r) => Number.isFinite(r.upToKm) && r.upToKm > 0 && Number.isFinite(r.fee) && r.fee >= 0)
+                .sort((a, b) => a.upToKm - b.upToKm);
+            return normalized.length
+                ? normalized
+                : [
+                    { upToKm: 3, fee: 20 },
+                    { upToKm: 8, fee: 40 },
+                    { upToKm: 15, fee: 60 },
+                    { upToKm: 9999, fee: 90 },
+                ];
+        } catch {
+            return [
+                { upToKm: 3, fee: 20 },
+                { upToKm: 8, fee: 40 },
+                { upToKm: 15, fee: 60 },
+                { upToKm: 9999, fee: 90 },
+            ];
+        }
+    }
+
+    /** Set distance-based delivery fee rules. */
+    async setDeliveryFeeRules(rules: DeliveryFeeRule[]): Promise<void> {
+        const normalized = (rules || [])
+            .map((r) => ({
+                upToKm: Number(r?.upToKm),
+                fee: Number(r?.fee),
+            }))
+            .filter((r) => Number.isFinite(r.upToKm) && r.upToKm > 0 && Number.isFinite(r.fee) && r.fee >= 0)
+            .sort((a, b) => a.upToKm - b.upToKm);
+        await this.set(KEY_DELIVERY_FEE_RULES, JSON.stringify(normalized));
+    }
+
+    /** Calculate delivery fee from distance and current admin-defined slabs. */
+    async calculateDeliveryFeeByDistance(distanceKm?: number | null): Promise<number> {
+        const flat = await this.getDeliveryCharge();
+        const d = Number(distanceKm);
+        if (!Number.isFinite(d) || d < 0) return flat;
+
+        const rules = await this.getDeliveryFeeRules();
+        const matched = rules.find((r) => d <= r.upToKm);
+        if (matched) return matched.fee;
+        return rules.length ? rules[rules.length - 1].fee : flat;
+    }
+
     /** Get all public store settings (theme, preferences, deliveryCharge) for storefront. */
     async getStoreSettings(): Promise<{
         theme: Record<string, unknown> | null;
         preferences: Record<string, unknown> | null;
         deliveryCharge: number;
+        deliveryFeeRules: DeliveryFeeRule[];
     }> {
-        const [theme, preferences, deliveryCharge] = await Promise.all([
+        const [theme, preferences, deliveryCharge, deliveryFeeRules] = await Promise.all([
             this.getStoreTheme(),
             this.getStorePreferences(),
             this.getDeliveryCharge(),
+            this.getDeliveryFeeRules(),
         ]);
-        return { theme, preferences, deliveryCharge };
+        return { theme, preferences, deliveryCharge, deliveryFeeRules };
     }
 
     /** Update store settings (admin only). Partial update. */
@@ -136,6 +249,7 @@ export class SettingsService {
         theme?: Record<string, unknown>;
         preferences?: Record<string, unknown>;
         deliveryCharge?: number;
+        deliveryFeeRules?: DeliveryFeeRule[];
     }): Promise<void> {
         if (updates.theme !== undefined) {
             await this.setStoreTheme(updates.theme);
@@ -145,6 +259,9 @@ export class SettingsService {
         }
         if (updates.deliveryCharge !== undefined) {
             await this.setDeliveryCharge(updates.deliveryCharge);
+        }
+        if (updates.deliveryFeeRules !== undefined) {
+            await this.setDeliveryFeeRules(updates.deliveryFeeRules);
         }
     }
 
@@ -180,5 +297,206 @@ export class SettingsService {
             maxDiscount: coupon.maxDiscount != null ? Number(coupon.maxDiscount) : null,
             minOrderValue: coupon.minOrderValue != null ? Number(coupon.minOrderValue) : null,
         };
+    }
+
+    private normalizeCouponScope(raw: unknown): CouponScopeRule | null {
+        const entry = raw as any;
+        const code = String(entry?.code ?? '').trim().toUpperCase();
+        const scopeType = String(entry?.scopeType ?? 'ALL').toUpperCase() as CouponScopeRule['scopeType'];
+        if (!code || !['ALL', 'CATEGORY', 'PRODUCT'].includes(scopeType)) return null;
+        const categoryNames = Array.isArray(entry?.categoryNames)
+            ? entry.categoryNames.map((v: unknown) => String(v).trim().toLowerCase()).filter(Boolean)
+            : [];
+        const productIds = Array.isArray(entry?.productIds)
+            ? entry.productIds.map((v: unknown) => String(v).trim()).filter(Boolean)
+            : [];
+        return { code, scopeType, categoryNames, productIds };
+    }
+
+    private async getCouponScopesMap(): Promise<Map<string, CouponScopeRule>> {
+        const raw = await this.get(KEY_COUPON_SCOPES);
+        if (!raw?.trim()) return new Map();
+        try {
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return new Map();
+            const map = new Map<string, CouponScopeRule>();
+            for (const item of parsed) {
+                const normalized = this.normalizeCouponScope(item);
+                if (normalized) map.set(normalized.code, normalized);
+            }
+            return map;
+        } catch {
+            return new Map();
+        }
+    }
+
+    async getCouponScopes(): Promise<CouponScopeRule[]> {
+        const map = await this.getCouponScopesMap();
+        return Array.from(map.values());
+    }
+
+    async setCouponScopes(scopes: CouponScopeRule[]): Promise<void> {
+        const normalized = (scopes ?? [])
+            .map((item) => this.normalizeCouponScope(item))
+            .filter((item): item is CouponScopeRule => !!item);
+        await this.set(KEY_COUPON_SCOPES, JSON.stringify(normalized));
+    }
+
+    async listAdminCoupons(): Promise<AdminCoupon[]> {
+        const coupons = await this.prisma.coupon.findMany({
+            orderBy: [{ isActive: 'desc' }, { code: 'asc' }],
+        });
+        return coupons.map((coupon) => ({
+            id: coupon.id,
+            code: coupon.code,
+            discountType: coupon.discountType,
+            discountValue: Number(coupon.discountValue),
+            minOrderValue: coupon.minOrderValue != null ? Number(coupon.minOrderValue) : null,
+            maxDiscount: coupon.maxDiscount != null ? Number(coupon.maxDiscount) : null,
+            expiryDate: coupon.expiryDate ? coupon.expiryDate.toISOString() : null,
+            usageLimit: coupon.usageLimit ?? null,
+            usedCount: coupon.usedCount,
+            isActive: coupon.isActive,
+        }));
+    }
+
+    async createAdminCoupon(input: {
+        code: string;
+        discountType: 'PERCENTAGE' | 'FIXED';
+        discountValue: number;
+        minOrderValue?: number | null;
+        maxDiscount?: number | null;
+        expiryDate?: string | null;
+        usageLimit?: number | null;
+        isActive?: boolean;
+    }): Promise<AdminCoupon> {
+        const coupon = await this.prisma.coupon.create({
+            data: {
+                code: String(input.code).trim().toUpperCase(),
+                discountType: input.discountType,
+                discountValue: input.discountValue,
+                minOrderValue: input.minOrderValue ?? null,
+                maxDiscount: input.maxDiscount ?? null,
+                expiryDate: input.expiryDate ? new Date(input.expiryDate) : null,
+                usageLimit: input.usageLimit ?? null,
+                isActive: input.isActive ?? true,
+            },
+        });
+        return {
+            id: coupon.id,
+            code: coupon.code,
+            discountType: coupon.discountType,
+            discountValue: Number(coupon.discountValue),
+            minOrderValue: coupon.minOrderValue != null ? Number(coupon.minOrderValue) : null,
+            maxDiscount: coupon.maxDiscount != null ? Number(coupon.maxDiscount) : null,
+            expiryDate: coupon.expiryDate ? coupon.expiryDate.toISOString() : null,
+            usageLimit: coupon.usageLimit ?? null,
+            usedCount: coupon.usedCount,
+            isActive: coupon.isActive,
+        };
+    }
+
+    async updateAdminCoupon(id: string, input: {
+        code?: string;
+        discountType?: 'PERCENTAGE' | 'FIXED';
+        discountValue?: number;
+        minOrderValue?: number | null;
+        maxDiscount?: number | null;
+        expiryDate?: string | null;
+        usageLimit?: number | null;
+        isActive?: boolean;
+    }): Promise<AdminCoupon> {
+        const coupon = await this.prisma.coupon.update({
+            where: { id },
+            data: {
+                code: input.code != null ? String(input.code).trim().toUpperCase() : undefined,
+                discountType: input.discountType,
+                discountValue: input.discountValue,
+                minOrderValue: input.minOrderValue,
+                maxDiscount: input.maxDiscount,
+                expiryDate: input.expiryDate !== undefined ? (input.expiryDate ? new Date(input.expiryDate) : null) : undefined,
+                usageLimit: input.usageLimit,
+                isActive: input.isActive,
+            },
+        });
+        return {
+            id: coupon.id,
+            code: coupon.code,
+            discountType: coupon.discountType,
+            discountValue: Number(coupon.discountValue),
+            minOrderValue: coupon.minOrderValue != null ? Number(coupon.minOrderValue) : null,
+            maxDiscount: coupon.maxDiscount != null ? Number(coupon.maxDiscount) : null,
+            expiryDate: coupon.expiryDate ? coupon.expiryDate.toISOString() : null,
+            usageLimit: coupon.usageLimit ?? null,
+            usedCount: coupon.usedCount,
+            isActive: coupon.isActive,
+        };
+    }
+
+    private isCouponApplicableToContext(scope: CouponScopeRule | undefined, ctx?: CouponContext): boolean {
+        if (!scope || scope.scopeType === 'ALL') return true;
+        if (!ctx) return true;
+        const singleProductId = String(ctx.productId ?? '').trim();
+        const singleCategory = String(ctx.categoryName ?? '').trim().toLowerCase();
+        const cartProductIds = (ctx.cartProductIds ?? []).map((id) => String(id).trim()).filter(Boolean);
+        const cartCategoryNames = (ctx.cartCategoryNames ?? []).map((n) => String(n).trim().toLowerCase()).filter(Boolean);
+
+        if (scope.scopeType === 'PRODUCT') {
+            const scopedProducts = scope.productIds ?? [];
+            if (singleProductId) return scopedProducts.includes(singleProductId);
+            return cartProductIds.some((id) => scopedProducts.includes(id));
+        }
+        if (scope.scopeType === 'CATEGORY') {
+            const scopedCategories = scope.categoryNames ?? [];
+            if (singleCategory) return scopedCategories.includes(singleCategory);
+            return cartCategoryNames.some((name) => scopedCategories.includes(name));
+        }
+        return true;
+    }
+
+    async validateCouponWithContext(code: string, ctx?: CouponContext): Promise<{
+        valid: boolean;
+        message?: string;
+        discountType?: string;
+        discountValue?: number;
+        maxDiscount?: number | null;
+        minOrderValue?: number | null;
+    }> {
+        const base = await this.validateCoupon(code);
+        if (!base.valid) return base;
+        const scopes = await this.getCouponScopesMap();
+        const scope = scopes.get(String(code ?? '').trim().toUpperCase());
+        if (!this.isCouponApplicableToContext(scope, ctx)) {
+            return { valid: false, message: 'This promo is not applicable for selected products' };
+        }
+        return base;
+    }
+
+    /** List all currently available coupon offers (public, storefront-safe). */
+    async getAvailableCouponOffers(ctx?: CouponContext): Promise<PublicCouponOffer[]> {
+        const now = new Date();
+        const scopes = await this.getCouponScopesMap();
+        const coupons = await this.prisma.coupon.findMany({
+            where: {
+                isActive: true,
+                OR: [{ expiryDate: null }, { expiryDate: { gt: now } }],
+            },
+            orderBy: [{ discountValue: 'desc' }, { code: 'asc' }],
+        });
+        return coupons
+            .filter((coupon) => coupon.usageLimit == null || coupon.usedCount < coupon.usageLimit)
+            .filter((coupon) => this.isCouponApplicableToContext(scopes.get(coupon.code.toUpperCase()), ctx))
+            .map((coupon) => ({
+                code: coupon.code,
+                discountType: coupon.discountType,
+                discountValue: Number(coupon.discountValue),
+                maxDiscount: coupon.maxDiscount != null ? Number(coupon.maxDiscount) : null,
+                minOrderValue: coupon.minOrderValue != null ? Number(coupon.minOrderValue) : null,
+                expiryDate: coupon.expiryDate ? coupon.expiryDate.toISOString() : null,
+                usageLeft: coupon.usageLimit != null ? Math.max(0, coupon.usageLimit - coupon.usedCount) : null,
+                scopeType: (scopes.get(coupon.code.toUpperCase())?.scopeType ?? 'ALL') as 'ALL' | 'CATEGORY' | 'PRODUCT',
+                categoryNames: scopes.get(coupon.code.toUpperCase())?.categoryNames ?? [],
+                productIds: scopes.get(coupon.code.toUpperCase())?.productIds ?? [],
+            }));
     }
 }

@@ -10,7 +10,11 @@ export function SpecialOffers() {
   const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart } = useStore();
   const { products: apiProducts } = useProducts({ limit: 100 });
   const products = apiProducts.length > 0 ? apiProducts : storeProducts;
-  const bulkProducts = products.filter((p: { bulkDiscountQty?: number }) => (p.bulkDiscountQty ?? 0) > 0);
+  const bulkProducts = products.filter((p: any) => 
+    p.status === 'Active' && 
+    p.availableStock > 0 && 
+    (p.bulkDiscountQty ?? 0) > 0
+  );
   const navigate = useNavigate();
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {

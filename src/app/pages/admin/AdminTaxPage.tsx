@@ -28,7 +28,7 @@ export function AdminTaxPage() {
             return;
         }
         updateTaxRate(category, numValue);
-        toast.success(`Tax protocol updated for ${category}`);
+        toast.success(`Tax rate updated for ${category}`);
     }, [editingRates, updateTaxRate]);
 
     const categories = useMemo(() => Object.keys(taxRates), [taxRates]);
@@ -43,10 +43,10 @@ export function AdminTaxPage() {
                 >
                     <div className="flex items-center gap-2 mb-2">
                         <Landmark className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Fiscal Protocol</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Tax Settings</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Taxation Control</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Precision management of category-level levy thresholds.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Tax Management</h1>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Set tax rates by product category.</p>
                 </motion.div>
 
                 <div className="flex items-center gap-3">
@@ -85,16 +85,16 @@ export function AdminTaxPage() {
                 ))}
             </div>
 
-            {/* Taxation Nodes Ledger */}
+            {/* Tax rate table */}
             <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                 <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
                     <div>
-                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Taxation Thresholds</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Real-time levy calculation per commodity node</p>
+                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Tax Rates</h3>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Rates used during checkout</p>
                     </div>
                     <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl">
                         <Activity className="h-4 w-4 text-emerald-600 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-700 uppercase">Live Uplink</span>
+                        <span className="text-[10px] font-black text-emerald-700 uppercase">Live</span>
                     </div>
                 </div>
 
@@ -115,9 +115,9 @@ export function AdminTaxPage() {
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-3">
                                             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter tracking-tight">{category}</h3>
-                                            <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest">Global Protocol</span>
+                                            <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest">Default</span>
                                         </div>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Levy logic applied at checkout instance</p>
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Applied at checkout</p>
                                     </div>
                                 </div>
 
@@ -147,15 +147,15 @@ export function AdminTaxPage() {
 
                 <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-center gap-4">
                     <button className="w-full sm:w-auto px-10 h-14 bg-white border border-slate-200 rounded-[2rem] text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
-                        Bulk Adjust Thresholds
+                        Bulk Update Rates
                     </button>
                     <button className="w-full sm:w-auto px-10 h-14 bg-emerald-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20">
-                        Synchronize Global Protocol
+                        Save All Rates
                     </button>
                 </div>
             </div>
 
-            {/* Compliance Alert Hub */}
+            {/* Compliance note */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -167,13 +167,13 @@ export function AdminTaxPage() {
                     </div>
                 </div>
                 <div className="relative z-10 space-y-4">
-                    <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tight">Regulatory Compliance Mandate</h3>
+                    <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tight">Tax Compliance Note</h3>
                     <p className="text-amber-800/80 text-sm font-bold leading-relaxed max-w-2xl italic">
-                        The "Leviathan" calculation engine automatically appends these thresholds to subtotal nodes during secure checkout waves. It is imperative that all percentages conform to statutory agricultural tax laws within your commercial territory. Failure to comply may trigger fiscal audit interrupts.
+                        Tax rates are applied automatically at checkout. Please keep these values aligned with your local tax rules.
                     </p>
                     <div className="flex items-center gap-3 mt-4">
                         <Zap className="w-4 h-4 text-amber-600" />
-                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Digital Audit Trail Secured</span>
+                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Changes are tracked in logs</span>
                     </div>
                 </div>
                 <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-amber-200/40 rounded-full blur-[100px] pointer-events-none" />

@@ -23,7 +23,7 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     };
 
     const featuredProducts = useMemo(() => {
-        return products.filter(p => p.status === 'Active').slice(0, 3);
+        return products.filter(p => p.status === 'Active' && p.availableStock > 0).slice(0, 3);
     }, [products]);
 
     return (

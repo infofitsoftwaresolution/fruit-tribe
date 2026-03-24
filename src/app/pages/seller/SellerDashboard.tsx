@@ -49,19 +49,19 @@ export function SellerDashboard() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Leaf className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Orchard Command</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Seller Dashboard</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {user?.name}'s Registry
+                        {user?.name}'s Store
                     </h1>
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic font-medium">
-                        Real-time biological commerce telemetry for your store.
+                        Track your store performance in real time.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center gap-2">
                         <Zap className="w-4 h-4" />
-                        Export Manifest
+                        Export Report
                     </button>
                 </div>
             </div>
@@ -69,28 +69,28 @@ export function SellerDashboard() {
             {/* Metric Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard
-                    label="Net Transacted"
+                    label="Total Revenue"
                     value={`₹${(sellerStats.totalRevenue / 1000).toFixed(1)}k`}
                     trend={sellerStats.revenueGrowth}
                     icon={IndianRupee}
                     color="emerald"
                 />
                 <MetricCard
-                    label="Acquisition Yield"
+                    label="Total Orders"
                     value={sellerStats.totalOrders}
                     trend={sellerStats.ordersGrowth}
                     icon={ShoppingBag}
                     color="blue"
                 />
                 <MetricCard
-                    label="Asset Registry"
+                    label="Active Products"
                     value={sellerStats.activeProducts}
                     trend="Stable"
                     icon={Box}
                     color="purple"
                 />
                 <MetricCard
-                    label="Settlement Pending"
+                    label="Pending Payout"
                     value={`₹${(sellerStats.payoutPending / 1000).toFixed(1)}k`}
                     trend="Processing"
                     icon={Clock}
@@ -99,7 +99,7 @@ export function SellerDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Revenue Telemetry */}
+                {/* Revenue chart */}
                 <div className="lg:col-span-2 space-y-6">
                     <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-3xl relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform duration-700">
@@ -107,8 +107,8 @@ export function SellerDashboard() {
                         </div>
                         <div className="flex items-center justify-between mb-10">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Revenue Yield</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">7-Day Commercial Cycle</p>
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Revenue Trend</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Last 7 Days</p>
                             </div>
                             <div className="bg-slate-50 px-4 py-2 rounded-xl text-[10px] font-black text-slate-600 uppercase tracking-widest">
                                 Live Feed
@@ -154,10 +154,10 @@ export function SellerDashboard() {
                     </div>
                 </div>
 
-                {/* Logistics Radar */}
+                {/* Pending orders */}
                 <div className="space-y-6">
                     <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-3xl h-full flex flex-col">
-                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">Pending Logistics</h3>
+                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-8">Pending Orders</h3>
                         <div className="flex-1 space-y-6">
                             {[
                                 { id: 'ORD-892', items: 4, date: '2h ago', status: 'In Queue' },
@@ -170,26 +170,26 @@ export function SellerDashboard() {
                                         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-white px-2 py-0.5 rounded-lg border border-slate-100">{ord.date}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <p className="text-xs font-bold text-slate-500">{ord.items} biological assets</p>
+                                        <p className="text-xs font-bold text-slate-500">{ord.items} items</p>
                                         <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-transform" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                         <button className="w-full h-14 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-100 transition-all mt-8">
-                            View Logistics Queue
+                            View Order Queue
                         </button>
                     </div>
                 </div>
 
-                {/* Phase 2: Inventory & Lifecycle Controls */}
+                {/* Inventory and freshness */}
                 <div className="lg:col-span-3 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Asset Inventory Matrix */}
+                    {/* Inventory */}
                     <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-3xl">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Asset Inventory Matrix</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Variant-Level Stock Synchronization</p>
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Inventory</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Stock by Product</p>
                             </div>
                             <div className="p-3 bg-slate-900 text-white rounded-2xl">
                                 <Box className="w-5 h-5" />
@@ -213,7 +213,7 @@ export function SellerDashboard() {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-lg font-black text-slate-900 leading-none">850</p>
-                                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-1">Units In Vault</p>
+                                            <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-1">Units In Stock</p>
                                         </div>
                                     </div>
                                     <div className="mt-6 pt-6 border-t border-slate-200/50 grid grid-cols-3 gap-4">
@@ -235,12 +235,12 @@ export function SellerDashboard() {
                         </div>
                     </div>
 
-                    {/* Biological Lifecycle Monitor */}
+                    {/* Freshness monitor */}
                     <div className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-3xl h-fit">
                         <div className="flex items-center justify-between mb-8">
                             <div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Biological Lifecycle</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Expiry & Freshness Telemetry</p>
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Product Freshness</h3>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Expiry and Shelf Life</p>
                             </div>
                             <div className="p-3 bg-red-500 text-white rounded-2xl shadow-xl shadow-red-500/20">
                                 <Activity className="w-5 h-5" />

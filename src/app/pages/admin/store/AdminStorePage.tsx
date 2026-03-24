@@ -10,23 +10,23 @@ export function AdminStorePage() {
     const sections = [
         {
             title: 'Visual Identity',
-            description: 'Strategic orchestration of themes, palettes, and brand aesthetics.',
+            description: 'Manage store theme, colors, and branding.',
             icon: Palette,
             href: '/admin/themes',
             color: 'emerald',
             badge: 'Active'
         },
         {
-            title: 'Content Nodes',
-            description: 'Management of high-fidelity informational pages and legal manifests.',
+            title: 'Pages',
+            description: 'Manage pages like About, Contact, and policies.',
             icon: Layout,
             href: '/admin/pages',
             color: 'blue',
-            badge: '4 Nodes'
+            badge: '4 Pages'
         },
         {
-            title: 'Global Meta',
-            description: 'Advanced store preferences, SEO optimization, and territorial specs.',
+            title: 'Preferences',
+            description: 'Manage SEO, analytics, and store-level settings.',
             icon: Sparkles,
             href: '/admin/preferences',
             color: 'purple',
@@ -41,10 +41,10 @@ export function AdminStorePage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Globe className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Curation Space</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Store Management</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Online Presence</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Strategic management of the digital storefront and brand ecosystem.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Store Setup</h1>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage your storefront look and settings.</p>
                 </div>
                 <a
                     href="#/"
@@ -88,7 +88,7 @@ export function AdminStorePage() {
                                 <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-tight mb-8">{section.description}</p>
 
                                 <div className="mt-auto flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest group-hover:translate-x-2 transition-transform">
-                                    Access Protocol <Zap className="h-3 w-3" />
+                                    Open Section <Zap className="h-3 w-3" />
                                 </div>
                             </div>
 
@@ -108,17 +108,17 @@ export function AdminStorePage() {
                             <Command className="h-6 w-6 text-emerald-400" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white uppercase tracking-tighter">Current Deployment</h3>
-                            <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest italic">Live Curation Stream v2.4</p>
+                            <h3 className="text-xl font-black text-white uppercase tracking-tighter">Current Store Preview</h3>
+                            <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest italic">Live Preview</p>
                         </div>
                     </div>
                     <div className="hidden md:flex gap-8">
                         <div className="text-right">
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Theme Identity</p>
+                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Current Theme</p>
                             <p className="text-xs font-black text-white uppercase tracking-tight">Fruit Tribe Prime</p>
                         </div>
                         <div className="text-right border-l border-white/10 pl-8">
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Last Update</p>
+                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Last Updated</p>
                             <p className="text-xs font-black text-emerald-400 uppercase tracking-tight">Recently Synced</p>
                         </div>
                     </div>
@@ -145,7 +145,7 @@ export function AdminStorePage() {
                                     to="/admin/themes"
                                     className="px-10 h-14 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all shadow-2xl flex items-center gap-3 mx-auto w-fit active:scale-95"
                                 >
-                                    Refine Architecture <Zap className="h-4 w-4" />
+                                    Edit Theme <Zap className="h-4 w-4" />
                                 </Link>
                             </div>
                         </motion.div>
@@ -155,7 +155,7 @@ export function AdminStorePage() {
                     <div className="absolute bottom-10 left-10 p-4 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md hidden xl:block">
                         <div className="flex items-center gap-3 mb-2">
                             <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-[9px] font-black text-white uppercase tracking-widest">Global CDN Active</p>
+                            <p className="text-[9px] font-black text-white uppercase tracking-widest">Store is live</p>
                         </div>
                         <p className="text-[10px] text-white/30 font-mono">HASH: 0x82...EE74</p>
                     </div>

@@ -2,7 +2,12 @@ import { IsString, IsNumber, IsOptional, IsArray, ValidateNested, Min, IsBoolean
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
-class ProductVariantDto {
+export class ProductVariantDto {
+    @ApiProperty({ example: 'uuid-of-variant', required: false })
+    @IsOptional()
+    @IsString()
+    id?: string;
+
     @ApiProperty({ example: 'APPLE-RED-1KG' })
     @IsString()
     sku: string;
@@ -26,6 +31,12 @@ class ProductVariantDto {
     @IsNumber()
     @Min(0)
     stockQuantity: number;
+
+    @ApiProperty({ example: 5, required: false })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    lowStockThreshold?: number;
 }
 
 export class CreateProductDto {

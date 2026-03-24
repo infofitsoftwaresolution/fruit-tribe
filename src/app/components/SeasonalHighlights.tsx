@@ -9,7 +9,19 @@ export function SeasonalHighlights() {
   const { theme, isEditing, updateTheme, products: storeProducts } = useStore();
   const { products: apiProducts } = useProducts({ limit: 100, showOutOfSeason: true });
   const products = apiProducts.length > 0 ? apiProducts : storeProducts;
-  const seasonalProducts = products.filter((p: { isSeasonal?: boolean }) => !!p.isSeasonal);
+  const seasonalProducts = products.filter((p: any) => {
+    // Industrial filtering: must be seasonal AND active AND in stock
+    if (!p.isSeasonal || p.status !== 'Active' || p.availableStock <= 0) return false;
+
+    // Optional: Temporal validation if dates are provided
+    if (p.seasonalStart || p.seasonalEnd) {
+      const now = new Date();
+      if (p.seasonalStart && new Date(p.seasonalStart) > now) return false;
+      if (p.seasonalEnd && new Date(p.seasonalEnd) < now) return false;
+    }
+
+    return true;
+  });
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;

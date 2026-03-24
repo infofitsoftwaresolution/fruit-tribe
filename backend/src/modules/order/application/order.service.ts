@@ -38,6 +38,20 @@ export class OrderService {
 
         // Apply coupon if provided
         if (dto.couponCode) {
+            const couponContextItems = await this.prisma.product.findMany({
+                where: { id: { in: dto.items.map((i) => i.productId) } },
+                select: { id: true, category: { select: { name: true } } },
+            });
+            const couponContext = {
+                cartProductIds: couponContextItems.map((p) => p.id),
+                cartCategoryNames: couponContextItems
+                    .map((p) => p.category?.name)
+                    .filter((name): name is string => !!name),
+            };
+            const validation = await this.settingsService.validateCouponWithContext(dto.couponCode, couponContext);
+            if (!validation.valid) {
+                throw new BadRequestException(validation.message || 'Invalid or expired coupon code');
+            }
             const coupon = await this.prisma.coupon.findUnique({
                 where: { code: dto.couponCode },
             });
@@ -88,7 +102,7 @@ export class OrderService {
             throw new BadRequestException('Too many active reservations. Please complete your existing orders first.');
         }
 
-        const shippingFee = await this.settingsService.getDeliveryCharge();
+        const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null);
         const taxAmount = subtotal * 0.05; // 5% GST
         const payableAmount = subtotal - discountAmount + shippingFee + taxAmount;
 

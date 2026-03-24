@@ -248,9 +248,9 @@ export function ProfilePage() {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-10">
-          {/* Left Column - Core Intel */}
+          {/* Left column */}
           <div className="lg:col-span-4 space-y-10">
-            {/* Subscription Manifold */}
+            {/* Subscription card */}
             {subscription ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -297,7 +297,7 @@ export function ProfilePage() {
               </div>
             )}
 
-            {/* Profile Manifest */}
+            {/* Profile card */}
             <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-10">
                 <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Profile</h3>
@@ -342,9 +342,9 @@ export function ProfilePage() {
             </div>
           </div>
 
-          {/* Right Column - Logistics & Reviews */}
+          {/* Right column */}
           <div className="lg:col-span-8 space-y-10">
-            {/* Operational Registry (Orders) */}
+            {/* Orders */}
             <div className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-10">
                 <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Order history</h2>
@@ -429,7 +429,7 @@ export function ProfilePage() {
               )}
             </div>
 
-            {/* Professional Review Interface (Placeholder for Phase 5) */}
+            {/* Reviews */}
             <div className="bg-slate-900 rounded-[4rem] p-12 text-white relative overflow-hidden group shadow-3xl">
               <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-125 transition-transform duration-1000">
                 <Heart className="w-64 h-64 text-emerald-500 fill-emerald-500" />
@@ -451,7 +451,7 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Tracking Modal Manifold */}
+      {/* Tracking modal */}
       <AnimatePresence>
         {trackingOrder && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

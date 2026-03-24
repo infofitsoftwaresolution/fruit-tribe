@@ -99,6 +99,19 @@ export class PaymentService {
             throw new BadRequestException('Invalid payment signature.');
         }
 
+        if (order.paymentStatus === 'PAID') {
+            this.logger.log(`Order ${order.orderNumber} already paid. Skipping capture.`);
+            return { success: true };
+        }
+
+        const existingPayment = await this.prisma.payment.findUnique({
+            where: { transactionId: razorpayPaymentId }
+        });
+        if (existingPayment) {
+            this.logger.log(`Payment ${razorpayPaymentId} already processed.`);
+            return { success: true };
+        }
+
         await this.prisma.$transaction(async (tx) => {
             await tx.payment.create({
                 data: {
@@ -111,10 +124,43 @@ export class PaymentService {
                     status: 'CAPTURED',
                 },
             });
+
             await tx.order.update({
                 where: { id: order.id },
-                data: { paymentStatus: 'PAID' },
+                data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
             });
+
+            // Professional Step: Commit Reserved Stock
+            const reservations = await tx.stockReservation.findMany({
+                where: { orderId: order.id, status: 'PENDING' }
+            });
+
+            for (const res of reservations) {
+                // Update reservation status
+                await tx.stockReservation.update({
+                    where: { id: res.id },
+                    data: { status: 'COMPLETED' }
+                });
+
+                // Physically reduce total stock (reserved count already accounted for in OrderService/ProductService logic)
+                // We reduce physical stock and release the reservation hold
+                await tx.productVariant.update({
+                    where: { id: res.variantId },
+                    data: {
+                        stockQuantity: { decrement: res.quantity },
+                        reservedQuantity: { decrement: res.quantity }
+                    }
+                });
+
+                await tx.inventoryLog.create({
+                    data: {
+                        variantId: res.variantId,
+                        changeAmount: -res.quantity,
+                        reason: 'PAYMENT_SUCCESS_COMMIT',
+                        referenceId: order.id
+                    }
+                });
+            }
         });
 
         this.logger.log(`Payment verified for order ${order.orderNumber}`);

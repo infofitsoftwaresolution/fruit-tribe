@@ -10,7 +10,10 @@ export interface Product {
     price: number;
     discountPrice?: number;
     category: string;
-    stock: number;
+    stock: number; // For backward compatibility, mapped to available_quantity if possible
+    availableStock: number;
+    reservedStock: number;
+    lowStockThreshold?: number;
     image: string;
     images?: string[];
     vendor: string;
@@ -37,6 +40,8 @@ export interface Product {
         name: string;
         price: number;
         stock: number;
+        availableStock: number;
+        reservedStock: number;
         sku: string;
     }[];
 }
@@ -217,6 +222,8 @@ export interface StorePreferences {
     razorpayKeySecret?: string;
     /** Delivery charge in INR (admin-configurable) */
     deliveryCharge?: number;
+    /** Distance-based delivery fee slabs (admin-configurable) */
+    deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
 }
 
 export interface TribeSubscription {
@@ -368,6 +375,12 @@ const INITIAL_PREFERENCES: StorePreferences = {
     homepageTitle: 'The Fruit Tribe | Fresh Tropical Fruits Delivered',
     homepageMetaDescription: 'Order fresh, organic, and hand-picked tropical fruits directly from the farm. Same-day delivery available.',
     googleAnalyticsId: 'UA-12345678-1',
+    deliveryFeeRules: [
+        { upToKm: 3, fee: 20 },
+        { upToKm: 8, fee: 40 },
+        { upToKm: 15, fee: 60 },
+        { upToKm: 9999, fee: 90 },
+    ],
 };
 
 const INITIAL_PAGES: Page[] = [
@@ -444,7 +457,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Hydrate theme, preferences, deliveryCharge from backend so admin updates persist
+    // Hydrate theme, preferences, delivery settings from backend so admin updates persist
     useEffect(() => {
         let cancelled = false;
         getStoreSettings()
@@ -464,6 +477,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 if (typeof data.deliveryCharge === 'number' && data.deliveryCharge >= 0) {
                     setPreferences((prev) => ({ ...prev, deliveryCharge: data.deliveryCharge }));
                 }
+                if (Array.isArray((data as any).deliveryFeeRules)) {
+                    setPreferences((prev) => ({ ...prev, deliveryFeeRules: (data as any).deliveryFeeRules }));
+                }
             })
             .catch(() => {});
         return () => { cancelled = true; };
@@ -479,11 +495,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCartItems(prevItems => {
             const existingItem = prevItems.find(item => item.id === product.id);
             const currentQty = existingItem?.quantity ?? 0;
-            const maxStock = product.stock;
+            const maxStock = product.availableStock ?? product.stock;
             const newQty = Math.min(currentQty + desiredQty, maxStock);
 
             if (currentQty >= maxStock) {
-                toast.error(`Only ${product.stock} units available in stock`);
+                toast.error(`Only ${maxStock} units available in stock`);
                 return prevItems;
             }
 

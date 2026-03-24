@@ -66,8 +66,10 @@ export class ProductService {
                 }),
             ]);
 
+            const itemsWithStats = items.map(product => this.mapStats(product));
+
             return {
-                data: items,
+                data: itemsWithStats,
                 meta: {
                     total,
                     page,
@@ -103,7 +105,7 @@ export class ProductService {
             throw new NotFoundException(`Product with ID ${id} not found`);
         }
 
-        return product;
+        return this.mapStats(product);
     }
 
     async create(dto: CreateProductDto) {
@@ -128,6 +130,7 @@ export class ProductService {
                     bulkDiscountQty: dto.bulkDiscountQty ?? undefined,
                     bulkDiscountPrice: dto.bulkDiscountPrice ?? undefined,
                     allowCashOnDelivery: dto.allowCashOnDelivery ?? true,
+                    stock: dto.variants?.reduce((sum, v) => sum + (v.stockQuantity || 0), 0) || 0,
                 },
             });
 
@@ -140,6 +143,8 @@ export class ProductService {
                         attributeValue: v.attributeValue,
                         priceOverride: v.priceOverride,
                         stockQuantity: v.stockQuantity,
+                        availableQuantity: v.stockQuantity,
+                        lowStockThreshold: v.lowStockThreshold || 5,
                     })),
                 });
             }
@@ -155,11 +160,13 @@ export class ProductService {
                 });
             }
 
-            return this.prisma.product.findUnique({
+            const result = await tx.product.findUnique({
                 where: { id: product.id },
                 include: { images: true, variants: true },
             });
-        });
+
+            return result ? this.mapStats(result) : null;
+        }, { timeout: 20000, maxWait: 10000 });
     }
 
     async update(id: string, dto: any) {
@@ -200,29 +207,96 @@ export class ProductService {
                 }
             }
 
-            return this.prisma.product.findUnique({
+            // High-Precision Variant Synchronization
+            if (dto.variants !== undefined && Array.isArray(dto.variants)) {
+                const incomingVariants = dto.variants;
+                const existingVariants = await tx.productVariant.findMany({ where: { productId: id } });
+                const existingIds = existingVariants.map(v => v.id);
+                const incomingIds = incomingVariants.filter((v: any) => v.id).map((v: any) => v.id);
+
+                // 1. Delete removed variants
+                const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+                if (idsToDelete.length > 0) {
+                    await tx.productVariant.deleteMany({ where: { id: { in: idsToDelete } } });
+                }
+
+                // 2. Update or Create
+                for (const v of incomingVariants) {
+                    const data = {
+                        sku: v.sku || `SKU-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                        attributeName: v.attributeName || 'Quantity',
+                        attributeValue: v.attributeValue,
+                        priceOverride: v.priceOverride,
+                        stockQuantity: v.stockQuantity,
+                        lowStockThreshold: v.lowStockThreshold,
+                        availableQuantity: v.id 
+                            ? undefined // Don't reset available stock blindly on update
+                            : v.stockQuantity // Initial available = stock for new variants
+                    };
+
+                    if (v.id && existingIds.includes(v.id)) {
+                        // For existing: update stock carefully
+                        const existingV = existingVariants.find(ex => ex.id === v.id);
+                        const stockDiff = (v.stockQuantity || 0) - (existingV?.stockQuantity || 0);
+                        
+                        await tx.productVariant.update({
+                            where: { id: v.id },
+                            data: {
+                                ...data,
+                                availableQuantity: { increment: stockDiff }
+                            }
+                        });
+                    } else {
+                        // New variant
+                        await tx.productVariant.create({
+                            data: {
+                                ...data,
+                                productId: id,
+                                availableQuantity: v.stockQuantity || 0
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Sync total stock summary
+            const allVariants = await tx.productVariant.findMany({ where: { productId: id } });
+            const totalStock = allVariants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
+            await tx.product.update({
+                where: { id },
+                data: { stock: totalStock }
+            });
+
+            const result = await tx.product.findUnique({
                 where: { id },
                 include: { images: true, variants: true },
             });
-        });
+
+            return result ? this.mapStats(result) : null;
+        }, { timeout: 30000, maxWait: 10000 });
     }
 
     async updateStock(variantId: string, changeAmount: number, reason: string) {
         return this.prisma.$transaction(async (tx) => {
-            const variant = await tx.productVariant.findUnique({
-                where: { id: variantId },
-                select: { stockQuantity: true, productId: true }
-            });
+            const [variant] = await tx.$queryRawUnsafe<any[]>(
+                'SELECT stock_quantity as "stockQuantity", reserved_quantity as "reservedQuantity" FROM product_variants WHERE id = $1 FOR UPDATE',
+                variantId
+            );
 
             if (!variant) throw new NotFoundException(`Variant ${variantId} not found`);
 
-            const newQuantity = variant.stockQuantity + changeAmount;
-            if (newQuantity < 0) throw new BadRequestException('Insufficient stock for this adjustment');
+            const newStock = variant.stockQuantity + changeAmount;
+            const newAvailable = newStock - variant.reservedQuantity;
 
-            // Update variant stock
+            if (newAvailable < 0) throw new BadRequestException('Insufficient available stock for this adjustment');
+
+            // Update variant stock and availability
             const updated = await tx.productVariant.update({
                 where: { id: variantId },
-                data: { stockQuantity: newQuantity }
+                data: { 
+                    stockQuantity: newStock,
+                    availableQuantity: newAvailable
+                }
             });
 
             // Log the transition
@@ -235,6 +309,115 @@ export class ProductService {
             });
 
             return updated;
+        });
+    }
+
+    /**
+     * Professional Reservation: Move stock from Available to Reserved
+     */
+    async reserveStock(variantId: string, quantity: number, userId?: string, expiresMinutes: number = 10) {
+        return this.prisma.$transaction(async (tx) => {
+            // Row-level lock to prevent race conditions
+            const [variant] = await tx.$queryRawUnsafe<any[]>(
+                `SELECT * FROM product_variants WHERE id = $1 FOR UPDATE`,
+                variantId
+            );
+
+            if (!variant) throw new NotFoundException('Product variant not found');
+
+            const available = variant.stock_quantity - variant.reserved_quantity;
+            if (available < quantity) {
+                throw new BadRequestException(`Insufficient stock. Only ${available} units available.`);
+            }
+
+            // Create reservation record
+            const expiresAt = new Date();
+            expiresAt.setMinutes(expiresAt.getMinutes() + expiresMinutes);
+
+            const reservation = await tx.stockReservation.create({
+                data: {
+                    variantId,
+                    userId,
+                    quantity,
+                    expiresAt,
+                    status: 'PENDING'
+                }
+            });
+
+            // Update variant reserved/available counts
+            await tx.productVariant.update({
+                where: { id: variantId },
+                data: {
+                    reservedQuantity: { increment: quantity },
+                    availableQuantity: { decrement: quantity }
+                }
+            });
+
+            return reservation;
+        });
+    }
+
+    /**
+     * Release Reservation: Move stock back from Reserved to Available (Payment Failed/Timeout)
+     */
+    async releaseStock(reservationId: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const reservation = await tx.stockReservation.findUnique({
+                where: { id: reservationId }
+            });
+
+            if (!reservation || reservation.status !== 'PENDING') return;
+
+            await tx.stockReservation.update({
+                where: { id: reservationId },
+                data: { status: 'CANCELLED' }
+            });
+
+            await tx.productVariant.update({
+                where: { id: reservation.variantId },
+                data: {
+                    reservedQuantity: { decrement: reservation.quantity },
+                    availableQuantity: { increment: reservation.quantity }
+                }
+            });
+        });
+    }
+
+    /**
+     * Finalize Sale: Physically reduce both Total and Reserved stock (Payment Success)
+     */
+    async commitStock(reservationId: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const reservation = await tx.stockReservation.findUnique({
+                where: { id: reservationId }
+            });
+
+            if (!reservation || reservation.status !== 'PENDING') return;
+
+            // Finalize reservation
+            await tx.stockReservation.update({
+                where: { id: reservationId },
+                data: { status: 'COMPLETED' }
+            });
+
+            // Physically subtract from stock and reserved pool
+            // availableQuantity remains same (already reduced during reservation)
+            await tx.productVariant.update({
+                where: { id: reservation.variantId },
+                data: {
+                    stockQuantity: { decrement: reservation.quantity },
+                    reservedQuantity: { decrement: reservation.quantity }
+                }
+            });
+
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: reservation.variantId,
+                    changeAmount: -reservation.quantity,
+                    reason: 'ORDER_COMPLETED',
+                    referenceId: reservation.id
+                }
+            });
         });
     }
 
@@ -266,6 +449,29 @@ export class ProductService {
             where: { id },
             data: { isActive: false },
         });
+    }
+
+    private mapStats(product: any) {
+        const availableQuantity = product.variants?.length > 0
+            ? product.variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0)
+            : 0;
+        const reservedQuantity = product.variants?.length > 0
+            ? product.variants.reduce((sum, v) => sum + (v.reservedQuantity || 0), 0)
+            : 0;
+        const totalStock = product.variants?.length > 0
+            ? product.variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0)
+            : product.stock || 0;
+        const lowStockThreshold = product.variants?.length > 0
+            ? Math.min(...product.variants.map((v: any) => v.lowStockThreshold || 5))
+            : 5;
+        
+        return {
+            ...product,
+            availableQuantity,
+            reservedQuantity,
+            stock: totalStock,
+            lowStockThreshold
+        };
     }
 
     private generateSlug(name: string): string {

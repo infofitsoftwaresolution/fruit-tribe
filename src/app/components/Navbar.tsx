@@ -52,19 +52,19 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
 
   return (
     <>
-      <div className="fixed top-0 left-0 right-0 z-[100] px-4 py-6 md:px-10 pointer-events-none">
+      <div className="fixed top-0 left-0 right-0 z-[100] px-2 sm:px-4 py-3 sm:py-6 md:px-10 pointer-events-none">
         <motion.nav
           initial={{ y: -100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: "spring", stiffness: 100, damping: 20 }}
           className={cn(
-            "max-w-[1400px] mx-auto h-20 rounded-[2.5rem] border border-white/20 transition-all duration-700 pointer-events-auto overflow-hidden",
+            "max-w-[1400px] mx-auto h-16 sm:h-20 rounded-2xl sm:rounded-[2.5rem] border border-white/20 transition-all duration-700 pointer-events-auto overflow-hidden",
             isScrolled
               ? "bg-slate-900/90 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)]"
               : "bg-white/10 backdrop-blur-xl border-white/10"
           )}
         >
-          <div className="h-full px-8 flex items-center justify-between">
+          <div className="h-full px-3 sm:px-8 flex items-center justify-between gap-2">
             {/* Logo / Brand */}
             <Link to="/" className="flex items-center gap-4 group">
               {theme.logoUrl ? (
@@ -77,15 +77,15 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   {theme.storeName.charAt(0)}
                 </div>
               )}
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className={cn(
-                  "font-black text-lg tracking-tight uppercase leading-none transition-colors",
+                  "font-black text-sm sm:text-lg tracking-tight uppercase sm:uppercase leading-none transition-colors truncate max-w-[120px] sm:max-w-[260px]",
                   isScrolled ? "text-white" : "text-slate-900"
                 )}>
                   {theme.storeName}
                 </span>
                 <span className={cn(
-                  "text-[8px] font-black uppercase tracking-[0.3em] mt-1 transition-colors",
+                  "hidden sm:block text-[8px] font-black uppercase tracking-[0.3em] mt-1 transition-colors",
                   isScrolled ? "text-emerald-400" : "text-emerald-600"
                 )}>
                   Fresh fruits delivered
@@ -99,7 +99,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 <Link key={item.path} to={item.path}>
                   <motion.div
                     className={cn(
-                      "relative text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 group py-2",
+                      "relative text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-[0.2em] transition-all duration-500 group py-2",
                       location.pathname === item.path
                         ? (isScrolled ? "text-emerald-400" : "text-emerald-600")
                         : (isScrolled ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-black")
@@ -134,13 +134,13 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 </Link>
               )}
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 15 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleAccountClick}
                   className={cn(
-                    "h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-2xl transition-all",
+                    "h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all",
                     isScrolled ? "bg-white/5 text-white hover:bg-white/10" : "bg-slate-900/5 text-slate-900 hover:bg-slate-900 hover:text-white"
                   )}
                 >
@@ -152,7 +152,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   whileTap={{ scale: 0.95 }}
                   onClick={onCartClick}
                   className={cn(
-                    "relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-2xl transition-all shadow-2xl",
+                    "relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all shadow-2xl",
                     isScrolled ? "bg-emerald-500 text-white" : "bg-slate-900 text-white"
                   )}
                 >
@@ -176,7 +176,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsMenuOpen(true)}
                   className={cn(
-                    "lg:hidden h-10 w-10 flex items-center justify-center rounded-2xl transition-all",
+                    "lg:hidden h-10 w-10 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all",
                     isScrolled ? "bg-white/5 text-white" : "bg-slate-900/5 text-slate-900"
                   )}
                 >
@@ -207,7 +207,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
               transition={{ type: 'spring', damping: 30, stiffness: 200 }}
               className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col overflow-hidden"
             >
-              <div className="p-10 flex items-center justify-between bg-slate-50 border-b border-slate-100">
+              <div className="p-5 sm:p-10 flex items-center justify-between bg-slate-50 border-b border-slate-100">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white font-black italic">T</div>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Menu</span>
@@ -217,7 +217,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-12 space-y-8">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-12 space-y-4 sm:space-y-8">
                 {navItems.map((item, idx) => (
                   <Link key={item.path} to={item.path}>
                     <motion.div
@@ -230,7 +230,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                       )}
                     >
                       <div className="space-y-1">
-                        <span className="text-3xl font-black uppercase tracking-tighter leading-none">{item.label}</span>
+                        <span className="text-2xl sm:text-3xl font-black tracking-tight sm:tracking-tighter leading-none">{item.label}</span>
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.path === '/' ? 'Home' : item.label}</p>
                       </div>
                       <ArrowUpRight className="h-10 w-10 opacity-10 group-hover:opacity-100 group-hover:translate-x-2 group-hover:-translate-y-2 transition-all" />
@@ -239,7 +239,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 ))}
               </div>
 
-              <div className="p-12 bg-slate-50 border-t border-slate-100">
+              <div className="p-5 sm:p-12 bg-slate-50 border-t border-slate-100">
                 <div className="grid grid-cols-2 gap-4">
                   {isAdmin && (
                     <Link

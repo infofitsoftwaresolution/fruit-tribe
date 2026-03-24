@@ -19,20 +19,20 @@ export function AdminPreferencesPage() {
     const handleSave = () => {
         updatePreferences(formData);
         setIsDirty(false);
-        toast.success('Global meta-preferences synchronized');
+        toast.success('Store preferences saved');
     };
 
     return (
         <div className="space-y-10 pb-20 max-w-7xl mx-auto">
-            {/* Command Header */}
+            {/* Page header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 sticky top-0 bg-slate-50/80 backdrop-blur-xl z-[100] py-8 border-b border-slate-100 -mx-4 px-4 lg:-mx-8 lg:px-8">
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Terminal className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Global Meta</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Store Preferences</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Environment Config</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Strategic orchestration of SEO architectures, marketing pixels, and brand signals.</p>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Store Settings</h1>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage SEO, social preview, and tracking IDs.</p>
                 </div>
                 <div className="flex gap-4">
                     <button
@@ -40,7 +40,7 @@ export function AdminPreferencesPage() {
                         disabled={!isDirty}
                         className="h-12 px-6 text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-200 rounded-2xl hover:text-slate-900 hover:shadow-lg disabled:opacity-20 transition-all"
                     >
-                        Rollback Flux
+                        Reset Changes
                     </button>
                     <button
                         onClick={handleSave}
@@ -48,7 +48,7 @@ export function AdminPreferencesPage() {
                         className="flex items-center gap-3 h-12 px-8 text-[10px] font-black uppercase tracking-widest text-white bg-slate-900 rounded-2xl hover:bg-black disabled:opacity-50 shadow-xl shadow-slate-900/20 transition-all active:scale-95"
                     >
                         <Zap className="h-4 w-4 text-emerald-400" />
-                        Synchronize
+                        Save Changes
                     </button>
                 </div>
             </div>
@@ -67,24 +67,24 @@ export function AdminPreferencesPage() {
                                 <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
                                     <Globe className="h-5 w-5 text-emerald-400" />
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">SEO Discovery Protocols</h3>
+                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">SEO Settings</h3>
                             </div>
                             <Activity className="h-5 w-5 text-emerald-500 animate-pulse" />
                         </div>
                         <div className="p-10 space-y-8">
                             <div className="p-6 bg-slate-900 rounded-3xl border-4 border-slate-50 text-[10px] font-bold text-white/60 leading-relaxed uppercase tracking-widest italic flex gap-4 items-center">
                                 <Info className="h-5 w-5 text-emerald-400 shrink-0" />
-                                These parameters define the Store's digital footprint across global search indices. Sub-optimal configuration may impact market penetration.
+                                These fields control how your store appears in search results.
                             </div>
 
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Master Identity (Title Tag)</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Page Title</label>
                                     <span className={cn(
                                         "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
                                         formData.homepageTitle.length > 70 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                     )}>
-                                        {formData.homepageTitle.length} / 70 CRITICAL
+                                        {formData.homepageTitle.length} / 70
                                     </span>
                                 </div>
                                 <input
@@ -97,12 +97,12 @@ export function AdminPreferencesPage() {
 
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta Manifest (Description)</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta Description</label>
                                     <span className={cn(
                                         "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
                                         formData.homepageMetaDescription.length > 160 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
                                     )}>
-                                        {formData.homepageMetaDescription.length} / 320 NODES
+                                        {formData.homepageMetaDescription.length} / 320
                                     </span>
                                 </div>
                                 <textarea
@@ -127,7 +127,7 @@ export function AdminPreferencesPage() {
                             <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
                                 <MessageSquare className="h-5 w-5 text-emerald-400" />
                             </div>
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Social Propagation Asset</h3>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Social Share Image</h3>
                         </div>
                         <div className="p-10 flex flex-col md:flex-row gap-10 items-center">
                             <div className="w-full md:w-80 h-48 bg-slate-900 rounded-[2.5rem] border-4 border-slate-50 flex items-center justify-center overflow-hidden shadow-2xl relative group">
@@ -144,16 +144,16 @@ export function AdminPreferencesPage() {
                             </div>
                             <div className="flex-1 space-y-6">
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-relaxed">
-                                    Recommended resolution: <span className="text-slate-900">1200 x 628 XPX</span>. <br />
-                                    This asset is cached across global social nodes upon shared interaction.
+                                    Recommended size: <span className="text-slate-900">1200 x 628 px</span>. <br />
+                                    This image appears when your link is shared.
                                 </p>
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Asset Uplink URL</label>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Image URL</label>
                                     <input
                                         name="socialShareImage"
                                         value={formData.socialShareImage || ''}
                                         onChange={handleChange}
-                                        placeholder="Deploy visual asset URL here..."
+                                        placeholder="Paste image URL..."
                                         className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black text-slate-900 focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
                                     />
                                 </div>
@@ -172,11 +172,11 @@ export function AdminPreferencesPage() {
                             <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
                                 <Code className="h-5 w-5 text-emerald-400" />
                             </div>
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Pixel Sync & Telemetry</h3>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Analytics IDs</h3>
                         </div>
                         <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Analytics G-Node</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Analytics ID</label>
                                 <input
                                     name="googleAnalyticsId"
                                     value={formData.googleAnalyticsId || ''}
@@ -186,7 +186,7 @@ export function AdminPreferencesPage() {
                                 />
                             </div>
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Facebook Meta Pixel</label>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Meta Pixel ID</label>
                                 <input
                                     name="facebookPixelId"
                                     value={formData.facebookPixelId || ''}
@@ -238,7 +238,7 @@ export function AdminPreferencesPage() {
                                 <ShieldCheck className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
-                                <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest mb-1">Ecology Protocol</h4>
+                                <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest mb-1">System Status</h4>
                                 <p className="text-[11px] font-bold text-emerald-700/70 leading-relaxed uppercase">All global meta-signals are currently synchronized with the regional CDN. Performance optimal.</p>
                             </div>
                         </div>

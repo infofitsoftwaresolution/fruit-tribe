@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Put, Body, UseGuards, Query, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SettingsService } from '../application/settings.service';
 import { UpdatePaymentSettingsDto } from './dtos/update-payment-settings.dto';
@@ -52,18 +52,23 @@ export class SettingsController {
         return { cities, message: 'Service areas updated.' };
     }
 
-    @ApiOperation({ summary: 'Get store settings (theme, preferences, delivery charge) for storefront' })
+    @ApiOperation({ summary: 'Get store settings (theme, preferences, delivery charge, distance fee rules) for storefront' })
     @Get('store')
     async getStoreSettings() {
         return this.settingsService.getStoreSettings();
     }
 
-    @ApiOperation({ summary: 'Update store settings (theme, preferences, delivery charge) — admin only' })
+    @ApiOperation({ summary: 'Update store settings (theme, preferences, delivery charge, distance fee rules) — admin only' })
     @ApiBearerAuth()
     @Put('store')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')
-    async updateStoreSettings(@Body() body: { theme?: Record<string, unknown>; preferences?: Record<string, unknown>; deliveryCharge?: number }) {
+    async updateStoreSettings(@Body() body: {
+        theme?: Record<string, unknown>;
+        preferences?: Record<string, unknown>;
+        deliveryCharge?: number;
+        deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+    }) {
         await this.settingsService.setStoreSettings(body);
         const store = await this.settingsService.getStoreSettings();
         return { ...store, message: 'Store settings saved.' };
@@ -71,7 +76,134 @@ export class SettingsController {
 
     @ApiOperation({ summary: 'Validate a promo/coupon code (public)' })
     @Get('validate-coupon')
-    async validateCoupon(@Query('code') code: string) {
-        return this.settingsService.validateCoupon(code ?? '');
+    async validateCoupon(
+        @Query('code') code: string,
+        @Query('productId') productId?: string,
+        @Query('categoryName') categoryName?: string,
+        @Query('cartProductIds') cartProductIds?: string,
+        @Query('cartCategoryNames') cartCategoryNames?: string,
+    ) {
+        const productIds = (cartProductIds ?? '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+        const categoryNames = (cartCategoryNames ?? '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+        return this.settingsService.validateCouponWithContext(code ?? '', {
+            productId: productId ?? undefined,
+            categoryName: categoryName ?? undefined,
+            cartProductIds: productIds,
+            cartCategoryNames: categoryNames,
+        });
+    }
+
+    @ApiOperation({ summary: 'List currently available promo offers (public)' })
+    @Get('offers')
+    async getAvailableOffers(
+        @Query('productId') productId?: string,
+        @Query('categoryName') categoryName?: string,
+        @Query('cartProductIds') cartProductIds?: string,
+        @Query('cartCategoryNames') cartCategoryNames?: string,
+    ) {
+        const productIds = (cartProductIds ?? '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+        const categoryNames = (cartCategoryNames ?? '')
+            .split(',')
+            .map((v) => v.trim())
+            .filter(Boolean);
+        return {
+            offers: await this.settingsService.getAvailableCouponOffers({
+                productId: productId ?? undefined,
+                categoryName: categoryName ?? undefined,
+                cartProductIds: productIds,
+                cartCategoryNames: categoryNames,
+            }),
+        };
+    }
+
+    @ApiOperation({ summary: 'Get coupon scope rules (admin only)' })
+    @ApiBearerAuth()
+    @Get('coupon-scopes')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async getCouponScopes() {
+        return { scopes: await this.settingsService.getCouponScopes() };
+    }
+
+    @ApiOperation({ summary: 'Update coupon scope rules (admin only)' })
+    @ApiBearerAuth()
+    @Put('coupon-scopes')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async updateCouponScopes(
+        @Body() body: {
+            scopes: Array<{
+                code: string;
+                scopeType: 'ALL' | 'CATEGORY' | 'PRODUCT';
+                categoryNames?: string[];
+                productIds?: string[];
+            }>;
+        },
+    ) {
+        await this.settingsService.setCouponScopes(body?.scopes ?? []);
+        return { scopes: await this.settingsService.getCouponScopes(), message: 'Coupon scopes saved.' };
+    }
+
+    @ApiOperation({ summary: 'List coupons (admin only)' })
+    @ApiBearerAuth()
+    @Get('coupons')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async listCoupons() {
+        return { coupons: await this.settingsService.listAdminCoupons() };
+    }
+
+    @ApiOperation({ summary: 'Create coupon (admin only)' })
+    @ApiBearerAuth()
+    @Put('coupons/create')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async createCoupon(
+        @Body()
+        body: {
+            code: string;
+            discountType: 'PERCENTAGE' | 'FIXED';
+            discountValue: number;
+            minOrderValue?: number | null;
+            maxDiscount?: number | null;
+            expiryDate?: string | null;
+            usageLimit?: number | null;
+            isActive?: boolean;
+        },
+    ) {
+        const coupon = await this.settingsService.createAdminCoupon(body);
+        return { coupon, message: 'Coupon created.' };
+    }
+
+    @ApiOperation({ summary: 'Update coupon (admin only)' })
+    @ApiBearerAuth()
+    @Put('coupons/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async updateCoupon(
+        @Body()
+        body: {
+            code?: string;
+            discountType?: 'PERCENTAGE' | 'FIXED';
+            discountValue?: number;
+            minOrderValue?: number | null;
+            maxDiscount?: number | null;
+            expiryDate?: string | null;
+            usageLimit?: number | null;
+            isActive?: boolean;
+        },
+        @Param('id') id: string,
+    ) {
+        const coupon = await this.settingsService.updateAdminCoupon(id, body);
+        return { coupon, message: 'Coupon updated.' };
     }
 }

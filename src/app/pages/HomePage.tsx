@@ -16,7 +16,7 @@ import { motion } from 'framer-motion';
 import { Tag } from 'lucide-react';
 
 interface HomePageProps {
-  onAddToCart: (id: number) => void;
+  onAddToCart: (product: any) => void;
 }
 
 export function HomePage({ onAddToCart }: HomePageProps) {
@@ -60,11 +60,13 @@ export function HomePage({ onAddToCart }: HomePageProps) {
         </section>
       )}
       {theme.showFeaturedProducts !== false && <FeaturedProducts onAddToCart={onAddToCart} />}
+      {theme.showSeasonalHighlights !== false && <SeasonalHighlights />}
+      {theme.showSpecialOffers !== false && <SpecialOffers />}
+      
       <AboutSection />
       {theme.showHowItWorks !== false && <HowItWorks />}
-      {theme.showSeasonalHighlights !== false && <SeasonalHighlights />}
+      
       <ParallaxBanner />
-      {theme.showSpecialOffers !== false && <SpecialOffers />}
       {/* Trust strip */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-6">

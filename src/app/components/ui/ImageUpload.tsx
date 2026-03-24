@@ -12,7 +12,7 @@ interface ImageUploadProps {
     label?: string;
 }
 
-export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological Asset Uplink' }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Product Images' }: ImageUploadProps) {
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,11 +61,11 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
             const data = await response.json();
             const newUrls = data.map((file: { url: string }) => file.url);
             onChange([...value, ...newUrls].slice(0, maxFiles));
-            toast.success('Assets synchronized successfully');
+            toast.success('Images uploaded successfully');
         } catch (error) {
             console.error('Upload error:', error);
-            toast.error('Asset uplink failure', {
-                description: 'The neural transmission was interrupted. Verify backend nexus status.'
+            toast.error('Image upload failed', {
+                description: 'Upload was interrupted. Please check backend status and try again.'
             });
         } finally {
             setIsUploading(false);
@@ -99,7 +99,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
                             exit={{ opacity: 0, scale: 0.8 }}
                             className="relative group aspect-square rounded-3xl overflow-hidden border border-slate-100 shadow-sm"
                         >
-                            <img src={getImageDisplayUrl(url)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={`Asset ${i}`} />
+                            <img src={getImageDisplayUrl(url)} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={`Image ${i + 1}`} />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <button
                                     type="button"
@@ -130,7 +130,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
                         ) : (
                             <>
                                 <Upload className="w-8 h-8" />
-                                <span className="text-[8px] font-black uppercase mt-2 tracking-widest whitespace-nowrap">Initialize Uplink</span>
+                                <span className="text-[8px] font-black uppercase mt-2 tracking-widest whitespace-nowrap">Upload Image</span>
                             </>
                         )}
                     </motion.button>
@@ -147,7 +147,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Biological
             />
 
             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">
-                {value.length} / {maxFiles} assets registered in the biological buffer.
+                {value.length} / {maxFiles} images added.
             </p>
         </div>
     );

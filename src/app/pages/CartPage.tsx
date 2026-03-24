@@ -154,13 +154,44 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                             >
                               <Minus className="w-5 h-5 text-gray-600" />
                             </motion.button>
-                            <span className="w-10 text-center text-lg font-bold text-gray-800">
-                              {item.quantity}
-                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === '') {
+                                  onUpdateQuantity(item.id, -item.quantity); // Temporary state effectively 0
+                                  return;
+                                }
+                                const num = parseInt(val);
+                                if (!isNaN(num)) {
+                                  // Find product to check stock
+                                  const product = products.find(p => p.id === item.id);
+                                  const maxStock = product?.availableStock ?? product?.stock ?? 999;
+                                  const target = Math.min(maxStock, Math.max(0, num));
+                                  onUpdateQuantity(item.id, target - item.quantity);
+                                }
+                              }}
+                              onBlur={() => {
+                                if (item.quantity < 1) {
+                                  onUpdateQuantity(item.id, 1 - item.quantity);
+                                }
+                              }}
+                              className="w-10 text-center text-lg font-bold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0"
+                            />
                             <motion.button
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.9 }}
-                              onClick={() => onUpdateQuantity(item.id, 1)}
+                              onClick={() => {
+                                const product = products.find(p => p.id === item.id);
+                                const avail = product?.availableStock ?? product?.stock ?? 0;
+                                if (!product || item.quantity < avail) {
+                                  onUpdateQuantity(item.id, 1);
+                                } else {
+                                  toast.error(`Only ${avail} units available`);
+                                }
+                              }}
                               className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-100"
                             >
                               <Plus className="w-5 h-5 text-gray-600" />

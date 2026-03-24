@@ -46,6 +46,17 @@ export function AdminSettingsPage() {
     const [citiesLoading, setCitiesLoading] = useState(true);
     const [citiesSaving, setCitiesSaving] = useState(false);
     const [deliveryCharge, setDeliveryCharge] = useState<string>(String(preferences.deliveryCharge ?? 0));
+    const [deliveryFeeRules, setDeliveryFeeRules] = useState<Array<{ upToKm: string; fee: string }>>(
+        (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length
+            ? preferences.deliveryFeeRules
+            : [
+                  { upToKm: 3, fee: 20 },
+                  { upToKm: 8, fee: 40 },
+                  { upToKm: 15, fee: 60 },
+                  { upToKm: 9999, fee: 90 },
+              ]
+        ).map((r) => ({ upToKm: String(r.upToKm), fee: String(r.fee) }))
+    );
     const [deliverySaving, setDeliverySaving] = useState(false);
 
     useEffect(() => {
@@ -61,6 +72,14 @@ export function AdminSettingsPage() {
         setDeliveryCharge(String(preferences.deliveryCharge ?? 0));
     }, [preferences.deliveryCharge]);
 
+    useEffect(() => {
+        if (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length) {
+            setDeliveryFeeRules(
+                preferences.deliveryFeeRules.map((r) => ({ upToKm: String(r.upToKm), fee: String(r.fee) }))
+            );
+        }
+    }, [preferences.deliveryFeeRules]);
+
     const handleSaveDeliveryCharge = async () => {
         const num = parseFloat(deliveryCharge);
         if (!Number.isFinite(num) || num < 0) {
@@ -69,8 +88,17 @@ export function AdminSettingsPage() {
         }
         setDeliverySaving(true);
         try {
-            await updateStoreSettings({ deliveryCharge: num });
-            updatePreferences({ deliveryCharge: num });
+            const normalizedRules = deliveryFeeRules
+                .map((r) => ({ upToKm: Number(r.upToKm), fee: Number(r.fee) }))
+                .filter((r) => Number.isFinite(r.upToKm) && r.upToKm > 0 && Number.isFinite(r.fee) && r.fee >= 0)
+                .sort((a, b) => a.upToKm - b.upToKm);
+            if (!normalizedRules.length) {
+                toast.error('Add at least one valid distance rule');
+                setDeliverySaving(false);
+                return;
+            }
+            await updateStoreSettings({ deliveryCharge: num, deliveryFeeRules: normalizedRules });
+            updatePreferences({ deliveryCharge: num, deliveryFeeRules: normalizedRules });
             toast.success('Delivery charge updated. It will apply to new orders.');
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save');
@@ -139,14 +167,14 @@ export function AdminSettingsPage() {
             color: 'blue'
         },
         {
-            title: 'Event Telemetry',
+            title: 'Event Tracking',
             icon: BellRing,
             description: 'Notification logic for logistical and customer flux.',
             status: 'Verified',
             color: 'purple'
         },
         {
-            title: 'IAM Protocols',
+            title: 'Access Control',
             icon: Fingerprint,
             description: 'Identity and Access Management for secure operations.',
             status: 'Shielded',
@@ -160,7 +188,7 @@ export function AdminSettingsPage() {
             color: 'pink'
         },
         {
-            title: 'API Flux Nexus',
+            title: 'API Settings',
             icon: Terminal,
             description: 'Internal and external endpoint orchestration.',
             status: 'Encrypted',
@@ -175,10 +203,10 @@ export function AdminSettingsPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <Command className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">System Configuration Suite</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">System Settings</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Environment Config</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Strategic calibration and infrastructure maintenance protocols.</p>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage platform settings and integrations.</p>
                 </div>
                 <div className="px-6 py-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -190,8 +218,8 @@ export function AdminSettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {[
                     { label: 'Uptime Reliability', value: '99.99%', icon: Activity, color: 'emerald' },
-                    { label: 'Latency Node', value: '24ms', icon: Cpu, color: 'blue' },
-                    { label: 'Data Throughput', value: '1.2TB', icon: HardDrive, color: 'purple' }
+                    { label: 'Latency', value: '24ms', icon: Cpu, color: 'blue' },
+                    { label: 'Data Usage', value: '1.2TB', icon: HardDrive, color: 'purple' }
                 ].map((stat, i) => (
                     <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -277,11 +305,58 @@ export function AdminSettingsPage() {
                         <Zap className="h-6 w-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery charge</h2>
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery fee by distance</h2>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Flat delivery fee in ₹ (INR) added to every order. Set 0 for free delivery.
+                            Set distance slabs and fee in ₹. Flat fee below is used only as fallback.
                         </p>
                     </div>
+                </div>
+                <div className="space-y-3 mb-6">
+                    {deliveryFeeRules.map((rule, index) => (
+                        <div key={`rule-${index}`} className="flex items-center gap-3">
+                            <span className="text-xs font-bold text-slate-500 w-20">Up to (km)</span>
+                            <input
+                                type="number"
+                                min={0.1}
+                                step={0.1}
+                                value={rule.upToKm}
+                                onChange={(e) =>
+                                    setDeliveryFeeRules((prev) =>
+                                        prev.map((r, i) => (i === index ? { ...r, upToKm: e.target.value } : r))
+                                    )
+                                }
+                                className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
+                            />
+                            <span className="text-xs font-bold text-slate-500">Fee (₹)</span>
+                            <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={rule.fee}
+                                onChange={(e) =>
+                                    setDeliveryFeeRules((prev) =>
+                                        prev.map((r, i) => (i === index ? { ...r, fee: e.target.value } : r))
+                                    )
+                                }
+                                className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setDeliveryFeeRules((prev) => prev.filter((_, i) => i !== index))}
+                                className="h-10 px-3 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={() => setDeliveryFeeRules((prev) => [...prev, { upToKm: '', fee: '' }])}
+                        className="h-10 px-4 rounded-xl bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add distance slab
+                    </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -403,7 +478,7 @@ export function AdminSettingsPage() {
                             <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-tight">{group.description}</p>
 
                             <div className="mt-8 flex items-center justify-between pt-6 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
-                                <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Adjust Protocol</span>
+                                <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Update Settings</span>
                                 <div className="h-8 w-8 bg-slate-900 rounded-full flex items-center justify-center text-white">
                                     <Zap className="h-4 w-4" />
                                 </div>

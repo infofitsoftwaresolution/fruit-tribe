@@ -10,33 +10,33 @@ export function AboutPage() {
   const { theme } = useStore();
   const storyImage = theme.aboutPageImage || "https://images.unsplash.com/photo-1619566636858-adf3ef46400b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080";
 
-  const protocols = [
+  const values = [
     {
       icon: Scale,
       title: 'Equitable Sourcing',
-      handle: 'PROTOCOL.01',
-      desc: 'We operate on a zero-intermediary extraction model, ensuring maximum yield retention for our botanical partners.',
+      handle: 'VALUE 01',
+      desc: 'We work directly with farmers so they earn more and you get fresher produce.',
       color: 'emerald'
     },
     {
       icon: Shield,
       title: 'Quality Integrity',
-      handle: 'PROTOCOL.02',
-      desc: 'Every asset undergoes multi-spectral analysis to verify genetic purity and molecular freshness before dispatch.',
+      handle: 'VALUE 02',
+      desc: 'Every product is quality-checked before delivery.',
       color: 'blue'
     },
     {
       icon: Binary,
-      title: 'Digital Ecology',
-      handle: 'PROTOCOL.03',
-      desc: 'Our infrastructure is optimized for minimal carbon throughput, leveraging high-efficiency logistics nodes.',
+      title: 'Sustainable Delivery',
+      handle: 'VALUE 03',
+      desc: 'We use efficient delivery routes to reduce waste and emissions.',
       color: 'amber'
     },
     {
       icon: Cpu,
       title: 'Smart Ag-Tech',
-      handle: 'PROTOCOL.04',
-      desc: 'Integrating AI-driven freshness prediction to eliminate waste and optimize the global supply manifold.',
+      handle: 'VALUE 04',
+      desc: 'We use data to improve freshness and reduce waste.',
       color: 'purple'
     }
   ];
@@ -83,13 +83,13 @@ export function AboutPage() {
             <div className="space-y-4">
               <h2 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Our story</h2>
               <h3 className="text-4xl font-black text-slate-900 uppercase tracking-tighter leading-none">
-                {theme.aboutStoryTitle || 'The Initialization Sequence'}
+                {theme.aboutStoryTitle || 'How We Started'}
               </h3>
             </div>
 
             <div className="space-y-6 text-slate-500 text-lg leading-relaxed font-medium">
               <p>
-                Founded in 2020 at the nexus of high-technology and traditional arboriculture, The Fruit Tribe began with a singular objective: to eliminate the friction between the tree and the terminal.
+                Founded in 2020, The Fruit Tribe started with one goal: make farm-fresh fruit easy to buy at home.
               </p>
               <p>
                 What started as a local fruit stand has grown into a trusted source for fresh produce. We work directly with growers to bring you the best quality.
@@ -99,7 +99,7 @@ export function AboutPage() {
             <div className="pt-6 flex flex-wrap gap-4">
               <div className="px-6 py-4 bg-slate-900 text-white rounded-2xl flex items-center gap-4 shadow-xl shadow-slate-900/20">
                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-widest">System Operational</span>
+                <span className="text-[10px] font-black uppercase tracking-widest">Service Active</span>
               </div>
               <div className="px-6 py-4 bg-white border border-slate-100 rounded-2xl text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
                 <span className="text-slate-900">Uptime:</span> 99.98%
@@ -121,10 +121,10 @@ export function AboutPage() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
 
-              {/* HUD Assets */}
+              {/* Traceability details */}
               <div className="absolute bottom-10 left-10 p-6 bg-white/10 backdrop-blur-xl rounded-[2rem] border border-white/20 shadow-2xl">
-                <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1">Asset Traceability</p>
-                <p className="text-sm font-black text-white uppercase tracking-tight">NODE_774-X_SOURCE</p>
+                <p className="text-[9px] font-black text-white/60 uppercase tracking-widest mb-1">Source Tracking</p>
+                <p className="text-sm font-black text-white uppercase tracking-tight">Farm-to-door verified</p>
               </div>
             </div>
 
@@ -133,7 +133,7 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* Tactical Protocol Registry (Values) */}
+      {/* Our core values */}
       <section className="py-24 bg-slate-950 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
@@ -142,17 +142,17 @@ export function AboutPage() {
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <Zap className="w-5 h-5 text-emerald-400" />
-                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em]">Distinction Ledger</span>
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.4em]">Why choose us</span>
               </div>
-              <h2 className="text-5xl md:text-6xl font-black text-white uppercase tracking-tighter leading-none">Core Protocols.</h2>
+              <h2 className="text-5xl md:text-6xl font-black text-white uppercase tracking-tighter leading-none">Our Values.</h2>
             </div>
             <p className="text-slate-500 text-lg font-medium max-w-sm italic">
-              Our primary directives ensure the long-term stability and integrity of the fruit ecosystem.
+              These are the standards we follow every day.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {protocols.map((protocol, idx) => (
+            {values.map((protocol, idx) => (
               <motion.div
                 key={protocol.handle}
                 initial={{ opacity: 0, y: 20 }}
@@ -182,7 +182,7 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* Manifest Integration Layers */}
+      {/* About sections */}
       <div className="bg-white">
         <AboutSection />
         <div className="bg-slate-50">
@@ -191,7 +191,7 @@ export function AboutPage() {
         <Testimonials />
       </div>
 
-      {/* Strategic Bridge */}
+      {/* Call to action */}
       <section className="py-24 bg-white border-t border-slate-100">
         <div className="max-w-4xl mx-auto px-6 text-center">
           <motion.div
@@ -199,10 +199,10 @@ export function AboutPage() {
             whileInView={{ opacity: 1, scale: 1 }}
             className="space-y-10"
           >
-            <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Ready to Acquire <span className="text-emerald-500">Excellence?</span></h2>
+            <h2 className="text-5xl font-black text-slate-900 uppercase tracking-tighter">Ready to order <span className="text-emerald-500">fresh fruit?</span></h2>
             <div className="flex justify-center gap-6">
               <button onClick={() => window.location.href = '/#/products'} className="h-16 px-10 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-black transition-all shadow-xl shadow-slate-900/20 flex items-center gap-4 group active:scale-95">
-                Initialize Selection
+                Start Shopping
                 <ArrowRight className="h-4 w-4 group-hover:translate-x-2 transition-transform" />
               </button>
               <button onClick={() => window.location.href = '/#/login'} className="h-16 px-10 bg-white border border-slate-200 text-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-slate-50 transition-all flex items-center gap-4 active:scale-95">

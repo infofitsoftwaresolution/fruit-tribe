@@ -4,7 +4,7 @@ import { ProductCard } from '@/app/components/ProductCard';
 import { Search, Filter, Grid, List, Activity, Sparkles, Zap, Package, Compass } from 'lucide-react';
 import { useProducts } from '@/app/hooks/useProducts';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getCategories, type Category } from '@/lib/api';
+import { getCategories, getAvailableOffers, type Category, type AvailableOffer } from '@/lib/api';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +19,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [offers, setOffers] = useState<AvailableOffer[]>([]);
   const [initialCategoryName, setInitialCategoryName] = useState<string | null>(null);
 
   // Initialize search and category from URL query (?q=apple&categoryName=Fruits)
@@ -36,6 +37,25 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   useEffect(() => {
     getCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
+
+  useEffect(() => {
+    getAvailableOffers().then(setOffers).catch(() => setOffers([]));
+  }, []);
+
+  const getOfferHintForProduct = (product: Product) => {
+    const matched = offers.filter((offer) => {
+      if (offer.scopeType === 'ALL') return true;
+      if (offer.scopeType === 'PRODUCT') return offer.productIds.includes(String(product.id));
+      const category = (product.category || '').trim().toLowerCase();
+      return offer.categoryNames.includes(category);
+    });
+    const top = matched[0];
+    if (!top) return '';
+    if (top.discountType === 'PERCENTAGE') {
+      return `${top.discountValue}% OFF with ${top.code}`;
+    }
+    return `₹${top.discountValue} OFF with ${top.code}`;
+  };
 
   // Map initialCategoryName from URL to actual category id once categories load
   useEffect(() => {
@@ -67,16 +87,16 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   }, [categories]);
 
   return (
-    <div className="pt-32 pb-32 min-h-screen bg-white">
+    <div className="pt-24 sm:pt-32 pb-16 sm:pb-32 min-h-screen bg-white">
       {/* Background Manifest Elements */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-40">
         <div className="absolute top-0 right-0 h-[800px] w-[800px] bg-emerald-500/5 rounded-full blur-[150px]" />
         <div className="absolute bottom-0 left-0 h-[800px] w-[800px] bg-slate-900/5 rounded-full blur-[150px]" />
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12">
         {/* Cinematic Header Orchestration */}
-        <div className="mb-24 space-y-8">
+        <div className="mb-12 sm:mb-24 space-y-6 sm:space-y-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-12">
             <motion.div
               initial={{ opacity: 0, x: -40 }}
@@ -86,15 +106,15 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
             >
               <div className="flex items-center gap-3">
                 <div className="h-[1px] w-12 bg-emerald-500" />
-                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Product catalog</span>
+                <span className="text-[10px] font-black text-emerald-600 uppercase sm:uppercase tracking-[0.18em] sm:tracking-[0.4em]">Product catalog</span>
               </div>
 
-              <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none">
+              <h1 className="text-4xl sm:text-6xl md:text-8xl font-black text-slate-900 tracking-tight sm:tracking-tighter leading-none">
                 Catalog <br />
                 <span className="text-emerald-500">Products</span>
               </h1>
 
-              <p className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic leading-relaxed max-w-xl">
+              <p className="text-base sm:text-lg md:text-xl text-slate-400 font-bold tracking-normal sm:tracking-tight italic leading-relaxed max-w-xl">
                 Real-time synchronization with primary orchards. Extracting maximum bioavailability benchmarks for premium distribution.
               </p>
             </motion.div>
@@ -102,7 +122,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-6 p-8 bg-slate-900 rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden relative group"
+              className="flex items-center gap-4 sm:gap-6 p-4 sm:p-8 bg-slate-900 rounded-3xl sm:rounded-[2.5rem] border border-white/10 shadow-3xl overflow-hidden relative group"
             >
               <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="h-14 w-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-xl relative z-10">
@@ -110,8 +130,8 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               </div>
               <div className="relative z-10 text-right">
                 <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Live Sync Status</p>
-                <p className="text-2xl font-black text-white uppercase tracking-tighter leading-none">{filteredProducts.length} products</p>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mt-1">In stock</p>
+                <p className="text-xl sm:text-2xl font-black text-white tracking-tight sm:tracking-tighter leading-none">{filteredProducts.length} products</p>
+                <p className="text-[10px] font-bold text-slate-500 tracking-[0.08em] sm:tracking-[0.2em] mt-1">In stock</p>
               </div>
             </motion.div>
           </div>
@@ -122,12 +142,12 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mb-20 space-y-8"
+          className="mb-10 sm:mb-20 space-y-6 sm:space-y-8"
         >
           {/* Search Bar Interface */}
           <div className="relative group">
-            <div className="absolute inset-y-0 left-8 flex items-center pointer-events-none">
-              <Search className="w-6 h-6 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
+            <div className="absolute inset-y-0 left-4 sm:left-8 flex items-center pointer-events-none">
+              <Search className="w-5 h-5 sm:w-6 sm:h-6 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
             </div>
             <input
               type="text"
@@ -144,9 +164,9 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 }
                 navigate({ pathname: '/products', search: params.toString() }, { replace: true });
               }}
-              className="w-full h-24 pl-20 pr-10 bg-white border border-slate-100 rounded-[2rem] text-xl font-black uppercase tracking-tight placeholder:text-slate-200 outline-none focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-[0_20px_60px_rgba(0,0,0,0.03)]"
+              className="w-full h-14 sm:h-24 pl-12 sm:pl-20 pr-4 sm:pr-10 bg-white border border-slate-100 rounded-2xl sm:rounded-[2rem] text-sm sm:text-xl font-black tracking-normal sm:tracking-tight placeholder:text-slate-200 outline-none focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all shadow-[0_20px_60px_rgba(0,0,0,0.03)]"
             />
-            <div className="absolute inset-y-0 right-8 flex items-center">
+            <div className="absolute inset-y-0 right-4 sm:right-8 flex items-center">
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
                 <Compass className="h-3 w-3 text-slate-400" />
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Category filter</span>
@@ -156,7 +176,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
 
           {/* Filter Rail & View Toggle */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-2 -mx-6 px-6 md:p-0">
+            <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-2 -mx-3 sm:-mx-6 px-3 sm:px-6 md:p-0">
               <div className="h-10 w-10 flex items-center justify-center bg-slate-900 rounded-xl text-white mr-2 shrink-0">
                 <Filter className="h-4 w-4" />
               </div>
@@ -165,7 +185,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                   key={cat.id || 'all'}
                   onClick={() => setSelectedCategoryId(cat.id)}
                   className={cn(
-                    "px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap border-2",
+                    "min-h-[44px] px-5 sm:px-8 py-3 rounded-2xl text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-[0.2em] transition-all whitespace-nowrap border-2",
                     selectedCategoryId === cat.id
                       ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
                       : "bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:text-slate-600 shadow-sm"
@@ -176,7 +196,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               ))}
             </div>
 
-            <div className="flex items-center gap-3 bg-white rounded-2xl p-2 border border-slate-100 shadow-sm shrink-0 self-end md:self-auto">
+            <div className="flex items-center gap-2 sm:gap-3 bg-white rounded-2xl p-2 border border-slate-100 shadow-sm shrink-0 self-end md:self-auto">
               {[
                 { mode: 'grid', icon: Grid },
                 { mode: 'list', icon: List }
@@ -185,7 +205,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                   key={mode}
                   onClick={() => setViewMode(mode as any)}
                   className={cn(
-                    "h-12 w-12 flex items-center justify-center rounded-xl transition-all",
+                    "h-11 w-11 sm:h-12 sm:w-12 flex items-center justify-center rounded-xl transition-all",
                     viewMode === mode
                       ? "bg-slate-900 text-white shadow-inner"
                       : "text-slate-400 hover:bg-slate-50"
@@ -201,7 +221,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
         {/* Results Manifest Grid */}
         <AnimatePresence mode="wait">
           {loading && (
-            <div className="py-40 text-center text-slate-500 font-bold uppercase tracking-widest">Loading products…</div>
+            <div className="py-40 text-center text-slate-500 font-bold tracking-[0.08em] sm:tracking-widest">Loading products…</div>
           )}
           {error && (
             <div className="py-40 text-center text-red-500 font-bold uppercase tracking-widest">{error}</div>
@@ -210,8 +230,8 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
             <motion.div
               layout
               className={cn(
-                "grid gap-6 sm:gap-8",
-                viewMode === 'grid' ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1"
+                "grid gap-3 sm:gap-6 lg:gap-8",
+                viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
               )}
             >
               {filteredProducts.map((product, index) => (
@@ -236,6 +256,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                     bulkDiscountPrice={product.bulkDiscountPrice}
                     onAddToCart={onAddToCart}
                     product={product}
+                    liveOfferHint={getOfferHintForProduct(product)}
                   />
                 </motion.div>
               ))}
@@ -250,10 +271,10 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 <Package className="h-10 w-10 text-slate-200" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight sm:tracking-tighter">
                   No products found
                 </h3>
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest italic">
+                <p className="text-slate-400 text-sm font-bold tracking-[0.03em] sm:tracking-widest italic">
                   {searchQuery.trim()
                     ? `No products found for “${searchQuery.trim()}”.`
                     : 'No products match the current filters.'}
@@ -261,7 +282,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               </div>
               <button
                 onClick={() => { setSelectedCategoryId(''); setSearchQuery(''); }}
-                className="px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-3xl"
+                className="px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-widest hover:bg-emerald-500 transition-all shadow-3xl"
               >
                 Clear search and filters
               </button>

@@ -48,16 +48,18 @@ interface ProductCardProps {
   product?: import('@/lib/api').Product;
   /** When true, enforce bulk quantity semantics (used in bulk deals grid) */
   bulkDealMode?: boolean;
+  /** Optional storefront offer copy shown on card */
+  liveOfferHint?: string;
 }
 
-export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode }: ProductCardProps) => {
+export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode, liveOfferHint }: ProductCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [quantity, setQuantity] = useState(() => {
     if (bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0) return bulkDiscountQty;
     return 1;
   });
   const { user } = useAuth();
-  const { theme } = useStore();
+  const { theme, cartItems, handleUpdateQuantity } = useStore();
   const navigate = useNavigate();
 
   const handleAction = (callback: () => void) => {
@@ -74,16 +76,125 @@ toast.error('Please sign in', {
     callback();
   };
 
-  const isOutOfStock = stock <= 0;
+  const avail = product?.availableStock ?? stock;
+  const isOutOfStock = avail <= 0;
+  const lowStock = !isOutOfStock && avail <= (product?.lowStockThreshold ?? 10);
+  const cartQty = cartItems.find((item) => String(item.id) === String(id))?.quantity ?? 0;
 
   return (
     <motion.div
       whileHover={{ y: -12 }}
-      className="relative bg-white rounded-[3rem] overflow-hidden border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_100px_rgba(16,185,129,0.1)] transition-all duration-700 group flex flex-col h-full"
+      className="relative bg-white rounded-2xl sm:rounded-[3rem] overflow-hidden border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] hover:shadow-[0_40px_100px_rgba(16,185,129,0.1)] transition-all duration-700 group flex flex-col h-full"
     >
+      {/* Mobile-first compact card (Zepto-like) */}
+      <div className="sm:hidden flex flex-col h-full">
+        <Link to={`/product/${id}`} className="relative h-32 overflow-hidden bg-slate-50 block">
+          <ProductImage src={image} alt={name} isOutOfStock={isOutOfStock} />
+          {badge && !isOutOfStock && (
+            <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-blue-600 text-white text-[9px] font-black uppercase tracking-wide">
+              {badge}
+            </div>
+          )}
+          {cartQty > 0 && !isOutOfStock ? (
+            <div className="absolute bottom-2 right-2 h-9 px-1.5 rounded-xl bg-white border border-slate-200 shadow-lg flex items-center gap-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (cartQty <= 1) {
+                    handleUpdateQuantity(id, -1);
+                    return;
+                  }
+                  handleUpdateQuantity(id, -1);
+                }}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center"
+              >
+                -
+              </button>
+              <span className="min-w-[1.25rem] text-center text-[11px] font-black text-slate-900">{cartQty}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (cartQty >= avail) {
+                    toast.error(`Only ${avail} units available`);
+                    return;
+                  }
+                  handleUpdateQuantity(id, 1);
+                }}
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center"
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                if (isOutOfStock) return;
+                const payload = product ?? id;
+                let safeQty = Math.max(1, quantity);
+                if (bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0) {
+                  safeQty = Math.max(bulkDiscountQty, safeQty);
+                }
+                handleAction(() => onAddToCart(payload as any, safeQty));
+              }}
+              disabled={isOutOfStock}
+              className={cn(
+                "absolute bottom-2 right-2 min-h-[36px] px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 shadow-lg",
+                isOutOfStock
+                  ? "bg-slate-100 text-slate-400 border-slate-200"
+                  : "bg-white text-pink-600 border-pink-300"
+              )}
+            >
+              {isOutOfStock ? 'Sold out' : 'Add'}
+            </button>
+          )}
+        </Link>
+
+        <div className="p-2.5 flex-1 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-black text-emerald-700 leading-none">₹{price}</span>
+            {bulkDiscountPrice && (
+              <span className="text-xs line-through text-slate-400 leading-none">₹{bulkDiscountPrice}</span>
+            )}
+          </div>
+          {liveOfferHint && !isOutOfStock && (
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wide line-clamp-1">
+              {liveOfferHint}
+            </p>
+          )}
+          <h3 className="text-sm font-bold text-slate-900 leading-tight line-clamp-2">{name}</h3>
+          <p className="text-[11px] text-slate-500 line-clamp-1">{product?.unit ? `Per ${product.unit}` : 'Per kg'}</p>
+        </div>
+      </div>
+
+      {/* Desktop premium card */}
+      <div className="hidden sm:flex sm:flex-col sm:h-full">
       {/* High-Fidelity Badge System */}
       <AnimatePresence>
-        {badge && (
+        {isOutOfStock && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute top-6 left-6 z-30 px-4 py-2 bg-red-600 border border-white/10 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl flex items-center gap-2 shadow-2xl"
+          >
+            <div className="h-2 w-2 rounded-full bg-white" />
+            Out of stock
+          </motion.div>
+        )}
+        {lowStock && !isOutOfStock && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute top-6 left-6 z-30 px-4 py-2 bg-orange-500 border border-white/10 text-white text-[9px] font-black uppercase tracking-[0.2em] rounded-xl flex items-center gap-2 shadow-2xl"
+          >
+            <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
+            Low stock: {avail} left
+          </motion.div>
+        )}
+        {badge && !isOutOfStock && !lowStock && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -93,7 +204,7 @@ toast.error('Please sign in', {
             {badge}
           </motion.div>
         )}
-        {isSeasonal && !badge && (
+        {isSeasonal && !badge && !isOutOfStock && !lowStock && (
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -106,7 +217,7 @@ toast.error('Please sign in', {
       </AnimatePresence>
 
       {/* Acquisition Actions HUD */}
-      <div className="absolute top-6 right-6 z-30 space-y-2 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-500">
+      <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-30 space-y-2 opacity-0 group-hover:opacity-100 translate-x-4 group-hover:translate-x-0 transition-all duration-500">
         <motion.button
           whileHover={{ scale: 1.1, rotate: -12 }}
           whileTap={{ scale: 0.9 }}
@@ -128,7 +239,7 @@ toast.error('Please sign in', {
       </div>
 
       {/* Immersive Visual Asset Box */}
-      <Link to={`/product/${id}`} className="relative h-80 overflow-hidden bg-slate-50 block shrink-0">
+      <Link to={`/product/${id}`} className="relative h-52 sm:h-80 overflow-hidden bg-slate-50 block shrink-0">
         <ProductImage src={image} alt={name} isOutOfStock={isOutOfStock} />
 
         {/* Global Stock Protocol Overlay */}
@@ -145,7 +256,7 @@ toast.error('Please sign in', {
       </Link>
 
       {/* Intelligence & Telemetry Content */}
-      <div className="p-8 flex flex-col flex-1 relative">
+      <div className="p-4 sm:p-8 flex flex-col flex-1 relative">
         {/* Rating Topology */}
         <div className="flex items-center gap-1.5 mb-4 shrink-0">
           <div className="flex -space-x-1">
@@ -163,12 +274,30 @@ toast.error('Please sign in', {
         </div>
 
         {/* Stock & ETA */}
-        <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">
-          <span>
-            {isOutOfStock ? 'Out of stock' : stock <= 10 ? `Only ${stock} left` : `${stock} in stock`}
-          </span>
-          <span className="text-emerald-500">Delivery: 1–2 days</span>
-        </div>
+        {(() => {
+          const avail = product?.availableStock ?? stock;
+          const lowStock = avail <= (product?.lowStockThreshold ?? 10) && avail > 0;
+          return (
+            <div className="flex flex-col gap-1 mb-2">
+              <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.18em] text-slate-400">
+                <span className={cn(lowStock ? "text-orange-500" : "")}>
+                  {isOutOfStock ? 'Out of stock' : avail <= 10 ? `Only ${avail} units left` : `${avail} units in stock`}
+                </span>
+                <span className="text-emerald-500">Delivery: 1–2 days</span>
+              </div>
+              {product?.reservedStock ? (
+                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest italic">
+                  {product.reservedStock} units reserved by others
+                </span>
+              ) : null}
+              {liveOfferHint && !isOutOfStock ? (
+                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">
+                  Live offer: {liveOfferHint}
+                </span>
+              ) : null}
+            </div>
+          );
+        })()}
 
         {/* Quick quantity selector */}
         {!isOutOfStock && (
@@ -188,16 +317,47 @@ toast.error('Please sign in', {
               >
                 -
               </button>
-              <span className="min-w-[2.5rem] text-center text-[11px] font-black text-slate-800">
-                {quantity} kg
-              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={quantity}
+                onClick={(e) => e.preventDefault()}
+                onChange={(e) => {
+                  e.preventDefault();
+                  const val = e.target.value;
+                  const minQty = bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0 ? bulkDiscountQty : 1;
+                  if (val === '') {
+                    setQuantity(minQty);
+                    return;
+                  }
+                  const num = parseInt(val, 10);
+                  if (!Number.isNaN(num)) {
+                    const maxAllowed = product?.availableStock ?? stock;
+                    const bounded = Math.max(minQty, Math.min(maxAllowed || num, num));
+                    if (maxAllowed && num > maxAllowed) {
+                      toast.error(`Only ${maxAllowed} units available`);
+                    }
+                    setQuantity(bounded);
+                  }
+                }}
+                onBlur={(e) => {
+                  e.preventDefault();
+                  const minQty = bulkDealMode && bulkDiscountQty && bulkDiscountQty > 0 ? bulkDiscountQty : 1;
+                  if (!Number.isFinite(quantity) || quantity < minQty) setQuantity(minQty);
+                }}
+                className="w-14 h-7 text-center text-[11px] font-black text-slate-800 border border-slate-200 rounded-lg bg-white"
+              />
               <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   setQuantity((q) => {
                     const next = q + 1;
-                    if (stock && next > stock) return stock;
+                    const maxAllowed = product?.availableStock ?? stock;
+                    if (maxAllowed && next > maxAllowed) {
+                      toast.error(`Only ${maxAllowed} units available`);
+                      return maxAllowed;
+                    }
                     return next;
                   });
                 }}
@@ -210,7 +370,7 @@ toast.error('Please sign in', {
         )}
 
         <div className="flex-1 space-y-3">
-          <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-tight group-hover:text-emerald-600 transition-colors">
+          <h3 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-tight group-hover:text-emerald-600 transition-colors">
             {name}
           </h3>
 
@@ -220,12 +380,12 @@ toast.error('Please sign in', {
         </div>
 
         {/* Transaction Rail */}
-        <div className="flex items-center justify-between gap-6 mt-8 pt-8 border-t border-slate-50">
+        <div className="flex items-center justify-between gap-4 sm:gap-6 mt-5 sm:mt-8 pt-5 sm:pt-8 border-t border-slate-50">
           <div className="shrink-0 space-y-1">
             <div className="flex items-baseline gap-1">
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest mr-1">INR</span>
               <span className={cn(
-                "text-3xl font-black tracking-tighter transition-colors",
+                "text-2xl sm:text-3xl font-black tracking-tighter transition-colors",
                 isOutOfStock ? "text-slate-300" : "text-slate-900 group-hover:text-emerald-500"
               )}>
                 {price}
@@ -241,7 +401,7 @@ toast.error('Please sign in', {
             )}
           </div>
 
-          <motion.button
+            <motion.button
             whileHover={{ scale: isOutOfStock ? 1 : 1.05, x: 5 }}
             whileTap={{ scale: isOutOfStock ? 1 : 0.95 }}
             disabled={isOutOfStock}
@@ -258,13 +418,13 @@ toast.error('Please sign in', {
               handleAction(() => onAddToCart(payload as any, finalQty));
             }}
             className={cn(
-              "h-16 px-8 flex items-center gap-4 transition-all duration-500 shadow-2xl",
+              "h-12 sm:h-16 px-4 sm:px-8 flex items-center gap-2 sm:gap-4 transition-all duration-500 shadow-2xl rounded-2xl sm:rounded-[1.75rem]",
               isOutOfStock
                 ? "bg-slate-50 text-slate-200 cursor-not-allowed shadow-none"
-                : "bg-slate-900 text-white hover:bg-emerald-500 rounded-[1.75rem]"
+                : "bg-slate-900 text-white hover:bg-emerald-500"
             )}
           >
-            <div className="h-8 w-8 bg-white/10 rounded-xl flex items-center justify-center">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 bg-white/10 rounded-xl flex items-center justify-center">
               <Zap className="h-4 w-4" />
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">
@@ -272,6 +432,7 @@ toast.error('Please sign in', {
             </span>
           </motion.button>
         </div>
+      </div>
       </div>
     </motion.div>
   );

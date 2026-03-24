@@ -190,7 +190,7 @@ export function SubscriptionPage() {
                   }}
                   className="px-6 py-3 bg-emerald-700/50 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-800 transition-all"
                 >
-                  {subscription?.status === 'Paused' ? 'Resume Tribe' : 'Pause Tribe'}
+                  {subscription?.status === 'Paused' ? 'Resume Plan' : 'Pause Plan'}
                 </button>
               </div>
             </div>
@@ -205,14 +205,14 @@ export function SubscriptionPage() {
         >
           <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-full mb-6 border border-emerald-100">
             <Star className="w-4 h-4 fill-emerald-600" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Exclusive Tribe Access</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">Member Plans</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black mb-8 tracking-tighter text-slate-900 leading-[0.9]">
             Join the <br />
             <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent italic">Fruit Tribe</span>
           </h1>
           <p className="text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium">
-            Bypass the mass-market. Get hand-picked biological assets delivered straight from source to your sanctuary.
+            Get hand-picked fruits delivered to your home on your schedule.
           </p>
         </motion.div>
 
@@ -270,7 +270,7 @@ export function SubscriptionPage() {
                   getRoundedClass(theme.buttonStyle)
                 )}
               >
-                Initiate {plan.name}
+                Choose {plan.name}
               </motion.button>
             </motion.div>
           ))}
@@ -298,9 +298,9 @@ export function SubscriptionPage() {
                     <div className="mb-10">
                       <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-5 h-5 text-emerald-500 fill-emerald-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Genetic Selection</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Customize</span>
                       </div>
-                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Box Curation</h2>
+                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Customize Your Box</h2>
                       <p className="text-slate-500 mt-2 font-medium">
                         Select varieties to cycle in your weekly drop. Delivery days are scheduled for <span className="font-semibold underline">next week</span>, not the current week.
                       </p>
@@ -340,7 +340,7 @@ export function SubscriptionPage() {
                     <div className="flex-1">
                       <div className="bg-slate-50 rounded-3xl p-8 mb-8 border border-slate-100">
                         <div className="flex items-center justify-between mb-6">
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Biological Integrity</span>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Quality Score</span>
                           <div className="flex items-center gap-1">
                             <ShieldCheck className="w-3 h-3 text-emerald-500" />
                             <span className="text-[10px] font-black text-emerald-600">Certified Fresh</span>
@@ -388,7 +388,7 @@ export function SubscriptionPage() {
                       disabled={customBox.length === 0}
                       className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 disabled:opacity-20 disabled:cursor-not-allowed shadow-3xl shadow-emerald-600/20"
                     >
-                      Finalize Cluster Drop
+                      Confirm Subscription
                     </button>
                   </div>
                 </div>
@@ -407,20 +407,20 @@ export function SubscriptionPage() {
           {[
             {
               icon: Gift,
-              title: 'Wholesale Arbitrage',
-              desc: 'Leverage our scale to access boutique harvests at up to 45% below MSRP.',
+              title: 'Better Prices',
+              desc: 'Save more with recurring deliveries and plan pricing.',
               color: 'emerald'
             },
             {
               icon: Truck,
-              title: 'Source-to-Vault',
-              desc: 'We minimize touchpoints, transporting assets directly from field to your home.',
+              title: 'Farm to Home',
+              desc: 'Fresh fruits delivered quickly from trusted sources.',
               color: 'blue'
             },
             {
               icon: Calendar,
-              title: 'Temporal Control',
-              desc: 'Pause, re-route, or accelerate deliveries with our dynamic logistics engine.',
+              title: 'Flexible Schedule',
+              desc: 'Pause, resume, or update deliveries anytime.',
               color: 'purple'
             }
           ].map((benefit, idx) => (

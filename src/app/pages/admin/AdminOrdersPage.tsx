@@ -52,6 +52,13 @@ export function AdminOrdersPage() {
         const itemCount = api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0;
         const firstDelivery = (api.deliveries || [])[0] || null;
         const courierName: string | null = firstDelivery?.deliveryPartner?.name ?? null;
+        const vendorNames = Array.from(
+            new Set(
+                (api.items || [])
+                    .map((i: any) => i?.seller?.storeName)
+                    .filter((v: unknown) => typeof v === 'string' && (v as string).trim().length > 0)
+            )
+        ) as string[];
 
         return {
             id: api.id,
@@ -67,6 +74,7 @@ export function AdminOrdersPage() {
             itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
             shippingAddress: api.shippingAddress || null,
             courierName,
+            vendorNames,
         } as any;
     }
 
@@ -119,7 +127,10 @@ export function AdminOrdersPage() {
             const matchesSearch =
                 order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 order.id.includes(searchQuery) ||
-                (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase());
+                (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (((order as any).vendorNames || []) as string[]).some((v) =>
+                    v.toLowerCase().includes(searchQuery.toLowerCase())
+                );
             if (!matchesSearch) return false;
             switch (activeTab) {
                 case 'Unfulfilled': return order.fulfillment === 'Unfulfilled';
@@ -280,10 +291,10 @@ export function AdminOrdersPage() {
                 </div>
             </div>
 
-            {/* Logistics Telemetry Cards */}
+            {/* Order summary cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Active Pipeline', value: stats.total, icon: ShoppingBag, color: 'emerald', trend: '+12% flux' },
+                    { label: 'Active Orders', value: stats.total, icon: ShoppingBag, color: 'emerald', trend: 'Live' },
                     { label: 'Staging Area', value: stats.pending, icon: Clock, color: 'orange', trend: 'Critical path' },
                     { label: 'Total Revenue', value: `₹${(stats.revenue / 1000).toFixed(1)}K`, icon: Zap, color: 'blue', trend: 'Verified' },
                     { label: 'Unit Volume', value: stats.vols, icon: Box, color: 'purple', trend: 'Daily throughput' }
@@ -309,7 +320,7 @@ export function AdminOrdersPage() {
                 ))}
             </div>
 
-            {/* Order Discovery Nexus */}
+            {/* Order list */}
             <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
                     <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
@@ -333,7 +344,7 @@ export function AdminOrdersPage() {
                         <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Locate Protocol by Token or Identity..."
+                            placeholder="Search by order ID or customer..."
                             className="w-full h-14 pl-14 pr-6 bg-white border border-slate-100 rounded-2xl text-sm font-medium focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -346,16 +357,17 @@ export function AdminOrdersPage() {
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Transaction ID</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Entity Identity</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Customer</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Vendor</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Fiscal State</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Deployment Status</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Valuation</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Protocol Actions</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Order Status</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Amount</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {ordersLoading ? (
-                                <tr><td colSpan={6} className="px-10 py-16 text-center text-slate-400 text-sm">Loading orders...</td></tr>
+                                <tr><td colSpan={7} className="px-10 py-16 text-center text-slate-400 text-sm">Loading orders...</td></tr>
                             ) : null}
                             <AnimatePresence mode='popLayout'>
                                 {displayedOrders.map((order, idx) => {
@@ -390,6 +402,27 @@ export function AdminOrdersPage() {
                                                         </span>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="px-10 py-10">
+                                                {((order as any).vendorNames || []).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {(((order as any).vendorNames || []) as string[]).slice(0, 2).map((vendorName) => (
+                                                            <span
+                                                                key={vendorName}
+                                                                className="inline-flex items-center px-3 py-1 rounded-xl bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-700"
+                                                            >
+                                                                {vendorName}
+                                                            </span>
+                                                        ))}
+                                                        {(((order as any).vendorNames || []) as string[]).length > 2 && (
+                                                            <span className="inline-flex items-center px-2 py-1 rounded-xl bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                                                                +{(((order as any).vendorNames || []) as string[]).length - 2}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">—</span>
+                                                )}
                                             </td>
                                             <td className="px-10 py-10">
                                                 <span className={cn(
@@ -432,7 +465,7 @@ export function AdminOrdersPage() {
                                                             <Eye className="w-5 h-5" />
                                                         </button>
                                                         <button
-                                                            onClick={() => toast.info('Printing Manifest...')}
+                                                            onClick={() => toast.info('Printing order slip...')}
                                                             className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all"
                                                         >
                                                             <Printer className="w-5 h-5" />
@@ -468,14 +501,14 @@ export function AdminOrdersPage() {
                     {displayedOrders.length === 0 && (
                         <div className="py-32 text-center">
                             <Box className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Zero Flux Detected</h3>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Orders Found</h3>
                             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No transactional nodes found matching current parameters.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Entity Configuration Side-Sheet (Detail View) - portal so it renders above dashboard header; Export/Close buttons stay visible */}
+            {/* Order details side sheet */}
             {isDetailOpen && selectedOrder && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[120] flex justify-end">
@@ -607,7 +640,7 @@ export function AdminOrdersPage() {
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <MapPin className="w-4 h-4" />
-                                            Shipping Matrix
+                                            Shipping Details
                                         </h3>
                                         <div className="p-8 bg-slate-900 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group">
                                             <div className="relative z-10 space-y-4">
@@ -642,13 +675,13 @@ export function AdminOrdersPage() {
                                 <div className="space-y-10">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                         <Clock className="w-4 h-4" />
-                                        Protocol Progression
+                                        Order Progress
                                     </h3>
                                     <div className="relative pl-12 space-y-12">
                                         <div className="absolute left-[23px] top-0 bottom-0 w-[1px] bg-slate-100" />
                                         {[
                                             { status: 'Final Delivery', date: 'Oct 23, 2023 at 04:15 PM', active: selectedOrder.status === 'Delivered', icon: CheckCircle2 },
-                                            { status: 'Carrier Deployment', date: 'Oct 23, 2023 at 11:30 AM', active: ['Shipped', 'Delivered'].includes(selectedOrder.status), icon: Truck },
+                                            { status: 'Out for Delivery', date: 'Oct 23, 2023 at 11:30 AM', active: ['Shipped', 'Delivered'].includes(selectedOrder.status), icon: Truck },
                                             { status: 'Packaging Sealed', date: 'Oct 22, 2023 at 08:30 PM', active: ['Packed', 'Shipped', 'Delivered'].includes(selectedOrder.status), icon: Package },
                                             { status: 'System Entry', date: `${selectedOrder.date} at 02:45 PM`, active: true, icon: ShoppingBag },
                                         ].map((step, idx) => (
@@ -681,7 +714,7 @@ export function AdminOrdersPage() {
                                     className="flex-[2] h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-3"
                                 >
                                     <Zap className="w-5 h-5 text-emerald-400" />
-                                    Authorize Shipment
+                                    Mark as Shipped
                                 </button>
                             </div>
                         </motion.div>
@@ -690,7 +723,7 @@ export function AdminOrdersPage() {
                 document.body
             )}
 
-            {/* Entity Initializer (Add Modal) */}
+            {/* Create order modal */}
             {isModalOpen && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[130] flex items-center justify-center p-6">
@@ -725,7 +758,7 @@ export function AdminOrdersPage() {
                                         />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Protocol</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Status</label>
                                         <select
                                             value={formData.status}
                                             onChange={e => setFormData({ ...formData, status: e.target.value as any })}
@@ -759,7 +792,7 @@ export function AdminOrdersPage() {
                                 {formData.selectedProducts.length > 0 && (
                                     <div className="rounded-[3rem] bg-slate-900 p-10 space-y-8 text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden">
                                         <div className="relative z-10 flex items-center justify-between">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Manifest</p>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Order Data</p>
                                             <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">Token Generated</span>
                                         </div>
                                         <div className="relative z-10 space-y-4">
@@ -780,7 +813,7 @@ export function AdminOrdersPage() {
                                         </div>
                                         <div className="relative z-10 pt-8 border-t border-white/10 flex justify-between items-end">
                                             <div>
-                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Total Valuation</p>
+                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Total Amount</p>
                                                 <p className="text-5xl font-black text-emerald-400 tracking-tighter">₹{currentTotal.toLocaleString()}</p>
                                             </div>
                                             <Activity className="w-12 h-12 text-emerald-400 opacity-20 animate-pulse" />
@@ -795,13 +828,13 @@ export function AdminOrdersPage() {
                                         onClick={() => setIsModalOpen(false)}
                                         className="flex-1 h-16 border border-slate-100 text-slate-900 rounded-[2rem] hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest"
                                     >
-                                        Cancel Protocol
+                                        Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         className="flex-[2] h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-900/10"
                                     >
-                                        Authorize Entry
+                                        Create Order
                                     </button>
                                 </div>
                             </form>

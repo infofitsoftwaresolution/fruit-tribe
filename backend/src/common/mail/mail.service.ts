@@ -112,5 +112,70 @@ export class MailService {
             this.logger.error(`Failed to send delivery staff welcome email to ${to}: ${err?.message || err}`);
         }
     }
+
+    async sendDeliveryAssignmentEmail(
+        to: string,
+        payload: { orderNumber: string; customerName?: string; deliverySlot?: string | null; address?: string },
+    ): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn(`Cannot send delivery assignment email to ${to}: transporter not configured.`);
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+
+        const subject = `New delivery assigned: #${payload.orderNumber}`;
+        const text =
+            `You have a new delivery assignment.\n\n` +
+            `Order: #${payload.orderNumber}\n` +
+            `Customer: ${payload.customerName || 'Customer'}\n` +
+            `Delivery slot: ${payload.deliverySlot || 'Anytime'}\n` +
+            `Address: ${payload.address || 'Address available in delivery app'}\n\n` +
+            `Please open your delivery dashboard to start this assignment.`;
+        const html = `<p>You have a new delivery assignment.</p>
+<p><strong>Order:</strong> #${payload.orderNumber}<br/>
+<strong>Customer:</strong> ${payload.customerName || 'Customer'}<br/>
+<strong>Delivery slot:</strong> ${payload.deliverySlot || 'Anytime'}<br/>
+<strong>Address:</strong> ${payload.address || 'Address available in delivery app'}</p>
+<p>Please open your delivery dashboard to start this assignment.</p>`;
+
+        try {
+            await this.transporter.sendMail({ from, to, subject, text, html });
+            this.logger.log(`Delivery assignment email sent to ${to}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send delivery assignment email to ${to}: ${err?.message || err}`);
+        }
+    }
+
+    async sendDeliveryOtpToCustomerEmail(
+        to: string,
+        payload: { orderNumber: string; otp: string; expiresInMinutes: number },
+    ): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn(`Cannot send delivery OTP email to ${to}: transporter not configured.`);
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+
+        const subject = `Delivery OTP for order #${payload.orderNumber}`;
+        const text =
+            `Your delivery OTP for order #${payload.orderNumber} is: ${payload.otp}\n\n` +
+            `Share this OTP with the delivery partner at handover.\n` +
+            `This OTP expires in ${payload.expiresInMinutes} minutes.`;
+        const html = `<p>Your delivery OTP for order <strong>#${payload.orderNumber}</strong> is:</p>
+<p style="font-size:24px;font-weight:bold;letter-spacing:4px">${payload.otp}</p>
+<p>Share this OTP with the delivery partner at handover.</p>
+<p>This OTP expires in ${payload.expiresInMinutes} minutes.</p>`;
+
+        try {
+            await this.transporter.sendMail({ from, to, subject, text, html });
+            this.logger.log(`Delivery OTP email sent to ${to}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send delivery OTP email to ${to}: ${err?.message || err}`);
+        }
+    }
 }
 

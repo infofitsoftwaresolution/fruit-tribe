@@ -52,8 +52,19 @@ export class CreateOrderDto {
   @IsString()
   deliverySlot?: string;
 
+    @ApiProperty({ required: false, description: 'Approx delivery distance in km from checkout' })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    distanceKm?: number;
+
     @ApiProperty({ required: false })
     @IsOptional()
     @IsString()
     idempotencyKey?: string;
+
+    @ApiProperty({ required: false, enum: ['online', 'cod'] })
+    @IsOptional()
+    @IsString()
+    paymentMethod?: string;
 }

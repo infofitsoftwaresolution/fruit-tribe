@@ -77,27 +77,27 @@ export function AdminPayoutsPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <ArrowRightLeft className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Fiscal Settlement Engine</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Payout Management</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Merchant Payouts</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Strategic fiscal management and transactional audit trail.</p>
+                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage seller payouts and settlement history.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm">
                         <FileText className="w-4 h-4" />
-                        Tax Ledger
+                        Tax Report
                     </button>
                     <button
                         onClick={() => toast.info('Opening batch payout...')}
                         className="h-12 px-8 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-2"
                     >
                         <Zap className="h-4 w-4 text-emerald-300" />
-                        Execute Batch
+                        Run Payout Batch
                     </button>
                 </div>
             </div>
 
-            {/* Financial Intelligence Cards */}
+            {/* Payout summary cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statsCards.map((stat, i) => (
                     <motion.div
@@ -121,7 +121,7 @@ export function AdminPayoutsPage() {
                 ))}
             </div>
 
-            {/* Transaction Nexus */}
+            {/* Payout table */}
             <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                 <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
                     <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
@@ -145,7 +145,7 @@ export function AdminPayoutsPage() {
                         <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Locate Recipient by Identity or Token..."
+                            placeholder="Search by payout ID or seller..."
                             className="w-full h-14 pl-14 pr-6 bg-white border border-slate-100 rounded-2xl text-sm font-medium focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -158,11 +158,11 @@ export function AdminPayoutsPage() {
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Transaction Ref</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Entity Identity</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Gross Yield</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Filing Node</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Seller</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Gross Amount</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Platform Fee</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Net Settlement</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Deployment</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Status</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -237,14 +237,14 @@ export function AdminPayoutsPage() {
                     {filteredPayouts.length === 0 && (
                         <div className="py-32 text-center">
                             <History className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Fiscal Void</h3>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No settlement nodes detected within current filter mesh.</p>
+                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Payouts Found</h3>
+                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No payouts match the current filters.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Entity Audit Side-Sheet (Detail View) */}
+            {/* Payout details side panel */}
             {selectedPayout && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[120] flex justify-end">
@@ -270,10 +270,10 @@ export function AdminPayoutsPage() {
                                             <IndianRupee className="w-5 h-5 text-emerald-400" />
                                         </div>
                                         <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            Audit: #{selectedPayout.id}
+                                            Payout: #{selectedPayout.id}
                                         </h2>
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital Fiscal Ledger v9.2</p>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payout Details</p>
                                 </div>
                                 <button onClick={() => setSelectedPayout(null)} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-300 hover:text-red-500 hover:shadow-xl transition-all">
                                     <X className="h-6 w-6" />

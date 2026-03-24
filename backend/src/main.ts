@@ -17,8 +17,13 @@ async function bootstrap() {
         prefix: '/uploads/',
     });
 
-    // Security Headers
-    app.use(helmet());
+    // Security headers; allow cross-origin static image loading from /uploads.
+    app.use(
+        helmet({
+            crossOriginResourcePolicy: false,
+            crossOriginEmbedderPolicy: false,
+        }),
+    );
 
     // CORS Configuration
     app.enableCors({

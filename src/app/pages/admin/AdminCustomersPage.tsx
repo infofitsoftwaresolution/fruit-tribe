@@ -77,6 +77,60 @@ export function AdminCustomersPage() {
         setSelectedCustomer(customer);
     };
 
+    const escapeCsvValue = (value: unknown) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+    };
+
+    const handleExportCustomersCsv = () => {
+        if (!customers.length) {
+            toast.error('No customer data to export');
+            return;
+        }
+
+        const header = [
+            'Customer ID',
+            'Name',
+            'Email',
+            'Order Count',
+            'Total Spent',
+            'Joined Date',
+            'Verification Status',
+            'Customer Status',
+        ];
+
+        const rows = customers.map((c) => {
+            const status = c.totalSpent >= 10000 ? 'VIP' : c.orderCount > 0 ? 'Active' : 'Inactive';
+            return [
+                c.id,
+                c.name,
+                c.email,
+                c.orderCount,
+                c.totalSpent,
+                c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+                c.verificationStatus === 'Verified' ? 'Verified' : 'Unverified',
+                status,
+            ];
+        });
+
+        const csvContent = [header, ...rows]
+            .map((row) => row.map(escapeCsvValue).join(','))
+            .join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const dateTag = new Date().toISOString().slice(0, 10);
+        link.href = url;
+        link.setAttribute('download', `customers-${dateTag}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        toast.success('Customer CSV downloaded');
+    };
+
     return (
         <div className="space-y-8 pb-20">
             {/* Header Area */}
@@ -84,13 +138,13 @@ export function AdminCustomersPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-2">
                         <User className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">CRM Portal</span>
+                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Customer Management</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Consumer Base</h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Customers</h1>
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={() => toast.info('Exporting customer list...')}
+                        onClick={handleExportCustomersCsv}
                         className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                     >
                         <Download className="w-4 h-4" />
@@ -102,10 +156,10 @@ export function AdminCustomersPage() {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Total Base', value: stats.total, icon: User, color: 'emerald' },
-                    { label: 'VIP Status', value: stats.vip, icon: Star, color: 'purple' },
-                    { label: 'Active Monthly', value: stats.active, icon: TrendingUp, color: 'blue' },
-                    { label: 'Base Growth', value: stats.growth, icon: Clock, color: 'orange' }
+                    { label: 'Total Customers', value: stats.total, icon: User, color: 'emerald' },
+                    { label: 'VIP Customers', value: stats.vip, icon: Star, color: 'purple' },
+                    { label: 'Active Customers', value: stats.active, icon: TrendingUp, color: 'blue' },
+                    { label: 'Verified Ratio', value: stats.growth, icon: Clock, color: 'orange' }
                 ].map((stat, i) => (
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -132,7 +186,7 @@ export function AdminCustomersPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Identify customer by name or email..."
+                            placeholder="Search customer by name or email..."
                             className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -144,11 +198,11 @@ export function AdminCustomersPage() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer Entity</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Digital ID</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Frequency</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">LTV</th>
-                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Engagement</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Orders</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total Spent</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Profile</th>
                             </tr>
                         </thead>
@@ -262,7 +316,7 @@ export function AdminCustomersPage() {
                                             </span>
                                             <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1 uppercase tracking-widest">
                                                 <Clock className="w-3 h-3" />
-                                                PRO since {selectedCustomer.joined}
+                                                Customer since {selectedCustomer.joined}
                                             </span>
                                         </div>
                                     </div>
@@ -276,12 +330,12 @@ export function AdminCustomersPage() {
                                 {/* Insights Grid */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Lifetime Expenditure</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Lifetime Spend</p>
                                         <p className="text-2xl font-black text-slate-900 tracking-tight">₹{selectedCustomer.spent.toLocaleString()}</p>
                                     </div>
                                     <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Order Frequency</p>
-                                        <p className="text-2xl font-black text-slate-900 tracking-tight">{selectedCustomer.orders} Batches</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Order Count</p>
+                                        <p className="text-2xl font-black text-slate-900 tracking-tight">{selectedCustomer.orders} Orders</p>
                                     </div>
                                 </div>
 
@@ -289,7 +343,7 @@ export function AdminCustomersPage() {
                                 <div className="space-y-6">
                                     <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                         <Mail className="w-4 h-4" />
-                                        Contact Protocols
+                                        Contact Details
                                     </h3>
                                     <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-50">
                                         <div className="flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-slate-50">
@@ -318,7 +372,7 @@ export function AdminCustomersPage() {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <ShoppingBag className="w-4 h-4" />
-                                            Commercial History
+                                            Order History
                                         </h3>
                                         <button className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">View All</button>
                                     </div>
@@ -349,7 +403,7 @@ export function AdminCustomersPage() {
                                     onClick={() => toast.success(`Newsletter invite sent to ${selectedCustomer.name}`)}
                                     className="flex-1 h-14 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-100 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
                                 >
-                                    Push Notification
+                                    Send Update
                                 </button>
                                 <button
                                     className="flex-1 h-14 bg-slate-900 text-white rounded-2xl hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"

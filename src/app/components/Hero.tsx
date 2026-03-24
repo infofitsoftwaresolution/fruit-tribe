@@ -33,8 +33,8 @@ export function Hero() {
       </div>
 
       {/* Main Content Manifold */}
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 pt-32 pb-20 w-full">
-        <div className="grid lg:grid-cols-12 gap-16 items-center">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12 pt-24 sm:pt-32 pb-14 sm:pb-20 w-full">
+        <div className="grid lg:grid-cols-12 gap-8 sm:gap-16 items-center">
 
           {/* Left Column: Symbolic & Textual Signals */}
           <div className="lg:col-span-7 text-center lg:text-left space-y-10">
@@ -60,7 +60,7 @@ export function Hero() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
-                className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.9] uppercase"
+                className="text-4xl sm:text-6xl md:text-8xl font-black text-slate-900 tracking-tight sm:tracking-tighter leading-[0.9]"
               >
                 <span className="block italic font-serif text-emerald-600 lowercase tracking-tight mb-2">The</span>
                 {theme.heroTitle}
@@ -70,7 +70,7 @@ export function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-lg md:text-xl text-slate-500 font-bold max-w-xl mx-auto lg:mx-0 leading-relaxed"
+                className="text-base sm:text-lg md:text-xl text-slate-500 font-bold max-w-xl mx-auto lg:mx-0 leading-relaxed tracking-normal"
               >
                 {theme.heroSubtitle}
               </motion.p>
@@ -80,14 +80,14 @@ export function Hero() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.7, delay: 0.25 }}
-                className="flex flex-wrap items-center justify-center lg:justify-start gap-3 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500"
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black tracking-[0.08em] sm:tracking-[0.25em] text-slate-500"
               >
                 <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
                   <MapPin className="w-3 h-3" />
                   Delivering in Bengaluru
                 </div>
                 <span className="hidden md:inline text-slate-300">•</span>
-                <span>Farm fresh • Same-day delivery • Secure payments</span>
+                <span className="text-center sm:text-left">Farm fresh • Same-day delivery • Secure payments</span>
               </motion.div>
             </div>
 
@@ -99,7 +99,7 @@ export function Hero() {
             >
               {/* Search bar */}
               <div className="relative">
-                <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 left-4 sm:left-5 flex items-center pointer-events-none">
                   <Search className="w-4 h-4 text-slate-300" />
                 </div>
                 <input
@@ -117,14 +117,14 @@ export function Hero() {
                     }
                   }}
                   placeholder="Search fresh fruits..."
-                  className="w-full h-14 pl-12 pr-4 rounded-[1.75rem] border border-slate-200 bg-white/80 text-xs md:text-sm font-black uppercase tracking-[0.25em] text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
+                  className="w-full h-12 sm:h-14 pl-11 sm:pl-12 pr-4 rounded-2xl sm:rounded-[1.75rem] border border-slate-200 bg-white/80 text-[11px] sm:text-xs md:text-sm font-black tracking-[0.04em] sm:tracking-[0.2em] text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
                 />
               </div>
 
               <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
               <button
                 onClick={() => navigate('/products')}
-                className="h-20 px-12 bg-slate-900 text-white rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
+                className="min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-slate-900 text-white rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center gap-3 sm:gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
               >
                 Shop now
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
@@ -132,7 +132,7 @@ export function Hero() {
 
               <button
                 onClick={() => navigate('/about')}
-                className="h-20 px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
+                className="min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center gap-3 sm:gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
               >
                 Heritage Manual
                 <PlayCircle className="w-5 h-5 text-emerald-500" />
@@ -145,7 +145,7 @@ export function Hero() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="grid grid-cols-3 gap-8 pt-10 border-t border-slate-50 max-w-lg mx-auto lg:mx-0"
+              className="grid grid-cols-3 gap-3 sm:gap-8 pt-8 sm:pt-10 border-t border-slate-50 max-w-lg mx-auto lg:mx-0"
             >
               {[
                 { label: 'Varieties', value: '100+', sub: 'Active SKUs' },
@@ -153,8 +153,8 @@ export function Hero() {
                 { label: 'High Yield', value: '4.9★', sub: 'Satisfaction' },
               ].map((stat, i) => (
                 <div key={i} className="space-y-1">
-                  <p className="text-2xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-lg sm:text-2xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
+                  <p className="text-[8px] sm:text-[9px] font-black text-slate-400 tracking-[0.04em] sm:tracking-widest">{stat.label}</p>
                   <div className="h-0.5 w-8 bg-emerald-500/20 rounded-full" />
                 </div>
               ))}
@@ -168,7 +168,7 @@ export function Hero() {
               initial={{ opacity: 0, scale: 0.9, rotate: -5 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               transition={{ duration: 1, delay: 0.2 }}
-              className="relative aspect-[4/5] rounded-[4rem] bg-slate-100 overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.1)] border-[12px] border-white group"
+              className="relative aspect-[4/5] rounded-3xl sm:rounded-[4rem] bg-slate-100 overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.1)] border-[8px] sm:border-[12px] border-white group"
             >
               <img
                 src={theme.heroImage}

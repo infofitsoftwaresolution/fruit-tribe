@@ -7,6 +7,7 @@ import { Roles } from '../../auth/interface/decorators/roles.decorator';
 import { UpdateDeliveryStatusDto } from './dtos/update-delivery-status.dto';
 import { UpdateOnlineStatusDto } from './dtos/update-online-status.dto';
 import { UpdateLocationDto } from './dtos/update-location.dto';
+import { VerifyDeliveryOtpDto } from './dtos/verify-delivery-otp.dto';
 
 @ApiTags('Delivery App')
 @ApiBearerAuth()
@@ -42,6 +43,22 @@ export class DeliveryAppController {
         @Request() req: any,
     ) {
         return this.deliveryPartnerService.updateAssignmentStatusForUser(id, req.user.id, dto);
+    }
+
+    @ApiOperation({ summary: 'Generate customer OTP for delivery handover' })
+    @Post('assignments/:id/generate-otp')
+    async generateOtp(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.deliveryPartnerService.generateDeliveryOtpForUser(id, req.user.id);
+    }
+
+    @ApiOperation({ summary: 'Verify customer OTP and mark assignment delivered' })
+    @Post('assignments/:id/verify-otp')
+    async verifyOtp(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: VerifyDeliveryOtpDto,
+        @Request() req: any,
+    ) {
+        return this.deliveryPartnerService.verifyDeliveryOtpForUser(id, req.user.id, dto.otp);
     }
 
     @ApiOperation({ summary: 'Get earnings summary for the logged-in delivery partner' })
