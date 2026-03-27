@@ -158,7 +158,25 @@ export function AdminLogisticsPage() {
             setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
             getDeliveryPartners().then(setDeliveryPartners).catch(() => {});
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to save');
+            const raw = String(e?.message || '');
+            let msg = raw;
+            try {
+                const parsed = JSON.parse(raw);
+                msg = String(parsed?.message || parsed?.error || raw);
+            } catch {
+                // raw message is plain text
+            }
+            const normalized = msg.toLowerCase();
+            if (
+                normalized.includes('already exists') ||
+                normalized.includes('already registered') ||
+                normalized.includes('unique constraint') ||
+                normalized.includes('phone')
+            ) {
+                toast.error('This phone/email is already used. Please enter unique delivery staff details.');
+                return;
+            }
+            toast.error(msg || 'Failed to save');
         }
     };
 

@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { MailService } from '../../../common/mail/mail.service';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class DeliveryPartnerService {
@@ -107,6 +108,28 @@ export class DeliveryPartnerService {
     }
 
     async create(data: { name: string; phone: string; email: string; vehicle?: string; status?: string }) {
+        const normalizedEmail = String(data.email || '').trim().toLowerCase();
+        const normalizedPhone = String(data.phone || '').trim();
+
+        const existingUser = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    { email: normalizedEmail },
+                    { phone: normalizedPhone },
+                ],
+            },
+            include: {
+                deliveryPartner: true,
+            },
+        });
+
+        if (existingUser?.deliveryPartner) {
+            throw new ConflictException('A delivery partner with this email or phone already exists.');
+        }
+        if (existingUser) {
+            throw new ConflictException('This email or phone is already registered. Use a different one.');
+        }
+
         // Create or reuse role DELIVERY_PARTNER so delivery staff get the right dashboard
         const role = await this.prisma.role.upsert({
             where: { name: 'DELIVERY_PARTNER' },
@@ -119,31 +142,39 @@ export class DeliveryPartnerService {
         const tempPassword = Math.random().toString(36).slice(-10);
         const passwordHash = await bcrypt.hash(tempPassword, 12);
 
-        const result = await this.prisma.$transaction(async (tx) => {
-            const user = await tx.user.create({
-                data: {
-                    email: data.email,
-                    phone: data.phone,
-                    passwordHash,
-                    firstName: data.name,
-                    roleId: role.id,
-                    isActive: true,
-                    requirePasswordChange: true,
-                },
-            });
+        let result: { user: any; partner: any; tempPassword: string };
+        try {
+            result = await this.prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        email: normalizedEmail,
+                        phone: normalizedPhone,
+                        passwordHash,
+                        firstName: data.name,
+                        roleId: role.id,
+                        isActive: true,
+                        requirePasswordChange: true,
+                    },
+                });
 
-            const partner = await tx.deliveryPartner.create({
-                data: {
-                    name: data.name,
-                    phone: data.phone,
-                    vehicle: data.vehicle ?? null,
-                    status: data.status ?? 'ACTIVE',
-                    userId: user.id,
-                },
-            });
+                const partner = await tx.deliveryPartner.create({
+                    data: {
+                        name: data.name,
+                        phone: normalizedPhone,
+                        vehicle: data.vehicle ?? null,
+                        status: data.status ?? 'ACTIVE',
+                        userId: user.id,
+                    },
+                });
 
-            return { user, partner, tempPassword };
-        });
+                return { user, partner, tempPassword };
+            });
+        } catch (error) {
+            if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                throw new ConflictException('Email or phone already exists. Please use unique delivery staff details.');
+            }
+            throw error;
+        }
 
         // Fire-and-forget welcome email
         this.mailService
@@ -160,6 +191,31 @@ export class DeliveryPartnerService {
         });
         if (!existing) {
             throw new NotFoundException('Delivery partner not found');
+        }
+
+        if (data.phone && data.phone !== existing.phone) {
+            const phoneInUse = await this.prisma.user.findFirst({
+                where: {
+                    phone: data.phone,
+                    NOT: existing.user ? { id: existing.user.id } : undefined,
+                },
+                select: { id: true },
+            });
+            if (phoneInUse) {
+                throw new ConflictException('This phone number is already used by another account.');
+            }
+        }
+        if (data.email && existing.user && data.email !== existing.user.email) {
+            const emailInUse = await this.prisma.user.findFirst({
+                where: {
+                    email: data.email.toLowerCase(),
+                    NOT: { id: existing.user.id },
+                },
+                select: { id: true },
+            });
+            if (emailInUse) {
+                throw new ConflictException('This email is already used by another account.');
+            }
         }
 
         const updatedPartner = await this.prisma.deliveryPartner.update({
@@ -187,7 +243,7 @@ export class DeliveryPartnerService {
 
             const user = await this.prisma.user.create({
                 data: {
-                    email: data.email,
+                    email: data.email.toLowerCase(),
                     phone: data.phone ?? existing.phone,
                     passwordHash,
                             firstName: data.name ?? existing.name,
