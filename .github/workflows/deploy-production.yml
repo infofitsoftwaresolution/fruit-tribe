@@ -1,87 +1,388 @@
-name: Deploy Production
+name: Deploy to Production - IP Agnostic
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
+
+env:
+  USE_IP_ONLY: ${{ secrets.USE_IP_ONLY || 'false' }}
+  SERVER_DOMAIN: ${{ secrets.SERVER_DOMAIN || '' }}
+  APP_NAME: ${{ secrets.APP_NAME || 'fruit-tribe-api' }}
+  BACKEND_PORT: ${{ secrets.BACKEND_PORT || '3000' }}
+  DEPLOY_DIR: ${{ secrets.DEPLOY_DIR || '' }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Ensure deploy script executable
-        run: chmod +x scripts/deploy.sh
+      - name: Determine API URL
+        id: api_url
+        run: |
+          DETECTED_DOMAIN="${{ env.SERVER_DOMAIN }}"
+          if [ -z "$DETECTED_DOMAIN" ]; then
+            DETECTED_DOMAIN="${{ secrets.SERVER_DOMAIN }}"
+          fi
+          if [ -z "$DETECTED_DOMAIN" ] && [[ "${{ secrets.EC2_HOST }}" =~ [a-zA-Z] ]]; then
+            DETECTED_DOMAIN="${{ secrets.EC2_HOST }}"
+          fi
 
-      - name: Deploy via SSH (secret-driven)
-        uses: appleboy/ssh-action@v1.0.3
+          if [ -n "$DETECTED_DOMAIN" ]; then
+            PROTOCOL="https"
+          else
+            PROTOCOL="http"
+          fi
+
+          # Use relative API path so payment verification always uses same origin (no mixed content).
+          # Frontend and API are same host via Nginx; relative /api/v1 works for both http and https.
+          echo "VITE_API_URL=/api/v1" >> $GITHUB_ENV
+          if [ "${{ env.USE_IP_ONLY }}" = "true" ]; then
+            echo "Using IP address for deployment"
+            echo "SERVER_ORIGIN=${{ secrets.EC2_HOST }}" >> $GITHUB_ENV
+            echo "PROTOCOL=http" >> $GITHUB_ENV
+          elif [ -n "$DETECTED_DOMAIN" ]; then
+            echo "Using domain for deployment: $DETECTED_DOMAIN"
+            echo "SERVER_ORIGIN=$DETECTED_DOMAIN" >> $GITHUB_ENV
+            echo "PROTOCOL=https" >> $GITHUB_ENV
+          else
+            echo "Using IP address (no domain configured)"
+            echo "SERVER_ORIGIN=${{ secrets.EC2_HOST }}" >> $GITHUB_ENV
+            echo "PROTOCOL=http" >> $GITHUB_ENV
+          fi
+          echo "API URL will be: $VITE_API_URL"
+          echo "Server origin: $SERVER_ORIGIN"
+          echo "Protocol: $PROTOCOL"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+
+      - name: Generate IP-Agnostic Config Files
+        run: |
+          cat > backend/.env.dynamic << 'EOL'
+          NODE_ENV=production
+          PORT={BACKEND_PORT}
+          JWT_SECRET={JWT_SECRET}
+          DATABASE_URL={DATABASE_URL}
+          ALLOWED_ORIGINS={ALLOWED_ORIGINS}
+          EOL
+
+          mkdir -p scripts
+          cat > scripts/patch-cors.js << 'EOL'
+          const fs = require('fs');
+          const path = require('path');
+          const serverOrigin = process.env.SERVER_ORIGIN || 'localhost';
+          const protocol = process.env.PROTOCOL || 'http';
+          const mainPath = path.join(__dirname, '../backend/src/main.ts');
+          if (!fs.existsSync(mainPath)) {
+            console.log('No main.ts to patch (build already uses env). Skipping.');
+            process.exit(0);
+          }
+          let content = fs.readFileSync(mainPath, 'utf8');
+          if (!content.includes('ALLOWED_ORIGINS')) {
+            console.log('CORS already env-based. Skipping.');
+            process.exit(0);
+          }
+          console.log('CORS uses ALLOWED_ORIGINS from env. No patch needed.');
+          process.exit(0);
+          EOL
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build frontend with dynamic API URL
+        run: npm run build
         env:
-          APP_DIR: ${{ secrets.APP_DIR }}
-          SERVER_NAME: ${{ secrets.SERVER_NAME }}
-          BACKEND_PORT: ${{ secrets.BACKEND_PORT }}
-          PM2_APP_NAME: ${{ secrets.PM2_APP_NAME }}
-          NGINX_CONF_NAME: ${{ secrets.NGINX_CONF_NAME }}
+          NODE_ENV: production
+          VITE_API_URL: ${{ env.VITE_API_URL }}
+
+      - name: Install backend dependencies & Build
+        working-directory: ./backend
+        run: |
+          npm install
+          npx prisma generate
+          npm run build
+        env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ALLOWED_ORIGINS: ${{ secrets.ALLOWED_ORIGINS }}
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          SMTP_FROM: ${{ secrets.SMTP_FROM }}
-          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
-          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+
+      - name: Create deployment package with IP-agnostic configs
+        run: |
+          mkdir -p deploy/backend deploy/frontend-dist
+          ls -la backend/dist || true
+          cp -r backend/dist deploy/backend/
+          cp -r backend/prisma deploy/backend/
+          cp backend/package.json deploy/backend/
+          cp backend/package-lock.json deploy/backend/
+          cp -r dist/* deploy/frontend-dist/
+          cp backend/.env.dynamic deploy/backend/
+          cp -r scripts deploy/ 2>/dev/null || true
+          mkdir -p deploy/backend/uploads
+
+          cat > deploy/deploy.sh << 'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -e
+          echo "Starting IP-agnostic deployment for The Fruit Tribe..."
+          DEPLOY_HOST="${1:-$DEPLOY_HOST}"
+          DEPLOY_USER="${2:-$DEPLOY_USER}"
+          BACKEND_PORT="${3:-$BACKEND_PORT}"
+          JWT_SECRET="${4:-$(openssl rand -base64 32)}"
+          PROTOCOL="${5:-http}"
+          if [ -z "$DEPLOY_HOST" ]; then echo "DEPLOY_HOST not specified"; exit 1; fi
+          if [ -z "$BACKEND_PORT" ]; then BACKEND_PORT="3000"; fi
+          if [ -z "$APP_NAME" ]; then APP_NAME="fruit-tribe-api"; fi
+          if [ -z "$DEPLOY_DIR" ]; then DEPLOY_DIR="/home/$USER/fruit-tribe-deploy"; fi
+          SERVER_ORIGIN="$DEPLOY_HOST"
+          tar -xzf /tmp/deploy.tar.gz -C /tmp
+          mkdir -p $DEPLOY_DIR
+          cp -r /tmp/deploy/* $DEPLOY_DIR/
+          cd $DEPLOY_DIR/backend
+          cp .env.dynamic .env
+          sed -i "s|{BACKEND_PORT}|$BACKEND_PORT|g" .env
+          sed -i "s|{JWT_SECRET}|$JWT_SECRET|g" .env
+          sed -i "s|{DATABASE_URL}|$DATABASE_URL|g" .env
+          sed -i "s|{ALLOWED_ORIGINS}|$PROTOCOL://$SERVER_ORIGIN|g" .env
+          echo "FRONTEND_URL=$PROTOCOL://$SERVER_ORIGIN" >> .env
+          echo "ALLOWED_ORIGINS=$PROTOCOL://$SERVER_ORIGIN" >> .env
+          export CI=true
+          npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
+          echo "Deployment script execution complete."
+          DEPLOY_SCRIPT
+          chmod +x deploy/deploy.sh
+          test -f deploy/backend/dist/src/main.js || test -f deploy/backend/dist/main.js || (echo "ERROR: deploy/backend/dist main entry missing"; ls -la deploy/backend/dist/ 2>/dev/null; exit 1)
+          tar -czf deploy.tar.gz deploy/
+          ls -lh deploy.tar.gz
+
+      - name: Test SSH connection
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          envs: APP_DIR,SERVER_NAME,BACKEND_PORT,PM2_APP_NAME,NGINX_CONF_NAME,DATABASE_URL,JWT_SECRET,ALLOWED_ORIGINS,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASS,SMTP_FROM,RAZORPAY_KEY_ID,RAZORPAY_KEY_SECRET
+          port: 22
+          timeout: 60s
+          command_timeout: 30s
           script: |
-            set -euo pipefail
+            echo "SSH connection test successful!"
+            echo "Server: $(hostname)"
+            echo "User: $(whoami)"
 
-            : "${APP_DIR:?APP_DIR secret missing}"
-            : "${SERVER_NAME:?SERVER_NAME secret missing}"
-            : "${BACKEND_PORT:?BACKEND_PORT secret missing}"
-            : "${DATABASE_URL:?DATABASE_URL secret missing}"
-            : "${JWT_SECRET:?JWT_SECRET secret missing}"
+      - name: Transfer file via SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p 22 ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          echo "Transferring deployment package via SSH..."
+          base64 deploy.tar.gz | ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            -o ConnectTimeout=60 \
+            -p 22 \
+            ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} \
+            "base64 -d > /tmp/deploy.tar.gz && echo 'File transferred successfully'"
 
-            PM2_APP_NAME="${PM2_APP_NAME:-fruittribe-backend}"
-            NGINX_CONF_NAME="${NGINX_CONF_NAME:-fruittribe}"
+      - name: SSH and deploy with IP-agnostic setup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          port: 22
+          timeout: 1200s
+          command_timeout: 900s
+          script: |
+            set +e
+            trap 'echo "Received SIGTERM at line $LINENO, continuing..."' TERM
+            echo "Starting Automated Deployment for The Fruit Tribe: ${{ secrets.EC2_HOST }}"
+            APP_NAME="${{ env.APP_NAME }}"
+            BACKEND_PORT="${{ env.BACKEND_PORT }}"
+            DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
+            if [ -z "$BACKEND_PORT" ]; then BACKEND_PORT="3000"; fi
+            if [ -z "$APP_NAME" ]; then APP_NAME="fruit-tribe-api"; fi
+            if [ -z "$DEPLOY_DIR" ]; then DEPLOY_DIR="/home/${{ secrets.EC2_USERNAME }}/fruit-tribe-deploy"; fi
 
-            # Ensure repo exists and is updated
-            if [ ! -d "$APP_DIR/.git" ]; then
-              echo "ERROR: APP_DIR does not contain a git repo: $APP_DIR"
+            echo "Checking system dependencies..."
+            install_node_20() {
+              if command -v apt-get &> /dev/null; then
+                sudo apt-get update -q
+                curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+                sudo apt-get install -y nodejs
+              elif command -v yum &> /dev/null; then
+                curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
+                sudo yum install -y nodejs
+              fi
+              echo "Node.js $(node --version) installed"
+            }
+            if command -v node &> /dev/null; then
+              NODE_MAJOR=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+              if [ "$NODE_MAJOR" -lt 20 ]; then install_node_20; fi
+            else
+              install_node_20
+            fi
+
+            if ! command -v pm2 &> /dev/null; then sudo npm install -g pm2 && sudo pm2 startup || true; fi
+            if ! command -v nginx &> /dev/null; then
+              if command -v apt-get &> /dev/null; then sudo apt-get install -y nginx; elif command -v yum &> /dev/null; then sudo yum install -y nginx; fi
+              sudo systemctl enable nginx
+              sudo systemctl start nginx
+            fi
+            sudo mkdir -p /etc/nginx/conf.d
+
+            mkdir -p /tmp/deploy-ip
+            tar -xzf /tmp/deploy.tar.gz -C /tmp/deploy-ip
+            mkdir -p $DEPLOY_DIR
+            cp -r /tmp/deploy-ip/deploy/* $DEPLOY_DIR/
+
+            echo "Setting up backend..."
+            cd $DEPLOY_DIR/backend
+
+            DOMAIN="${{ env.SERVER_DOMAIN }}"
+            if [ -z "$DOMAIN" ]; then DOMAIN="${{ secrets.SERVER_DOMAIN }}"; fi
+            if [ -z "$DOMAIN" ] && [[ "${{ secrets.EC2_HOST }}" =~ [a-zA-Z] ]]; then DOMAIN="${{ secrets.EC2_HOST }}"; fi
+
+            if [ -n "$DOMAIN" ]; then
+              PROTOCOL="https"
+              FRONTEND_URL="https://$DOMAIN"
+              ALLOWED_ORIGINS="https://$DOMAIN,https://www.$DOMAIN,http://localhost,http://127.0.0.1"
+            else
+              PROTOCOL="http"
+              FRONTEND_URL="http://${{ secrets.EC2_HOST }}"
+              # Allow both http and https so payment verification works regardless of how user opened the site
+              ALLOWED_ORIGINS="http://${{ secrets.EC2_HOST }},https://${{ secrets.EC2_HOST }},http://localhost,http://127.0.0.1"
+            fi
+
+            cat > .env << EOL
+            NODE_ENV=production
+            PORT=$BACKEND_PORT
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            ALLOWED_ORIGINS=$ALLOWED_ORIGINS
+            FRONTEND_URL=$FRONTEND_URL
+            # Email (SMTP) configuration for verification emails
+            SMTP_HOST=${{ secrets.SMTP_HOST }}
+            SMTP_PORT=${{ secrets.SMTP_PORT }}
+            SMTP_USER=${{ secrets.SMTP_USER }}
+            SMTP_PASS=${{ secrets.SMTP_PASS }}
+            SMTP_FROM=${{ secrets.SMTP_FROM }}
+            EOL
+
+            echo "Installing dependencies (Production)..."
+            export CI=true
+            npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
+            npx prisma@6.3.1 generate
+            mkdir -p uploads
+            chmod -R 755 uploads
+
+            echo "Verifying deploy structure..."
+            ls -la $DEPLOY_DIR/backend/dist/ || true
+            MAIN_SCRIPT="$DEPLOY_DIR/backend/dist/src/main.js"
+            if [ ! -f "$MAIN_SCRIPT" ]; then
+              MAIN_SCRIPT="$DEPLOY_DIR/backend/dist/main.js"
+            fi
+            if [ ! -f "$MAIN_SCRIPT" ]; then
+              echo "ERROR: No main entry found. Contents of backend:"
+              find $DEPLOY_DIR/backend -type f -name "*.js" | head -20
+              exit 1
+            fi
+            echo "Starting application with PM2 ($MAIN_SCRIPT)..."
+            pm2 delete "$APP_NAME" 2>/dev/null || true
+            pm2 kill 2>/dev/null || true
+            sleep 2
+            PORT="$BACKEND_PORT" HOST=0.0.0.0 pm2 start "$MAIN_SCRIPT" \
+              --name "$APP_NAME" \
+              --update-env \
+              --output /home/${{ secrets.EC2_USERNAME }}/.pm2/logs/${APP_NAME}-out.log \
+              --error /home/${{ secrets.EC2_USERNAME }}/.pm2/logs/${APP_NAME}-error.log \
+              --time \
+              --cwd $DEPLOY_DIR/backend
+            pm2 save
+
+            echo "Configuring NGINX..."
+            sudo rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+            sudo rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+
+            if [ -n "$DOMAIN" ]; then
+              echo "Domain detected: $DOMAIN - Configuring HTTPS with Let's Encrypt..."
+              sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_HTTPS
+            server {
+                listen 80;
+                server_name $DOMAIN www.$DOMAIN ${{ secrets.EC2_HOST }};
+                return 301 https://\$host\$request_uri;
+            }
+            server {
+                listen 443 ssl http2;
+                server_name $DOMAIN www.$DOMAIN ${{ secrets.EC2_HOST }};
+                client_max_body_size 50M;
+                ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+                ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+                ssl_protocols TLSv1.2 TLSv1.3;
+                ssl_prefer_server_ciphers off;
+                root $DEPLOY_DIR/frontend-dist;
+                index index.html index.htm;
+                location / { try_files \$uri \$uri/ /index.html; }
+                location /api { rewrite ^/api(.*)$ \$1 break; proxy_pass http://localhost:$BACKEND_PORT; proxy_http_version 1.1; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; proxy_cache_bypass \$http_upgrade; }
+                location /uploads { alias $DEPLOY_DIR/backend/uploads; expires 30d; add_header Cache-Control "public, immutable"; add_header Access-Control-Allow-Origin *; }
+            }
+            NGINX_HTTPS
+
+              if [ ! -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+                echo "WARNING: SSL certificate not found at /etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+                echo "HTTPS config has been written anyway. You may need to run certbot manually."
+              fi
+            else
+              sudo tee /etc/nginx/conf.d/fruit-tribe.conf > /dev/null << NGINX_IP
+            server {
+                listen 80;
+                server_name ${{ secrets.EC2_HOST }};
+                client_max_body_size 50M;
+                root $DEPLOY_DIR/frontend-dist;
+                index index.html index.htm;
+                location / { try_files \$uri \$uri/ /index.html; }
+                location /api { rewrite ^/api(.*)$ \$1 break; proxy_pass http://localhost:$BACKEND_PORT; proxy_http_version 1.1; proxy_set_header Host \$host; proxy_set_header X-Real-IP \$remote_addr; proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto \$scheme; proxy_cache_bypass \$http_upgrade; }
+                location /uploads { alias $DEPLOY_DIR/backend/uploads; expires 30d; add_header Cache-Control "public, immutable"; }
+            }
+            NGINX_IP
+            fi
+
+            sudo nginx -t && sudo systemctl reload nginx
+            sudo chmod 755 /home/${{ secrets.EC2_USERNAME }}
+            sudo chmod -R 755 $DEPLOY_DIR/frontend-dist
+            sudo mkdir -p $DEPLOY_DIR/backend/uploads
+            sudo chmod -R 755 $DEPLOY_DIR/backend/uploads
+
+            echo "Health check..."
+            HEALTH_OK=false
+            for i in 1 2 3 4 5; do
+              if curl -s --connect-timeout 5 -o /dev/null "http://localhost:$BACKEND_PORT/v1" 2>/dev/null; then
+                echo "Backend health check passed!"
+                HEALTH_OK=true
+                break
+              fi
+              echo "Attempt $i/5 failed, retrying..."
+              if [ $i -ge 2 ]; then pm2 restart "$APP_NAME"; sleep 5; fi
+              sleep 10
+            done
+            if [ "$HEALTH_OK" = "false" ]; then
+              echo "Health check failed after 5 attempts"
+              pm2 logs "$APP_NAME" --lines 30 --nostream
               exit 1
             fi
 
-            cd "$APP_DIR"
-            git fetch --all --prune
-            git checkout main
-            git reset --hard origin/main
-
-            # Write backend env from secrets
-            mkdir -p "$APP_DIR/backend"
-            cat > "$APP_DIR/backend/.env" <<EOF
-            NODE_ENV=production
-            PORT=$BACKEND_PORT
-            DATABASE_URL=$DATABASE_URL
-            JWT_SECRET=$JWT_SECRET
-            ALLOWED_ORIGINS=$ALLOWED_ORIGINS
-            SMTP_HOST=$SMTP_HOST
-            SMTP_PORT=$SMTP_PORT
-            SMTP_USER=$SMTP_USER
-            SMTP_PASS=$SMTP_PASS
-            SMTP_FROM=$SMTP_FROM
-            RAZORPAY_KEY_ID=$RAZORPAY_KEY_ID
-            RAZORPAY_KEY_SECRET=$RAZORPAY_KEY_SECRET
-            EOF
-
-            chmod +x "$APP_DIR/scripts/deploy.sh"
-            APP_DIR="$APP_DIR" \
-            SERVER_NAME="$SERVER_NAME" \
-            BACKEND_PORT="$BACKEND_PORT" \
-            PM2_APP_NAME="$PM2_APP_NAME" \
-            NGINX_CONF_NAME="$NGINX_CONF_NAME" \
-            "$APP_DIR/scripts/deploy.sh"
+            echo "DEPLOYMENT COMPLETE"
+            echo "App: http://${{ secrets.EC2_HOST }}"
+            if [ -n "$DOMAIN" ]; then echo "Domain: https://$DOMAIN"; fi
+            if [ -n "$DOMAIN" ] && command -v certbot &>/dev/null; then
+              echo "Setting up SSL auto-renewal..."
+              (sudo crontab -l 2>/dev/null | grep -v 'certbot renew' || true; echo "0 0 * * * /usr/bin/certbot renew --quiet --post-hook 'systemctl reload nginx'") | sudo crontab - 2>/dev/null || true
+            fi
+            pm2 status "$APP_NAME"
