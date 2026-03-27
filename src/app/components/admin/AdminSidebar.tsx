@@ -56,6 +56,7 @@ export function AdminSidebar() {
         let cancelled = false;
 
         const fetchCounts = () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
             getOrders()
                 .then((data) => {
                     if (cancelled) return;
@@ -80,7 +81,7 @@ export function AdminSidebar() {
         };
 
         fetchCounts();
-        const interval = setInterval(fetchCounts, 30000);
+        const interval = setInterval(fetchCounts, 120000);
 
         return () => {
             cancelled = true;

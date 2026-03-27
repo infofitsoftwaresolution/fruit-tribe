@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
 import {
@@ -72,6 +72,8 @@ export function AdminLogisticsPage() {
     const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; email: string; vehicle: string; status: string } }>({ open: false });
     const [warehouseForm, setWarehouseForm] = useState({ name: '', address: '', latitude: '', longitude: '', isActive: true });
     const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
+    const hasLoadedWarehouses = useRef(false);
+    const hasLoadedStaff = useRef(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -91,11 +93,15 @@ export function AdminLogisticsPage() {
 
     useEffect(() => {
         if (sectionTab !== 'warehouses') return;
+        if (hasLoadedWarehouses.current) return;
+        hasLoadedWarehouses.current = true;
         getWarehouses(false).then(setWarehouses).catch(() => setWarehouses([]));
     }, [sectionTab]);
 
     useEffect(() => {
         if (sectionTab !== 'staff') return;
+        if (hasLoadedStaff.current) return;
+        hasLoadedStaff.current = true;
         getDeliveryPartners().then(setDeliveryPartners).catch(() => setDeliveryPartners([]));
     }, [sectionTab]);
 
@@ -167,13 +173,16 @@ export function AdminLogisticsPage() {
                 // raw message is plain text
             }
             const normalized = msg.toLowerCase();
-            if (
-                normalized.includes('already exists') ||
-                normalized.includes('already registered') ||
-                normalized.includes('unique constraint') ||
-                normalized.includes('phone')
-            ) {
-                toast.error('This phone/email is already used. Please enter unique delivery staff details.');
+            if (normalized.includes('phone number is already') || normalized.includes('phone already')) {
+                toast.error('This phone number is already used. Please enter a different phone.');
+                return;
+            }
+            if (normalized.includes('email is already') || normalized.includes('email already')) {
+                toast.error('This email is already used. Please enter a different email.');
+                return;
+            }
+            if (normalized.includes('already exists') || normalized.includes('already registered') || normalized.includes('unique constraint')) {
+                toast.error('This delivery staff already exists. Please use unique details.');
                 return;
             }
             toast.error(msg || 'Failed to save');
@@ -271,7 +280,7 @@ export function AdminLogisticsPage() {
                             </h2>
                             <p className="text-slate-500 text-sm mt-1">People who deliver your products.</p>
                         </div>
-                        <button onClick={() => { setStaffModal({ open: true }); setStaffForm({ name: '', phone: '', vehicle: '', status: 'ACTIVE' }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
+                        <button onClick={() => { setStaffModal({ open: true }); setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
                             <Plus className="w-4 h-4" /> Add delivery staff
                         </button>
                     </div>

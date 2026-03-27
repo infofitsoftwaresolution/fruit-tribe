@@ -111,23 +111,28 @@ export class DeliveryPartnerService {
         const normalizedEmail = String(data.email || '').trim().toLowerCase();
         const normalizedPhone = String(data.phone || '').trim();
 
-        const existingUser = await this.prisma.user.findFirst({
-            where: {
-                OR: [
-                    { email: normalizedEmail },
-                    { phone: normalizedPhone },
-                ],
-            },
-            include: {
-                deliveryPartner: true,
-            },
-        });
+        const [existingByEmail, existingByPhone] = await Promise.all([
+            this.prisma.user.findFirst({
+                where: { email: normalizedEmail },
+                include: { deliveryPartner: true },
+            }),
+            this.prisma.user.findFirst({
+                where: { phone: normalizedPhone },
+                include: { deliveryPartner: true },
+            }),
+        ]);
 
-        if (existingUser?.deliveryPartner) {
-            throw new ConflictException('A delivery partner with this email or phone already exists.');
+        if (existingByEmail?.deliveryPartner) {
+            throw new ConflictException('This email is already assigned to another delivery partner.');
         }
-        if (existingUser) {
-            throw new ConflictException('This email or phone is already registered. Use a different one.');
+        if (existingByPhone?.deliveryPartner) {
+            throw new ConflictException('This phone number is already assigned to another delivery partner.');
+        }
+        if (existingByEmail) {
+            throw new ConflictException('This email is already registered. Use a different one.');
+        }
+        if (existingByPhone) {
+            throw new ConflictException('This phone number is already registered. Use a different one.');
         }
 
         // Create or reuse role DELIVERY_PARTNER so delivery staff get the right dashboard
@@ -171,6 +176,13 @@ export class DeliveryPartnerService {
             });
         } catch (error) {
             if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+                const target = Array.isArray((error as any)?.meta?.target) ? (error as any).meta.target.join(',') : '';
+                if (target.includes('phone')) {
+                    throw new ConflictException('This phone number is already in use.');
+                }
+                if (target.includes('email')) {
+                    throw new ConflictException('This email is already in use.');
+                }
                 throw new ConflictException('Email or phone already exists. Please use unique delivery staff details.');
             }
             throw error;
