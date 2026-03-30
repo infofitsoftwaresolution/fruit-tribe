@@ -23,6 +23,32 @@ export class AuthService {
         private readonly mailService: MailService,
     ) { }
 
+    private async issueFreshVerificationOtp(userId: string, email: string) {
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+        const recentOtps = await this.prisma.otpLog.count({
+            where: {
+                userId,
+                createdAt: { gte: fifteenMinutesAgo },
+            },
+        });
+        if (recentOtps >= 5) {
+            throw new UnauthorizedException('Too many verification attempts. Please try again later.');
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 15 * 60 * 1000);
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: { otpCode: code, otpExpiry: expiry, isActive: false },
+            });
+            await tx.otpLog.create({
+                data: { userId, otp: code, expiresAt: expiry },
+            });
+        });
+        await this.mailService.sendVerificationEmail(email, code);
+    }
+
     async register(dto: RegisterDto) {
         // Extra safety: reject clearly invalid email formats before hitting the database,
         // even though class-validator already enforces @IsEmail on the DTO.
@@ -119,10 +145,17 @@ export class AuthService {
         });
 
         if (!user) throw new UnauthorizedException('Invalid credentials');
+
+        // If user is pending verification (missed/expired OTP), send a fresh code on login attempt.
+        if (!user.isActive && user.otpCode) {
+            await this.issueFreshVerificationOtp(user.id, user.email);
+            throw new UnauthorizedException('EMAIL_PENDING_VERIFICATION_OTP_RESENT');
+        }
+
         if (!user.isActive) throw new UnauthorizedException('Account is inactive');
 
         if (user.otpCode && user.otpExpiry && user.otpExpiry > new Date()) {
-            throw new UnauthorizedException('Please verify your email with the code sent to you.');
+            throw new UnauthorizedException('EMAIL_PENDING_VERIFICATION_OTP_RESENT');
         }
 
         // Account lockout check

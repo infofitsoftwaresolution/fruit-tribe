@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
-import { useStore } from '@/app/context/StoreContext';
 
 export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -45,7 +44,6 @@ function mapBackendRoleToFrontend(role: string | undefined): UserRole {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const store = useStore();
   const [user, setUser] = useState<User | null>(() => {
     // Check for stored user in localStorage
     const storedUser = localStorage.getItem('user');
@@ -107,8 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!res.ok) {
-        // Do not surface raw backend error messages to the user
-        throw new Error('Invalid email or password.');
+        let message = 'Invalid email or password.';
+        try {
+          const data = await res.json();
+          const backendMessage = Array.isArray(data?.message)
+            ? data.message.join('; ')
+            : (data?.message || '');
+          if (backendMessage === 'EMAIL_PENDING_VERIFICATION_OTP_RESENT') {
+            message = 'Your email is not verified yet. We sent a new verification code to your email.';
+          } else if (typeof backendMessage === 'string' && backendMessage.trim()) {
+            message = backendMessage;
+          }
+        } catch {
+          // ignore parse errors and keep default message
+        }
+        throw new Error(message);
       }
 
       const data = await res.json();
@@ -140,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error('Login failed. Please check your email and password.');
+      toast.error(error?.message || 'Login failed. Please check your email and password.');
       throw error;
     }
   };
@@ -169,12 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('requirePasswordChange');
-    try {
-      store.clearCart();
-      localStorage.removeItem('store_cart');
-    } catch {
-      // ignore cart clearing failures
-    }
     toast.info('Logged out successfully');
   };
 
