@@ -114,7 +114,7 @@ export class OrderService {
             // Precision logic: (Total - Reserved) - Safety Margin = Sellable
             for (const item of dto.items) {
                 const [variant] = await tx.$queryRawUnsafe<any[]>(
-                    'SELECT available_quantity as "availableQuantity", low_stock_threshold as "threshold" FROM product_variants WHERE id = $1 FOR UPDATE',
+                    'SELECT available_quantity as "availableQuantity", low_stock_threshold as "threshold" FROM product_variants WHERE id = $1::uuid FOR UPDATE',
                     item.variantId
                 );
 
