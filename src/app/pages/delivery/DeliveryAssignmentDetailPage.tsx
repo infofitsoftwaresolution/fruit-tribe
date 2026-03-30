@@ -56,6 +56,7 @@ export function DeliveryAssignmentDetailPage() {
     const [assignment, setAssignment] = useState<DeliveryAssignmentDetail | null>(null);
     const [loading, setLoading] = useState(true);
     const [updating, setUpdating] = useState(false);
+    const [pendingStatusAction, setPendingStatusAction] = useState<string | null>(null);
     const [generatingOtp, setGeneratingOtp] = useState(false);
     const [otpMeta, setOtpMeta] = useState<{ generatedAt: string | null; expiresAt: string | null; active: boolean }>({
         generatedAt: null,
@@ -91,10 +92,13 @@ export function DeliveryAssignmentDetailPage() {
 
     const handleUpdateStatus = async (status: string) => {
         if (!id) return;
+        if (pendingStatusAction) return;
+        setPendingStatusAction(status);
         if (status === 'DELIVERED') {
             const otp = otpCode.trim();
             if (!/^\d{6}$/.test(otp)) {
                 toast.error('Enter a valid 6-digit OTP to complete delivery.');
+                setPendingStatusAction(null);
                 return;
             }
             setUpdating(true);
@@ -118,6 +122,7 @@ export function DeliveryAssignmentDetailPage() {
                 toast.error(e?.message || 'Unable to verify OTP');
             } finally {
                 setUpdating(false);
+                setPendingStatusAction(null);
             }
             return;
         }
@@ -127,6 +132,7 @@ export function DeliveryAssignmentDetailPage() {
             reason = window.prompt('Reason for failed delivery? (e.g. customer unavailable, payment issue)') || '';
             if (!reason.trim()) {
                 toast.error('Please enter a reason for failed delivery.');
+                setPendingStatusAction(null);
                 return;
             }
         }
@@ -163,6 +169,7 @@ export function DeliveryAssignmentDetailPage() {
             toast.error(e?.message || 'Unable to update status');
         } finally {
             setUpdating(false);
+            setPendingStatusAction(null);
         }
     };
 
@@ -235,6 +242,7 @@ export function DeliveryAssignmentDetailPage() {
     const encodedDestination = encodeURIComponent(address === 'Address not available' ? '' : address);
     const currentStatus = assignment.status || 'ASSIGNED';
     const normalizedCurrentStatus = String(currentStatus).toUpperCase();
+    const normalizedOrderStatus = String((assignment as any)?.order?.status || '').toUpperCase();
     const allowedTransitions: Record<string, string[]> = {
         ASSIGNED: ['PICKED_UP', 'OUT_FOR_DELIVERY', 'FAILED'],
         PICKED_UP: ['OUT_FOR_DELIVERY', 'FAILED'],
@@ -244,7 +252,9 @@ export function DeliveryAssignmentDetailPage() {
     };
     const canTransitionTo = (nextStatus: string) =>
         (allowedTransitions[normalizedCurrentStatus] || []).includes(nextStatus);
-    const isTerminalStatus = ['DELIVERED', 'FAILED'].includes(normalizedCurrentStatus);
+    const isTerminalStatus =
+        ['DELIVERED', 'FAILED', 'CANCELLED', 'RETURNED'].includes(normalizedCurrentStatus) ||
+        ['DELIVERED', 'CANCELLED'].includes(normalizedOrderStatus);
 
     return (
         <div className="space-y-10 pb-20">
@@ -356,6 +366,16 @@ export function DeliveryAssignmentDetailPage() {
                     </p>
                 </div>
                 <div className="p-8">
+                    {isTerminalStatus && (
+                        <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                                Assignment closed
+                            </p>
+                            <p className="text-xs text-emerald-700 mt-1">
+                                This delivery is already completed/closed, so status actions are locked.
+                            </p>
+                        </div>
+                    )}
                     <div className="mb-6">
                         <div className="mb-3">
                             {otpMeta.active ? (
@@ -415,14 +435,16 @@ export function DeliveryAssignmentDetailPage() {
                             </div>
                         )}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className={cn("grid grid-cols-2 sm:grid-cols-4 gap-4", isTerminalStatus && "pointer-events-none")}>
                         {STATUS_OPTIONS.map((opt) => {
                             const Icon = opt.icon;
                             const isDelivered = opt.value === 'DELIVERED';
                             const isFailed = opt.value === 'FAILED';
                             const isAlreadyCurrent = normalizedCurrentStatus === opt.value;
+                            const isPendingThisAction = pendingStatusAction === opt.value;
                             const shouldDisable =
                                 updating ||
+                                !!pendingStatusAction ||
                                 isAlreadyCurrent ||
                                 isTerminalStatus ||
                                 opt.value === 'DELIVERED' ||
@@ -433,7 +455,7 @@ export function DeliveryAssignmentDetailPage() {
                                     disabled={shouldDisable}
                                     onClick={() => handleUpdateStatus(opt.value)}
                                     className={cn(
-                                        'flex flex-col items-center justify-center gap-2 h-24 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50',
+                                        'flex flex-col items-center justify-center gap-2 h-24 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed',
                                         isDelivered &&
                                             'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100',
                                         isFailed &&
@@ -448,7 +470,7 @@ export function DeliveryAssignmentDetailPage() {
                                     ) : (
                                         <Icon className="w-5 h-5" />
                                     )}
-                                    {opt.label}
+                                    {isPendingThisAction ? 'Updating...' : opt.label}
                                 </button>
                             );
                         })}
