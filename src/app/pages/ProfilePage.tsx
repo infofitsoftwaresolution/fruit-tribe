@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
@@ -112,22 +112,52 @@ export function ProfilePage() {
     address: user?.address || '',
   });
 
+  const loadOrders = useCallback(async () => {
+    if (!user) {
+      setApiOrders([]);
+      return;
+    }
+    const data = await getOrders();
+    const userName = [user.name, user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'You';
+    setApiOrders((data || []).map((api: any) => mapApiOrderToProfileOrder(api, userName)));
+  }, [user]);
+
   useEffect(() => {
     if (!user) {
       setOrdersLoading(false);
       return;
     }
     let cancelled = false;
-    getOrders()
-      .then((data) => {
+    loadOrders()
+      .then(() => {
         if (cancelled) return;
-        const userName = [user.name, user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'You';
-        setApiOrders((data || []).map((api: any) => mapApiOrderToProfileOrder(api, userName)));
       })
       .catch(() => { if (!cancelled) setApiOrders([]); })
       .finally(() => { if (!cancelled) setOrdersLoading(false); });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [loadOrders, user]);
+
+  useEffect(() => {
+    if (!trackingOrder) return;
+    const run = async () => {
+      try {
+        await loadOrders();
+      } catch {
+        // keep existing snapshot on intermittent network failures
+      }
+    };
+    run();
+    const intervalId = window.setInterval(run, 8000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [trackingOrder?.orderId, loadOrders]);
+
+  useEffect(() => {
+    if (!trackingOrder) return;
+    const latest = apiOrders.find((o) => o.orderId === trackingOrder.orderId);
+    if (latest) setTrackingOrder(latest);
+  }, [apiOrders, trackingOrder?.orderId]);
 
   // When a tracking order is opened, geocode its shipping address to show a mini map.
   useEffect(() => {

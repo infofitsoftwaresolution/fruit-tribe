@@ -727,6 +727,28 @@ export class DeliveryPartnerService {
                 },
             });
 
+            // Propagate rider status to customer-visible order tracking timeline.
+            const mappedOrderStatus =
+                normalizedStatus === 'PICKED_UP' || normalizedStatus === 'OUT_FOR_DELIVERY'
+                    ? 'SHIPPED'
+                    : normalizedStatus === 'FAILED'
+                        ? 'CANCELLED'
+                        : null;
+            if (mappedOrderStatus) {
+                await tx.order.update({
+                    where: { id: delivery.orderId },
+                    data: { status: mappedOrderStatus },
+                });
+                await tx.orderStatusLog.create({
+                    data: {
+                        orderId: delivery.orderId,
+                        status: mappedOrderStatus,
+                        changedByRole: 'DELIVERY_PARTNER',
+                        changedByName: partner.name,
+                    },
+                });
+            }
+
             // When the partner marks the order as DELIVERED, also update the order status timeline.
             if (normalizedStatus === 'DELIVERED') {
                 throw new BadRequestException(

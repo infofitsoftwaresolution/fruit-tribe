@@ -77,6 +77,8 @@ export function AdminLogisticsPage() {
     const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; email: string; vehicle: string; status: string } }>({ open: false });
     const [warehouseForm, setWarehouseForm] = useState({ name: '', address: '', latitude: '', longitude: '', isActive: true });
     const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
+    const [isSavingWarehouse, setIsSavingWarehouse] = useState(false);
+    const [isSavingStaff, setIsSavingStaff] = useState(false);
     const hasLoadedWarehouses = useRef(false);
 
     useEffect(() => {
@@ -106,12 +108,14 @@ export function AdminLogisticsPage() {
     ], [deliveries]);
 
     const handleSaveWarehouse = async () => {
+        if (isSavingWarehouse) return;
         const lat = parseFloat(warehouseForm.latitude);
         const lng = parseFloat(warehouseForm.longitude);
         if (!warehouseForm.name.trim() || !warehouseForm.address.trim() || isNaN(lat) || isNaN(lng)) {
             toast.error('Name, address, and valid lat/lng required');
             return;
         }
+        setIsSavingWarehouse(true);
         try {
             if (warehouseModal.editing) {
                 await updateWarehouse(warehouseModal.editing.id, { ...warehouseForm, latitude: lat, longitude: lng });
@@ -122,17 +126,21 @@ export function AdminLogisticsPage() {
             }
             setWarehouseModal({ open: false });
             setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true });
-            getWarehouses(false).then(setWarehouses).catch(() => {});
+            void getWarehouses(false).then(setWarehouses).catch(() => {});
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save warehouse');
+        } finally {
+            setIsSavingWarehouse(false);
         }
     };
 
     const handleSaveStaff = async () => {
+        if (isSavingStaff) return;
         if (!staffForm.name.trim() || !staffForm.phone.trim() || !staffForm.email.trim()) {
             toast.error('Name, phone and email required');
             return;
         }
+        setIsSavingStaff(true);
         try {
             if (staffModal.editing) {
                 await updateDeliveryPartner(staffModal.editing.id, { name: staffForm.name, phone: staffForm.phone, email: staffForm.email, vehicle: staffForm.vehicle || undefined, status: staffForm.status });
@@ -167,6 +175,8 @@ export function AdminLogisticsPage() {
                 return;
             }
             toast.error(msg || 'Failed to save');
+        } finally {
+            setIsSavingStaff(false);
         }
     };
 
@@ -572,7 +582,7 @@ export function AdminLogisticsPage() {
                         </div>
                         <div className="flex gap-3 mt-8">
                             <button type="button" onClick={() => setWarehouseModal({ open: false })} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold">Cancel</button>
-                            <button type="button" onClick={handleSaveWarehouse} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold">Save</button>
+                            <button type="button" disabled={isSavingWarehouse} onClick={handleSaveWarehouse} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold disabled:opacity-70 disabled:cursor-not-allowed">{isSavingWarehouse ? 'Saving...' : 'Save'}</button>
                         </div>
                     </motion.div>
                 </div>,
@@ -601,7 +611,7 @@ export function AdminLogisticsPage() {
                         </div>
                         <div className="flex gap-3 mt-8">
                             <button type="button" onClick={() => setStaffModal({ open: false })} className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold">Cancel</button>
-                            <button type="button" onClick={handleSaveStaff} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold">Save</button>
+                            <button type="button" disabled={isSavingStaff} onClick={handleSaveStaff} className="flex-1 py-3 rounded-xl bg-slate-900 text-white font-bold disabled:opacity-70 disabled:cursor-not-allowed">{isSavingStaff ? 'Saving...' : 'Save'}</button>
                         </div>
                     </motion.div>
                 </div>,

@@ -46,6 +46,7 @@ export function AdminProductsPage() {
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         price: '',
@@ -209,6 +210,7 @@ export function AdminProductsPage() {
 
     const handleSubmitProduct = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSavingProduct) return;
         const categoryId = formData.categoryId || categories.find(c => c.name === formData.category)?.id;
         const parsedStock = parseInt(formData.stock, 10) || 0;
 
@@ -233,6 +235,7 @@ export function AdminProductsPage() {
             toast.error('Please select a category');
             return;
         }
+        setIsSavingProduct(true);
         try {
             const imagePaths = formData.images.filter(Boolean).map((url) => {
                 if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -317,7 +320,8 @@ export function AdminProductsPage() {
                         ? `${updatedVariantCount} variant${updatedVariantCount === 1 ? '' : 's'} · ${updatedStock} total stock`
                         : 'Product details updated successfully',
                 });
-                await refreshProducts();
+                setIsModalOpen(false);
+                void refreshProducts();
             } else {
                 await createProductApi({
                     name: formData.name,
@@ -343,11 +347,13 @@ export function AdminProductsPage() {
                     images: imagesPayload,
                 });
                 toast.success('New catalog entry created');
-                await refreshProducts();
+                setIsModalOpen(false);
+                void refreshProducts();
             }
-            setIsModalOpen(false);
         } catch (err: any) {
             toast.error(err?.message || 'Failed to save product');
+        } finally {
+            setIsSavingProduct(false);
         }
     };
 
@@ -998,16 +1004,18 @@ export function AdminProductsPage() {
                                 <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-4 shadow-2xl relative z-10">
                                     <button
                                         type="button"
+                                    disabled={isSavingProduct}
                                         onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 h-16 bg-white border border-slate-200 text-slate-900 rounded-[2rem] hover:bg-slate-100 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                    className="flex-1 h-16 bg-white border border-slate-200 text-slate-900 rounded-[2rem] hover:bg-slate-100 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="flex-1 h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"
+                                    disabled={isSavingProduct}
+                                    className="flex-1 h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        {editingProduct ? 'Save Changes' : 'Create Product'}
+                                    {isSavingProduct ? 'Saving...' : editingProduct ? 'Save Changes' : 'Create Product'}
                                     </button>
                                 </div>
                             </form>
