@@ -481,7 +481,6 @@ export class DeliveryPartnerService {
         return this.prisma.delivery.findMany({
             where: {
                 deliveryPartnerId: partner.id,
-                status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED'] },
             },
             orderBy: { createdAt: 'desc' },
             include: {

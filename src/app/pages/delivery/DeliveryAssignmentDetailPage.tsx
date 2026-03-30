@@ -62,6 +62,7 @@ export function DeliveryAssignmentDetailPage() {
         expiresAt: null,
         active: false,
     });
+    const [otpCode, setOtpCode] = useState('');
 
     useEffect(() => {
         if (!id) return;
@@ -91,9 +92,9 @@ export function DeliveryAssignmentDetailPage() {
     const handleUpdateStatus = async (status: string) => {
         if (!id) return;
         if (status === 'DELIVERED') {
-            const otp = (window.prompt('Enter 6-digit OTP from customer') || '').trim();
-            if (!otp) {
-                toast.error('OTP is required to complete delivery.');
+            const otp = otpCode.trim();
+            if (!/^\d{6}$/.test(otp)) {
+                toast.error('Enter a valid 6-digit OTP to complete delivery.');
                 return;
             }
             setUpdating(true);
@@ -111,6 +112,7 @@ export function DeliveryAssignmentDetailPage() {
                 if (!res.ok) throw new Error(body?.message || 'Failed to verify OTP');
                 setAssignment((prev) => (prev ? { ...prev, status: 'DELIVERED' } : prev));
                 setOtpMeta({ generatedAt: null, expiresAt: null, active: false });
+                setOtpCode('');
                 toast.success(body?.message || 'Delivery completed successfully.');
             } catch (e: any) {
                 toast.error(e?.message || 'Unable to verify OTP');
@@ -152,8 +154,9 @@ export function DeliveryAssignmentDetailPage() {
                 },
                 body: JSON.stringify({ status, lat, lng, reason }),
             });
-            if (!res.ok) throw new Error('Failed to update status');
-            const json = await res.json();
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body?.message || 'Failed to update status');
+            const json = body;
             setAssignment((prev) => (prev ? { ...prev, status: json.status } : prev));
             toast.success(`Status updated to ${status}`);
         } catch (e: any) {
@@ -231,6 +234,17 @@ export function DeliveryAssignmentDetailPage() {
     const address = addressParts.length ? addressParts.join(', ') : 'Address not available';
     const encodedDestination = encodeURIComponent(address === 'Address not available' ? '' : address);
     const currentStatus = assignment.status || 'ASSIGNED';
+    const normalizedCurrentStatus = String(currentStatus).toUpperCase();
+    const allowedTransitions: Record<string, string[]> = {
+        ASSIGNED: ['PICKED_UP', 'OUT_FOR_DELIVERY', 'FAILED'],
+        PICKED_UP: ['OUT_FOR_DELIVERY', 'FAILED'],
+        OUT_FOR_DELIVERY: ['DELIVERED', 'FAILED'],
+        FAILED: [],
+        DELIVERED: [],
+    };
+    const canTransitionTo = (nextStatus: string) =>
+        (allowedTransitions[normalizedCurrentStatus] || []).includes(nextStatus);
+    const isTerminalStatus = ['DELIVERED', 'FAILED'].includes(normalizedCurrentStatus);
 
     return (
         <div className="space-y-10 pb-20">
@@ -369,7 +383,7 @@ export function DeliveryAssignmentDetailPage() {
                             )}
                         </div>
                         <button
-                            disabled={generatingOtp || updating}
+                            disabled={generatingOtp || updating || isTerminalStatus}
                             onClick={handleGenerateOtp}
                             className="w-full sm:w-auto flex items-center justify-center gap-3 h-12 px-6 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
                         >
@@ -380,16 +394,43 @@ export function DeliveryAssignmentDetailPage() {
                             )}
                             Generate Customer OTP
                         </button>
+                        {otpMeta.active && !isTerminalStatus && (
+                            <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                                <input
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    inputMode="numeric"
+                                    pattern="\d{6}"
+                                    placeholder="Enter 6-digit OTP"
+                                    className="h-12 px-4 rounded-2xl border border-slate-200 bg-white text-sm font-black tracking-[0.2em] text-slate-900 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    disabled={updating || otpCode.trim().length !== 6}
+                                    onClick={() => handleUpdateStatus('DELIVERED')}
+                                    className="h-12 px-6 rounded-2xl bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Verify OTP & Deliver
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {STATUS_OPTIONS.map((opt) => {
                             const Icon = opt.icon;
                             const isDelivered = opt.value === 'DELIVERED';
                             const isFailed = opt.value === 'FAILED';
+                            const isAlreadyCurrent = normalizedCurrentStatus === opt.value;
+                            const shouldDisable =
+                                updating ||
+                                isAlreadyCurrent ||
+                                isTerminalStatus ||
+                                opt.value === 'DELIVERED' ||
+                                !canTransitionTo(opt.value);
                             return (
                                 <button
                                     key={opt.value}
-                                    disabled={updating}
+                                    disabled={shouldDisable}
                                     onClick={() => handleUpdateStatus(opt.value)}
                                     className={cn(
                                         'flex flex-col items-center justify-center gap-2 h-24 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50',
