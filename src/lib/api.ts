@@ -17,6 +17,38 @@ function getAuthHeaders(): HeadersInit {
   return headers;
 }
 
+/** Current user from GET /auth/me (includes linked seller row when applicable). */
+export type AuthProfile = {
+  id: string;
+  email: string;
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  lastLogin?: string | null;
+  createdAt?: string;
+  role?: { name: string } | null;
+  seller?: { id: string; storeName: string } | null;
+};
+
+export async function getAuthProfile(): Promise<AuthProfile> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/me`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Whether a catalog row belongs to the logged-in seller (prefers sellerId over display name). */
+export function productBelongsToSeller(
+  product: { sellerId?: string; vendor: string },
+  user: { sellerId?: string; sellerStoreName?: string; name?: string } | null | undefined,
+): boolean {
+  if (!user) return false;
+  if (user.sellerId && product.sellerId) {
+    return String(product.sellerId) === String(user.sellerId);
+  }
+  const store = user.sellerStoreName ?? user.name;
+  return !!store && product.vendor === store;
+}
+
 /** Backend product shape (from API) */
 export interface ApiProduct {
   id: string;
@@ -193,6 +225,15 @@ export async function getSellers(): Promise<any[]> {
 /** Suspend seller (admin only). */
 export async function suspendSeller(sellerId: string): Promise<void> {
   const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/suspend`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
+/** Reactivate a suspended seller (admin only). */
+export async function reactivateSeller(sellerId: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/reactivate`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -406,6 +447,7 @@ export async function updateProduct(
     name: string;
     description: string;
     basePrice: number;
+    sellerId: string;
     categoryId: string;
     harvestDate: string | null;
     expiryDate: string | null;
@@ -709,6 +751,14 @@ export async function updateAdminCoupon(id: string, body: {
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   const data = await res.json();
   return data.coupon;
+}
+
+export async function deleteAdminCoupon(id: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
 }
 
 export async function getCouponScopes(): Promise<CouponScopeRule[]> {

@@ -2,8 +2,13 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
-import { useProducts } from '@/app/hooks/useProducts';
-import { getCategories, getSellers, createProduct as createProductApi, updateProduct as updateProductApi, deleteProduct as deleteProductApi } from '@/lib/api';
+import { useAdminData } from '@/app/context/AdminDataContext';
+import {
+    createProduct as createProductApi,
+    updateProduct as updateProductApi,
+    deleteProduct as deleteProductApi,
+    productBelongsToSeller,
+} from '@/lib/api';
 import type { Product } from '@/lib/api';
 import {
     Plus, Search, Filter, ArrowUpDown, Trash2,
@@ -32,20 +37,11 @@ function toDateInputValue(value?: string | null): string {
 export function AdminProductsPage() {
     const { user } = useAuth();
     const location = useLocation();
-    const { products, refetch: refetchProducts } = useProducts({ limit: 500 });
-    const [categories, setCategories] = useState<Array<{ id: string; name: string; slug: string }>>([]);
-    const [sellers, setSellers] = useState<Array<{ id: string; storeName: string; user?: any }>>([]);
+    const { products, categories, sellers, refreshProducts } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [activeCategory, setActiveCategory] = useState('All');
     const [inventoryFilter, setInventoryFilter] = useState<'All' | 'Low' | 'Out'>('All');
-
-    useEffect(() => {
-        let cancelled = false;
-        getCategories().then((data) => { if (!cancelled) setCategories(data || []); }).catch(() => {});
-        getSellers().then((data) => { if (!cancelled) setSellers(data || []); }).catch(() => {});
-        return () => { cancelled = true; };
-    }, []);
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -96,10 +92,15 @@ export function AdminProductsPage() {
 
     // For seller users, auto-bind their own sellerId when opening the form
     useEffect(() => {
-        if (!isSeller || !user || formData.sellerId || !sellers.length) return;
+        if (!isSeller || !user || formData.sellerId) return;
+        if (user.sellerId) {
+            setFormData((prev) => ({ ...prev, sellerId: user.sellerId! }));
+            return;
+        }
+        if (!sellers.length) return;
         const match = sellers.find(
             (s) =>
-                s.user?.id === (user as any).id ||
+                s.user?.id === user.id ||
                 (s.user?.email && s.user.email.toLowerCase() === (user.email || '').toLowerCase())
         );
         if (match) {
@@ -109,7 +110,7 @@ export function AdminProductsPage() {
 
     const filteredProducts = useMemo(() => {
         return products.filter(product => {
-            if (isSeller && product.vendor !== (user as any)?.name) return false;
+            if (isSeller && !productBelongsToSeller(product, user)) return false;
 
             const matchesSearch = !searchQuery ||
                 product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,7 +131,7 @@ export function AdminProductsPage() {
     }, [products, user, searchQuery, sortOrder, activeCategory, inventoryFilter, isSeller]);
 
     const stats = useMemo(() => {
-        const base = isSeller ? products.filter(p => p.vendor === (user as any)?.name) : products;
+        const base = isSeller ? products.filter((p) => productBelongsToSeller(p, user)) : products;
         return {
             total: base.length,
             lowStock: base.filter(p => p.availableStock <= (p.lowStockThreshold ?? 5) && p.availableStock > 0).length,
@@ -147,7 +148,7 @@ export function AdminProductsPage() {
                 onClick: async () => {
                     try {
                         await deleteProductApi(String(id));
-                        await refetchProducts();
+                        await refreshProducts();
                         toast.success(`${name} archived successfully`);
                     } catch (e: any) {
                         toast.error(e?.message || 'Failed to archive');
@@ -155,12 +156,15 @@ export function AdminProductsPage() {
                 }
             },
         });
-    }, [refetchProducts]);
+    }, [refreshProducts]);
 
     const handleOpenEditModal = (product: Product) => {
         setEditingProduct(product);
         const categoryId = categories.find(c => c.name === product.category)?.id ?? '';
-        const sellerId = sellers.find(s => s.storeName === product.vendor)?.id ?? '';
+        const sellerId =
+            product.sellerId ??
+            sellers.find((s) => s.storeName === product.vendor)?.id ??
+            '';
         setFormData({
             name: product.name,
             price: product.price.toString(),
@@ -210,16 +214,19 @@ export function AdminProductsPage() {
 
         // Resolve sellerId: admins choose from dropdown; sellers get their own sellerId auto-bound
         let sellerId = formData.sellerId;
-        if (!editingProduct && !sellerId && isSeller) {
-            const match = sellers.find(
-                (s) =>
-                    s.user?.id === (user as any).id ||
-                    (s.user?.email && s.user.email.toLowerCase() === (user.email || '').toLowerCase())
-            );
-            if (match) sellerId = match.id;
+        if (!sellerId && isSeller) {
+            sellerId = user?.sellerId || '';
+            if (!sellerId) {
+                const match = sellers.find(
+                    (s) =>
+                        s.user?.id === user?.id ||
+                        (s.user?.email && s.user.email.toLowerCase() === (user?.email || '').toLowerCase())
+                );
+                if (match) sellerId = match.id;
+            }
         }
-        if (!editingProduct && !sellerId) {
-            toast.error('Please select a seller');
+        if (!sellerId) {
+            toast.error('Please select a seller / vendor');
             return;
         }
         if (!categoryId) {
@@ -288,6 +295,7 @@ export function AdminProductsPage() {
                     description: formData.description || undefined,
                     basePrice: parseFloat(formData.price),
                     categoryId,
+                    ...(isSeller ? {} : { sellerId: sellerId as string }),
                     harvestDate: formData.harvestDate || null,
                     expiryDate: formData.expiryDate || null,
                     isSeasonal: formData.isSeasonal,
@@ -309,7 +317,7 @@ export function AdminProductsPage() {
                         ? `${updatedVariantCount} variant${updatedVariantCount === 1 ? '' : 's'} · ${updatedStock} total stock`
                         : 'Product details updated successfully',
                 });
-                await refetchProducts();
+                await refreshProducts();
             } else {
                 await createProductApi({
                     name: formData.name,
@@ -335,7 +343,7 @@ export function AdminProductsPage() {
                     images: imagesPayload,
                 });
                 toast.success('New catalog entry created');
-                await refetchProducts();
+                await refreshProducts();
             }
             setIsModalOpen(false);
         } catch (err: any) {
@@ -742,18 +750,23 @@ export function AdminProductsPage() {
                                                     { label: 'Fruits', value: 'Fruits' }, { label: 'Vegetables', value: 'Vegetables' }
                                                 ]}
                                             />
-                                            {!editingProduct && !isSeller && (
+                                        </div>
+                                        {!isSeller && (
+                                            <div className="mt-6">
                                                 <FormSelect
-                                                    label="Seller / Merchant"
+                                                    label={editingProduct ? 'Vendor (seller)' : 'Vendor (seller) — required'}
                                                     value={formData.sellerId}
                                                     onChange={(v: string) => setFormData({ ...formData, sellerId: v })}
                                                     options={[
-                                                        { label: 'Select seller', value: '' },
+                                                        { label: sellers.length ? 'Select vendor…' : 'Loading vendors…', value: '' },
                                                         ...sellers.map(s => ({ label: s.storeName, value: s.id }))
                                                     ]}
                                                 />
-                                            )}
-                                        </div>
+                                                <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                    Which merchant owns this catalog row (storefront and orders).
+                                                </p>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Section 3: Product Options */}

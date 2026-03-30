@@ -22,75 +22,45 @@ import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import { getOrders, getSellers } from '@/lib/api';
+import { useMemo } from 'react';
+import { useAdminData } from '@/app/context/AdminDataContext';
 
 const sidebarItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/admin', roles: ['super_admin', 'admin', 'ADMIN'] },
+    { icon: LayoutDashboard, label: 'Dashboard', href: '/admin', roles: ['admin'] },
     { icon: Zap, label: 'Orchard HUD', href: '/admin/seller-dashboard', roles: ['seller', 'SELLER'] },
-    { icon: ShoppingCart, label: 'Orders', href: '/admin/orders', badgeKey: 'orders' as const, roles: ['super_admin', 'admin', 'ADMIN', 'seller', 'SELLER'] },
-    { icon: Package, label: 'Catalog', href: '/admin/products', roles: ['super_admin', 'admin', 'ADMIN', 'seller', 'SELLER'] },
-    { icon: Users, label: 'Customers', href: '/admin/customers', roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: Store, label: 'Vendors', href: '/admin/sellers', badgeKey: 'sellers' as const, roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: Truck, label: 'Logistics', href: '/admin/logistics', roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: Wallet, label: 'Payouts', href: '/admin/payouts', roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: BarChart2, label: 'Analytics', href: '/admin/analytics', roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: Percent, label: 'Taxation', href: '/admin/taxes', roles: ['super_admin', 'admin', 'ADMIN'] },
-    { icon: Tag, label: 'Discounts', href: '/admin/discounts', roles: ['super_admin', 'admin', 'ADMIN', 'seller', 'SELLER'] },
+    { icon: ShoppingCart, label: 'Orders', href: '/admin/orders', badgeKey: 'orders' as const, roles: ['admin', 'seller', 'SELLER'] },
+    { icon: Package, label: 'Catalog', href: '/admin/products', roles: ['admin', 'seller', 'SELLER'] },
+    { icon: Users, label: 'Customers', href: '/admin/customers', roles: ['admin'] },
+    { icon: Store, label: 'Vendors', href: '/admin/sellers', badgeKey: 'sellers' as const, roles: ['admin'] },
+    { icon: Truck, label: 'Logistics', href: '/admin/logistics', roles: ['admin'] },
+    { icon: Wallet, label: 'Payouts', href: '/admin/payouts', roles: ['admin'] },
+    { icon: BarChart2, label: 'Analytics', href: '/admin/analytics', roles: ['admin'] },
+    { icon: Percent, label: 'Taxation', href: '/admin/taxes', roles: ['admin'] },
+    { icon: Tag, label: 'Discounts', href: '/admin/discounts', roles: ['admin', 'seller', 'SELLER'] },
 ];
 
 const salesChannels = [
-    { icon: Globe, label: 'Curation Space', href: '/admin/store', roles: ['super_admin', 'admin'] },
-    { icon: Palette, label: 'Design System', href: '/admin/themes', roles: ['super_admin', 'admin'] },
-    { icon: Settings, label: 'Settings', href: '/admin/settings', roles: ['super_admin', 'admin'] },
+    { icon: Globe, label: 'Curation Space', href: '/admin/store', roles: ['admin'] },
+    { icon: Palette, label: 'Design System', href: '/admin/themes', roles: ['admin'] },
+    { icon: Settings, label: 'Settings', href: '/admin/settings', roles: ['admin'] },
 ];
 
 export function AdminSidebar() {
     const location = useLocation();
     const { theme } = useStore();
     const { user, logout } = useAuth();
-    const [orderCount, setOrderCount] = useState<number | null>(null);
-    const [sellerCount, setSellerCount] = useState<number | null>(null);
+    const { orders, sellers } = useAdminData();
 
-    useEffect(() => {
-        let cancelled = false;
-
-        const fetchCounts = () => {
-            if (typeof document !== 'undefined' && document.hidden) return;
-            getOrders()
-                .then((data) => {
-                    if (cancelled) return;
-                    const list = Array.isArray(data) ? data : [];
-                    // Count only active (non-delivered, non-cancelled) orders so badge reflects open workload.
-                    const active = list.filter(
-                        (o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED',
-                    );
-                    setOrderCount(active.length);
-                })
-                .catch(() => {
-                    if (!cancelled) setOrderCount(0);
-                });
-
-            getSellers()
-                .then((data) => {
-                    if (!cancelled) setSellerCount((data || []).length);
-                })
-                .catch(() => {
-                    if (!cancelled) setSellerCount(0);
-                });
-        };
-
-        fetchCounts();
-        const interval = setInterval(fetchCounts, 120000);
-
-        return () => {
-            cancelled = true;
-            clearInterval(interval);
-        };
-    }, []);
+    const badges = useMemo(() => {
+        const activeOrders = orders.filter(
+            (o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED',
+        );
+        return { orders: activeOrders.length, sellers: sellers.length };
+    }, [orders, sellers]);
 
     const userRole = user?.role || 'customer';
-    const badges = { orders: orderCount ?? 0, sellers: sellerCount ?? 0 };
+    const settingsHref =
+        userRole === 'admin' ? '/admin/settings' : '/profile';
 
     const filteredSidebarItems = sidebarItems.filter(item =>
         item.roles.includes(userRole)
@@ -197,7 +167,7 @@ export function AdminSidebar() {
                         <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{user?.role.replace('_', ' ')}</p>
                     </div>
                                     <Link
-                                        to="/admin/settings"
+                                        to={settingsHref}
                                         className="p-2 hover:bg-white/5 rounded-xl text-slate-500 hover:text-white transition-colors"
                                         aria-label="Settings"
                                     >

@@ -1,9 +1,9 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
-import { getEffectiveApiBase, registerUser } from '@/lib/api';
+import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
 import { useStore } from '@/app/context/StoreContext';
 
-export type UserRole = 'super_admin' | 'admin' | 'seller' | 'customer' | 'delivery_partner';
+export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
 export interface User {
   id: string;
@@ -17,6 +17,8 @@ export interface User {
   storeId?: string; // For sellers and admins managing specific stores
   loyaltyPoints?: number;
   referralCode?: string;
+  sellerId?: string;
+  sellerStoreName?: string;
 }
 
 interface AuthContextType {
@@ -37,7 +39,7 @@ function mapBackendRoleToFrontend(role: string | undefined): UserRole {
   if (r === 'ADMIN') return 'admin';
   if (r === 'SELLER') return 'seller';
   if (r === 'CUSTOMER') return 'customer';
-  if (r === 'SUPER_ADMIN') return 'super_admin';
+  if (r === 'SUPER_ADMIN') return 'admin';
   if (r === 'DELIVERY_PARTNER' || r === 'DELIVERY') return 'delivery_partner';
   return 'customer';
 }
@@ -54,6 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         parsedUser.role = 'admin'; // Default to admin for existing dev sessions
         localStorage.setItem('user', JSON.stringify(parsedUser)); // Update storage
       }
+      const rawRole = parsedUser.role as string | undefined;
+      if (rawRole && ['super_admin', 'SUPER_ADMIN'].includes(String(rawRole))) {
+        parsedUser.role = 'admin';
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
       return parsedUser;
     }
     return null;
@@ -62,6 +69,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('requirePasswordChange');
     return stored === 'true';
   });
+
+  // Sellers need sellerId/storeName to scope catalog & orders; hydrate from API for older sessions.
+  useEffect(() => {
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    if (!token || !user || user.role !== 'seller') return;
+    if (user.sellerId) return;
+    let cancelled = false;
+    getAuthProfile()
+      .then((p) => {
+        if (cancelled || !p.seller?.id) return;
+        setUser((prev) => {
+          if (!prev) return prev;
+          const next: User = {
+            ...prev,
+            sellerId: p.seller!.id,
+            sellerStoreName: p.seller!.storeName,
+          };
+          localStorage.setItem('user', JSON.stringify(next));
+          return next;
+        });
+      })
+      .catch(() => {
+        /* offline or expired token */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.role, user?.sellerId]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -85,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || email.split('@')[0];
+      const seller = u.seller as { id?: string; storeName?: string } | undefined;
       const userData: User = {
         id: u.id,
         name: name.charAt(0).toUpperCase() + name.slice(1),
@@ -93,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         phone: '',
         address: '',
         memberSince: new Date().getFullYear().toString(),
+        sellerId: seller?.id,
+        sellerStoreName: seller?.storeName,
       };
 
       localStorage.setItem('token', token);

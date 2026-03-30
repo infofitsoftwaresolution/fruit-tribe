@@ -45,8 +45,16 @@ export class AuthService {
             },
         });
 
-        const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        const existing = await this.prisma.user.findUnique({
+            where: { email: dto.email },
+            include: { role: true, deliveryPartner: true },
+        });
         if (existing) {
+            if (existing.deliveryPartner || existing.role?.name === 'DELIVERY_PARTNER') {
+                throw new ConflictException(
+                    'This email is used for delivery partner access. Sign in on the delivery login page.',
+                );
+            }
             // If user has a pending OTP (not yet verified), hint frontend to redirect to verify-email
             if (existing.otpCode && existing.otpExpiry && existing.isActive === false) {
                 throw new ConflictException('EMAIL_PENDING_VERIFICATION');
@@ -188,6 +196,11 @@ export class AuthService {
             data: { refreshTokenHash: refreshHash },
         });
 
+        const sellerProfile = await this.prisma.seller.findUnique({
+            where: { userId: user.id },
+            select: { id: true, storeName: true },
+        });
+
         return {
             accessToken,
             refreshToken,
@@ -198,6 +211,7 @@ export class AuthService {
                 lastName: user.lastName,
                 role: user.role?.name,
                 requirePasswordChange: user.requirePasswordChange,
+                seller: sellerProfile,
             },
         };
     }
@@ -285,6 +299,7 @@ export class AuthService {
                 role: { select: { name: true } },
                 lastLogin: true,
                 createdAt: true,
+                seller: { select: { id: true, storeName: true } },
             },
         });
     }

@@ -19,7 +19,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   const location = useLocation();
   const { isAuthenticated, user } = useAuth();
 
-  const isAdmin = user && ['super_admin', 'admin', 'seller'].includes(user.role);
+  const isAdmin = user && ['admin', 'seller'].includes(user.role);
   const isDeliveryPartner = user?.role === 'delivery_partner';
 
   useEffect(() => {

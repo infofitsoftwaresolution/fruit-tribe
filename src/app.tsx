@@ -233,14 +233,14 @@ function AppRoutes() {
           <Route path="/change-password" element={<MainLayout {...mainLayoutProps}><ChangePasswordPage /></MainLayout>} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
 
-          <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin', 'seller']} />}>
+          <Route element={<ProtectedRoute allowedRoles={['admin', 'seller']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboardSwitcher />} />
               <Route path="products" element={<AdminProductsPage />} />
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="discounts" element={<AdminDiscountsPage />} />
               <Route path="seller-dashboard" element={<SellerDashboard />} />
-              <Route element={<ProtectedRoute allowedRoles={['admin', 'super_admin']} />}>
+              <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
                 <Route path="customers" element={<AdminCustomersPage />} />
                 <Route path="sellers" element={<AdminSellersPage />} />
                 <Route path="logistics" element={<AdminLogisticsPage />} />

@@ -60,4 +60,15 @@ export class SellerController {
     ) {
         return this.sellerService.suspend(sellerId, req.user.id);
     }
+
+    @ApiOperation({ summary: 'Reactivate a suspended seller (Admin only)' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Patch(':id/reactivate')
+    async reactivate(
+        @Param('id', ParseUUIDPipe) sellerId: string,
+        @Request() req: any,
+    ) {
+        return this.sellerService.reactivate(sellerId, req.user.id);
+    }
 }

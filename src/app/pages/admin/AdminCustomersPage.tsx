@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
-import { getCustomers, getOrders } from '@/lib/api';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import {
     Search, Filter, MoreHorizontal, Mail, User,
     ShoppingBag, Calendar, TrendingUp, ChevronRight,
@@ -16,33 +16,9 @@ import { toast } from 'sonner';
 export function AdminCustomersPage() {
     const { theme } = useStore();
     const { user } = useAuth();
+    const { customers, orders, isInitialLoading: loading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
-    const [customers, setCustomers] = useState<Array<{
-        id: string;
-        name: string;
-        email: string;
-        orderCount: number;
-        totalSpent: number;
-        createdAt: string;
-        verificationStatus?: 'Verified' | 'Unverified';
-    }>>([]);
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        let cancelled = false;
-        Promise.all([getCustomers(), getOrders()])
-            .then(([custData, orderData]) => {
-                if (!cancelled) {
-                    setCustomers(custData || []);
-                    setOrders(orderData || []);
-                }
-            })
-            .catch(() => { if (!cancelled) toast.error('Failed to load data'); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
 
     const filteredCustomers = useMemo(() => {
         let base = customers.map((c) => ({

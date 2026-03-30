@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Edit2, Plus, Search } from 'lucide-react';
+import { Edit2, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
     createAdminCoupon,
     getAdminCoupons,
-    getCategories,
     getCouponScopes,
     updateAdminCoupon,
     updateCouponScopes,
+    deleteAdminCoupon,
     type AdminCoupon,
     type CouponScopeRule,
 } from '@/lib/api';
-import { useProducts } from '@/app/hooks/useProducts';
+import { useAdminData } from '@/app/context/AdminDataContext';
 
 type FormState = {
     code: string;
@@ -42,31 +42,25 @@ const EMPTY_FORM: FormState = {
 };
 
 export function AdminDiscountsPage() {
+    const { products, categories } = useAdminData();
     const [coupons, setCoupons] = useState<AdminCoupon[]>([]);
     const [scopes, setScopes] = useState<CouponScopeRule[]>([]);
-    const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
-    const { products } = useProducts({ limit: 500 });
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editing, setEditing] = useState<AdminCoupon | null>(null);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-    const loadData = async () => {
-        setLoading(true);
+    const loadData = async (silent = false) => {
+        if (!silent) setLoading(true);
         try {
-            const [couponData, scopeData, categoryData] = await Promise.all([
-                getAdminCoupons(),
-                getCouponScopes(),
-                getCategories(),
-            ]);
+            const [couponData, scopeData] = await Promise.all([getAdminCoupons(), getCouponScopes()]);
             setCoupons(couponData);
             setScopes(scopeData);
-            setCategories(categoryData);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to load discount data');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
@@ -131,13 +125,34 @@ export function AdminDiscountsPage() {
         setIsModalOpen(true);
     };
 
-    const handleArchive = async (coupon: AdminCoupon) => {
+    const handleDisable = async (coupon: AdminCoupon) => {
         try {
             await updateAdminCoupon(coupon.id, { isActive: false });
             toast.success(`Coupon ${coupon.code} disabled`);
-            await loadData();
+            await loadData(true);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to disable coupon');
+        }
+    };
+
+    const handleEnable = async (coupon: AdminCoupon) => {
+        try {
+            await updateAdminCoupon(coupon.id, { isActive: true });
+            toast.success(`Coupon ${coupon.code} enabled`);
+            await loadData(true);
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to enable coupon');
+        }
+    };
+
+    const handleDelete = async (coupon: AdminCoupon) => {
+        if (!confirm(`Delete coupon "${coupon.code}"? This cannot be undone.`)) return;
+        try {
+            await deleteAdminCoupon(coupon.id);
+            toast.success(`Coupon ${coupon.code} deleted`);
+            await loadData(true);
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to delete coupon');
         }
     };
 
@@ -168,7 +183,7 @@ export function AdminDiscountsPage() {
             await updateCouponScopes(nextScopes);
             toast.success(editing ? 'Coupon updated' : 'Coupon created');
             setIsModalOpen(false);
-            await loadData();
+            await loadData(true);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save coupon');
         }
@@ -221,9 +236,14 @@ export function AdminDiscountsPage() {
                                     <td className="p-3">{coupon.usedCount}{coupon.usageLimit ? ` / ${coupon.usageLimit}` : ''}</td>
                                     <td className="p-3">{coupon.isActive ? 'Active' : 'Disabled'}</td>
                                     <td className="p-3">
-                                        <div className="flex justify-end gap-2">
-                                            <button onClick={() => openEdit(coupon)} className="h-9 px-3 rounded-lg border border-slate-200 text-xs font-bold flex items-center gap-1"><Edit2 className="w-3.5 h-3.5" />Edit</button>
-                                            <button onClick={() => void handleArchive(coupon)} className="h-9 px-3 rounded-lg border border-red-200 text-red-600 text-xs font-bold">Disable</button>
+                                        <div className="flex justify-end flex-wrap gap-2">
+                                            <button type="button" onClick={() => openEdit(coupon)} className="h-9 px-3 rounded-lg border border-slate-200 text-xs font-bold flex items-center gap-1"><Edit2 className="w-3.5 h-3.5" />Edit</button>
+                                            {coupon.isActive ? (
+                                                <button type="button" onClick={() => void handleDisable(coupon)} className="h-9 px-3 rounded-lg border border-amber-200 text-amber-800 text-xs font-bold">Disable</button>
+                                            ) : (
+                                                <button type="button" onClick={() => void handleEnable(coupon)} className="h-9 px-3 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-bold">Enable</button>
+                                            )}
+                                            <button type="button" onClick={() => void handleDelete(coupon)} className="h-9 px-3 rounded-lg border border-red-200 text-red-600 text-xs font-bold flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" />Delete</button>
                                         </div>
                                     </td>
                                 </tr>

@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { useStore, Order, Product } from '@/app/context/StoreContext';
+import { useStore, Order } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
-import { getOrders, updateOrderStatus, getDeliveryPartners, assignDeliveryPartner } from '@/lib/api';
-import { useProducts } from '@/app/hooks/useProducts';
+import { useAdminData } from '@/app/context/AdminDataContext';
+import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller } from '@/lib/api';
 import {
     Plus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
     Printer, Truck, User, Calendar, CreditCard, Package,
@@ -21,9 +21,18 @@ export function AdminOrdersPage() {
     const { updateOrder, theme } = useStore();
     const { user } = useAuth();
     const location = useLocation();
-    const { products: productsFromApi } = useProducts({ limit: 100 });
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [ordersLoading, setOrdersLoading] = useState(true);
+    const {
+        orders: rawOrders,
+        products,
+        deliveryPartners: dpRows,
+        refreshOrders,
+        isInitialLoading: ordersLoading,
+    } = useAdminData();
+    const [localDraftOrders, setLocalDraftOrders] = useState<Order[]>([]);
+    const orders = useMemo(
+        () => [...localDraftOrders, ...(rawOrders || []).map(mapApiOrderToOrder)],
+        [rawOrders, localDraftOrders],
+    );
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -37,9 +46,10 @@ export function AdminOrdersPage() {
 
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
-    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string }>>([]);
-
-    const products = productsFromApi;
+    const deliveryPartners = useMemo(() => {
+        if (user?.role !== 'admin' && user?.role !== 'ADMIN') return [];
+        return (dpRows || []).map((p) => ({ id: p.id, name: p.name }));
+    }, [dpRows, user?.role]);
 
     function mapApiOrderToOrder(api: any): Order {
         const userName = api.user ? [api.user.firstName, api.user.lastName].filter(Boolean).join(' ') || api.user.email : '—';
@@ -84,42 +94,16 @@ export function AdminOrdersPage() {
         setSearchQuery(q);
     }, [location.search]);
 
-    useEffect(() => {
-        let cancelled = false;
-        getOrders()
-            .then((data) => { if (!cancelled) setOrders((data || []).map(mapApiOrderToOrder)); })
-            .catch(() => { if (!cancelled) toast.error('Failed to load orders'); })
-            .finally(() => { if (!cancelled) setOrdersLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
-
-    // Load delivery partners for admin so they can assign riders
-    useEffect(() => {
-        let cancelled = false;
-        if (user?.role !== 'admin' && user?.role !== 'ADMIN') return;
-        getDeliveryPartners()
-            .then((list) => {
-                if (!cancelled) {
-                    setDeliveryPartners((list || []).map((p: any) => ({ id: p.id, name: p.name })));
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setDeliveryPartners([]);
-                }
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [user]);
-
     const displayedOrders = useMemo(() => {
         let filtered = orders;
         if (user?.role === 'seller' || user?.role === 'SELLER') {
-            filtered = orders.filter(order => {
-                return order.itemsDetails?.some(item => {
-                    const product = products.find(p => p.id === item.productId || p.id === String(item.productId));
-                    return product?.vendor === (user as any).name;
+            filtered = orders.filter((order) => {
+                return order.itemsDetails?.some((item) => {
+                    const product = products.find(
+                        (p) => String(p.id) === String(item.productId),
+                    );
+                    if (!product) return false;
+                    return productBelongsToSeller(product, user);
                 });
             });
         }
@@ -169,22 +153,23 @@ export function AdminOrdersPage() {
         const apiStatus = statusMap[newStatus];
         try {
             await updateOrderStatus(id, apiStatus);
-            setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus } : o));
+            await refreshOrders();
             toast.success(`Order status updated to ${newStatus}`);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to update order status');
         }
-    }, []);
+    }, [refreshOrders]);
 
     const handleAssignDelivery = useCallback(async (orderId: string, partnerId: string) => {
         if (!partnerId) return;
         try {
             await assignDeliveryPartner(orderId, partnerId);
+            await refreshOrders();
             toast.success('Delivery partner assigned to order');
         } catch (e: any) {
             toast.error(e?.message || 'Failed to assign delivery partner');
         }
-    }, []);
+    }, [refreshOrders]);
 
     const handleOpenModal = () => {
         setFormData({ customer: '', status: 'Created', payment: 'Pending', fulfillment: 'Unfulfilled', selectedProducts: [] });
@@ -247,7 +232,7 @@ export function AdminOrdersPage() {
             channel: 'Direct Entry',
             itemsDetails: formData.selectedProducts as any,
         };
-        setOrders(prev => [newOrder, ...prev]);
+        setLocalDraftOrders((prev) => [newOrder, ...prev]);
         toast.success(`Entry added (local). Sync with backend when order API supports manual entry.`);
         setIsModalOpen(false);
     };

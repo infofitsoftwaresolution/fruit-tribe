@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 
 const KEY_RAZORPAY_KEY_ID = 'razorpay_key_id';
@@ -431,6 +431,19 @@ export class SettingsService {
             usedCount: coupon.usedCount,
             isActive: coupon.isActive,
         };
+    }
+
+    /** Permanently remove a coupon and its scope entry. Detaches from past orders (coupon id cleared). */
+    async deleteAdminCoupon(id: string): Promise<void> {
+        const coupon = await this.prisma.coupon.findUnique({ where: { id } });
+        if (!coupon) {
+            throw new NotFoundException('Coupon not found');
+        }
+        await this.prisma.order.updateMany({ where: { couponId: id }, data: { couponId: null } });
+        await this.prisma.coupon.delete({ where: { id } });
+        const scopes = await this.getCouponScopes();
+        const next = scopes.filter((s) => s.code.toUpperCase() !== coupon.code.toUpperCase());
+        await this.setCouponScopes(next);
     }
 
     private isCouponApplicableToContext(scope: CouponScopeRule | undefined, ctx?: CouponContext): boolean {

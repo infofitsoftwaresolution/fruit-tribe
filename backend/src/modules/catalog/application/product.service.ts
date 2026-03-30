@@ -181,6 +181,7 @@ export class ProductService {
                     ...(dto.description !== undefined && { description: dto.description }),
                     ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
                     ...(dto.categoryId && { categoryId: dto.categoryId }),
+                    ...(dto.sellerId && { sellerId: dto.sellerId }),
                     ...(dto.harvestDate !== undefined && { harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : null }),
                     ...(dto.expiryDate !== undefined && { expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null }),
                     ...(dto.isSeasonal !== undefined && { isSeasonal: dto.isSeasonal }),

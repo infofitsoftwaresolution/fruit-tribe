@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
@@ -8,8 +8,7 @@ import {
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
-import { getOrders, getCustomers, getSellers } from '@/lib/api';
-import { useProducts } from '@/app/hooks/useProducts';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,21 +17,9 @@ export function AdminDashboard() {
     const { theme } = useStore();
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { products } = useProducts({ limit: 200 });
-    const [orders, setOrders] = useState<any[]>([]);
-    const [customers, setCustomers] = useState<any[]>([]);
-    const [sellers, setSellers] = useState<any[]>([]);
+    const { orders, customers, sellers, products } = useAdminData();
 
-    useEffect(() => {
-        let cancelled = false;
-        getOrders().then((d) => { if (!cancelled) setOrders(d || []); }).catch(() => {});
-        getCustomers().then((d) => { if (!cancelled) setCustomers(d || []); }).catch(() => {});
-        getSellers().then((d) => { if (!cancelled) setSellers(d || []); }).catch(() => {});
-        return () => { cancelled = true; };
-    }, []);
-
-    const isSuperAdmin = user?.role === 'super_admin';
-    const isAdmin = user?.role === 'admin' || user?.role === 'ADMIN';
+    const isAdmin = user?.role === 'admin';
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
 
     const lowStockCount = useMemo(
@@ -130,7 +117,7 @@ export function AdminDashboard() {
                         {isSeller ? `${user?.name} Store Overview` : 'Dashboard Overview'}
                     </h1>
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic">
-                        {isSuperAdmin ? 'Track business performance across the platform.' : 'Track orders, products, customers, and stock in one place.'}
+                        {isAdmin ? 'Track business performance across the platform.' : 'Track orders, products, customers, and stock in one place.'}
                     </p>
                 </motion.div>
 
@@ -169,7 +156,7 @@ export function AdminDashboard() {
 
             {/* Top Tier Metrics: Platform-wide or Seller Gross */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {(isSuperAdmin || isAdmin) ? (
+                {isAdmin ? (
                     <>
                         <MetricGlassCard
                             label="Total Revenue"

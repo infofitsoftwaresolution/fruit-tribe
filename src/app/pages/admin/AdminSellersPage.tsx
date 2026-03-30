@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Store, CheckCircle2, AlertCircle, Clock, Search,
@@ -11,7 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
-import { getSellers, approveSeller as approveSellerApi, suspendSeller as suspendSellerApi } from '@/lib/api';
+import {
+    approveSeller as approveSellerApi,
+    suspendSeller as suspendSellerApi,
+    reactivateSeller as reactivateSellerApi,
+} from '@/lib/api';
+import { useAdminData } from '@/app/context/AdminDataContext';
 
 interface Seller {
     id: string;
@@ -26,17 +31,25 @@ interface Seller {
     commissionRate: number;
     location: string;
     rating: number;
+    gstNumber?: string;
+    panNumber?: string;
 }
 
 function mapApiSellerToSeller(api: any): Seller {
     const name = [api.user?.firstName, api.user?.lastName].filter(Boolean).join(' ') || api.user?.email || '—';
     const kyc = (api.kycStatus || 'pending').toUpperCase();
+    const st = (api.status || '').toUpperCase();
+    const mappedStatus =
+        st === 'APPROVED' ? 'ACTIVE' :
+            st === 'PENDING' ? 'PENDING' :
+                st === 'SUSPENDED' ? 'SUSPENDED' :
+                    st === 'REJECTED' ? 'REJECTED' : 'SUSPENDED';
     return {
         id: api.id,
         storeName: api.storeName || '—',
         ownerName: name,
         email: api.user?.email || '—',
-        status: api.status === 'APPROVED' ? 'ACTIVE' : api.status === 'PENDING' ? 'PENDING' : 'SUSPENDED',
+        status: mappedStatus as Seller['status'],
         kycStatus: kyc === 'VERIFIED' ? 'VERIFIED' : kyc === 'REJECTED' ? 'REJECTED' : kyc === 'NOT_SUBMITTED' ? 'NOT_SUBMITTED' : 'PENDING',
         joinedAt: api.createdAt ? new Date(api.createdAt).toISOString().slice(0, 10) : '—',
         orders: 0,
@@ -44,30 +57,28 @@ function mapApiSellerToSeller(api: any): Seller {
         commissionRate: Number(api.commissionRate) || 0,
         location: (api.address && typeof api.address === 'object' && (api.address.city || api.address.state)) ? [api.address.city, api.address.state].filter(Boolean).join(', ') : '—',
         rating: Number(api.rating) || 0,
+        gstNumber: api.gstNumber ?? undefined,
     };
 }
 
 export function AdminSellersPage() {
     const { theme } = useStore();
-    const [sellers, setSellers] = useState<Seller[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { sellers: rawSellers, isInitialLoading: loading, refreshSellers } = useAdminData();
+    /** Local-only decline (no reject API yet) — same behaviour as before shared admin data. */
+    const [rejectedIds, setRejectedIds] = useState<Set<string>>(() => new Set());
+    const sellers = useMemo(() => {
+        return (rawSellers || []).map(mapApiSellerToSeller).map((s) =>
+            rejectedIds.has(s.id) ? { ...s, status: 'REJECTED' as const } : s,
+        );
+    }, [rawSellers, rejectedIds]);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
     const [activeTab, setActiveTab] = useState('All');
 
-    useEffect(() => {
-        let cancelled = false;
-        getSellers()
-            .then((data) => { if (!cancelled) setSellers((data || []).map(mapApiSellerToSeller)); })
-            .catch(() => { if (!cancelled) toast.error('Failed to load sellers'); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
-
     const handleApprove = async (id: string) => {
         try {
             await approveSellerApi(id);
-            setSellers((prev) => prev.map((s) => (s.id === id ? { ...s, status: 'ACTIVE' as const, kycStatus: 'VERIFIED' as const } : s)));
+            await refreshSellers();
             toast.success('Merchant partnership activated successfully!');
             setSelectedSeller(null);
         } catch (e: any) {
@@ -76,8 +87,8 @@ export function AdminSellersPage() {
     };
 
     const handleReject = (id: string) => {
-        setSellers(prev => prev.map(s => s.id === id ? { ...s, status: 'REJECTED' as const } : s));
-        toast.error('Merchant application has been declined');
+        setRejectedIds((prev) => new Set(prev).add(id));
+        toast.success('Merchant application has been declined');
         setSelectedSeller(null);
     };
 
@@ -89,6 +100,7 @@ export function AdminSellersPage() {
 
             if (activeTab === 'Pending') return s.status === 'PENDING';
             if (activeTab === 'Verified') return s.kycStatus === 'VERIFIED';
+            if (activeTab === 'Suspended') return s.status === 'SUSPENDED';
             return true;
         });
     }, [sellers, searchQuery, activeTab]);
@@ -444,18 +456,29 @@ export function AdminSellersPage() {
                                             Decline Partnership
                                         </button>
                                     </>
-                                ) : (
+                                ) : selectedSeller.status === 'SUSPENDED' ? (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                await reactivateSellerApi(selectedSeller.id);
+                                                await refreshSellers();
+                                                toast.success('Vendor reactivated successfully.');
+                                                setSelectedSeller(null);
+                                            } catch (e: any) {
+                                                toast.error(e?.message || 'Failed to reactivate vendor');
+                                            }
+                                        }}
+                                        className="w-full h-16 bg-emerald-600 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 shadow-xl shadow-emerald-500/20"
+                                    >
+                                        <CheckCircle className="h-5 w-5 text-white" />
+                                        Reactivate Seller
+                                    </button>
+                                ) : selectedSeller.status === 'ACTIVE' ? (
                                     <button
                                         onClick={async () => {
                                             try {
                                                 await suspendSellerApi(selectedSeller.id);
-                                                setSellers(prev =>
-                                                    prev.map(s =>
-                                                        s.id === selectedSeller.id
-                                                            ? { ...s, status: 'SUSPENDED' as const }
-                                                            : s
-                                                    )
-                                                );
+                                                await refreshSellers();
                                                 toast.success('Vendor suspended successfully.');
                                                 setSelectedSeller(null);
                                             } catch (e: any) {
@@ -467,6 +490,10 @@ export function AdminSellersPage() {
                                         <Ban className="h-5 w-5 text-red-400" />
                                         Suspend Seller
                                     </button>
+                                ) : (
+                                    <p className="w-full text-center text-sm font-medium text-slate-500 py-4">
+                                        No management actions for this merchant status.
+                                    </p>
                                 )}
                             </div>
                         </motion.div>

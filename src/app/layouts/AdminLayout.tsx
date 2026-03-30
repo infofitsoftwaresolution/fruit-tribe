@@ -3,11 +3,13 @@ import { Outlet } from 'react-router-dom';
 import { AdminSidebar } from '@/app/components/admin/AdminSidebar';
 import { AdminHeader } from '@/app/components/admin/AdminHeader';
 import { Toaster } from 'sonner';
+import { AdminDataProvider } from '@/app/context/AdminDataContext';
 
 export function AdminLayout() {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
     return (
+        <AdminDataProvider>
         <div className="flex h-screen bg-slate-50 relative overflow-hidden">
             {/* Subtle background artifacts for premium feel */}
             <div className="absolute top-0 right-0 h-[500px] w-[1000px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
@@ -40,5 +42,6 @@ export function AdminLayout() {
 
             <Toaster position="top-right" closeButton richColors theme="light" />
         </div>
+        </AdminDataProvider>
     );
 }

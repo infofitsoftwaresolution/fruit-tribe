@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Body, UseGuards, Query, Param } from '@nestjs/common';
+import { Controller, Get, Put, Delete, Body, UseGuards, Query, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SettingsService } from '../application/settings.service';
 import { UpdatePaymentSettingsDto } from './dtos/update-payment-settings.dto';
@@ -205,5 +205,15 @@ export class SettingsController {
     ) {
         const coupon = await this.settingsService.updateAdminCoupon(id, body);
         return { coupon, message: 'Coupon updated.' };
+    }
+
+    @ApiOperation({ summary: 'Delete coupon (admin only)' })
+    @ApiBearerAuth()
+    @Delete('coupons/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async deleteCoupon(@Param('id') id: string) {
+        await this.settingsService.deleteAdminCoupon(id);
+        return { message: 'Coupon deleted.' };
     }
 }

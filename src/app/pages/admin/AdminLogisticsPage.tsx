@@ -1,13 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import {
-    getOrders,
     getWarehouses,
     createWarehouse,
     updateWarehouse,
     deleteWarehouse,
-    getDeliveryPartners,
     createDeliveryPartner,
     updateDeliveryPartner,
     deleteDeliveryPartner,
@@ -60,49 +59,31 @@ type SectionTab = 'deliveries' | 'warehouses' | 'staff';
 
 export function AdminLogisticsPage() {
     const { theme } = useStore();
+    const { orders, deliveryPartners, refreshDeliveryPartners, isInitialLoading: bootstrapLoading } = useAdminData();
     const [sectionTab, setSectionTab] = useState<SectionTab>('deliveries');
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('Active');
     const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null);
-    const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-    const [loading, setLoading] = useState(true);
+    const deliveries = useMemo(() => {
+        const list: Delivery[] = [];
+        (orders || []).forEach((order: any) => {
+            (order.deliveries || []).forEach((d: any) => list.push(mapApiDeliveryToDelivery(d, order)));
+        });
+        return list;
+    }, [orders]);
+    const loading = bootstrapLoading;
     const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string; address: string; latitude: number | string; longitude: number | string; isActive: boolean }>>([]);
-    const [deliveryPartners, setDeliveryPartners] = useState<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; user?: { email: string } }>>([]);
     const [warehouseModal, setWarehouseModal] = useState<{ open: boolean; editing?: { id: string; name: string; address: string; latitude: number; longitude: number; isActive: boolean } }>({ open: false });
     const [staffModal, setStaffModal] = useState<{ open: boolean; editing?: { id: string; name: string; phone: string; email: string; vehicle: string; status: string } }>({ open: false });
     const [warehouseForm, setWarehouseForm] = useState({ name: '', address: '', latitude: '', longitude: '', isActive: true });
     const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
     const hasLoadedWarehouses = useRef(false);
-    const hasLoadedStaff = useRef(false);
-
-    useEffect(() => {
-        let cancelled = false;
-        getOrders()
-            .then((orders: any[]) => {
-                if (cancelled) return;
-                const list: Delivery[] = [];
-                (orders || []).forEach((order) => {
-                    (order.deliveries || []).forEach((d: any) => list.push(mapApiDeliveryToDelivery(d, order)));
-                });
-                setDeliveries(list);
-            })
-            .catch(() => { if (!cancelled) setDeliveries([]); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
 
     useEffect(() => {
         if (sectionTab !== 'warehouses') return;
         if (hasLoadedWarehouses.current) return;
         hasLoadedWarehouses.current = true;
         getWarehouses(false).then(setWarehouses).catch(() => setWarehouses([]));
-    }, [sectionTab]);
-
-    useEffect(() => {
-        if (sectionTab !== 'staff') return;
-        if (hasLoadedStaff.current) return;
-        hasLoadedStaff.current = true;
-        getDeliveryPartners().then(setDeliveryPartners).catch(() => setDeliveryPartners([]));
     }, [sectionTab]);
 
     const filteredDeliveries = useMemo(() => {
@@ -162,7 +143,7 @@ export function AdminLogisticsPage() {
             }
             setStaffModal({ open: false });
             setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
-            getDeliveryPartners().then(setDeliveryPartners).catch(() => {});
+            void refreshDeliveryPartners();
         } catch (e: any) {
             const raw = String(e?.message || '');
             let msg = raw;
@@ -299,7 +280,7 @@ export function AdminLogisticsPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status, email: dp.user?.email || '' } }); setStaffForm({ name: dp.name, phone: dp.phone, email: dp.user?.email || '', vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
-                                        <button onClick={async () => { if (confirm('Remove this delivery partner?')) { try { await deleteDeliveryPartner(dp.id); toast.success('Removed'); getDeliveryPartners().then(setDeliveryPartners); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                        <button onClick={async () => { if (confirm('Remove this delivery partner?')) { try { await deleteDeliveryPartner(dp.id); toast.success('Removed'); void refreshDeliveryPartners(); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                                     </div>
                                 </div>
                             ))

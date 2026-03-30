@@ -1,7 +1,6 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '@/app/context/StoreContext';
-import { getOrders } from '@/lib/api';
-import { useProducts } from '@/app/hooks/useProducts';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar
@@ -17,19 +16,8 @@ import { cn } from '@/lib/utils';
 
 export function AdminAnalyticsPage() {
     const { theme } = useStore();
-    const { products } = useProducts({ limit: 500 });
-    const [orders, setOrders] = useState<any[]>([]);
-    const [ordersLoading, setOrdersLoading] = useState(true);
+    const { orders, products, isInitialLoading: ordersLoading } = useAdminData();
     const [timeRange, setTimeRange] = useState<'Last 7 Days' | 'Last 30 Days' | 'Last Year'>('Last 7 Days');
-
-    useEffect(() => {
-        let cancelled = false;
-        getOrders()
-            .then((data) => { if (!cancelled) setOrders(data || []); })
-            .catch(() => { if (!cancelled) setOrders([]); })
-            .finally(() => { if (!cancelled) setOrdersLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
 
     const stats = useMemo(() => {
         const now = new Date();

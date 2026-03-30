@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '@/app/context/StoreContext';
-import { getOrders, getSellers } from '@/lib/api';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import {
     IndianRupee, TrendingUp, Calendar, ArrowUpRight,
     ArrowDownRight, CheckCircle2, Clock, AlertCircle,
@@ -29,28 +29,11 @@ interface Payout {
 
 export function AdminPayoutsPage() {
     const { theme } = useStore();
+    const { orders, sellers, isInitialLoading: loading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
     const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
     const [payouts, setPayouts] = useState<Payout[]>([]);
-    const [orders, setOrders] = useState<any[]>([]);
-    const [sellers, setSellers] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        let cancelled = false;
-        Promise.all([getOrders(), getSellers()])
-            .then(([orderData, sellerData]) => {
-                if (!cancelled) {
-                    setOrders(orderData || []);
-                    setSellers(sellerData || []);
-                    setPayouts([]);
-                }
-            })
-            .catch(() => { if (!cancelled) setPayouts([]); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
-    }, []);
 
     const totalRevenue = useMemo(() => orders.reduce((s, o) => s + Number(o.payableAmount ?? o.totalAmount ?? 0), 0), [orders]);
     const statsCards = useMemo(() => [

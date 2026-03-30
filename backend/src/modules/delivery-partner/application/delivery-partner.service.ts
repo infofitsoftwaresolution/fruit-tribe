@@ -107,6 +107,60 @@ export class DeliveryPartnerService {
         });
     }
 
+    /**
+     * Promote an existing customer (or non-seller user) to delivery partner — same account as Swiggy/Zepto-style apps.
+     */
+    private async promoteUserToDeliveryPartner(
+        userId: string,
+        data: {
+            name: string;
+            normalizedEmail: string;
+            normalizedPhone: string;
+            vehicle?: string;
+            status?: string;
+        },
+    ) {
+        const role = await this.prisma.role.upsert({
+            where: { name: 'DELIVERY_PARTNER' },
+            update: {},
+            create: {
+                name: 'DELIVERY_PARTNER',
+                permissions: {},
+            },
+        });
+        const tempPassword = Math.random().toString(36).slice(-10);
+        const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+        const partner = await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    email: data.normalizedEmail,
+                    phone: data.normalizedPhone,
+                    firstName: data.name,
+                    roleId: role.id,
+                    passwordHash,
+                    requirePasswordChange: true,
+                },
+            });
+            return tx.deliveryPartner.create({
+                data: {
+                    name: data.name,
+                    phone: data.normalizedPhone,
+                    vehicle: data.vehicle ?? null,
+                    status: data.status ?? 'ACTIVE',
+                    userId,
+                },
+            });
+        });
+
+        this.mailService
+            .sendDeliveryStaffWelcomeEmail(data.normalizedEmail, tempPassword)
+            .catch(() => { /* logged in MailService */ });
+
+        return partner;
+    }
+
     async create(data: { name: string; phone: string; email: string; vehicle?: string; status?: string }) {
         const normalizedEmail = String(data.email || '').trim().toLowerCase();
         const normalizedPhone = String(data.phone || '').trim();
@@ -114,25 +168,42 @@ export class DeliveryPartnerService {
         const [existingByEmail, existingByPhone] = await Promise.all([
             this.prisma.user.findFirst({
                 where: { email: normalizedEmail },
-                include: { deliveryPartner: true },
+                include: { deliveryPartner: true, seller: true, role: true },
             }),
             this.prisma.user.findFirst({
                 where: { phone: normalizedPhone },
-                include: { deliveryPartner: true },
+                include: { deliveryPartner: true, seller: true, role: true },
             }),
         ]);
 
-        if (existingByEmail?.deliveryPartner) {
-            throw new ConflictException('This email is already assigned to another delivery partner.');
+        if (existingByEmail && existingByPhone && existingByEmail.id !== existingByPhone.id) {
+            throw new ConflictException(
+                'Email and phone belong to different accounts. Use one person’s email and phone for delivery staff.',
+            );
         }
-        if (existingByPhone?.deliveryPartner) {
-            throw new ConflictException('This phone number is already assigned to another delivery partner.');
-        }
-        if (existingByEmail) {
-            throw new ConflictException('This email is already registered. Use a different one.');
-        }
-        if (existingByPhone) {
-            throw new ConflictException('This phone number is already registered. Use a different one.');
+
+        const existing = existingByEmail ?? existingByPhone;
+
+        if (existing) {
+            if (existing.deliveryPartner) {
+                throw new ConflictException('This account is already a delivery partner.');
+            }
+            if (existing.seller) {
+                throw new ConflictException('This account is a seller. Sellers cannot be delivery partners.');
+            }
+            const roleName = (existing.role?.name || '').toUpperCase();
+            if (roleName && roleName !== 'CUSTOMER') {
+                throw new ConflictException(
+                    'Only a normal shopper account can be onboarded as delivery staff. This email or phone is already used for another role.',
+                );
+            }
+            return this.promoteUserToDeliveryPartner(existing.id, {
+                name: data.name,
+                normalizedEmail,
+                normalizedPhone,
+                vehicle: data.vehicle,
+                status: data.status,
+            });
         }
 
         // Create or reuse role DELIVERY_PARTNER so delivery staff get the right dashboard

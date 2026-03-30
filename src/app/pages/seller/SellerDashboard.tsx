@@ -6,8 +6,9 @@ import {
     ArrowDownRight, IndianRupee, PieChart, Users,
     Leaf, Box, Truck, BarChart3
 } from 'lucide-react';
-import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
+import { useAdminData } from '@/app/context/AdminDataContext';
+import { productBelongsToSeller } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -16,21 +17,35 @@ import {
 } from 'recharts';
 
 export function SellerDashboard() {
-    const { products, orders } = useStore();
     const { user } = useAuth();
+    const { products: apiProducts, orders: apiOrders } = useAdminData();
 
-    // Mock seller-specific stats
     const sellerStats = useMemo(() => {
+        const myProducts = apiProducts.filter((p) => productBelongsToSeller(p, user));
+        const myOrders = (apiOrders || []).filter((o: any) =>
+            (o.items || []).some((item: any) => {
+                const pr = apiProducts.find((x) => String(x.id) === String(item.productId));
+                return pr ? productBelongsToSeller(pr, user) : false;
+            }),
+        );
+        const totalRevenue = myOrders.reduce(
+            (sum, o: any) => sum + Number(o.payableAmount ?? o.totalAmount ?? 0),
+            0,
+        );
         return {
-            totalRevenue: 125400,
-            revenueGrowth: '+12.5%',
-            totalOrders: 42,
-            ordersGrowth: '+8%',
-            activeProducts: products.length,
+            totalRevenue,
+            revenueGrowth: '—',
+            totalOrders: myOrders.length,
+            ordersGrowth: '—',
+            activeProducts: myProducts.length,
             rating: 4.8,
-            payoutPending: 24500
+            payoutPending: 0,
         };
-    }, [products]);
+    }, [apiProducts, apiOrders, user]);
+
+    const inventoryPreview = useMemo(() => {
+        return apiProducts.filter((p) => productBelongsToSeller(p, user)).slice(0, 4);
+    }, [apiProducts, user]);
 
     const revenueData = [
         { name: 'Mon', revenue: 4500, orders: 12 },
@@ -52,7 +67,7 @@ export function SellerDashboard() {
                         <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Seller Dashboard</span>
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {user?.name}'s Store
+                        {user?.sellerStoreName || user?.name}'s Store
                     </h1>
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic font-medium">
                         Track your store performance in real time.
@@ -196,9 +211,9 @@ export function SellerDashboard() {
                             </div>
                         </div>
                         <div className="space-y-4">
-                            {(products.length > 0 ? products.slice(0, 4) : [
-                                { id: 'm1', name: 'Alphonso Mango', category: 'Seasonal Premium' },
-                                { id: 'm2', name: 'Organic Strawberry', category: 'Berries' }
+                            {(inventoryPreview.length > 0 ? inventoryPreview : [
+                                { id: 'm1', name: 'Alphonso Mango', category: 'Seasonal Premium', availableStock: 0 },
+                                { id: 'm2', name: 'Organic Strawberry', category: 'Berries', availableStock: 0 }
                             ]).map((product) => (
                                 <div key={product.id} className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 group transition-all">
                                     <div className="flex items-center justify-between">
@@ -212,7 +227,9 @@ export function SellerDashboard() {
                                             </div>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-lg font-black text-slate-900 leading-none">850</p>
+                                            <p className="text-lg font-black text-slate-900 leading-none">
+                                                {(product as { availableStock?: number }).availableStock ?? 850}
+                                            </p>
                                             <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mt-1">Units In Stock</p>
                                         </div>
                                     </div>
