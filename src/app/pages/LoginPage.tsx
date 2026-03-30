@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { LogIn, Eye, EyeOff, Shield, Loader2, UserCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AUTH_BG_IMAGE = 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80';
 
@@ -45,8 +46,14 @@ export function LoginPage() {
       } else {
         navigate('/');
       }
-    } catch (err) {
-      setError('Invalid email or password. Please try again.');
+    } catch (err: any) {
+      const msg = String(err?.message || '');
+      if (msg.includes('not verified') || msg.includes('verification code')) {
+        toast.info('Enter the OTP we sent to your email.');
+        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent('/login')}`);
+        return;
+      }
+      setError(msg || 'Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);
     }
