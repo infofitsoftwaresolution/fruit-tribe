@@ -357,20 +357,55 @@ export class DeliveryPartnerService {
         }
     }
 
-    /** Resolve the delivery partner record for the currently logged-in user. */
-    private async getPartnerForUser(userId: string) {
-        const partner = await this.prisma.deliveryPartner.findUnique({
+    /**
+     * Resolve the delivery partner record for the currently logged-in user.
+     * Also auto-links legacy partner rows that were created without userId.
+     */
+    private async getPartnerForUser(userId: string, userEmail?: string) {
+        const direct = await this.prisma.deliveryPartner.findUnique({
             where: { userId },
         });
-        if (!partner) {
-            throw new UnauthorizedException('You are not registered as a delivery partner.');
+        if (direct) return direct;
+
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, email: true, phone: true },
+        });
+        if (!user) {
+            throw new UnauthorizedException('User account not found.');
         }
-        return partner;
+
+        let partner = user.phone
+            ? await this.prisma.deliveryPartner.findFirst({
+                where: { phone: user.phone },
+            })
+            : null;
+
+        if (partner && !partner.userId) {
+            try {
+                partner = await this.prisma.deliveryPartner.update({
+                    where: { id: partner.id },
+                    data: { userId: user.id },
+                });
+            } catch {
+                // concurrent link/update; proceed with a re-read
+            }
+        }
+
+        const linked = await this.prisma.deliveryPartner.findUnique({
+            where: { userId: user.id },
+        });
+        if (linked) return linked;
+
+        if (userEmail && user.email && user.email.toLowerCase() !== userEmail.toLowerCase()) {
+            throw new UnauthorizedException('Delivery account email does not match the signed-in user.');
+        }
+        throw new UnauthorizedException('You are not registered as a delivery partner.');
     }
 
     /** Basic dashboard metrics for the delivery app home screen. */
-    async getDashboardForUser(userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async getDashboardForUser(userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
@@ -417,8 +452,8 @@ export class DeliveryPartnerService {
         };
     }
 
-    async setOnlineStatusForUser(userId: string, online: boolean, lat?: number, lng?: number) {
-        const partner = await this.getPartnerForUser(userId);
+    async setOnlineStatusForUser(userId: string, online: boolean, lat?: number, lng?: number, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         return this.prisma.deliveryPartner.update({
             where: { id: partner.id },
             data: {
@@ -429,8 +464,8 @@ export class DeliveryPartnerService {
         });
     }
 
-    async updateLocationForUser(userId: string, lat: number, lng: number) {
-        const partner = await this.getPartnerForUser(userId);
+    async updateLocationForUser(userId: string, lat: number, lng: number, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         return this.prisma.deliveryPartner.update({
             where: { id: partner.id },
             data: {
@@ -441,8 +476,8 @@ export class DeliveryPartnerService {
     }
 
     /** Active assignments for the logged-in delivery partner. */
-    async getAssignmentsForUser(userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async getAssignmentsForUser(userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         return this.prisma.delivery.findMany({
             where: {
                 deliveryPartnerId: partner.id,
@@ -471,8 +506,8 @@ export class DeliveryPartnerService {
         });
     }
 
-    async getAssignmentDetailForUser(deliveryId: string, userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async getAssignmentDetailForUser(deliveryId: string, userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const delivery = await this.prisma.delivery.findFirst({
             where: {
                 id: deliveryId,
@@ -513,8 +548,8 @@ export class DeliveryPartnerService {
         };
     }
 
-    async generateDeliveryOtpForUser(deliveryId: string, userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async generateDeliveryOtpForUser(deliveryId: string, userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const delivery = await this.prisma.delivery.findFirst({
             where: { id: deliveryId, deliveryPartnerId: partner.id },
             include: {
@@ -562,8 +597,8 @@ export class DeliveryPartnerService {
         };
     }
 
-    async verifyDeliveryOtpForUser(deliveryId: string, userId: string, code: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async verifyDeliveryOtpForUser(deliveryId: string, userId: string, code: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         if (!code || !/^\d{6}$/.test(code)) {
             throw new BadRequestException('Invalid OTP format.');
         }
@@ -633,8 +668,9 @@ export class DeliveryPartnerService {
         deliveryId: string,
         userId: string,
         payload: { status: string; reason?: string; lat?: number; lng?: number },
+        userEmail?: string,
     ) {
-        const partner = await this.getPartnerForUser(userId);
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const normalizedStatus = payload.status?.toUpperCase();
         if (!normalizedStatus) {
             throw new NotFoundException('Status is required');
@@ -702,8 +738,8 @@ export class DeliveryPartnerService {
         });
     }
 
-    async getEarningsSummaryForUser(userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async getEarningsSummaryForUser(userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
 
@@ -750,8 +786,8 @@ export class DeliveryPartnerService {
         };
     }
 
-    async getCodSummaryForUser(userId: string) {
-        const partner = await this.getPartnerForUser(userId);
+    async getCodSummaryForUser(userId: string, userEmail?: string) {
+        const partner = await this.getPartnerForUser(userId, userEmail);
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
 

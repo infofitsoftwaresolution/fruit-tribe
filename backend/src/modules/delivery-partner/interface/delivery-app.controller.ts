@@ -20,19 +20,19 @@ export class DeliveryAppController {
     @ApiOperation({ summary: 'Get dashboard metrics for the logged-in delivery partner' })
     @Get('dashboard')
     async dashboard(@Request() req: any) {
-        return this.deliveryPartnerService.getDashboardForUser(req.user.id);
+        return this.deliveryPartnerService.getDashboardForUser(req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'List active delivery assignments for the logged-in partner' })
     @Get('assignments')
     async assignments(@Request() req: any) {
-        return this.deliveryPartnerService.getAssignmentsForUser(req.user.id);
+        return this.deliveryPartnerService.getAssignmentsForUser(req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'Get a specific delivery assignment by ID' })
     @Get('assignments/:id')
     async assignmentDetail(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-        return this.deliveryPartnerService.getAssignmentDetailForUser(id, req.user.id);
+        return this.deliveryPartnerService.getAssignmentDetailForUser(id, req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'Update status of a delivery assignment (e.g. OUT_FOR_DELIVERY, DELIVERED)' })
@@ -42,13 +42,13 @@ export class DeliveryAppController {
         @Body() dto: UpdateDeliveryStatusDto,
         @Request() req: any,
     ) {
-        return this.deliveryPartnerService.updateAssignmentStatusForUser(id, req.user.id, dto);
+        return this.deliveryPartnerService.updateAssignmentStatusForUser(id, req.user.id, dto, req.user.email);
     }
 
     @ApiOperation({ summary: 'Generate customer OTP for delivery handover' })
     @Post('assignments/:id/generate-otp')
     async generateOtp(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-        return this.deliveryPartnerService.generateDeliveryOtpForUser(id, req.user.id);
+        return this.deliveryPartnerService.generateDeliveryOtpForUser(id, req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'Verify customer OTP and mark assignment delivered' })
@@ -58,19 +58,19 @@ export class DeliveryAppController {
         @Body() dto: VerifyDeliveryOtpDto,
         @Request() req: any,
     ) {
-        return this.deliveryPartnerService.verifyDeliveryOtpForUser(id, req.user.id, dto.otp);
+        return this.deliveryPartnerService.verifyDeliveryOtpForUser(id, req.user.id, dto.otp, req.user.email);
     }
 
     @ApiOperation({ summary: 'Get earnings summary for the logged-in delivery partner' })
     @Get('earnings/summary')
     async earningsSummary(@Request() req: any) {
-        return this.deliveryPartnerService.getEarningsSummaryForUser(req.user.id);
+        return this.deliveryPartnerService.getEarningsSummaryForUser(req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'Get COD collection summary for the logged-in delivery partner' })
     @Get('cod/summary')
     async codSummary(@Request() req: any) {
-        return this.deliveryPartnerService.getCodSummaryForUser(req.user.id);
+        return this.deliveryPartnerService.getCodSummaryForUser(req.user.id, req.user.email);
     }
 
     @ApiOperation({ summary: 'Set online/offline status for the logged-in delivery partner' })
@@ -81,6 +81,7 @@ export class DeliveryAppController {
             dto.online,
             dto.lat,
             dto.lng,
+            req.user.email,
         );
         return { onlineStatus: updated.onlineStatus };
     }
@@ -88,7 +89,7 @@ export class DeliveryAppController {
     @ApiOperation({ summary: 'Update current GPS location for the logged-in delivery partner' })
     @Post('location')
     async updateLocation(@Body() dto: UpdateLocationDto, @Request() req: any) {
-        await this.deliveryPartnerService.updateLocationForUser(req.user.id, dto.lat, dto.lng);
+        await this.deliveryPartnerService.updateLocationForUser(req.user.id, dto.lat, dto.lng, req.user.email);
         return { ok: true };
     }
 }
