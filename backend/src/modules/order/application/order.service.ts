@@ -114,7 +114,7 @@ export class OrderService {
             // Precision logic: (Total - Reserved) - Safety Margin = Sellable
             for (const item of dto.items) {
                 const [variant] = await tx.$queryRawUnsafe<any[]>(
-                    'SELECT available_quantity as "availableQuantity", low_stock_threshold as "threshold" FROM product_variants WHERE id = $1::uuid FOR UPDATE',
+                    'SELECT sku, available_quantity as "availableQuantity", low_stock_threshold as "threshold" FROM product_variants WHERE id = $1::uuid FOR UPDATE',
                     item.variantId
                 );
 
@@ -126,7 +126,9 @@ export class OrderService {
                 const sellableQuantity = variant.availableQuantity - safetyBuffer;
 
                 if (variant.availableQuantity < item.quantity) {
-                    throw new BadRequestException(`Insufficient stock for one of the items in your cart.`);
+                    throw new BadRequestException(
+                        `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
+                    );
                 }
                 
                 // Optional: If we want to strictly respect safety buffer in high-load, we'd check sellableQuantity

@@ -360,7 +360,21 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         toast.error(`Product "${item.name}" is no longer available. Please update your cart.`);
         return;
       }
-      const variantId = (product as any).variants?.[0]?.id != null ? String((product as any).variants[0].id) : '';
+      const requestedQty = Number(item.quantity) || 1;
+      const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
+      let pickedVariant = variants[0];
+      if (variants.length > 0) {
+        // Prefer a variant matching cart unit price and enough available quantity.
+        const priceMatched = variants.find((v: any) =>
+          Number(v.price) === Number(item.price) &&
+          Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+        );
+        const firstAvailable = variants.find((v: any) =>
+          Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+        );
+        pickedVariant = priceMatched || firstAvailable || variants[0];
+      }
+      const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
       const sellerId = (product as any).sellerId != null ? String((product as any).sellerId) : '';
       if (!variantId || !sellerId) {
         toast.error(`Unable to place order: missing details for "${item.name}". Please refresh and try again.`);
@@ -375,7 +389,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         productId,
         variantId,
         sellerId,
-        quantity: Number(item.quantity) || 1,
+        quantity: requestedQty,
         pricePerUnit: Number(item.price) ?? 0,
       });
     }
