@@ -548,9 +548,6 @@ export class DeliveryPartnerService {
                         },
                     },
                 },
-                trackingEvents: {
-                    orderBy: { createdAt: 'asc' },
-                },
             },
         });
         if (!delivery) {

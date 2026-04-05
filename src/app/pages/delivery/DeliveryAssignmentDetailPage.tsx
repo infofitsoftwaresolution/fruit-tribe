@@ -50,6 +50,26 @@ const STATUS_OPTIONS = [
     { value: 'FAILED', label: 'Failed', icon: XCircle },
 ] as const;
 
+/** Bounded wait so status updates are not blocked by slow GPS (common on mobile). */
+function getCoordsForDelivery(timeoutMs = 6000): Promise<{ lat: number; lng: number } | undefined> {
+    if (!('geolocation' in navigator)) return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+        const finish = (v: { lat: number; lng: number } | undefined) => resolve(v);
+        const t = window.setTimeout(() => finish(undefined), timeoutMs);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                window.clearTimeout(t);
+                finish({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+            },
+            () => {
+                window.clearTimeout(t);
+                finish(undefined);
+            },
+            { enableHighAccuracy: false, maximumAge: 120_000, timeout: timeoutMs },
+        );
+    });
+}
+
 export function DeliveryAssignmentDetailPage() {
     const { user } = useAuth();
     const { id } = useParams<{ id: string }>();
@@ -139,19 +159,9 @@ export function DeliveryAssignmentDetailPage() {
         setUpdating(true);
         try {
             const token = localStorage.getItem('token');
-            let lat: number | undefined;
-            let lng: number | undefined;
-            if ('geolocation' in navigator) {
-                try {
-                    const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject);
-                    });
-                    lat = pos.coords.latitude;
-                    lng = pos.coords.longitude;
-                } catch {
-                    // ignore
-                }
-            }
+            const coords = await getCoordsForDelivery(6000);
+            const lat = coords?.lat;
+            const lng = coords?.lng;
             const res = await fetch(`${getEffectiveApiBase()}/delivery/assignments/${id}/status`, {
                 method: 'POST',
                 headers: {
@@ -442,6 +452,7 @@ export function DeliveryAssignmentDetailPage() {
                             const isFailed = opt.value === 'FAILED';
                             const isAlreadyCurrent = normalizedCurrentStatus === opt.value;
                             const isPendingThisAction = pendingStatusAction === opt.value;
+                            const showSpinnerOnThisButton = updating && isPendingThisAction;
                             const shouldDisable =
                                 updating ||
                                 !!pendingStatusAction ||
@@ -465,7 +476,7 @@ export function DeliveryAssignmentDetailPage() {
                                             'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
                                     )}
                                 >
-                                    {updating ? (
+                                    {showSpinnerOnThisButton ? (
                                         <Loader className="w-5 h-5 animate-spin text-slate-400" />
                                     ) : (
                                         <Icon className="w-5 h-5" />
