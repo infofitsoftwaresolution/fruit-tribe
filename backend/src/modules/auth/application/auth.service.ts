@@ -3,12 +3,23 @@ import {
     UnauthorizedException,
     BadRequestException,
     ConflictException,
+    ServiceUnavailableException,
     Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from './dtos/auth.dto';
+import type { Prisma } from '@prisma/client';
+import {
+    RegisterDto,
+    LoginDto,
+    VerifyEmailDto,
+    ResendEmailDto,
+    ForgotPasswordDto,
+    ResetPasswordDto,
+    ChangePasswordDto,
+    BulkCustomerAnnouncementDto,
+} from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '../../../common/mail/mail.service';
 
@@ -41,6 +52,11 @@ export class AuthService {
     }
 
     private async issueFreshVerificationOtp(userId: string, email: string) {
+        if (!this.mailService.isEnabled()) {
+            throw new ServiceUnavailableException(
+                'Cannot send a verification code because email is not configured on the server.',
+            );
+        }
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
         const recentOtps = await this.prisma.otpLog.count({
             where: {
@@ -129,6 +145,13 @@ export class AuthService {
             throw new ConflictException('PHONE_ALREADY_REGISTERED');
         }
 
+        if (!this.mailService.isEnabled()) {
+            this.logger.warn('Registration rejected: SMTP is not configured');
+            throw new ServiceUnavailableException(
+                'Verification email cannot be sent because email is not configured on the server. Please contact support.',
+            );
+        }
+
         const passwordHash = await bcrypt.hash(dto.password, 12);
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -179,7 +202,16 @@ export class AuthService {
             return created;
         });
 
-        await this.mailService.sendVerificationEmail(user.email, code);
+        try {
+            await this.mailService.sendVerificationEmail(user.email, code);
+        } catch (err: any) {
+            this.logger.error(
+                `Verification email failed after user create (${user.email}): ${err?.message || err}`,
+            );
+            throw new ServiceUnavailableException(
+                'We could not send the verification email. Please try again in a few minutes. If an account was created, open the verify page and use “Resend code”.',
+            );
+        }
 
         return {
             message: 'Registration successful. Please check your email for the verification code.',
@@ -379,6 +411,12 @@ export class AuthService {
             return { message: 'If this email exists, a new code has been sent.' };
         }
 
+        if (!this.mailService.isEnabled()) {
+            throw new ServiceUnavailableException(
+                'Cannot resend the code because email is not configured on the server.',
+            );
+        }
+
         // If already verified, nothing to resend
         if (!user.otpCode || !user.otpExpiry || user.otpExpiry < new Date()) {
             return { message: 'Account is already verified or has no pending code.' };
@@ -408,7 +446,14 @@ export class AuthService {
             });
         });
 
-        await this.mailService.sendVerificationEmail(user.email, code);
+        try {
+            await this.mailService.sendVerificationEmail(user.email, code);
+        } catch (err: any) {
+            this.logger.error(`Resend verification email failed (${user.email}): ${err?.message || err}`);
+            throw new ServiceUnavailableException(
+                'We could not send the email. Please try again in a few minutes.',
+            );
+        }
         return { message: 'A new verification code has been sent if the email exists.' };
     }
 
@@ -483,11 +528,96 @@ export class AuthService {
             });
     }
 
+    /** Admin: in-app notification for all matching customers; optional email batch (SMTP). */
+    async bulkCustomerAnnouncement(dto: BulkCustomerAnnouncementDto) {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const where: Prisma.UserWhereInput = {
+            role: { name: 'CUSTOMER' },
+        };
+        if (dto.audience === 'verified') {
+            where.isActive = true;
+        }
+        if (dto.audience === 'with_orders') {
+            where.orders = { some: {} };
+        }
+
+        const users = await this.prisma.user.findMany({
+            where,
+            select: { id: true, email: true, isActive: true, otpCode: true, otpExpiry: true },
+        });
+
+        const now = new Date();
+        const filtered = users.filter((u) => {
+            if (!emailPattern.test(u.email)) return false;
+            if (dto.audience === 'verified') {
+                const hasActiveOtp = !!u.otpCode && !!u.otpExpiry && u.otpExpiry > now;
+                return u.isActive && !hasActiveOtp;
+            }
+            return true;
+        });
+
+        if (!filtered.length) {
+            return {
+                notificationsCreated: 0,
+                emailsSent: 0,
+                emailsFailed: 0,
+                message: 'No customers match the selected audience.',
+            };
+        }
+
+        const title = dto.title.trim().slice(0, 200);
+        const message = dto.message.trim().slice(0, 5000);
+
+        await this.prisma.notification.createMany({
+            data: filtered.map((u) => ({
+                userId: u.id,
+                title,
+                message,
+                type: 'STOCK_CLEARANCE',
+            })),
+        });
+
+        const EMAIL_CAP = 200;
+        let emailsSent = 0;
+        let emailsFailed = 0;
+        if (dto.sendEmail) {
+            if (!this.mailService.isEnabled()) {
+                throw new BadRequestException(
+                    'Email sending is not configured (SMTP). Uncheck “Also send by email” or set SMTP_USER/SMTP_PASS on the server.',
+                );
+            }
+            const slice = filtered.slice(0, EMAIL_CAP);
+            for (const u of slice) {
+                try {
+                    await this.mailService.sendAnnouncementEmail(u.email, title, message);
+                    emailsSent++;
+                } catch (err: any) {
+                    emailsFailed++;
+                    this.logger.warn(`Announcement email failed for ${u.email}: ${err?.message || err}`);
+                }
+            }
+        }
+
+        return {
+            notificationsCreated: filtered.length,
+            emailsSent,
+            emailsFailed,
+            emailBatchCapped: !!dto.sendEmail && filtered.length > EMAIL_CAP,
+            emailCap: EMAIL_CAP,
+        };
+    }
+
     async forgotPassword(dto: ForgotPasswordDto) {
         const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
         // Do not leak whether the email exists
         if (!user) {
             return { message: 'If this email exists, a reset code has been sent.' };
+        }
+
+        if (!this.mailService.isEnabled()) {
+            throw new ServiceUnavailableException(
+                'Cannot send a reset code because email is not configured on the server.',
+            );
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -501,7 +631,14 @@ export class AuthService {
             },
         });
 
-        await this.mailService.sendPasswordResetEmail(user.email, code);
+        try {
+            await this.mailService.sendPasswordResetEmail(user.email, code);
+        } catch (err: any) {
+            this.logger.error(`Password reset email failed (${user.email}): ${err?.message || err}`);
+            throw new ServiceUnavailableException(
+                'We could not send the reset email. Please try again in a few minutes.',
+            );
+        }
         return { message: 'If this email exists, a reset code has been sent.' };
     }
 

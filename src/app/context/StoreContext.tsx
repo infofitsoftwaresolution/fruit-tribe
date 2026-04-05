@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getStoreSettings } from '@/lib/api';
+import type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
+
+export type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 
 // --- Types ---
 
@@ -224,6 +227,8 @@ export interface StorePreferences {
     deliveryCharge?: number;
     /** Distance-based delivery fee slabs (admin-configurable) */
     deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+    /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
+    subscriptionPage?: SubscriptionPageConfig;
 }
 
 export interface TribeSubscription {
@@ -235,6 +240,9 @@ export interface TribeSubscription {
     nextDelivery: string;
     status: 'Active' | 'Paused' | 'Cancelled';
     customizations?: string[];
+    /** Backend order created at signup (after successful payment). */
+    orderId?: string;
+    orderNumber?: string;
 }
 
 interface StoreContextType {
@@ -353,9 +361,9 @@ const INITIAL_THEME: ThemeSettings = {
     showRecipes: true,
     showStats: true,
     showNewsletter: true,
-    contactPhone: '+1 (555) 123-4567',
-    contactEmail: 'hello@fruittribe.com',
-    contactAddress: '123 Orchard Lane, Fresh Valley, FV 90210',
+    contactPhone: '9934722416',
+    contactEmail: 'thefruittribes@gmail.com',
+    contactAddress: '706, Mahaveer Palatium, Jigani, Bangalore - 560105',
     footerAboutText: 'Dedicated to bringing the finest, orchard-fresh fruits directly to your table with love and care.',
     socialFacebook: 'https://facebook.com',
     socialInstagram: 'https://instagram.com',

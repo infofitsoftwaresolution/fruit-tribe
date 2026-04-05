@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useStore } from '@/app/context/StoreContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
 import {
@@ -12,7 +12,9 @@ import {
     Activity, Target, PieChart as PieIcon, BarChart3
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { cn, formatInrCompact } from '@/lib/utils';
+import { getImageDisplayUrl } from '@/lib/api';
+import { toast } from 'sonner';
 
 export function AdminAnalyticsPage() {
     const { theme } = useStore();
@@ -110,9 +112,45 @@ export function AdminAnalyticsPage() {
             lowStockCount,
             revenueData,
             categoryData,
-            bestSellers
+            bestSellers,
+            paidOrderCountInRange: filteredOrders.length,
         };
     }, [orders, products, timeRange]);
+
+    const escapeCsv = (v: unknown) => {
+        const s = v == null ? '' : String(v);
+        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
+    };
+
+    const exportAnalyticsAudit = useCallback(() => {
+        const rangeLabel = timeRange.replace(/\s+/g, '-');
+        const header = ['Section', 'Key', 'Value'];
+        const rows: string[][] = [
+            ['Meta', 'Time range', timeRange],
+            ['Meta', 'Exported at', new Date().toISOString()],
+            ['Totals', 'Total revenue (paid, in range)', String(stats.totalRevenue)],
+            ['Totals', 'Order count (paid, in range)', String(stats.paidOrderCountInRange)],
+            ['Totals', 'Items sold (units)', String(stats.totalItemsSold)],
+            ...stats.revenueData.map((d) => ['Revenue by day', d.name, String(d.revenue)]),
+            ...stats.bestSellers.map((p: any, i: number) => [
+                'High-yield commodity',
+                `#${i + 1} ${p.name}`,
+                `revenue=${p.revenue ?? 0}; units=${p.sales ?? 0}; category=${p.category ?? ''}`,
+            ]),
+        ];
+        const csv = [header, ...rows].map((r) => r.map(escapeCsv).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `analytics-audit-${rangeLabel}-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Analytics audit CSV downloaded');
+    }, [stats, timeRange]);
 
     const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444'];
 
@@ -143,7 +181,11 @@ export function AdminAnalyticsPage() {
                             </button>
                         ))}
                     </div>
-                    <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={exportAnalyticsAudit}
+                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2"
+                    >
                         <Download className="w-4 h-4" />
                         Audit
                     </button>
@@ -305,7 +347,14 @@ export function AdminAnalyticsPage() {
                 <div className="lg:col-span-2 bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                     <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/10">
                         <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">High-Yield Commodities</h3>
-                        <BarChart3 className="w-5 h-5 text-slate-300" />
+                        <button
+                            type="button"
+                            title="Download commodity audit (same as Analytics Audit)"
+                            onClick={exportAnalyticsAudit}
+                            className="p-2 rounded-xl text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                        >
+                            <BarChart3 className="w-5 h-5" />
+                        </button>
                     </div>
                     <div className="p-8">
                         <div className="space-y-6">
@@ -313,7 +362,11 @@ export function AdminAnalyticsPage() {
                                 <div key={product.id} className="group flex items-center gap-6 p-4 rounded-3xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100">
                                     <div className="flex-shrink-0 relative">
                                         <div className="h-14 w-14 rounded-2xl bg-slate-900 overflow-hidden shadow-lg group-hover:scale-110 transition-transform duration-500">
-                                            <img src={product.image} className="w-full h-full object-cover" />
+                                            <img
+                                                src={getImageDisplayUrl(product.image || '') || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="56" height="56"%3E%3Crect fill="%231e293b" width="56" height="56"/%3E%3C/svg%3E'}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                            />
                                         </div>
                                         <div className="absolute -top-2 -left-2 h-6 w-6 bg-emerald-500 text-white rounded-full flex items-center justify-center text-[10px] font-black border-2 border-white shadow-md">
                                             #{idx + 1}
@@ -322,7 +375,9 @@ export function AdminAnalyticsPage() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center justify-between mb-2">
                                             <p className="text-sm font-black text-slate-900 uppercase tracking-tight truncate">{product.name}</p>
-                                            <p className="text-xs font-black text-emerald-600">₹{(((product as any).revenue || 0) / 1000).toFixed(1)}K</p>
+                                            <p className="text-xs font-black text-emerald-600">
+                                                {formatInrCompact((product as any).revenue || 0)}
+                                            </p>
                                         </div>
                                         <div className="relative h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                                             <motion.div

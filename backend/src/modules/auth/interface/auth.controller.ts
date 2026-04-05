@@ -10,7 +10,16 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
-import { RegisterDto, LoginDto, VerifyEmailDto, ResendEmailDto, ForgotPasswordDto, ResetPasswordDto, ChangePasswordDto } from '../application/dtos/auth.dto';
+import {
+    RegisterDto,
+    LoginDto,
+    VerifyEmailDto,
+    ResendEmailDto,
+    ForgotPasswordDto,
+    ResetPasswordDto,
+    ChangePasswordDto,
+    BulkCustomerAnnouncementDto,
+} from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
@@ -80,5 +89,15 @@ export class AuthController {
     @Get('users')
     async getUsers() {
         return this.authService.getCustomersForAdmin();
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Bulk in-app message to customers (admin); optional email batch' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @HttpCode(HttpStatus.OK)
+    @Post('users/bulk-announcement')
+    async bulkCustomerAnnouncement(@Body() dto: BulkCustomerAnnouncementDto) {
+        return this.authService.bulkCustomerAnnouncement(dto);
     }
 }

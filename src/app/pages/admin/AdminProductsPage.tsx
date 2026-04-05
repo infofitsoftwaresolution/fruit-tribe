@@ -22,6 +22,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleton';
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
 
@@ -37,7 +38,7 @@ function toDateInputValue(value?: string | null): string {
 export function AdminProductsPage() {
     const { user } = useAuth();
     const location = useLocation();
-    const { products, categories, sellers, refreshProducts } = useAdminData();
+    const { products, categories, sellers, refreshProducts, isInitialLoading: adminDataLoading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [activeCategory, setActiveCategory] = useState('All');
@@ -141,6 +142,60 @@ export function AdminProductsPage() {
             seasonal: base.filter(p => p.isSeasonal).length
         };
     }, [products, isSeller, user]);
+
+    const escapeCsvValue = (value: unknown) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+    };
+
+    const handleExportProductsCsv = useCallback(() => {
+        if (!filteredProducts.length) {
+            toast.error('No products to export for the current filters.');
+            return;
+        }
+        const header = [
+            'Product ID',
+            'Name',
+            'SKU',
+            'Category',
+            'Vendor',
+            'Seller ID',
+            'Price (INR)',
+            'Discount price',
+            'Stock',
+            'Unit',
+            'Low stock threshold',
+            'Seasonal',
+            'Organic',
+        ];
+        const rows = filteredProducts.map((p) => [
+            p.id,
+            p.name,
+            p.sku || '',
+            p.category,
+            p.vendor || '',
+            p.sellerId || '',
+            p.price,
+            p.discountPrice ?? '',
+            p.availableStock ?? p.stock,
+            p.unit || 'kg',
+            p.lowStockThreshold ?? '',
+            p.isSeasonal ? 'Yes' : 'No',
+            p.isOrganic ? 'Yes' : 'No',
+        ]);
+        const csv = [header, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `catalog-export-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${filteredProducts.length} product(s) to CSV.`);
+    }, [filteredProducts]);
 
     const handleDeleteProduct = useCallback((id: string | number, name: string) => {
         toast(`Archive ${name}?`, {
@@ -372,7 +427,8 @@ export function AdminProductsPage() {
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => toast.info('Exporting global catalog...')}
+                        type="button"
+                        onClick={handleExportProductsCsv}
                         className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2 shadow-sm"
                     >
                         <Download className="w-4 h-4" />
@@ -512,6 +568,9 @@ export function AdminProductsPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
+                            {adminDataLoading && products.length === 0 ? (
+                                <AdminTableSkeletonRows rows={12} cols={7} />
+                            ) : (
                             <AnimatePresence mode='popLayout'>
                                 {filteredProducts.map((product, idx) => (
                                     <motion.tr
@@ -642,10 +701,11 @@ export function AdminProductsPage() {
                                     </motion.tr>
                                 ))}
                             </AnimatePresence>
+                            )}
                         </tbody>
                     </table>
 
-                    {filteredProducts.length === 0 && (
+                    {filteredProducts.length === 0 && !(adminDataLoading && products.length === 0) && (
                         <div className="py-32 text-center">
                             <ShoppingBag className="w-20 h-20 text-slate-100 mx-auto mb-6" />
                             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Products Found</h3>

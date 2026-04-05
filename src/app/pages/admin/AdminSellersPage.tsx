@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Store, CheckCircle2, AlertCircle, Clock, Search,
@@ -105,6 +105,59 @@ export function AdminSellersPage() {
         });
     }, [sellers, searchQuery, activeTab]);
 
+    const escapeCsvValue = (value: unknown) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+    };
+
+    const handleExportNetworkAudit = useCallback(() => {
+        const list = filteredSellers;
+        if (!list.length) {
+            toast.error('No merchants to export for the current tab and search.');
+            return;
+        }
+        const header = [
+            'Seller ID',
+            'Store name',
+            'Owner',
+            'Email',
+            'Status',
+            'KYC status',
+            'Joined',
+            'Commission %',
+            'Location',
+            'GST',
+            'PAN',
+            'Rating',
+        ];
+        const rows = list.map((s) => [
+            s.id,
+            s.storeName,
+            s.ownerName,
+            s.email,
+            s.status,
+            s.kycStatus,
+            s.joinedAt,
+            s.commissionRate,
+            s.location,
+            s.gstNumber ?? '',
+            s.panNumber ?? '',
+            s.rating,
+        ]);
+        const csv = [header, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `merchant-network-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${list.length} merchant row(s) to CSV.`);
+    }, [filteredSellers]);
+
     const stats = [
         { label: 'Total Partnerships', value: sellers.length, icon: Users, color: 'emerald' },
         { label: 'Pending Audit', value: sellers.filter(s => s.status === 'PENDING').length, icon: Clock, color: 'orange' },
@@ -126,7 +179,8 @@ export function AdminSellersPage() {
                 </div>
                 <div className="flex gap-3">
                     <button
-                        onClick={() => toast.info('Generating audit report...')}
+                        type="button"
+                        onClick={handleExportNetworkAudit}
                         className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                     >
                         <Download className="w-4 h-4" />

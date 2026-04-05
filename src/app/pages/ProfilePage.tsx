@@ -3,9 +3,17 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
-import { getOrders, getImageDisplayUrl } from '@/lib/api';
 import {
-  User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf,
+  getOrders,
+  getImageDisplayUrl,
+  getUserAddresses,
+  createUserAddress,
+  deleteUserAddress,
+  setDefaultUserAddress,
+} from '@/lib/api';
+import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
+import {
+  User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf, Plus, Trash2,
   Package, Truck, CheckCircle, Clock, ChevronRight, Box,
   Star, Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
 } from 'lucide-react';
@@ -110,6 +118,19 @@ export function ProfilePage() {
     [trackingMapCenter]
   );
   const [trackingMapLoading, setTrackingMapLoading] = useState(false);
+  const [savedAddrs, setSavedAddrs] = useState<SavedDeliveryAddress[]>([]);
+  const [addrsLoading, setAddrsLoading] = useState(true);
+  const [newAddr, setNewAddr] = useState({
+    label: '',
+    name: '',
+    phone: '',
+    line1: '',
+    city: '',
+    state: 'Karnataka',
+    pincode: '',
+    makeDefault: false,
+  });
+  const [savingAddr, setSavingAddr] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -217,6 +238,27 @@ export function ProfilePage() {
     });
   }, [user, ordersLoading, apiOrders]);
 
+  const loadSavedAddresses = useCallback(async () => {
+    if (!user) {
+      setSavedAddrs([]);
+      setAddrsLoading(false);
+      return;
+    }
+    setAddrsLoading(true);
+    try {
+      const list = await getUserAddresses();
+      setSavedAddrs(list);
+    } catch {
+      setSavedAddrs([]);
+    } finally {
+      setAddrsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    void loadSavedAddresses();
+  }, [loadSavedAddresses]);
+
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
@@ -276,8 +318,15 @@ export function ProfilePage() {
                 </div>
               </div>
             )}
-            <button onClick={handleLogout} className="h-20 w-20 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center hover:bg-red-500 transition-all shadow-2xl">
-              <LogOut className="w-6 h-6" />
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Log out"
+              aria-label="Log out"
+              className="h-20 w-24 shrink-0 bg-slate-900 text-white rounded-[2rem] flex flex-col items-center justify-center gap-1.5 hover:bg-red-600 transition-all shadow-2xl px-2"
+            >
+              <LogOut className="w-6 h-6 shrink-0" aria-hidden />
+              <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-tight text-center">Log out</span>
             </button>
           </div>
         </div>
@@ -374,6 +423,184 @@ export function ProfilePage() {
                   <button onClick={handleCancel} className="py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[9px] uppercase tracking-widest">Cancel</button>
                 </div>
               )}
+            </div>
+
+            {/* Saved delivery addresses */}
+            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Saved addresses</h3>
+                <MapPin className="w-5 h-5 text-emerald-500" />
+              </div>
+              <p className="text-xs text-slate-500 font-medium mb-6">
+                Use these at checkout and subscription. Set a default for auto-fill.
+              </p>
+              {addrsLoading ? (
+                <p className="text-sm text-slate-400 font-bold">Loading…</p>
+              ) : savedAddrs.length === 0 ? (
+                <p className="text-sm text-slate-400 font-medium mb-6">No saved addresses yet.</p>
+              ) : (
+                <ul className="space-y-3 mb-8">
+                  {savedAddrs.map((a) => (
+                    <li
+                      key={a.id}
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl border border-slate-100 bg-slate-50/80"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-black text-slate-900 text-sm truncate">
+                          {a.label ? `${a.label} · ` : ''}
+                          {a.name}
+                          {a.isDefault && (
+                            <span className="ml-2 text-[9px] uppercase tracking-widest text-emerald-600">Default</span>
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {a.addressLine1}
+                          {a.addressLine2 ? `, ${a.addressLine2}` : ''} · {a.city}, {a.state} {a.pincode}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">{a.phone}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        {!a.isDefault && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await setDefaultUserAddress(a.id);
+                                toast.success('Default address updated');
+                                await loadSavedAddresses();
+                              } catch (e: unknown) {
+                                toast.error(e instanceof Error ? e.message : 'Could not update');
+                              }
+                            }}
+                            className="px-3 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest"
+                          >
+                            Set default
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm('Remove this address?')) return;
+                            try {
+                              await deleteUserAddress(a.id);
+                              toast.success('Address removed');
+                              await loadSavedAddresses();
+                            } catch (e: unknown) {
+                              toast.error(e instanceof Error ? e.message : 'Could not remove');
+                            }
+                          }}
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-widest flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Add address</p>
+              <div className="grid gap-3">
+                <input
+                  placeholder="Label (optional)"
+                  value={newAddr.label}
+                  onChange={(e) => setNewAddr((p) => ({ ...p, label: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                />
+                <input
+                  placeholder="Full name"
+                  value={newAddr.name}
+                  onChange={(e) => setNewAddr((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                />
+                <input
+                  placeholder="Phone"
+                  value={newAddr.phone}
+                  onChange={(e) => setNewAddr((p) => ({ ...p, phone: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                />
+                <input
+                  placeholder="Street address"
+                  value={newAddr.line1}
+                  onChange={(e) => setNewAddr((p) => ({ ...p, line1: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    placeholder="City"
+                    value={newAddr.city}
+                    onChange={(e) => setNewAddr((p) => ({ ...p, city: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                  />
+                  <input
+                    placeholder="State"
+                    value={newAddr.state}
+                    onChange={(e) => setNewAddr((p) => ({ ...p, state: e.target.value }))}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                  />
+                </div>
+                <input
+                  placeholder="PIN (6 digits)"
+                  value={newAddr.pincode}
+                  onChange={(e) => setNewAddr((p) => ({ ...p, pincode: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                />
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newAddr.makeDefault}
+                    onChange={(e) => setNewAddr((p) => ({ ...p, makeDefault: e.target.checked }))}
+                    className="rounded border-slate-300"
+                  />
+                  Set as default delivery address
+                </label>
+                <button
+                  type="button"
+                  disabled={savingAddr}
+                  onClick={async () => {
+                    const pin = newAddr.pincode.replace(/\D/g, '');
+                    if (!newAddr.name.trim() || !newAddr.phone.trim() || !newAddr.line1.trim() || !newAddr.city.trim() || pin.length !== 6) {
+                      toast.error('Fill name, phone, street, city, and 6-digit PIN.');
+                      return;
+                    }
+                    setSavingAddr(true);
+                    try {
+                      await createUserAddress({
+                        label: newAddr.label.trim() || undefined,
+                        name: newAddr.name.trim(),
+                        phone: newAddr.phone.trim(),
+                        addressLine1: newAddr.line1.trim(),
+                        addressLine2: null,
+                        city: newAddr.city.trim(),
+                        state: (newAddr.state || 'Karnataka').trim(),
+                        pincode: pin,
+                        isDefault: newAddr.makeDefault || savedAddrs.length === 0,
+                      });
+                      toast.success('Address saved');
+                      setNewAddr({
+                        label: '',
+                        name: '',
+                        phone: '',
+                        line1: '',
+                        city: '',
+                        state: 'Karnataka',
+                        pincode: '',
+                        makeDefault: false,
+                      });
+                      await loadSavedAddresses();
+                    } catch (e: unknown) {
+                      toast.error(e instanceof Error ? e.message : 'Could not save');
+                    } finally {
+                      setSavingAddr(false);
+                    }
+                  }}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                  {savingAddr ? 'Saving…' : 'Save address'}
+                </button>
+              </div>
             </div>
           </div>
 

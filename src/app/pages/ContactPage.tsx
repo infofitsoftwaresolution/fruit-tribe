@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
+import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -83,8 +84,12 @@ export function ContactPage() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Email</h3>
-                  <p className="text-gray-600 text-sm">support@fruittribe.com</p>
-                  <p className="text-gray-600 text-sm">info@fruittribe.com</p>
+                  <a
+                    href={`mailto:${STORE_PUBLIC_CONTACT.email}`}
+                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors"
+                  >
+                    {STORE_PUBLIC_CONTACT.email}
+                  </a>
                 </div>
               </motion.div>
 
@@ -97,8 +102,13 @@ export function ContactPage() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Phone</h3>
-                  <p className="text-gray-600 text-sm">+1 (555) 123-4567</p>
-                  <p className="text-gray-600 text-sm">Mon–Fri: 9AM – 6PM EST</p>
+                  <a
+                    href={storePhoneTelHref(STORE_PUBLIC_CONTACT.phone)}
+                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors block"
+                  >
+                    {STORE_PUBLIC_CONTACT.phone}
+                  </a>
+                  <p className="text-gray-600 text-sm mt-1">Mon–Sat: 9AM – 6PM IST</p>
                 </div>
               </motion.div>
 
@@ -111,9 +121,7 @@ export function ContactPage() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Address</h3>
-                  <p className="text-gray-600 text-sm">123 Fruit Street</p>
-                  <p className="text-gray-600 text-sm">Fresh City, FC 12345</p>
-                  <p className="text-gray-600 text-sm">United States</p>
+                  <p className="text-gray-600 text-sm">{STORE_PUBLIC_CONTACT.address}</p>
                 </div>
               </motion.div>
             </div>

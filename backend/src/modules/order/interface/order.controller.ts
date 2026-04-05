@@ -13,6 +13,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { OrderService } from '../application/order.service';
 import { PaymentService } from '../application/payment.service';
 import { CreateOrderDto } from './dtos/create-order.dto';
+import { CreateSubscriptionOrderDto } from './dtos/create-subscription-order.dto';
 import { CreateRazorpayOrderDto } from './dtos/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dtos/verify-payment.dto';
 import { JwtAuthGuard } from '../../auth/interface/guards/jwt-auth.guard';
@@ -31,6 +32,12 @@ export class OrderController {
     @Post()
     async create(@Request() req: any, @Body() dto: CreateOrderDto) {
         return this.orderService.create(req.user.id, dto);
+    }
+
+    @ApiOperation({ summary: 'Create subscription signup order (complete payment via Razorpay)' })
+    @Post('subscription')
+    async createSubscription(@Request() req: any, @Body() dto: CreateSubscriptionOrderDto) {
+        return this.orderService.createSubscriptionOrder(req.user.id, dto);
     }
 
     @ApiOperation({ summary: 'Get all orders (admin: all orders, user: own orders)' })

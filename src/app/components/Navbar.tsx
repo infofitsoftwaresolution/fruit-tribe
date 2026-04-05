@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Menu, X, Search, User, LogIn, ChevronRight, LayoutDashboard, Globe, Zap, ArrowUpRight, Truck } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, User, LogIn, ChevronRight, LayoutDashboard, Globe, Zap, ArrowUpRight, Truck, LogOut } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
@@ -17,7 +17,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
 
   const isAdmin = user && ['admin', 'seller'].includes(user.role);
   const isDeliveryPartner = user?.role === 'delivery_partner';
@@ -135,6 +135,26 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
               )}
 
               <div className="flex items-center gap-1.5 sm:gap-2">
+                {isAuthenticated && (
+                  <motion.button
+                    type="button"
+                    title="Log out"
+                    aria-label="Log out"
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      logout();
+                      navigate('/');
+                    }}
+                    className={cn(
+                      'hidden sm:inline-flex h-10 md:h-12 min-w-[2.5rem] md:min-w-[7.5rem] px-2 md:px-4 items-center justify-center gap-2 rounded-xl sm:rounded-2xl transition-all font-black text-[8px] md:text-[9px] uppercase tracking-[0.14em] md:tracking-widest shadow-lg',
+                      'bg-slate-900 text-white hover:bg-slate-800 border border-slate-800',
+                    )}
+                  >
+                    <LogOut className="w-4 h-4 md:w-5 md:h-5 shrink-0" aria-hidden />
+                    <span className="hidden md:inline">Log out</span>
+                  </motion.button>
+                )}
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 15 }}
                   whileTap={{ scale: 0.95 }}
@@ -241,6 +261,22 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
 
               <div className="p-5 sm:p-12 bg-slate-50 border-t border-slate-100">
                 <div className="grid grid-cols-2 gap-4">
+                  {isAuthenticated && (
+                    <button
+                      type="button"
+                      title="Log out"
+                      aria-label="Log out"
+                      onClick={() => {
+                        logout();
+                        setIsMenuOpen(false);
+                        navigate('/');
+                      }}
+                      className="col-span-2 h-14 bg-slate-900 text-white rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest shadow-xl active:scale-[0.98] transition-all"
+                    >
+                      <LogOut className="h-4 w-4" aria-hidden />
+                      Log out
+                    </button>
+                  )}
                   {isAdmin && (
                     <Link
                       to="/admin"

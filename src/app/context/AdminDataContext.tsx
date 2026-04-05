@@ -14,6 +14,7 @@ import {
     getOrders,
     getProducts,
     getSellers,
+    invalidateProductsListCache,
     mapApiProductToProduct,
     type Category,
     type Product,
@@ -71,7 +72,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             safe(getCustomers(), []),
             safe(getSellers(), []),
             safe(getCategories(), []),
-            safe(getProducts({ limit: 500 }), { data: [] as any[], meta: null as any }),
+            safe(getProducts({ limit: 500, page: 1 }), { data: [] as any[], meta: null as any }),
             safe(getDeliveryPartners(), []),
         ]);
         setOrders(Array.isArray(o) ? o : []);
@@ -136,7 +137,8 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
     const refreshProducts = useCallback(async () => {
         try {
-            const pr = await getProducts({ limit: 500 });
+            invalidateProductsListCache();
+            const pr = await getProducts({ limit: 500, page: 1 });
             setProducts((pr?.data ?? []).map(mapApiProductToProduct));
         } catch {
             /* keep cached snapshot */

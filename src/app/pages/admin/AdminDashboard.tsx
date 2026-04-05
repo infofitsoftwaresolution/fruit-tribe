@@ -11,13 +11,14 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { AdminStatsSkeleton } from '@/app/components/admin/AdminTableSkeleton';
 import { toast } from 'sonner';
 
 export function AdminDashboard() {
     const { theme } = useStore();
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { orders, customers, sellers, products } = useAdminData();
+    const { orders, customers, sellers, products, isInitialLoading: adminBootLoading } = useAdminData();
 
     const isAdmin = user?.role === 'admin';
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
@@ -126,7 +127,15 @@ export function AdminDashboard() {
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                         <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">System Running</span>
                     </div>
-                    <button className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-500 hover:shadow-xl transition-all">
+                    <button
+                        type="button"
+                        title="Open storefront in a new tab"
+                        onClick={() => {
+                            const base = window.location.href.split('#')[0];
+                            window.open(`${base}#/`, '_blank', 'noopener,noreferrer');
+                        }}
+                        className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-500 hover:shadow-xl transition-all"
+                    >
                         <ExternalLink className="w-5 h-5" />
                     </button>
                 </div>
@@ -142,6 +151,7 @@ export function AdminDashboard() {
                         { label: 'Customers', href: '/admin/customers' },
                         { label: 'Vendors', href: '/admin/sellers' },
                         { label: 'Analytics', href: '/admin/analytics' },
+                        { label: 'Subscription', href: '/admin/subscription' },
                     ].map((item) => (
                         <button
                             key={item.href}
@@ -156,7 +166,11 @@ export function AdminDashboard() {
 
             {/* Top Tier Metrics: Platform-wide or Seller Gross */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {isAdmin ? (
+                {adminBootLoading ? (
+                    <div className="md:col-span-4">
+                        <AdminStatsSkeleton cards={4} />
+                    </div>
+                ) : isAdmin ? (
                     <>
                         <MetricGlassCard
                             label="Total Revenue"

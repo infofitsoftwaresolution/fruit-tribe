@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { SettingsService } from '../../settings/application/settings.service';
 import { CreateOrderDto } from '../interface/dtos/create-order.dto';
+import { CreateSubscriptionOrderDto } from '../interface/dtos/create-subscription-order.dto';
 
 @Injectable()
 export class OrderService {
@@ -129,6 +130,17 @@ export class OrderService {
 
         // Use a transaction to create the full order atomically
         return this.prisma.$transaction(async (tx) => {
+            let linkedAddressId: string | undefined;
+            if (dto.savedAddressId) {
+                const saved = await tx.userAddress.findFirst({
+                    where: { id: dto.savedAddressId, userId },
+                });
+                if (!saved) {
+                    throw new BadRequestException('Saved address not found.');
+                }
+                linkedAddressId = saved.id;
+            }
+
             const orderNumber = `FT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
             // 1. Row-level Lock all variants and Validate Stock with Safety Buffer
@@ -170,6 +182,7 @@ export class OrderService {
                     billingAddress: dto.billingAddress,
                     couponId,
                     idempotencyKey: dto.idempotencyKey,
+                    addressId: linkedAddressId,
                     status: 'CREATED',
                     paymentStatus: 'PENDING',
                     items: {
@@ -263,6 +276,98 @@ export class OrderService {
         });
     }
 
+    /**
+     * Subscription signup: order with no line items, payable = plan price, metadata holds plan snapshot.
+     * Payment via existing Razorpay flow; verify skips stock when there are no reservations.
+     */
+    async createSubscriptionOrder(userId: string, dto: CreateSubscriptionOrderDto) {
+        if (dto.idempotencyKey) {
+            const existing = await this.prisma.order.findUnique({
+                where: { idempotencyKey: dto.idempotencyKey },
+            });
+            if (existing) return existing;
+        }
+
+        const addr = dto.shippingAddress as Record<string, any>;
+        const city = String(addr.city ?? '').trim();
+        const zipDigits = String(addr.zipCode ?? addr.pincode ?? addr.postalCode ?? '').replace(/\D/g, '');
+
+        const serviceableCities = await this.settingsService.getServiceableCities();
+        if (serviceableCities.length > 0 && city) {
+            const cityOk = serviceableCities.some((c) => c.toLowerCase() === city.toLowerCase());
+            if (!cityOk) {
+                throw new BadRequestException(
+                    `We do not deliver to "${city}". Available cities: ${serviceableCities.join(', ')}.`,
+                );
+            }
+        }
+
+        const serviceablePincodes = await this.settingsService.getServiceablePincodes();
+        if (serviceablePincodes.length > 0) {
+            if (zipDigits.length !== 6 || !serviceablePincodes.includes(zipDigits)) {
+                throw new BadRequestException('This PIN code is not in our delivery area.');
+            }
+        }
+
+        const price = Number(dto.price);
+        const orderNumber = `FT-SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        const metadata = {
+            orderKind: 'SUBSCRIPTION',
+            planId: dto.planId,
+            planName: dto.planName,
+            frequency: dto.frequency,
+            fruitSelection: dto.fruitSelection,
+            deliveryDay: dto.deliveryDay,
+        };
+
+        return this.prisma.$transaction(async (tx) => {
+            let linkedAddressId: string | undefined;
+            if (dto.savedAddressId) {
+                const saved = await tx.userAddress.findFirst({
+                    where: { id: dto.savedAddressId, userId },
+                });
+                if (!saved) {
+                    throw new BadRequestException('Saved address not found.');
+                }
+                linkedAddressId = saved.id;
+            }
+
+            const order = await tx.order.create({
+                data: {
+                    orderNumber,
+                    userId,
+                    totalAmount: price,
+                    discountAmount: 0,
+                    shippingFee: 0,
+                    taxAmount: 0,
+                    payableAmount: price,
+                    shippingAddress: dto.shippingAddress,
+                    billingAddress: dto.shippingAddress,
+                    deliverySlot: `Subscription · ${dto.deliveryDay}`,
+                    status: 'CREATED',
+                    paymentStatus: 'PENDING',
+                    idempotencyKey: dto.idempotencyKey,
+                    addressId: linkedAddressId,
+                    metadata: metadata as object,
+                },
+                include: { items: true },
+            });
+
+            await tx.orderStatusLog.create({
+                data: {
+                    orderId: order.id,
+                    status: 'CREATED',
+                    changedByRole: 'CUSTOMER',
+                    changedByName: null,
+                },
+            });
+
+            this.logger.log(`Subscription order ${order.orderNumber} created for user ${userId}`);
+            return order;
+        });
+    }
+
     async findByUser(userId: string) {
         return this.prisma.order.findMany({
             where: { userId },
@@ -320,15 +425,15 @@ export class OrderService {
         return order;
     }
 
-    /** Admin: list all orders (no user filter) */
+    /** Admin: list all orders (no user filter). Light payload — no statusLogs / product images (detail uses findOne when needed). */
     async findAll() {
         return this.prisma.order.findMany({
             include: {
                 user: { select: { id: true, email: true, firstName: true, lastName: true } },
                 items: {
                     include: {
-                        product: { select: { name: true, id: true, images: { where: { isPrimary: true }, take: 1 } } },
-                        variant: true,
+                        product: { select: { id: true, name: true } },
+                        variant: { select: { id: true, sku: true, attributeValue: true } },
                         seller: { select: { storeName: true } },
                     },
                 },
@@ -336,9 +441,6 @@ export class OrderService {
                     include: {
                         deliveryPartner: { select: { name: true } },
                     },
-                },
-                statusLogs: {
-                    orderBy: { createdAt: 'asc' },
                 },
             },
             orderBy: { createdAt: 'desc' },

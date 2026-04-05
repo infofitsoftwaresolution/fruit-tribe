@@ -4,6 +4,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { UserPlus, Eye, EyeOff, Shield, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AUTH_BG_IMAGE =
   'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1920&q=80';
@@ -72,20 +73,27 @@ export function SignUpPage() {
       await signup(formData.name, formData.email, formData.phone, formData.password);
       navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
     } catch (err) {
-      const msg = (err as any)?.message || '';
+      const msg = String((err as Error)?.message || '');
+      const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail;
       if (msg === 'EMAIL_PENDING_VERIFICATION') {
-        setError('You already started registration. Please verify your email.');
-        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
+        toast.info('This email is already registered but not verified. Enter the code we sent, or resend below.');
+        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`, {
+          replace: true,
+        });
       } else if (msg === 'EMAIL_ALREADY_REGISTERED') {
-        setError('This email is already registered. Please sign in instead.');
+        setError('This email is already in use. Sign in or use a different email.');
       } else if (msg === 'PHONE_ALREADY_REGISTERED') {
-        setError('This mobile number is already registered. Please sign in instead.');
+        setError('This mobile number is already in use. Sign in or use a different number.');
       } else if (msg === 'PHONE_PENDING_VERIFICATION') {
-        const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
-        setError('This mobile number already has a pending account. Please verify your email.');
-        navigate(`/verify-email?email=${encodeURIComponent(verifyEmail)}&next=${encodeURIComponent(next)}`);
+        const emailForVerify = verifyEmail?.trim() || formData.email;
+        toast.info(
+          'This mobile number is already linked to an account that has not finished email verification. Continue with the email address registered for that number.',
+        );
+        navigate(`/verify-email?email=${encodeURIComponent(emailForVerify)}&next=${encodeURIComponent(next)}`, {
+          replace: true,
+        });
       } else {
-        setError('Sign up failed. Please try again.');
+        setError(msg || 'Sign up failed. Please try again.');
       }
     } finally {
       setIsLoading(false);

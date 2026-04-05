@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getProducts, getProduct, mapApiProductToProduct, type ProductFilters, type Product } from '@/lib/api';
+import {
+  getProductsCached,
+  getProduct,
+  mapApiProductToProduct,
+  type ProductFilters,
+  type Product,
+} from '@/lib/api';
 
 export function useProducts(filters: ProductFilters = {}) {
   const [data, setData] = useState<Product[]>([]);
@@ -11,7 +17,7 @@ export function useProducts(filters: ProductFilters = {}) {
     setLoading(true);
     setError(null);
     try {
-      const res = await getProducts({ ...filters, limit: filters.limit ?? 24 });
+      const res = await getProductsCached({ ...filters, limit: filters.limit ?? 24 });
       setData((res.data || []).map(mapApiProductToProduct));
       setMeta(res.meta ?? null);
     } catch (e: any) {

@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsIn, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
@@ -101,4 +101,35 @@ export class ChangePasswordDto {
     @IsString()
     @MinLength(8)
     newPassword: string;
+}
+
+export class BulkCustomerAnnouncementDto {
+    @ApiProperty({ example: 'Stock clearance sale — this weekend only' })
+    @IsString()
+    @MinLength(3)
+    @MaxLength(200)
+    title: string;
+
+    @ApiProperty({
+        example: 'Fresh fruit at reduced prices while stocks last. Shop now on The Fruit Tribe.',
+    })
+    @IsString()
+    @MinLength(10)
+    @MaxLength(5000)
+    message: string;
+
+    @ApiProperty({
+        enum: ['all', 'verified', 'with_orders'],
+        description: 'all: every customer account; verified: active (verified) only; with_orders: at least one order',
+    })
+    @IsIn(['all', 'verified', 'with_orders'])
+    audience: 'all' | 'verified' | 'with_orders';
+
+    @ApiProperty({
+        required: false,
+        description: 'Also send as email (SMTP must be configured; capped per request)',
+    })
+    @IsOptional()
+    @IsBoolean()
+    sendEmail?: boolean;
 }

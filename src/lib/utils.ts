@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+/** Compact INR for dashboards: avoids ₹0.0K when revenue is under ₹1,000. */
+export function formatInrCompact(amount: number): string {
+    const n = Math.max(0, Number(amount) || 0);
+    if (n < 1000) {
+        return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: n % 1 === 0 ? 0 : 2 })}`;
+    }
+    if (n < 100000) {
+        return `₹${(n / 1000).toFixed(n < 10000 ? 1 : 0)}K`;
+    }
+    return `₹${(n / 100000).toFixed(2)}L`;
+}
+
 export function getRoundedClass(style?: 'Rounded' | 'Square' | 'Pill') {
     switch (style) {
         case 'Pill': return 'rounded-full';

@@ -67,4 +67,9 @@ export class CreateOrderDto {
     @IsOptional()
     @IsString()
     paymentMethod?: string;
+
+    @ApiProperty({ required: false, description: 'Optional saved UserAddress id (must belong to you)' })
+    @IsOptional()
+    @IsUUID()
+    savedAddressId?: string;
 }

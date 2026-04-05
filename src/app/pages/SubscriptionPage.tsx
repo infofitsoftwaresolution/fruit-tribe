@@ -1,33 +1,142 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, type ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Sparkles, Gift, Truck, Star, Calendar, Zap, Heart, ShieldCheck, Leaf } from 'lucide-react';
+import { Check, Sparkles, Gift, Truck, Star, Calendar, Zap, Heart, ShieldCheck, Leaf, Loader2, MapPin, type LucideIcon } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/context/AuthContext';
+import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
+import {
+  createSubscriptionOrder,
+  createRazorpayOrder,
+  verifyPayment,
+  getOrders,
+  getUserAddresses,
+  createUserAddress,
+} from '@/lib/api';
+import {
+  savedAddressToCheckoutForm,
+  checkoutFormToCreateAddressBody,
+  type SavedDeliveryAddress,
+} from '@/lib/deliveryAddressUtils';
+
+const BENEFIT_ICONS: Record<string, LucideIcon> = {
+  gift: Gift,
+  truck: Truck,
+  calendar: Calendar,
+};
+
+function loadRazorpayScript(): Promise<void> {
+  return new Promise((resolve) => {
+    if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.body.appendChild(script);
+  });
+}
 
 export function SubscriptionPage() {
-  const { theme, setSubscription, subscription } = useStore();
+  const { theme, setSubscription, subscription, preferences } = useStore();
   const { user } = useAuth();
+  const { cities: serviceableCities, pincodes: serviceablePincodes, isCityServiceable, isPincodeServiceable } =
+    useServiceableAreas();
+  const cfg = useMemo(
+    () => mergeSubscriptionPageConfig(preferences.subscriptionPage),
+    [preferences.subscriptionPage],
+  );
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [customBox, setCustomBox] = useState<string[]>([]);
-  const [deliveryDay, setDeliveryDay] = useState<string>('Monday');
+  const [deliveryDay, setDeliveryDay] = useState<string>(() => cfg.deliveryDays[0] ?? 'Monday');
+  const [submitting, setSubmitting] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    firstName: user?.name?.split(' ')[0] || '',
+    lastName: user?.name?.split(' ').slice(1).join(' ') || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
+    city: '',
+    state: 'Karnataka',
+    zipCode: '',
+  });
+  const [savedAddresses, setSavedAddresses] = useState<SavedDeliveryAddress[]>([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
+  const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
 
-  const fruits = [
-    { name: 'Alphonso Mango', category: 'Premium', score: 98 },
-    { name: 'Organic Strawberries', category: 'Berries', score: 95 },
-    { name: 'Wild Blueberries', category: 'Berries', score: 92 },
-    { name: 'Nagpur Oranges', category: 'Citrus', score: 94 },
-    { name: 'Kashmiri Apples', category: 'Core', score: 90 },
-    { name: 'Organic Watermelon', category: 'Hydration', score: 88 },
-    { name: 'Golden Kiwi', category: 'Exotic', score: 96 },
-    { name: 'Maui Pineapple', category: 'Tropical', score: 93 },
-    { name: 'Emerald Grapes', category: 'Vines', score: 89 },
-    { name: 'Ruby Pomegranate', category: 'Superfood', score: 97 }
-  ];
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('saved_checkout_address');
+      if (saved) {
+        const parsed = JSON.parse(saved) as Record<string, string>;
+        setAddressForm((prev) => ({ ...prev, ...parsed, state: parsed.state ?? prev.state ?? 'Karnataka' }));
+        setSelectedSavedAddressId('');
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
-  const days = ['Monday', 'Wednesday', 'Friday', 'Saturday'];
+  useEffect(() => {
+    if (!user) return;
+    setAddressForm((prev) => ({
+      ...prev,
+      firstName: prev.firstName || user.name?.split(' ')[0] || '',
+      lastName: prev.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+      email: prev.email || user.email || '',
+      phone: prev.phone || user.phone || '',
+      address: prev.address || user.address || '',
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSavedAddresses([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getUserAddresses();
+        if (cancelled) return;
+        setSavedAddresses(list);
+        let skipAutoFill = false;
+        try {
+          skipAutoFill = !!localStorage.getItem('saved_checkout_address');
+        } catch {
+          /* ignore */
+        }
+        if (skipAutoFill || list.length === 0) return;
+        const preferred = list.find((a) => a.isDefault) || list[0];
+        if (!preferred) return;
+        setAddressForm((prev) => ({
+          ...prev,
+          ...savedAddressToCheckoutForm(preferred, user.email || prev.email || ''),
+        }));
+        setSelectedSavedAddressId(preferred.id);
+      } catch {
+        if (!cancelled) setSavedAddresses([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const first = cfg.deliveryDays[0] ?? 'Monday';
+    setDeliveryDay((d) => (cfg.deliveryDays.includes(d) ? d : first));
+  }, [cfg.deliveryDays]);
+
+  const plans = cfg.plans;
+  const fruits = cfg.fruits;
+  const days = cfg.deliveryDays;
 
   const freshnessScore = useMemo(() => {
     if (customBox.length === 0) return 0;
@@ -36,7 +145,7 @@ export function SubscriptionPage() {
       return acc + (fruit?.score || 0);
     }, 0);
     return Math.round(total / customBox.length);
-  }, [customBox]);
+  }, [customBox, fruits]);
 
   const handleSelectPlan = (id: string) => {
     if (!user) {
@@ -56,7 +165,88 @@ export function SubscriptionPage() {
     );
   };
 
-  const handleSubscribe = () => {
+  const addressFieldChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSelectedSavedAddressId('');
+    setAddressForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSavedAddressPick = (id: string) => {
+    if (!id) {
+      setSelectedSavedAddressId('');
+      setSaveNewAddressToAccount(false);
+      return;
+    }
+    const row = savedAddresses.find((a) => a.id === id);
+    if (!row || !user) return;
+    setAddressForm((prev) => ({
+      ...prev,
+      ...savedAddressToCheckoutForm(row, user.email || prev.email || ''),
+    }));
+    setSelectedSavedAddressId(id);
+    setSaveNewAddressToAccount(false);
+  };
+
+  const persistLocalSubscription = (
+    plan: (typeof plans)[0],
+    orderId: string,
+    orderNumber: string,
+    snapshot: typeof addressForm,
+    savedCount: number,
+    saveNew: boolean,
+    usedSavedId: string,
+  ) => {
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 7);
+    setSubscription({
+      id: `SUB-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+      planName: plan.name,
+      price: plan.price,
+      frequency: plan.frequency,
+      items: [...customBox],
+      nextDelivery: nextDate.toISOString().split('T')[0],
+      status: 'Active',
+      customizations: [deliveryDay],
+      orderId,
+      orderNumber,
+    });
+    toast.success(`Welcome to the Tribe!`, {
+      description: `Order ${orderNumber} · ${deliveryDay}. Freshness: ${freshnessScore}%`,
+      icon: <Sparkles className="w-4 h-4 text-emerald-500" />,
+    });
+    setIsCustomizing(false);
+    try {
+      localStorage.setItem('saved_checkout_address', JSON.stringify(snapshot));
+    } catch {
+      /* ignore */
+    }
+    if (user && saveNew && !usedSavedId) {
+      void (async () => {
+        try {
+          await createUserAddress(
+            checkoutFormToCreateAddressBody(
+              {
+                firstName: snapshot.firstName,
+                lastName: snapshot.lastName,
+                email: snapshot.email,
+                phone: snapshot.phone,
+                address: snapshot.address,
+                city: snapshot.city,
+                state: snapshot.state || 'Karnataka',
+                zipCode: snapshot.zipCode,
+              },
+              { isDefault: savedCount === 0 },
+            ),
+          );
+          toast.success('Address saved to your account');
+        } catch {
+          /* optional */
+        }
+      })();
+    }
+  };
+
+  const handleSubscribe = async () => {
     if (!user) {
       toast.info('Please sign in to confirm your subscription.', {
         description: 'Log in and try again.',
@@ -66,79 +256,163 @@ export function SubscriptionPage() {
     }
     if (!selectedPlan) return;
 
-    const plan = plans.find(p => p.id === selectedPlan);
+    const plan = plans.find((p) => p.id === selectedPlan);
     if (!plan) return;
 
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + 7);
+    if (customBox.length === 0) {
+      toast.error('Pick at least one fruit for your box.');
+      return;
+    }
 
-    setSubscription({
-      id: `SUB-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-      planName: plan.name,
-      price: plan.price,
-      frequency: plan.id === 'Weekly Box' ? 'Weekly' : 'Monthly',
-      items: customBox,
-      nextDelivery: nextDate.toISOString().split('T')[0],
-      status: 'Active',
-      customizations: [deliveryDay]
-    });
+    const { firstName, lastName, email, phone, address, city, state, zipCode } = addressForm;
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !phone.trim() || !address.trim() || !city.trim() || !zipCode.trim()) {
+      toast.error('Please fill in your full delivery address.');
+      return;
+    }
 
-    toast.success(`Welcome to the Tribe!`, {
-      description: `Scheduled for next ${deliveryDay}. Freshness Score: ${freshnessScore}%`,
-      icon: <Sparkles className="w-4 h-4 text-emerald-500" />
-    });
-    setIsCustomizing(false);
+    if (serviceableCities.length > 0 && !isCityServiceable(city)) {
+      toast.error(`We do not deliver to "${city.trim()}".`);
+      return;
+    }
+    if (serviceablePincodes.length > 0 && !isPincodeServiceable(zipCode)) {
+      toast.error('This PIN code is not in our delivery area.');
+      return;
+    }
+
+    const shippingAddress = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      city: city.trim(),
+      zipCode: zipCode.trim().replace(/\D/g, '').slice(0, 6),
+      state: (state || 'Karnataka').trim(),
+    };
+
+    setSubmitting(true);
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && crypto.randomUUID ? `sub-${crypto.randomUUID()}` : `sub-${Date.now()}`;
+    const addressSnapshot = { ...addressForm };
+
+    try {
+      const created = await createSubscriptionOrder({
+        planId: plan.id,
+        planName: plan.name,
+        price: plan.price,
+        frequency: plan.frequency,
+        fruitSelection: customBox,
+        deliveryDay,
+        shippingAddress,
+        idempotencyKey,
+        savedAddressId: selectedSavedAddressId || undefined,
+      });
+      const orderId = String(created.id);
+      const orderNumber = String(created.orderNumber || orderId);
+      const payableAmount = Number((created as { payableAmount?: number }).payableAmount ?? plan.price);
+      const amountInPaise = Math.round(payableAmount * 100);
+
+      const openRazorpay = async () => {
+        const { razorpayOrderId, keyId } = await createRazorpayOrder(orderId, amountInPaise, 'INR');
+        await loadRazorpayScript();
+        const Razorpay = (window as unknown as { Razorpay?: new (opts: object) => { open: () => void } }).Razorpay;
+        if (!Razorpay) {
+          toast.error('Payment could not be loaded. Your subscription is not active until payment succeeds.', {
+            description: `Order ${orderNumber} — try again or pay from My Orders.`,
+          });
+          setIsCustomizing(false);
+          return;
+        }
+        const rzp = new Razorpay({
+          key: keyId,
+          order_id: razorpayOrderId,
+          currency: 'INR',
+          name: 'The Fruit Tribe',
+          description: `Subscription — ${plan.name}`,
+          handler: async (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
+            try {
+              await verifyPayment(orderId, {
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              });
+              persistLocalSubscription(
+                plan,
+                orderId,
+                orderNumber,
+                addressSnapshot,
+                savedAddresses.length,
+                saveNewAddressToAccount,
+                selectedSavedAddressId,
+              );
+            } catch (err: unknown) {
+              const msg = err instanceof Error ? err.message : 'Verification failed';
+              toast.error(msg + ' If money was debited, contact support with your order number.');
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              const delay = 2500;
+              setTimeout(async () => {
+                try {
+                  const orders = await getOrders();
+                  const o = orders.find(
+                    (row: { id: string; paymentStatus?: string }) => String(row.id) === orderId,
+                  );
+                  if (o?.paymentStatus === 'PAID') {
+                    persistLocalSubscription(
+                      plan,
+                      orderId,
+                      orderNumber,
+                      addressSnapshot,
+                      savedAddresses.length,
+                      saveNewAddressToAccount,
+                      selectedSavedAddressId,
+                    );
+                    return;
+                  }
+                } catch {
+                  /* ignore */
+                }
+                toast.info('Payment was not completed. Your subscription starts only after you pay.', {
+                  description: `Order ${orderNumber}`,
+                });
+              }, delay);
+            },
+          },
+        });
+        rzp.open();
+      };
+
+      try {
+        await openRazorpay();
+      } catch (razorpayErr: unknown) {
+        const msg = razorpayErr instanceof Error ? razorpayErr.message : '';
+        if (msg.includes('Razorpay is not configured') || msg.includes('not configured')) {
+          toast.error('Online payment is not set up yet. Your subscription was not activated.', {
+            description: 'Ask the store to configure Razorpay, then try again.',
+          });
+        } else {
+          toast.error(msg || 'Could not start payment. Try again from this page or pay from My Orders.', {
+            description: `Order ${orderNumber}`,
+          });
+        }
+        setIsCustomizing(false);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Could not start subscription.';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const plans = [
-    {
-      id: 'Weekly Box',
-      name: 'Weekly Box',
-      price: 499,
-      period: 'per week',
-      description: 'Perfect for individuals or small families',
-      features: [
-        '3-4kg of fresh fruits',
-        'Weekly delivery',
-        'Free shipping',
-        'Customizable selection',
-        'Mix of seasonal fruits',
-      ],
-      popular: false,
-    },
-    {
-      id: 'Premium Tribe',
-      name: 'Premium Tribe',
-      price: 1499,
-      period: 'per month',
-      description: 'Great for regular fruit lovers',
-      features: [
-        '10-12kg of fresh fruits',
-        'Choose delivery days',
-        'Free priority shipping',
-        'Cancel anytime',
-        'Premium exotic selection',
-        'Recipe cards included',
-      ],
-      popular: true,
-    },
-    {
-      id: 'Family Feast',
-      name: 'Family Feast',
-      price: 2499,
-      period: 'per month',
-      description: 'Best value for large families',
-      features: [
-        '20-25kg of fresh fruits',
-        'Bi-weekly delivery',
-        'Free priority shipping',
-        'Full custom control',
-        'Premium & exotic fruits',
-        'Dedicated account manager',
-      ],
-      popular: false,
-    },
-  ];
+  const periodDisplaySuffix = (period: string) =>
+    period.includes(' ') ? period.split(' ').slice(1).join(' ') : period;
 
   return (
     <div className="pt-28 pb-16 min-h-screen bg-slate-50">
@@ -205,19 +479,26 @@ export function SubscriptionPage() {
         >
           <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-50 text-emerald-600 rounded-full mb-6 border border-emerald-100">
             <Star className="w-4 h-4 fill-emerald-600" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Member Plans</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{cfg.badgeLabel}</span>
           </div>
           <h1 className="text-6xl md:text-8xl font-black mb-8 tracking-tighter text-slate-900 leading-[0.9]">
-            Join the <br />
-            <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent italic">Fruit Tribe</span>
+            {cfg.heroPrefix} <br />
+            <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent italic">{cfg.heroGradientText}</span>
           </h1>
           <p className="text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed font-medium">
-            Get hand-picked fruits delivered to your home on your schedule.
+            {cfg.heroSubtitle}
           </p>
         </motion.div>
 
         {/* Plans */}
-        <div className="grid md:grid-cols-3 gap-8 mb-24">
+        <div
+          className={cn(
+            'grid gap-8 mb-24',
+            plans.length <= 1 && 'md:grid-cols-1 max-w-lg mx-auto',
+            plans.length === 2 && 'md:grid-cols-2',
+            plans.length >= 3 && 'md:grid-cols-2 lg:grid-cols-3',
+          )}
+        >
           {plans.map((plan, index) => (
             <motion.div
               key={plan.id}
@@ -243,7 +524,7 @@ export function SubscriptionPage() {
                   <span className="text-7xl font-black text-slate-900 tracking-tighter">
                     {plan.price}
                   </span>
-                  <span className="text-slate-400 font-bold text-sm uppercase ml-2 tracking-widest">/{plan.period.split(' ')[1]}</span>
+                  <span className="text-slate-400 font-bold text-sm uppercase ml-2 tracking-widest">/{periodDisplaySuffix(plan.period)}</span>
                 </div>
               </div>
 
@@ -298,11 +579,11 @@ export function SubscriptionPage() {
                     <div className="mb-10">
                       <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-5 h-5 text-emerald-500 fill-emerald-500" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Customize</span>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{cfg.customizeEyebrow}</span>
                       </div>
-                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">Customize Your Box</h2>
+                      <h2 className="text-4xl font-black text-slate-900 tracking-tighter">{cfg.customizeTitle}</h2>
                       <p className="text-slate-500 mt-2 font-medium">
-                        Select varieties to cycle in your weekly drop. Delivery days are scheduled for <span className="font-semibold underline">next week</span>, not the current week.
+                        {cfg.customizeSubtitle}
                       </p>
                     </div>
 
@@ -362,15 +643,16 @@ export function SubscriptionPage() {
                         </div>
                       </div>
 
-                      <div className="space-y-4 mb-10">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Delivery</p>
-                        <div className="flex gap-2">
+                      <div className="space-y-4 mb-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Delivery day</p>
+                        <div className="flex flex-wrap gap-2">
                           {days.map(day => (
                             <button
                               key={day}
+                              type="button"
                               onClick={() => setDeliveryDay(day)}
                               className={cn(
-                                "px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all transition-all",
+                                "px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all",
                                 deliveryDay === day
                                   ? "bg-slate-900 text-white shadow-xl"
                                   : "bg-slate-100 text-slate-400 hover:bg-slate-200"
@@ -381,14 +663,116 @@ export function SubscriptionPage() {
                           ))}
                         </div>
                       </div>
+
+                      <div className="space-y-3 mb-8">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                          <MapPin className="w-3.5 h-3.5" />
+                          Delivery address
+                        </p>
+                        {user && savedAddresses.length > 0 && (
+                          <select
+                            value={selectedSavedAddressId}
+                            onChange={(e) => handleSavedAddressPick(e.target.value)}
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                          >
+                            <option value="">Enter a new address below</option>
+                            {savedAddresses.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {(a.label ? `${a.label} · ` : '') + a.name} — {a.city}
+                                {a.isDefault ? ' (Default)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            name="firstName"
+                            value={addressForm.firstName}
+                            onChange={addressFieldChange}
+                            placeholder="First name"
+                            className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                          />
+                          <input
+                            name="lastName"
+                            value={addressForm.lastName}
+                            onChange={addressFieldChange}
+                            placeholder="Last name"
+                            className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                          />
+                        </div>
+                        <input
+                          name="email"
+                          type="email"
+                          value={addressForm.email}
+                          onChange={addressFieldChange}
+                          placeholder="Email"
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                        <input
+                          name="phone"
+                          value={addressForm.phone}
+                          onChange={addressFieldChange}
+                          placeholder="Phone"
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                        <input
+                          name="address"
+                          value={addressForm.address}
+                          onChange={addressFieldChange}
+                          placeholder="Street, building, landmark"
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            name="city"
+                            value={addressForm.city}
+                            onChange={addressFieldChange}
+                            placeholder="City"
+                            className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                          />
+                          <input
+                            name="state"
+                            value={addressForm.state}
+                            onChange={addressFieldChange}
+                            placeholder="State"
+                            className="rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                          />
+                        </div>
+                        <input
+                          name="zipCode"
+                          value={addressForm.zipCode}
+                          onChange={addressFieldChange}
+                          placeholder="PIN code"
+                          className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                        {user && !selectedSavedAddressId && (
+                          <label className="flex items-start gap-2 cursor-pointer text-[11px] font-bold text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={saveNewAddressToAccount}
+                              onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                              className="mt-0.5 rounded border-slate-300"
+                            />
+                            <span>Save this address to my account for checkout and next subscription.</span>
+                          </label>
+                        )}
+                      </div>
                     </div>
 
                     <button
+                      type="button"
                       onClick={handleSubscribe}
-                      disabled={customBox.length === 0}
-                      className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 disabled:opacity-20 disabled:cursor-not-allowed shadow-3xl shadow-emerald-600/20"
+                      disabled={customBox.length === 0 || submitting}
+                      className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed shadow-3xl shadow-emerald-600/20 inline-flex items-center justify-center gap-2"
                     >
-                      Confirm Subscription
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                          Processing…
+                        </>
+                      ) : (
+                        <>Pay &amp; confirm subscription</>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -404,38 +788,22 @@ export function SubscriptionPage() {
           viewport={{ once: true }}
           className="grid md:grid-cols-3 gap-12"
         >
-          {[
-            {
-              icon: Gift,
-              title: 'Better Prices',
-              desc: 'Save more with recurring deliveries and plan pricing.',
-              color: 'emerald'
-            },
-            {
-              icon: Truck,
-              title: 'Farm to Home',
-              desc: 'Fresh fruits delivered quickly from trusted sources.',
-              color: 'blue'
-            },
-            {
-              icon: Calendar,
-              title: 'Flexible Schedule',
-              desc: 'Pause, resume, or update deliveries anytime.',
-              color: 'purple'
-            }
-          ].map((benefit, idx) => (
-            <div key={idx} className="p-10 bg-white rounded-[3rem] border border-slate-100 hover:border-emerald-100 transition-all group">
+          {cfg.benefits.map((benefit, idx) => {
+            const Icon = BENEFIT_ICONS[benefit.icon] ?? Gift;
+            return (
+            <div key={`${benefit.title}-${idx}`} className="p-10 bg-white rounded-[3rem] border border-slate-100 hover:border-emerald-100 transition-all group">
               <div className={cn(
                 "w-16 h-16 rounded-3xl flex items-center justify-center mb-8 transition-transform group-hover:scale-110",
                 benefit.color === 'emerald' ? "bg-emerald-50 text-emerald-600" :
                   benefit.color === 'blue' ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"
               )}>
-                <benefit.icon className="w-8 h-8" />
+                <Icon className="w-8 h-8" />
               </div>
               <h3 className="text-2xl font-black mb-4 text-slate-900 uppercase tracking-tight">{benefit.title}</h3>
               <p className="text-slate-500 font-medium text-sm leading-relaxed">{benefit.desc}</p>
             </div>
-          ))}
+            );
+          })}
         </motion.div>
       </div>
     </div>

@@ -254,6 +254,8 @@ model Order {
   addressId        String?     @db.Uuid @map("address_id")
   address          UserAddress? @relation(fields: [addressId], references: [id])
   deliverySlot     String?     @map("delivery_slot")
+  /// Optional JSON: e.g. subscription plan snapshot when orderKind is subscription
+  metadata         Json?       @map("metadata")
   items            OrderItem[]
   payments         Payment[]
   deliveries       Delivery[]

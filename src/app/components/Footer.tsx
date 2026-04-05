@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Leaf, ShieldCheck, Zap, Globe, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,9 @@ export function Footer() {
     'Seasonal picks',
     'Organic',
   ];
+
+  const { address: footerAddress, phone: footerPhone, email: footerEmail } = STORE_PUBLIC_CONTACT;
+  const footerPhoneHref = storePhoneTelHref(footerPhone);
 
   return (
     <footer className="bg-slate-950 text-white relative overflow-hidden border-t border-white/5">
@@ -140,20 +144,29 @@ export function Footer() {
             </div>
 
             <div className="space-y-6">
-              {[
-                { icon: MapPin, text: theme.contactAddress || 'Fresh City, Local' },
-                { icon: Phone, text: theme.contactPhone || '1-800-FRUIT' },
-                { icon: Mail, text: theme.contactEmail || 'hello@fruittribe.com' },
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  whileHover={{ x: 5 }}
-                  className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors cursor-pointer uppercase tracking-widest"
-                >
-                  <item.icon className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                  <span className="leading-relaxed">{item.text}</span>
-                </motion.div>
-              ))}
+              <motion.div
+                whileHover={{ x: 5 }}
+                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
+              >
+                <MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" aria-hidden />
+                <span className="leading-relaxed normal-case font-bold text-slate-300">{footerAddress}</span>
+              </motion.div>
+              <motion.a
+                href={footerPhoneHref}
+                whileHover={{ x: 5 }}
+                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
+              >
+                <Phone className="w-4 h-4 text-emerald-500 flex-shrink-0" aria-hidden />
+                <span className="leading-relaxed">{footerPhone}</span>
+              </motion.a>
+              <motion.a
+                href={`mailto:${footerEmail}`}
+                whileHover={{ x: 5 }}
+                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
+              >
+                <Mail className="w-4 h-4 text-emerald-500 flex-shrink-0" aria-hidden />
+                <span className="leading-relaxed normal-case">{footerEmail}</span>
+              </motion.a>
             </div>
 
             {/* Newsletter */}

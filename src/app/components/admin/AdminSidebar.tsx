@@ -16,7 +16,8 @@ import {
     LayoutDashboard,
     Zap,
     Shield,
-    LogOut
+    LogOut,
+    Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
@@ -36,6 +37,7 @@ const sidebarItems = [
     { icon: Wallet, label: 'Payouts', href: '/admin/payouts', roles: ['admin'] },
     { icon: BarChart2, label: 'Analytics', href: '/admin/analytics', roles: ['admin'] },
     { icon: Percent, label: 'Taxation', href: '/admin/taxes', roles: ['admin'] },
+    { icon: Sparkles, label: 'Subscription', href: '/admin/subscription', roles: ['admin'] },
     { icon: Tag, label: 'Discounts', href: '/admin/discounts', roles: ['admin', 'seller', 'SELLER'] },
 ];
 

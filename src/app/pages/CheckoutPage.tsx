@@ -6,7 +6,23 @@ import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
-import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders, getWarehouses, getAvailableOffers, type AvailableOffer } from '@/lib/api';
+import {
+  createOrder,
+  createRazorpayOrder,
+  validateCoupon,
+  verifyPayment,
+  getOrders,
+  getWarehouses,
+  getAvailableOffers,
+  getUserAddresses,
+  createUserAddress,
+  type AvailableOffer,
+} from '@/lib/api';
+import {
+  savedAddressToCheckoutForm,
+  checkoutFormToCreateAddressBody,
+  type SavedDeliveryAddress,
+} from '@/lib/deliveryAddressUtils';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
@@ -60,8 +76,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     phone: user?.phone || '',
     address: user?.address || '',
     city: '',
+    state: 'Karnataka',
     zipCode: '',
   });
+  const [savedAddresses, setSavedAddresses] = useState<SavedDeliveryAddress[]>([]);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
+  const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
 
   const [deliveryStats, setDeliveryStats] = useState({
     distanceKm: 4.8,
@@ -78,7 +98,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Hydrate saved address if available
+    // Hydrate last-used address from this device
     try {
       const saved = localStorage.getItem('saved_checkout_address');
       if (saved) {
@@ -86,12 +106,48 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         setFormData((prev) => ({
           ...prev,
           ...parsed,
+          state: parsed.state ?? prev.state ?? 'Karnataka',
         }));
+        setSelectedSavedAddressId('');
       }
     } catch {
       // ignore
     }
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setSavedAddresses([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await getUserAddresses();
+        if (cancelled) return;
+        setSavedAddresses(list);
+        let skipAutoFill = false;
+        try {
+          skipAutoFill = !!localStorage.getItem('saved_checkout_address');
+        } catch {
+          /* ignore */
+        }
+        if (skipAutoFill || list.length === 0) return;
+        const preferred = list.find((a) => a.isDefault) || list[0];
+        if (!preferred) return;
+        setFormData((prev) => ({
+          ...prev,
+          ...savedAddressToCheckoutForm(preferred, user.email || prev.email || ''),
+        }));
+        setSelectedSavedAddressId(preferred.id);
+      } catch {
+        if (!cancelled) setSavedAddresses([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     getWarehouses(true).then((list) => {
@@ -338,6 +394,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     return true;
   };
 
+  const handleSavedAddressPick = (id: string) => {
+    if (!id) {
+      setSelectedSavedAddressId('');
+      setSaveNewAddressToAccount(false);
+      return;
+    }
+    const row = savedAddresses.find((a) => a.id === id);
+    if (!row || !user) return;
+    setFormData((prev) => ({
+      ...prev,
+      ...savedAddressToCheckoutForm(row, user.email || prev.email || ''),
+    }));
+    setSelectedSavedAddressId(id);
+    setSaveNewAddressToAccount(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -420,7 +492,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       address: formData.address,
       city: formData.city,
       zipCode: formData.zipCode,
-      state: formData.zipCode ? 'State' : '',
+      state: formData.state?.trim() || 'Karnataka',
     };
 
     setSubmitting(true);
@@ -433,17 +505,41 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         deliverySlot: deliverySlot || undefined,
         distanceKm: deliveryStats.distanceKm,
         paymentMethod: paymentMethod,
+        savedAddressId: selectedSavedAddressId || undefined,
       });
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const payableAmount = Number((created as any).payableAmount ?? grandTotal);
       const amountInPaise = Math.round(payableAmount * 100);
 
-      // Persist address for next checkout
+      // Persist address for next checkout (this device)
       try {
         localStorage.setItem('saved_checkout_address', JSON.stringify(formData));
       } catch {
         // ignore
+      }
+
+      if (user && saveNewAddressToAccount && !selectedSavedAddressId) {
+        try {
+          await createUserAddress(
+            checkoutFormToCreateAddressBody(
+              {
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                address: formData.address,
+                city: formData.city,
+                state: formData.state || 'Karnataka',
+                zipCode: formData.zipCode,
+              },
+              { isDefault: savedAddresses.length === 0 },
+            ),
+          );
+          toast.success('Address saved to your account');
+        } catch {
+          toast.info('Order placed. You can save this address later from Profile.');
+        }
       }
 
       if (paymentMethod === 'cod') {
@@ -564,8 +660,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     });
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setSelectedSavedAddressId('');
     setFormData({ ...formData, [name]: value });
   };
 
@@ -640,6 +737,27 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
                 </div>
+
+                {user && savedAddresses.length > 0 && (
+                  <div className="space-y-2 mb-8">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">
+                      Use a saved address
+                    </label>
+                    <select
+                      value={selectedSavedAddressId}
+                      onChange={(e) => handleSavedAddressPick(e.target.value)}
+                      className="w-full px-4 sm:px-6 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold min-h-[44px]"
+                    >
+                      <option value="">Enter a new address below</option>
+                      {savedAddresses.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {(a.label ? `${a.label} · ` : '') + a.name} — {a.city}, {a.pincode}
+                          {a.isDefault ? ' (Default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -717,6 +835,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     )}
                   </div>
                   <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">State / UT</label>
+                    <input
+                      type="text"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleChange}
+                      required
+                      placeholder="e.g. Karnataka"
+                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">ZIP / Postal code</label>
                     <input
                       type="text"
@@ -748,6 +878,21 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       )}
                   </div>
                 </div>
+
+                {user && !selectedSavedAddressId && (
+                  <div className="mt-6 flex items-start gap-3 pl-1">
+                    <input
+                      type="checkbox"
+                      id="saveAddressToAccount"
+                      checked={saveNewAddressToAccount}
+                      onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                    />
+                    <label htmlFor="saveAddressToAccount" className="text-sm font-bold text-slate-600 leading-snug cursor-pointer">
+                      Save this delivery address to my account for next time (checkout and subscription).
+                    </label>
+                  </div>
+                )}
 
                 {/* Map & delivery slot */}
                 <div className="mt-8 space-y-6">

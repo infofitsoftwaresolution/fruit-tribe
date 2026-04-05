@@ -1,6 +1,8 @@
 /**
  * API client for backend. All data comes from the database via these endpoints.
  */
+import type { SavedDeliveryAddress } from './deliveryAddressUtils';
+
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
 /** Use for all fetch(): avoids mixed content by using relative /api/v1 when page is HTTPS and base is HTTP */
@@ -32,6 +34,76 @@ export type AuthProfile = {
 
 export async function getAuthProfile(): Promise<AuthProfile> {
   const res = await fetch(`${getEffectiveApiBase()}/auth/me`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Saved delivery addresses for the logged-in customer. */
+export async function getUserAddresses(): Promise<SavedDeliveryAddress[]> {
+  const res = await fetch(`${getEffectiveApiBase()}/addresses`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function createUserAddress(body: {
+  label?: string;
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string | null;
+  city: string;
+  state: string;
+  pincode: string;
+  isDefault?: boolean;
+}): Promise<SavedDeliveryAddress> {
+  const res = await fetch(`${getEffectiveApiBase()}/addresses`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || res.statusText);
+  }
+  return res.json();
+}
+
+export async function updateUserAddress(
+  id: string,
+  body: Partial<{
+    label: string | null;
+    name: string;
+    phone: string;
+    addressLine1: string;
+    addressLine2: string | null;
+    city: string;
+    state: string;
+    pincode: string;
+    isDefault: boolean;
+  }>,
+): Promise<SavedDeliveryAddress> {
+  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function deleteUserAddress(id: string): Promise<void> {
+  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+}
+
+export async function setDefaultUserAddress(id: string): Promise<SavedDeliveryAddress> {
+  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}/default`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -178,6 +250,54 @@ export interface ProductFilters {
   showOutOfSeason?: boolean;
 }
 
+function productFiltersCacheKey(filters: ProductFilters): string {
+  return JSON.stringify({
+    p: filters.page ?? 1,
+    l: filters.limit ?? 24,
+    s: filters.search ?? '',
+    c: filters.categoryId ?? '',
+    min: filters.minPrice ?? '',
+    max: filters.maxPrice ?? '',
+    sb: filters.sortBy ?? '',
+    so: filters.sortOrder ?? '',
+    oos: filters.showOutOfSeason === true,
+  });
+}
+
+const PRODUCT_LIST_TTL_MS = 45_000;
+const productListCache = new Map<string, { at: number; data: ProductsResponse }>();
+const productListInflight = new Map<string, Promise<ProductsResponse>>();
+
+/** Clear cached product list responses (e.g. after admin edits). */
+export function invalidateProductsListCache(): void {
+  productListCache.clear();
+  productListInflight.clear();
+}
+
+/** Same as getProducts but dedupes in-flight requests and caches briefly (storefront performance). */
+export async function getProductsCached(filters: ProductFilters = {}): Promise<ProductsResponse> {
+  const key = productFiltersCacheKey(filters);
+  const hit = productListCache.get(key);
+  if (hit && Date.now() - hit.at < PRODUCT_LIST_TTL_MS) {
+    return hit.data;
+  }
+  const pending = productListInflight.get(key);
+  if (pending) return pending;
+
+  const promise = getProducts(filters)
+    .then((data) => {
+      productListCache.set(key, { at: Date.now(), data });
+      productListInflight.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      productListInflight.delete(key);
+      throw err;
+    });
+  productListInflight.set(key, promise);
+  return promise;
+}
+
 export async function getProducts(filters: ProductFilters = {}): Promise<ProductsResponse> {
   const params = new URLSearchParams();
   if (filters.page != null) params.set('page', String(filters.page));
@@ -256,6 +376,7 @@ export async function createOrder(body: {
   distanceKm?: number;
   idempotencyKey?: string;
   paymentMethod?: 'online' | 'cod';
+  savedAddressId?: string;
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, {
     method: 'POST',
@@ -272,6 +393,39 @@ export async function createOrder(body: {
       }
     } catch {
       /* use text as message */
+    }
+    throw new Error(message || res.statusText);
+  }
+  return res.json();
+}
+
+/** Subscription signup order (no line items; pay via existing Razorpay endpoints). */
+export async function createSubscriptionOrder(body: {
+  planId: string;
+  planName: string;
+  price: number;
+  frequency: 'Weekly' | 'Bi-weekly' | 'Monthly';
+  fruitSelection: string[];
+  deliveryDay: string;
+  shippingAddress: Record<string, unknown>;
+  idempotencyKey?: string;
+  savedAddressId?: string;
+}): Promise<{ id: string; orderNumber: string; payableAmount?: unknown; [k: string]: unknown }> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/subscription`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    let message = text;
+    try {
+      const data = JSON.parse(text) as { message?: string | string[] };
+      if (data?.message != null) {
+        message = Array.isArray(data.message) ? data.message.join('; ') : data.message;
+      }
+    } catch {
+      /* use text */
     }
     throw new Error(message || res.statusText);
   }
@@ -353,8 +507,10 @@ export async function registerUser(payload: {
     let verifyEmail: string | undefined;
     try {
       const data = await res.json();
-      if (typeof data?.message === 'string') message = data.message;
       if (typeof data?.email === 'string' && data.email.trim()) verifyEmail = data.email.trim();
+      const raw = data?.message;
+      if (typeof raw === 'string' && raw.trim()) message = raw;
+      else if (Array.isArray(raw)) message = raw.join('; ');
     } catch {
       message = await res.text().catch(() => res.statusText);
     }
@@ -421,6 +577,41 @@ export async function getCustomers(): Promise<any[]> {
   return res.json();
 }
 
+/** Admin: bulk in-app notification (+ optional email) to customers. */
+export async function postBulkCustomerAnnouncement(body: {
+  title: string;
+  message: string;
+  audience: 'all' | 'verified' | 'with_orders';
+  sendEmail?: boolean;
+}): Promise<{
+  notificationsCreated: number;
+  emailsSent?: number;
+  emailsFailed?: number;
+  emailBatchCapped?: boolean;
+  emailCap?: number;
+  message?: string;
+}> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/users/bulk-announcement`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    let msg = text;
+    try {
+      const data = JSON.parse(text) as { message?: string | string[] };
+      if (data?.message != null) {
+        msg = Array.isArray(data.message) ? data.message.join('; ') : String(data.message);
+      }
+    } catch {
+      /* use text */
+    }
+    throw new Error(msg || res.statusText);
+  }
+  return res.json();
+}
+
 /** Create product (auth required). See backend CreateProductDto. */
 export async function createProduct(body: {
   name: string;
@@ -447,6 +638,7 @@ export async function createProduct(body: {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  invalidateProductsListCache();
   return res.json();
 }
 
@@ -479,6 +671,7 @@ export async function updateProduct(
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  invalidateProductsListCache();
   return res.json();
 }
 
@@ -489,6 +682,7 @@ export async function deleteProduct(id: string): Promise<void> {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  invalidateProductsListCache();
 }
 
 /** Approve seller application (admin only). */

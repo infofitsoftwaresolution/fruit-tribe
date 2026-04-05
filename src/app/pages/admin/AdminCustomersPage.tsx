@@ -7,11 +7,18 @@ import {
     Search, Filter, MoreHorizontal, Mail, User,
     ShoppingBag, Calendar, TrendingUp, ChevronRight,
     Star, Shield, ExternalLink, MapPin, Phone, Clock,
-    Download, Layout, X
+    Download, Layout, X, Megaphone, Loader2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
+import { postBulkCustomerAnnouncement } from '@/lib/api';
+
+const STOCK_CLEARANCE_PRESET = {
+    title: 'Stock clearance sale',
+    message:
+        'Fresh fruit and produce on clearance while stocks last. Open The Fruit Tribe app or website to shop the sale before it ends. Thank you for being part of our community!',
+};
 
 export function AdminCustomersPage() {
     const { theme } = useStore();
@@ -19,6 +26,13 @@ export function AdminCustomersPage() {
     const { customers, orders, isInitialLoading: loading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+    const isAdmin = user?.role === 'admin';
+    const [bulkOpen, setBulkOpen] = useState(false);
+    const [bulkLoading, setBulkLoading] = useState(false);
+    const [bulkTitle, setBulkTitle] = useState(STOCK_CLEARANCE_PRESET.title);
+    const [bulkMessage, setBulkMessage] = useState(STOCK_CLEARANCE_PRESET.message);
+    const [bulkAudience, setBulkAudience] = useState<'all' | 'verified' | 'with_orders'>('verified');
+    const [bulkSendEmail, setBulkSendEmail] = useState(false);
 
     const filteredCustomers = useMemo(() => {
         let base = customers.map((c: any) => ({
@@ -141,6 +155,52 @@ export function AdminCustomersPage() {
         toast.success('Customer CSV downloaded');
     };
 
+    const openBulkModal = () => {
+        setBulkTitle(STOCK_CLEARANCE_PRESET.title);
+        setBulkMessage(STOCK_CLEARANCE_PRESET.message);
+        setBulkAudience('verified');
+        setBulkSendEmail(false);
+        setBulkOpen(true);
+    };
+
+    const handleBulkSend = async () => {
+        const title = bulkTitle.trim();
+        const message = bulkMessage.trim();
+        if (title.length < 3) {
+            toast.error('Please enter a title (at least 3 characters).');
+            return;
+        }
+        if (message.length < 10) {
+            toast.error('Please enter a longer message (at least 10 characters).');
+            return;
+        }
+        setBulkLoading(true);
+        try {
+            const res = await postBulkCustomerAnnouncement({
+                title,
+                message,
+                audience: bulkAudience,
+                sendEmail: bulkSendEmail,
+            });
+            if (res.notificationsCreated === 0) {
+                toast.info(res.message || 'No customers matched.');
+            } else {
+                let desc = `In-app notifications: ${res.notificationsCreated}`;
+                if (bulkSendEmail) {
+                    desc += `. Email sent: ${res.emailsSent ?? 0}`;
+                    if ((res.emailsFailed ?? 0) > 0) desc += `, failed: ${res.emailsFailed}`;
+                    if (res.emailBatchCapped) desc += ` (first ${res.emailCap ?? 200} only; run again for more if needed)`;
+                }
+                toast.success('Bulk message sent', { description: desc });
+            }
+            setBulkOpen(false);
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : 'Failed to send bulk message');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-8 pb-20">
             {/* Header Area */}
@@ -152,8 +212,19 @@ export function AdminCustomersPage() {
                     </div>
                     <h1 className="text-4xl font-black text-slate-900 tracking-tight">Customers</h1>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
+                    {isAdmin && (
+                        <button
+                            type="button"
+                            onClick={openBulkModal}
+                            className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/15"
+                        >
+                            <Megaphone className="w-4 h-4" />
+                            Bulk message
+                        </button>
+                    )}
                     <button
+                        type="button"
                         onClick={handleExportCustomersCsv}
                         className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
                     >
@@ -297,6 +368,119 @@ export function AdminCustomersPage() {
             </div>
 
             {/* Side Sheet for Customer Profile */}
+            {bulkOpen &&
+                isAdmin &&
+                createPortal(
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <button
+                            type="button"
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                            aria-label="Close"
+                            onClick={() => !bulkLoading && setBulkOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="relative w-full max-w-lg bg-white rounded-[2rem] border border-slate-100 shadow-2xl p-8 max-h-[90vh] overflow-y-auto"
+                        >
+                            <div className="flex items-start justify-between gap-4 mb-6">
+                                <div>
+                                    <div className="flex items-center gap-2 text-emerald-600 mb-1">
+                                        <Megaphone className="w-5 h-5" />
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Broadcast</span>
+                                    </div>
+                                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Message registered customers</h2>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Creates an in-app notification for each customer. Optionally email up to 200 recipients per send (requires SMTP).
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => !bulkLoading && setBulkOpen(false)}
+                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-400"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setBulkTitle(STOCK_CLEARANCE_PRESET.title);
+                                    setBulkMessage(STOCK_CLEARANCE_PRESET.message);
+                                }}
+                                className="mb-4 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:underline"
+                            >
+                                Apply stock clearance template
+                            </button>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Title</label>
+                                    <input
+                                        value={bulkTitle}
+                                        onChange={(e) => setBulkTitle(e.target.value)}
+                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                                        maxLength={200}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Message</label>
+                                    <textarea
+                                        value={bulkMessage}
+                                        onChange={(e) => setBulkMessage(e.target.value)}
+                                        rows={5}
+                                        className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none resize-y min-h-[120px]"
+                                        maxLength={5000}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Audience</label>
+                                    <select
+                                        value={bulkAudience}
+                                        onChange={(e) => setBulkAudience(e.target.value as 'all' | 'verified' | 'with_orders')}
+                                        className="w-full h-11 px-4 rounded-xl border border-slate-200 text-sm font-medium bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                                    >
+                                        <option value="verified">Verified customers only (recommended)</option>
+                                        <option value="all">All registered customers</option>
+                                        <option value="with_orders">Customers with at least one order</option>
+                                    </select>
+                                </div>
+                                <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-slate-100 bg-slate-50/80">
+                                    <input
+                                        type="checkbox"
+                                        checked={bulkSendEmail}
+                                        onChange={(e) => setBulkSendEmail(e.target.checked)}
+                                        className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                                    />
+                                    <span className="text-sm font-bold text-slate-700">Also send by email (SMTP required; max 200 per request)</span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-3 mt-8">
+                                <button
+                                    type="button"
+                                    disabled={bulkLoading}
+                                    onClick={() => setBulkOpen(false)}
+                                    className="flex-1 h-12 rounded-xl border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={bulkLoading}
+                                    onClick={handleBulkSend}
+                                    className="flex-1 h-12 rounded-xl bg-emerald-600 text-white text-sm font-black hover:bg-emerald-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                                >
+                                    {bulkLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Megaphone className="w-4 h-4" />}
+                                    Send
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>,
+                    document.body,
+                )}
+
             {selectedCustomer && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[100] flex justify-end">

@@ -4,9 +4,9 @@ import { useLocation } from 'react-router-dom';
 import { useStore, Order } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
-import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller } from '@/lib/api';
+import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller, getImageDisplayUrl } from '@/lib/api';
 import {
-    Plus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
+    Plus, Minus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
     Printer, Truck, User, Calendar, CreditCard, Package,
     ChevronRight, ExternalLink, MapPin, Phone, Mail, Clock,
     CheckCircle2, AlertCircle, ShoppingBag, TrendingUp, Info,
@@ -16,6 +16,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getRoundedClass } from '@/lib/utils';
+import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleton';
 
 export function AdminOrdersPage() {
     const { updateOrder, theme } = useStore();
@@ -43,6 +44,7 @@ export function AdminOrdersPage() {
         fulfillment: 'Unfulfilled' as Order['fulfillment'],
         selectedProducts: [] as { productId: string | number; quantity: number }[]
     });
+    const [freshEntryProductSearch, setFreshEntryProductSearch] = useState('');
 
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
@@ -173,8 +175,85 @@ export function AdminOrdersPage() {
 
     const handleOpenModal = () => {
         setFormData({ customer: '', status: 'Created', payment: 'Pending', fulfillment: 'Unfulfilled', selectedProducts: [] });
+        setFreshEntryProductSearch('');
         setIsModalOpen(true);
     };
+
+    const catalogForFreshEntry = useMemo(() => {
+        let list = products;
+        if (user?.role === 'seller') {
+            list = products.filter((p) => productBelongsToSeller(p, user));
+        }
+        const q = freshEntryProductSearch.trim().toLowerCase();
+        if (!q) return list;
+        return list.filter(
+            (p) =>
+                p.name.toLowerCase().includes(q) ||
+                (p.vendor || '').toLowerCase().includes(q) ||
+                String(p.sku || '').toLowerCase().includes(q),
+        );
+    }, [products, user, freshEntryProductSearch]);
+
+    const escapeCsvValue = (value: unknown) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+    };
+
+    const handleExportLedger = useCallback(() => {
+        const rows = displayedOrders;
+        if (!rows.length) {
+            toast.error('No orders to export for the current filters.');
+            return;
+        }
+        const header = [
+            'Order ID',
+            'Order Number',
+            'Customer',
+            'Date',
+            'Status',
+            'Payment',
+            'Fulfillment',
+            'Channel',
+            'Vendors',
+            'Line Items (qty)',
+            'Total (INR)',
+        ];
+        const data = rows.map((o) => {
+            const vendors = (((o as any).vendorNames || []) as string[]).join('; ');
+            const lines =
+                (o.itemsDetails || [])
+                    .map((it: any) => {
+                        const pr = products.find((p) => String(p.id) === String(it.productId));
+                        return pr ? `${pr.name}×${it.quantity}` : `${it.productId}×${it.quantity}`;
+                    })
+                    .join(' | ') || String(o.items ?? '');
+            return [
+                o.id,
+                (o as any).orderNumber || '',
+                o.customer,
+                o.date,
+                o.status,
+                o.payment,
+                o.fulfillment,
+                o.channel,
+                vendors,
+                lines,
+                o.total,
+            ];
+        });
+        const csv = [header, ...data].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `orders-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${rows.length} order(s) to CSV.`);
+    }, [displayedOrders, products]);
 
     const handleViewDetails = (order: Order) => {
         setSelectedOrder(order);
@@ -182,19 +261,25 @@ export function AdminOrdersPage() {
     };
 
     const handleAddProduct = useCallback((productId: string | number) => {
-        const product = products.find(p => p.id === productId || p.id === String(productId));
-        if (product && product.stock <= 0) {
-            toast.error('Inventory exhausted for this node');
+        const product = products.find((p) => p.id === productId || p.id === String(productId));
+        const stock = Number(product?.availableStock ?? product?.stock ?? 0);
+        if (product && stock <= 0) {
+            toast.error('Out of stock for this product');
             return;
         }
-        setFormData(prev => {
-            const existing = prev.selectedProducts.find(p => p.productId === productId);
+        const max = stock > 0 ? stock : 9999;
+        setFormData((prev) => {
+            const existing = prev.selectedProducts.find((p) => p.productId === productId);
             if (existing) {
+                if (existing.quantity >= max) {
+                    toast.error('Maximum available quantity reached');
+                    return prev;
+                }
                 return {
                     ...prev,
-                    selectedProducts: prev.selectedProducts.map(p =>
-                        p.productId === productId ? { ...p, quantity: p.quantity + 1 } : p
-                    )
+                    selectedProducts: prev.selectedProducts.map((p) =>
+                        p.productId === productId ? { ...p, quantity: Math.min(p.quantity + 1, max) } : p,
+                    ),
                 };
             }
             return { ...prev, selectedProducts: [...prev.selectedProducts, { productId, quantity: 1 }] };
@@ -204,6 +289,45 @@ export function AdminOrdersPage() {
     const handleRemoveProduct = useCallback((productId: string | number) => {
         setFormData(prev => ({ ...prev, selectedProducts: prev.selectedProducts.filter(p => p.productId !== productId) }));
     }, []);
+
+    const maxQtyForProduct = useCallback(
+        (productId: string | number) => {
+            const product = products.find((p) => p.id === productId || p.id === String(productId));
+            const n = product ? Number(product.availableStock ?? product.stock ?? 0) : 0;
+            return n > 0 ? n : 9999;
+        },
+        [products],
+    );
+
+    const handleSetLineQuantity = useCallback((productId: string | number, raw: number) => {
+        const max = maxQtyForProduct(productId);
+        let q = Math.max(1, Math.floor(Number(raw)) || 1);
+        if (max < 9999) q = Math.min(q, max);
+        setFormData((prev) => ({
+            ...prev,
+            selectedProducts: prev.selectedProducts.map((p) => (p.productId === productId ? { ...p, quantity: q } : p)),
+        }));
+    }, [maxQtyForProduct]);
+
+    const handleBumpQuantity = useCallback(
+        (productId: string | number, delta: number) => {
+            setFormData((prev) => {
+                const line = prev.selectedProducts.find((p) => p.productId === productId);
+                if (!line) return prev;
+                const max = maxQtyForProduct(productId);
+                let q = line.quantity + delta;
+                q = Math.max(1, q);
+                if (max < 9999) q = Math.min(q, max);
+                return {
+                    ...prev,
+                    selectedProducts: prev.selectedProducts.map((p) =>
+                        p.productId === productId ? { ...p, quantity: q } : p,
+                    ),
+                };
+            });
+        },
+        [maxQtyForProduct],
+    );
 
     const currentTotal = useMemo(() => {
         return formData.selectedProducts.reduce((sum, item) => {
@@ -262,7 +386,11 @@ export function AdminOrdersPage() {
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Real-time logistics and transactional telemetry.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm">
+                    <button
+                        type="button"
+                        onClick={handleExportLedger}
+                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm"
+                    >
                         <Download className="w-4 h-4" />
                         Export Ledger
                     </button>
@@ -352,8 +480,8 @@ export function AdminOrdersPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {ordersLoading ? (
-                                <tr><td colSpan={7} className="px-10 py-16 text-center text-slate-400 text-sm">Loading orders...</td></tr>
-                            ) : null}
+                                <AdminTableSkeletonRows rows={10} cols={7} />
+                            ) : (
                             <AnimatePresence mode='popLayout'>
                                 {displayedOrders.map((order, idx) => {
                                     const variant = getStatusVariant(order.status);
@@ -480,10 +608,11 @@ export function AdminOrdersPage() {
                                     );
                                 })}
                             </AnimatePresence>
+                            )}
                         </tbody>
                     </table>
 
-                    {displayedOrders.length === 0 && (
+                    {displayedOrders.length === 0 && !ordersLoading && (
                         <div className="py-32 text-center">
                             <Box className="w-20 h-20 text-slate-100 mx-auto mb-6" />
                             <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Orders Found</h3>
@@ -732,18 +861,18 @@ export function AdminOrdersPage() {
 
                             <form onSubmit={handleSubmitOrder} className="p-12 space-y-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Identity Tag</label>
+                                    <div className="space-y-3 md:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receiver name</label>
                                         <input
                                             required
-                                            placeholder="Receiver Name"
+                                            placeholder="Customer / receiver name"
                                             value={formData.customer}
                                             onChange={e => setFormData({ ...formData, customer: e.target.value })}
                                             className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
                                         />
                                     </div>
                                     <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Status</label>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Order status</label>
                                         <select
                                             value={formData.status}
                                             onChange={e => setFormData({ ...formData, status: e.target.value as any })}
@@ -753,24 +882,77 @@ export function AdminOrdersPage() {
                                             <option value="Confirmed">Confirmed</option>
                                         </select>
                                     </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment</label>
+                                        <select
+                                            value={formData.payment}
+                                            onChange={e => setFormData({ ...formData, payment: e.target.value as Order['payment'] })}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-[10px] font-black uppercase tracking-widest text-slate-700 focus:bg-white outline-none appearance-none transition-all"
+                                        >
+                                            <option value="Pending">Pending</option>
+                                            <option value="Paid">Paid</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-3 md:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fulfillment</label>
+                                        <select
+                                            value={formData.fulfillment}
+                                            onChange={e => setFormData({ ...formData, fulfillment: e.target.value as Order['fulfillment'] })}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-[10px] font-black uppercase tracking-widest text-slate-700 focus:bg-white outline-none appearance-none transition-all"
+                                        >
+                                            <option value="Unfulfilled">Unfulfilled</option>
+                                            <option value="Fulfilled">Fulfilled</option>
+                                        </select>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-6">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payload Selection</label>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        {products.slice(0, 6).map(product => (
-                                            <button
-                                                key={product.id}
-                                                type="button"
-                                                onClick={() => handleAddProduct(product.id)}
-                                                className="flex flex-col items-center gap-4 p-6 rounded-[2.5rem] bg-white border border-slate-100 hover:border-emerald-500 hover:shadow-xl transition-all group"
-                                            >
-                                                <div className="h-14 w-14 rounded-2xl bg-white shadow-sm overflow-hidden p-2">
-                                                    <img src={product.image} className="w-full h-full object-contain group-hover:scale-110 transition-transform" />
-                                                </div>
-                                                <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight">{product.name}</p>
-                                            </button>
-                                        ))}
+                                <div className="space-y-4">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Products &amp; quantity</label>
+                                    <p className="text-xs text-slate-500 -mt-2 mb-2">Tap a product to add it, then set quantity in the summary below (or use +/−).</p>
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search catalog by name, vendor, SKU…"
+                                            value={freshEntryProductSearch}
+                                            onChange={(e) => setFreshEntryProductSearch(e.target.value)}
+                                            className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+                                        {catalogForFreshEntry.length === 0 ? (
+                                            <p className="col-span-full text-sm text-slate-400 py-6 text-center">No products match your search.</p>
+                                        ) : (
+                                            catalogForFreshEntry.map((product) => {
+                                                const stock = Number(product.availableStock ?? product.stock ?? 0);
+                                                const disabled = stock <= 0;
+                                                return (
+                                                    <button
+                                                        key={product.id}
+                                                        type="button"
+                                                        disabled={disabled}
+                                                        onClick={() => handleAddProduct(product.id)}
+                                                        title={disabled ? 'Out of stock' : 'Add to order'}
+                                                        className={cn(
+                                                            'flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border text-left transition-all',
+                                                            disabled
+                                                                ? 'border-slate-100 opacity-50 cursor-not-allowed'
+                                                                : 'border-slate-100 hover:border-emerald-500 hover:shadow-lg',
+                                                        )}
+                                                    >
+                                                        <div className="h-12 w-12 rounded-xl bg-slate-50 overflow-hidden flex items-center justify-center">
+                                                            <img
+                                                                src={getImageDisplayUrl(product.image || '')}
+                                                                alt=""
+                                                                className="w-full h-full object-contain"
+                                                            />
+                                                        </div>
+                                                        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight line-clamp-2 text-center w-full">{product.name}</p>
+                                                        <span className="text-[8px] font-bold text-slate-400">{stock > 0 ? `Stock ${stock}` : 'Out of stock'}</span>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 </div>
 
@@ -783,15 +965,44 @@ export function AdminOrdersPage() {
                                         <div className="relative z-10 space-y-4">
                                             {formData.selectedProducts.map(item => {
                                                 const product = products.find(p => p.id === item.productId);
+                                                const maxQ = maxQtyForProduct(item.productId);
                                                 return (
-                                                    <div key={item.productId} className="flex items-center justify-between p-5 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-colors">
-                                                        <div className="flex items-center gap-4">
-                                                            <div className="h-10 w-10 bg-emerald-500 rounded-full flex items-center justify-center font-black text-xs">{item.quantity}</div>
-                                                            <span className="text-sm font-black">{product?.name}</span>
+                                                    <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-colors">
+                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                            <span className="text-sm font-black truncate">{product?.name}</span>
+                                                            <span className="text-[9px] font-bold text-white/40 shrink-0">{product?.unit || 'kg'}</span>
                                                         </div>
-                                                        <button type="button" onClick={() => handleRemoveProduct(item.productId)} className="p-2 text-white/20 hover:text-red-400 transition-colors">
-                                                            <Trash2 className="w-5 h-5" />
-                                                        </button>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleBumpQuantity(item.productId, -1)}
+                                                                disabled={item.quantity <= 1}
+                                                                className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
+                                                                aria-label="Decrease quantity"
+                                                            >
+                                                                <Minus className="w-4 h-4" />
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min={1}
+                                                                max={maxQ < 9999 ? maxQ : undefined}
+                                                                value={item.quantity}
+                                                                onChange={(e) => handleSetLineQuantity(item.productId, Number(e.target.value))}
+                                                                className="w-16 h-10 rounded-xl bg-white/10 border border-white/10 text-center text-sm font-black text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleBumpQuantity(item.productId, 1)}
+                                                                disabled={maxQ < 9999 && item.quantity >= maxQ}
+                                                                className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
+                                                                aria-label="Increase quantity"
+                                                            >
+                                                                <Plus className="w-4 h-4" />
+                                                            </button>
+                                                            <button type="button" onClick={() => handleRemoveProduct(item.productId)} className="p-2 text-white/30 hover:text-red-400 transition-colors ml-1">
+                                                                <Trash2 className="w-5 h-5" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

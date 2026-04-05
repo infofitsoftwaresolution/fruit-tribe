@@ -40,6 +40,7 @@ const AdminCustomersPage = lazy(() => import('@/app/pages/admin/AdminCustomersPa
 const AdminThemeEditor = lazy(() => import('@/app/pages/admin/store/AdminThemeEditor').then(m => ({ default: m.AdminThemeEditor })));
 const AdminAnalyticsPage = lazy(() => import('@/app/pages/admin/AdminAnalyticsPage').then(m => ({ default: m.AdminAnalyticsPage })));
 const AdminTaxPage = lazy(() => import('@/app/pages/admin/AdminTaxPage').then(m => ({ default: m.AdminTaxPage })));
+const AdminSubscriptionPage = lazy(() => import('@/app/pages/admin/AdminSubscriptionPage').then(m => ({ default: m.AdminSubscriptionPage })));
 const AdminStorePage = lazy(() => import('@/app/pages/admin/store/AdminStorePage').then(m => ({ default: m.AdminStorePage })));
 const AdminPagesPage = lazy(() => import('@/app/pages/admin/store/AdminPagesPage').then(m => ({ default: m.AdminPagesPage })));
 const AdminPreferencesPage = lazy(() => import('@/app/pages/admin/store/AdminPreferencesPage').then(m => ({ default: m.AdminPreferencesPage })));
@@ -251,6 +252,7 @@ function AppRoutes() {
                 <Route path="preferences" element={<AdminPreferencesPage />} />
                 <Route path="analytics" element={<AdminAnalyticsPage />} />
                 <Route path="taxes" element={<AdminTaxPage />} />
+                <Route path="subscription" element={<AdminSubscriptionPage />} />
                 <Route path="settings" element={<AdminSettingsPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />

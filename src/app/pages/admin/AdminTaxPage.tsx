@@ -1,19 +1,49 @@
 import { useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Percent, Save, AlertCircle, Info, ShieldCheck,
     Globe, Zap, ArrowUpRight, History, Download,
     Briefcase, Activity, Landmark
 } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
+import { useAdminData } from '@/app/context/AdminDataContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
+const TAX_CHANGELOG_KEY = 'tax_rate_changelog_v1';
+
+type TaxChangelogEntry = { ts: string; category: string; from: number; to: number };
+
+function readTaxChangelog(): TaxChangelogEntry[] {
+    try {
+        const raw = localStorage.getItem(TAX_CHANGELOG_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function appendTaxChangelog(entry: TaxChangelogEntry) {
+    try {
+        const prev = readTaxChangelog();
+        prev.unshift(entry);
+        localStorage.setItem(TAX_CHANGELOG_KEY, JSON.stringify(prev.slice(0, 300)));
+    } catch {
+        /* ignore */
+    }
+}
+
 export function AdminTaxPage() {
-    const { taxRates, updateTaxRate, theme } = useStore();
+    const { taxRates, updateTaxRate } = useStore();
+    const { orders, products } = useAdminData();
     const [editingRates, setEditingRates] = useState<Record<string, string>>(
         Object.keys(taxRates).reduce((acc, cat) => ({ ...acc, [cat]: taxRates[cat].toString() }), {})
     );
+    const [logModalOpen, setLogModalOpen] = useState(false);
+    const [changelog, setChangelog] = useState<TaxChangelogEntry[]>(() => readTaxChangelog());
 
     const handleRateChange = useCallback((category: string, value: string) => {
         if (value === '' || /^\d*\.?\d*$/.test(value)) {
@@ -27,9 +57,88 @@ export function AdminTaxPage() {
             toast.error('Numerical input required');
             return;
         }
+        const prev = taxRates[category] ?? 0;
+        if (prev !== numValue) {
+            appendTaxChangelog({
+                ts: new Date().toISOString(),
+                category,
+                from: prev,
+                to: numValue,
+            });
+            setChangelog(readTaxChangelog());
+        }
         updateTaxRate(category, numValue);
         toast.success(`Tax rate updated for ${category}`);
-    }, [editingRates, updateTaxRate]);
+    }, [editingRates, updateTaxRate, taxRates]);
+
+    const escapeCsvValue = (value: unknown) => {
+        const str = value == null ? '' : String(value);
+        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+        return str;
+    };
+
+    const handleDownloadLedger = useCallback(() => {
+        const rows: (string | number)[][] = [
+            ['Tax ledger (estimated line tax from category rates × paid order items)'],
+            ['Generated (ISO)', new Date().toISOString()],
+            [],
+            ['Category', 'Current rate %'],
+            ...Object.keys(taxRates).map((c) => [c, taxRates[c]]),
+            [],
+            [
+                'Order number',
+                'Order date',
+                'Payment status',
+                'Product ID',
+                'Line subtotal (INR)',
+                'Category',
+                'Rate %',
+                'Estimated tax (INR)',
+            ],
+        ];
+
+        for (const o of orders) {
+            if (String(o.paymentStatus || '').toUpperCase() !== 'PAID') continue;
+            const dateStr = o.createdAt ? new Date(o.createdAt).toISOString() : '';
+            const items = o.items;
+            if (!Array.isArray(items) || !items.length) continue;
+            for (const item of items) {
+                const pid = item.productId;
+                const pr = products.find((p) => String(p.id) === String(pid));
+                const cat = pr?.category || 'Unknown';
+                const rate = taxRates[cat] ?? taxRates[Object.keys(taxRates)[0]] ?? 0;
+                const sub = (Number(item.quantity) || 0) * (Number(item.pricePerUnit) || 0);
+                const tax = sub * (Number(rate) / 100);
+                rows.push([
+                    o.orderNumber || o.id,
+                    dateStr,
+                    String(o.paymentStatus || ''),
+                    String(pid ?? ''),
+                    sub.toFixed(2),
+                    cat,
+                    String(rate),
+                    tax.toFixed(2),
+                ]);
+            }
+        }
+
+        const csv = rows.map((r) => r.map(escapeCsvValue).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `tax-ledger-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Tax ledger CSV downloaded');
+    }, [orders, products, taxRates]);
+
+    const openChangeLogs = useCallback(() => {
+        setChangelog(readTaxChangelog());
+        setLogModalOpen(true);
+    }, []);
 
     const categories = useMemo(() => Object.keys(taxRates), [taxRates]);
 
@@ -49,12 +158,20 @@ export function AdminTaxPage() {
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Set tax rates by product category.</p>
                 </motion.div>
 
-                <div className="flex items-center gap-3">
-                    <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                    <button
+                        type="button"
+                        onClick={openChangeLogs}
+                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2"
+                    >
                         <History className="w-4 h-4" />
                         Change Logs
                     </button>
-                    <button className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95">
+                    <button
+                        type="button"
+                        onClick={handleDownloadLedger}
+                        className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+                    >
                         Download Ledger
                     </button>
                 </div>
@@ -156,6 +273,49 @@ export function AdminTaxPage() {
             </div>
 
             {/* Compliance note */}
+            {logModalOpen &&
+                createPortal(
+                    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+                        <button
+                            type="button"
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                            aria-label="Close"
+                            onClick={() => setLogModalOpen(false)}
+                        />
+                        <div className="relative bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Tax rate change log</h2>
+                                <button
+                                    type="button"
+                                    onClick={() => setLogModalOpen(false)}
+                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 text-sm font-bold"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <div className="p-4 overflow-y-auto flex-1 space-y-2 text-sm">
+                                {changelog.length === 0 ? (
+                                    <p className="text-slate-500 text-center py-8">No changes recorded yet. Saving a category rate creates an entry here.</p>
+                                ) : (
+                                    changelog.map((e, i) => (
+                                        <div
+                                            key={`${e.ts}-${i}`}
+                                            className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                                        >
+                                            <p className="font-black text-slate-900">{e.category}</p>
+                                            <p className="text-slate-600 mt-1">
+                                                {e.from}% → {e.to}%
+                                            </p>
+                                            <p className="text-[10px] text-slate-400 mt-1 font-mono">{e.ts}</p>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>,
+                    document.body,
+                )}
+
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -179,13 +339,5 @@ export function AdminTaxPage() {
                 <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-amber-200/40 rounded-full blur-[100px] pointer-events-none" />
             </motion.div>
         </div>
-    );
-}
-
-function ShieldCheckIcon({ className }: { className?: string }) {
-    return (
-        <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.040 12.02 12.02 0 003.826 8.99 12.032 12.032 0 007.592 2.972l.4 0 .4 0a12.032 12.032 0 007.592-2.972 12.02 12.02 0 003.826-8.99" />
-        </svg>
     );
 }

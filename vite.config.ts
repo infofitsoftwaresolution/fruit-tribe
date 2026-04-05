@@ -11,6 +11,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   // Dev: product images are stored as /uploads/... on the Nest server; proxy so <img src="/uploads/..."> works when API_ORIGIN is this dev server.
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
       "/uploads": {
         target: "http://localhost:3000",

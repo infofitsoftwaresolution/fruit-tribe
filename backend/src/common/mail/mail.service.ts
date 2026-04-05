@@ -26,10 +26,16 @@ export class MailService {
         });
     }
 
+    /** True when SMTP_USER/SMTP_PASS were set and a transporter was created. */
+    isEnabled(): boolean {
+        return this.transporter !== null;
+    }
+
     async sendVerificationEmail(to: string, code: string): Promise<void> {
         if (!this.transporter) {
-            this.logger.warn(`Cannot send verification email to ${to}: transporter not configured.`);
-            return;
+            const err = new Error('SMTP is not configured (missing SMTP_USER/SMTP_PASS).');
+            this.logger.warn(`Cannot send verification email to ${to}: ${err.message}`);
+            throw err;
         }
         const from =
             this.config.get<string>('SMTP_FROM') ||
@@ -48,13 +54,49 @@ export class MailService {
             this.logger.log(`Verification email sent to ${to}`);
         } catch (err: any) {
             this.logger.error(`Failed to send verification email to ${to}: ${err?.message || err}`);
+            throw err;
+        }
+    }
+
+    /** Admin broadcast (e.g. stock clearance). Body is plain text; HTML is escaped. */
+    async sendAnnouncementEmail(to: string, subject: string, bodyText: string): Promise<void> {
+        if (!this.transporter) {
+            const err = new Error('SMTP is not configured (missing SMTP_USER/SMTP_PASS).');
+            this.logger.warn(`Cannot send announcement to ${to}: ${err.message}`);
+            throw err;
+        }
+        const esc = (s: string) =>
+            s
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+        const safeSubject = subject.trim().slice(0, 200);
+        const text = `${safeSubject}\n\n${bodyText}`;
+        const html = `<p><strong>${esc(safeSubject)}</strong></p><p>${esc(bodyText).split('\n').join('<br/>')}</p>`;
+        try {
+            await this.transporter.sendMail({
+                from,
+                to,
+                subject: safeSubject,
+                text,
+                html,
+            });
+            this.logger.log(`Announcement email sent to ${to}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send announcement email to ${to}: ${err?.message || err}`);
+            throw err;
         }
     }
 
     async sendPasswordResetEmail(to: string, code: string): Promise<void> {
         if (!this.transporter) {
-            this.logger.warn(`Cannot send password reset email to ${to}: transporter not configured.`);
-            return;
+            const err = new Error('SMTP is not configured (missing SMTP_USER/SMTP_PASS).');
+            this.logger.warn(`Cannot send password reset email to ${to}: ${err.message}`);
+            throw err;
         }
         const from =
             this.config.get<string>('SMTP_FROM') ||
@@ -76,6 +118,7 @@ export class MailService {
             this.logger.log(`Password reset email sent to ${to}`);
         } catch (err: any) {
             this.logger.error(`Failed to send password reset email to ${to}: ${err?.message || err}`);
+            throw err;
         }
     }
 
