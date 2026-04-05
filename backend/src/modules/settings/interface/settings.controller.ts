@@ -34,22 +34,31 @@ export class SettingsController {
         return { razorpayKeyId: keyId ?? null, message: 'Razorpay credentials updated. All new payments will use this account.' };
     }
 
-    @ApiOperation({ summary: 'Get serviceable cities (where we deliver)' })
+    @ApiOperation({ summary: 'Get serviceable cities and optional pincodes (where we deliver)' })
     @Get('serviceable-areas')
     async getServiceableAreas() {
-        const cities = await this.settingsService.getServiceableCities();
-        return { cities };
+        const [cities, pincodes] = await Promise.all([
+            this.settingsService.getServiceableCities(),
+            this.settingsService.getServiceablePincodes(),
+        ]);
+        return { cities, pincodes };
     }
 
-    @ApiOperation({ summary: 'Update serviceable cities (admin only)' })
+    @ApiOperation({ summary: 'Update serviceable cities and/or pincodes (admin only)' })
     @ApiBearerAuth()
     @Put('serviceable-areas')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')
-    async updateServiceableAreas(@Body() body: { cities: string[] }) {
-        await this.settingsService.setServiceableCities(body.cities ?? []);
+    async updateServiceableAreas(@Body() body: { cities?: string[]; pincodes?: string[] }) {
+        if (body.cities !== undefined) {
+            await this.settingsService.setServiceableCities(body.cities);
+        }
+        if (body.pincodes !== undefined) {
+            await this.settingsService.setServiceablePincodes(body.pincodes);
+        }
         const cities = await this.settingsService.getServiceableCities();
-        return { cities, message: 'Service areas updated.' };
+        const pincodes = await this.settingsService.getServiceablePincodes();
+        return { cities, pincodes, message: 'Service areas updated.' };
     }
 
     @ApiOperation({ summary: 'Get store settings (theme, preferences, delivery charge, distance fee rules) for storefront' })

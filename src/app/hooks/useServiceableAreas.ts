@@ -3,15 +3,30 @@ import { getServiceableAreas } from '@/lib/api';
 
 export function useServiceableAreas() {
   const [cities, setCities] = useState<string[]>([]);
+  const [pincodes, setPincodes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     getServiceableAreas()
-      .then((r) => { if (!cancelled) setCities(r.cities || []); })
-      .catch(() => { if (!cancelled) setCities(['Bangalore']); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .then((r) => {
+        if (!cancelled) {
+          setCities(r.cities || []);
+          setPincodes(r.pincodes || []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCities(['Bangalore']);
+          setPincodes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const isCityServiceable = (city: string) => {
@@ -20,5 +35,13 @@ export function useServiceableAreas() {
     return cities.some((c) => c.toLowerCase() === normalized);
   };
 
-  return { cities, loading, isCityServiceable };
+  /** When the admin list is non-empty, checkout PIN (6 digits) must match. */
+  const isPincodeServiceable = (zip: string) => {
+    if (!pincodes.length) return true;
+    const digits = String(zip || '').replace(/\D/g, '');
+    if (digits.length !== 6) return false;
+    return pincodes.includes(digits);
+  };
+
+  return { cities, pincodes, loading, isCityServiceable, isPincodeServiceable };
 }

@@ -9,6 +9,7 @@ import { useProducts } from '@/app/hooks/useProducts';
 import { createOrder, createRazorpayOrder, validateCoupon, verifyPayment, getOrders, getWarehouses, getAvailableOffers, type AvailableOffer } from '@/lib/api';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
+import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
 interface CheckoutPageProps {
   items: CartItem[];
@@ -43,7 +44,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     if (!codAllowedForCart && paymentMethod === 'cod') setPaymentMethod('online');
   }, [codAllowedForCart, paymentMethod]);
   const { user } = useAuth();
-  const { cities: serviceableCities, isCityServiceable } = useServiceableAreas();
+  const { cities: serviceableCities, pincodes: serviceablePincodes, isCityServiceable, isPincodeServiceable } =
+    useServiceableAreas();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState('');
@@ -67,6 +69,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     estimatedMins: 45,
   });
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const checkoutMapEmbedSrc = useMemo(
+    () => (mapCenter ? buildOpenStreetMapEmbedSrc([{ lat: mapCenter.lat, lng: mapCenter.lng }]) : null),
+    [mapCenter]
+  );
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -344,6 +350,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         description: `We currently deliver only to: ${serviceableCities.join(', ')}. Please use an address in one of these cities.`,
       });
       return;
+    }
+    if (serviceablePincodes.length > 0) {
+      const pinDigits = formData.zipCode.replace(/\D/g, '');
+      if (!isPincodeServiceable(formData.zipCode)) {
+        toast.error('We don\'t deliver to this PIN code yet.', {
+          description:
+            pinDigits.length === 6
+              ? `Enter a serviceable 6-digit PIN. Currently: ${serviceablePincodes.slice(0, 12).join(', ')}${serviceablePincodes.length > 12 ? '…' : ''}.`
+              : 'Enter a valid 6-digit PIN code for delivery.',
+        });
+        return;
+      }
     }
     if (!deliverySlot) {
       toast.error('Please choose a delivery slot', {
@@ -706,9 +724,28 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       value={formData.zipCode}
                       onChange={handleChange}
                       required
-                      placeholder="e.g. 700001"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                      placeholder="e.g. 560001"
+                      inputMode="numeric"
+                      maxLength={8}
+                      className={cn(
+                        'w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 bg-slate-50 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]',
+                        serviceablePincodes.length > 0 &&
+                          formData.zipCode.replace(/\D/g, '').length >= 6 &&
+                          !isPincodeServiceable(formData.zipCode)
+                          ? 'border-amber-400 focus:border-amber-500'
+                          : 'border-slate-200 focus:border-orange-500'
+                      )}
                     />
+                    {serviceablePincodes.length > 0 && (
+                      <p className="text-[10px] font-bold text-slate-500 pl-4">
+                        We deliver only to these PIN codes: {serviceablePincodes.join(', ')}
+                      </p>
+                    )}
+                    {serviceablePincodes.length > 0 &&
+                      formData.zipCode.replace(/\D/g, '').length >= 6 &&
+                      !isPincodeServiceable(formData.zipCode) && (
+                        <p className="text-xs text-amber-600 pl-4 font-bold">This PIN is not in our service area.</p>
+                      )}
                   </div>
                 </div>
 
@@ -731,14 +768,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <span className="text-sm font-medium text-slate-500">Detecting location…</span>
                     </div>
                   )}
-                  {!geocodeLoading && mapCenter && (
+                  {!geocodeLoading && checkoutMapEmbedSrc && (
                     <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner">
-                      <iframe
+                      <OpenStreetMapEmbed
                         title="Delivery area map"
-                        src={`https://www.openstreetmap.org/export/embed.html?center=${mapCenter.lat},${mapCenter.lng}&zoom=14&marker=${mapCenter.lat},${mapCenter.lng}`}
+                        src={checkoutMapEmbedSrc}
                         className="w-full h-56 sm:h-64 border-0"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
                       />
                       <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-2 pl-1">
                         Pin shows your delivery address. Delivery area, on-time rate and ETA above update from this address.

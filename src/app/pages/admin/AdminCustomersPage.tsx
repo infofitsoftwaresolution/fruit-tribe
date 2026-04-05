@@ -21,19 +21,34 @@ export function AdminCustomersPage() {
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
     const filteredCustomers = useMemo(() => {
-        let base = customers.map((c) => ({
+        let base = customers.map((c: any) => ({
             id: c.id,
             name: c.name,
+            firstName: c.firstName ?? '',
+            lastName: c.lastName ?? '',
             email: c.email,
+            phone: c.phone != null && String(c.phone).trim() !== '' ? String(c.phone) : '',
             orders: c.orderCount,
             spent: c.totalSpent,
             joined: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '—',
+            lastLogin: c.lastLogin ? new Date(c.lastLogin).toLocaleString() : '',
+            isActive: c.isActive !== false,
+            accountStatus: c.accountStatus ?? '',
+            walletBalance: typeof c.walletBalance === 'number' ? c.walletBalance : Number(c.walletBalance ?? 0),
+            requirePasswordChange: !!c.requirePasswordChange,
             status: (c.totalSpent >= 10000 ? 'VIP' : c.orderCount > 0 ? 'Active' : 'Inactive') as 'Active' | 'VIP' | 'Inactive',
             verificationStatus: (c.verificationStatus === 'Verified' ? 'Verified' : 'Unverified') as 'Verified' | 'Unverified',
         }));
-        if (!searchQuery) return base;
-        const q = searchQuery.toLowerCase();
-        return base.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+        const trimmed = searchQuery.trim();
+        if (!trimmed) return base;
+        const q = trimmed.toLowerCase();
+        const qDigits = q.replace(/\D/g, '');
+        return base.filter((c) => {
+            if (c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) return true;
+            if (c.phone && c.phone.toLowerCase().includes(q)) return true;
+            if (qDigits.length >= 3 && c.phone.replace(/\D/g, '').includes(qDigits)) return true;
+            return false;
+        });
     }, [customers, searchQuery]);
 
     const stats = useMemo(() => {
@@ -67,26 +82,44 @@ export function AdminCustomersPage() {
 
         const header = [
             'Customer ID',
-            'Name',
+            'First Name',
+            'Last Name',
+            'Full Name',
             'Email',
+            'Phone',
             'Order Count',
-            'Total Spent',
-            'Joined Date',
-            'Verification Status',
-            'Customer Status',
+            'Total Spent (INR)',
+            'Wallet Balance (INR)',
+            'Joined At (ISO)',
+            'Last Login (ISO)',
+            'Email Verification',
+            'Account Active',
+            'Account Status',
+            'Must Change Password',
+            'Segment (VIP/Active/Inactive)',
         ];
 
-        const rows = customers.map((c) => {
-            const status = c.totalSpent >= 10000 ? 'VIP' : c.orderCount > 0 ? 'Active' : 'Inactive';
+        const rows = customers.map((c: any) => {
+            const segment = c.totalSpent >= 10000 ? 'VIP' : c.orderCount > 0 ? 'Active' : 'Inactive';
+            const joinedIso = c.createdAt ? new Date(c.createdAt).toISOString() : '';
+            const lastLoginIso = c.lastLogin ? new Date(c.lastLogin).toISOString() : '';
             return [
                 c.id,
+                c.firstName ?? '',
+                c.lastName ?? '',
                 c.name,
                 c.email,
+                c.phone ?? '',
                 c.orderCount,
                 c.totalSpent,
-                c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '',
+                typeof c.walletBalance === 'number' ? c.walletBalance : Number(c.walletBalance ?? 0),
+                joinedIso,
+                lastLoginIso,
                 c.verificationStatus === 'Verified' ? 'Verified' : 'Unverified',
-                status,
+                c.isActive === false ? 'No' : 'Yes',
+                c.accountStatus ?? '',
+                c.requirePasswordChange ? 'Yes' : 'No',
+                segment,
             ];
         });
 
@@ -94,7 +127,8 @@ export function AdminCustomersPage() {
             .map((row) => row.map(escapeCsvValue).join(','))
             .join('\n');
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        // UTF-8 BOM helps Excel recognize encoding for names/emails with special characters
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const dateTag = new Date().toISOString().slice(0, 10);
@@ -162,7 +196,7 @@ export function AdminCustomersPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Search customer by name or email..."
+                            placeholder="Search by name, email, or phone..."
                             className="w-full h-12 pl-12 pr-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-medium focus:bg-white focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -176,6 +210,7 @@ export function AdminCustomersPage() {
                             <tr className="border-b border-slate-50 bg-slate-50/50">
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</th>
+                                <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Orders</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Total Spent</th>
                                 <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
@@ -184,7 +219,7 @@ export function AdminCustomersPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {loading ? (
-                                <tr><td colSpan={6} className="px-8 py-16 text-center text-slate-400 text-sm">Loading customers...</td></tr>
+                                <tr><td colSpan={7} className="px-8 py-16 text-center text-slate-400 text-sm">Loading customers...</td></tr>
                             ) : (
                             <AnimatePresence mode='popLayout'>
                                 {filteredCustomers.map((customer, idx) => (
@@ -220,6 +255,9 @@ export function AdminCustomersPage() {
                                                     {customer.verificationStatus === 'Verified' ? 'Verified' : 'Unverified'}
                                                 </span>
                                             </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="text-xs font-bold text-slate-600">{customer.phone || '—'}</span>
                                         </td>
                                         <td className="px-8 py-6 text-center">
                                             <span className="text-sm font-black text-slate-900">{customer.orders} Orders</span>
@@ -336,9 +374,13 @@ export function AdminCustomersPage() {
                                                 <div className="p-2 bg-blue-50 rounded-lg">
                                                     <Phone className="w-4 h-4 text-blue-600" />
                                                 </div>
-                                                <span className="text-xs font-bold text-slate-700">+91 91234-56789</span>
+                                                <span className="text-xs font-bold text-slate-700">{selectedCustomer.phone || '—'}</span>
                                             </div>
-                                            <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black rounded-md uppercase">Verified</span>
+                                            {selectedCustomer.phone ? (
+                                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[8px] font-black rounded-md uppercase border border-emerald-100">On file</span>
+                                            ) : (
+                                                <span className="px-2 py-0.5 bg-slate-100 text-slate-400 text-[8px] font-black rounded-md uppercase">None</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

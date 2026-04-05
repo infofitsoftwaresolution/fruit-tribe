@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
 /** Map backend order to Profile order-history shape (includes product details per item) */
 function mapApiOrderToProfileOrder(api: any, userName: string) {
@@ -104,6 +105,10 @@ export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [trackingOrder, setTrackingOrder] = useState<any | null>(null);
   const [trackingMapCenter, setTrackingMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const trackingMapEmbedSrc = useMemo(
+    () => (trackingMapCenter ? buildOpenStreetMapEmbedSrc([{ lat: trackingMapCenter.lat, lng: trackingMapCenter.lng }]) : null),
+    [trackingMapCenter]
+  );
   const [trackingMapLoading, setTrackingMapLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -546,14 +551,12 @@ export function ProfilePage() {
                     <span className="text-xs font-medium text-slate-500">Loading map…</span>
                   </div>
                 )}
-                {!trackingMapLoading && trackingMapCenter && (
+                {!trackingMapLoading && trackingMapEmbedSrc && (
                   <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner mb-8">
-                    <iframe
+                    <OpenStreetMapEmbed
                       title="Order delivery map"
-                      src={`https://www.openstreetmap.org/export/embed.html?center=${trackingMapCenter.lat},${trackingMapCenter.lng}&zoom=14&marker=${trackingMapCenter.lat},${trackingMapCenter.lng}`}
+                      src={trackingMapEmbedSrc}
                       className="w-full h-52 border-0"
-                      loading="lazy"
-                      referrerPolicy="no-referrer"
                     />
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-2 pl-1 pb-2">
                       Pin shows the delivery location from your shipping address.

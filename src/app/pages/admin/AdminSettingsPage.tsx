@@ -42,7 +42,9 @@ export function AdminSettingsPage() {
     const [showSecret, setShowSecret] = useState(false);
     const [saving, setSaving] = useState(false);
     const [serviceableCities, setServiceableCities] = useState<string[]>([]);
+    const [serviceablePincodes, setServiceablePincodes] = useState<string[]>([]);
     const [newCity, setNewCity] = useState('');
+    const [newPincode, setNewPincode] = useState('');
     const [citiesLoading, setCitiesLoading] = useState(true);
     const [citiesSaving, setCitiesSaving] = useState(false);
     const [deliveryCharge, setDeliveryCharge] = useState<string>(String(preferences.deliveryCharge ?? 0));
@@ -62,8 +64,18 @@ export function AdminSettingsPage() {
     useEffect(() => {
         let cancelled = false;
         getServiceableAreas()
-            .then((r) => { if (!cancelled) setServiceableCities(r.cities || []); })
-            .catch(() => { if (!cancelled) setServiceableCities(['Bangalore']); })
+            .then((r) => {
+                if (!cancelled) {
+                    setServiceableCities(r.cities || []);
+                    setServiceablePincodes(r.pincodes || []);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setServiceableCities(['Bangalore']);
+                    setServiceablePincodes([]);
+                }
+            })
             .finally(() => { if (!cancelled) setCitiesLoading(false); });
         return () => { cancelled = true; };
     }, []);
@@ -122,11 +134,33 @@ export function AdminSettingsPage() {
         setServiceableCities(serviceableCities.filter((_, i) => i !== index));
     };
 
+    const handleAddPincode = () => {
+        const digits = newPincode.replace(/\D/g, '').slice(0, 6);
+        if (digits.length !== 6) {
+            toast.error('Enter a 6-digit PIN code');
+            return;
+        }
+        if (serviceablePincodes.includes(digits)) {
+            toast.error('PIN already in list');
+            return;
+        }
+        setServiceablePincodes([...serviceablePincodes, digits]);
+        setNewPincode('');
+    };
+
+    const handleRemovePincode = (index: number) => {
+        setServiceablePincodes(serviceablePincodes.filter((_, i) => i !== index));
+    };
+
     const handleSaveServiceableAreas = async () => {
         setCitiesSaving(true);
         try {
-            await updateServiceableAreas(serviceableCities);
-            toast.success('Delivery cities updated. Products are now sold only in these areas.');
+            await updateServiceableAreas({ cities: serviceableCities, pincodes: serviceablePincodes });
+            toast.success(
+                serviceablePincodes.length
+                    ? 'Service areas updated. Checkout will require a listed city and PIN where configured.'
+                    : 'Delivery cities updated. PIN list is empty — any 6-digit PIN is allowed (city rules still apply).',
+            );
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save');
         }
@@ -393,9 +427,9 @@ export function AdminSettingsPage() {
                         <MapPin className="h-6 w-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery cities (Service areas)</h2>
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery cities &amp; PIN codes</h2>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            We only sell and deliver in these cities. Add or remove to control where your products are available.
+                            Cities gate checkout by name. Optional PIN list: when you add one or more 6-digit PINs, checkout only accepts those PINs (plus city rules).
                         </p>
                     </div>
                 </div>
@@ -445,8 +479,53 @@ export function AdminSettingsPage() {
                                 className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
                             >
                                 <Save className="h-4 w-4" />
-                                {citiesSaving ? 'Saving…' : 'Save delivery cities'}
+                                {citiesSaving ? 'Saving…' : 'Save service areas'}
                             </button>
+                        </div>
+
+                        <div className="mt-10 pt-8 border-t border-slate-100">
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Serviceable PIN codes (optional)</p>
+                            <p className="text-xs text-slate-500 mb-4">
+                                Leave empty to allow any PIN (only city list applies). If you add PINs, customers must use one of them at checkout.
+                            </p>
+                            <div className="flex flex-wrap gap-3 mb-4">
+                                {serviceablePincodes.map((pin, index) => (
+                                    <span
+                                        key={pin}
+                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-900 text-sm font-mono font-bold"
+                                    >
+                                        {pin}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemovePincode(index)}
+                                            className="p-0.5 rounded-lg text-emerald-600 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                            aria-label={`Remove PIN ${pin}`}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    </span>
+                                ))}
+                            </div>
+                            <div className="flex flex-wrap gap-3 items-center">
+                                <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    maxLength={6}
+                                    value={newPincode}
+                                    onChange={(e) => setNewPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPincode())}
+                                    placeholder="560001"
+                                    className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 font-mono text-sm w-32"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddPincode}
+                                    className="h-12 px-4 rounded-xl bg-emerald-100 text-emerald-800 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-200 transition-all flex items-center gap-2"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add PIN
+                                </button>
+                            </div>
                         </div>
                     </>
                 )}

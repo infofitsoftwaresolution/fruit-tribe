@@ -36,12 +36,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         // Standardized Error Response (OWASP: Don't leak stack traces in prod)
         const msg = typeof message === 'string' ? message : (message as any).message;
         const messagePayload = Array.isArray(msg) ? msg.join('; ') : msg || 'Error occurred';
+        const body =
+            typeof message === 'object' && message !== null && typeof (message as any).email === 'string'
+                ? { email: (message as any).email as string }
+                : {};
         response.status(status).json({
             statusCode: status,
             timestamp: new Date().toISOString(),
             path: request.url,
             message: messagePayload,
             errorCode: (message as any).error || 'INTERNAL_ERROR',
+            ...body,
         });
     }
 }

@@ -41,7 +41,7 @@ export function AdminProductsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [activeCategory, setActiveCategory] = useState('All');
-    const [inventoryFilter, setInventoryFilter] = useState<'All' | 'Low' | 'Out'>('All');
+    const [inventoryFilter, setInventoryFilter] = useState<'All' | 'Low' | 'Out' | 'Seasonal'>('All');
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -122,7 +122,8 @@ export function AdminProductsPage() {
 
             const matchesInventory = inventoryFilter === 'All' ||
                 (inventoryFilter === 'Low' && (product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) && (product.availableStock ?? product.stock) > 0) ||
-                (inventoryFilter === 'Out' && (product.availableStock ?? product.stock) === 0);
+                (inventoryFilter === 'Out' && (product.availableStock ?? product.stock) === 0) ||
+                (inventoryFilter === 'Seasonal' && !!product.isSeasonal);
 
             return matchesSearch && matchesCategory && matchesInventory;
         }).sort((a, b) => {
@@ -404,7 +405,7 @@ export function AdminProductsPage() {
                 {[
                     { id: 'All' as const, label: 'All Products', value: stats.total, icon: Package, color: 'emerald' },
                     { id: 'Low' as const, label: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'orange' },
-                    { id: 'All' as const, label: 'Seasonal products', value: stats.seasonal, icon: Clock, color: 'blue', secondary: true },
+                    { id: 'Seasonal' as const, label: 'Seasonal products', value: stats.seasonal, icon: Clock, color: 'blue' },
                     { id: 'Out' as const, label: 'Out of Stock', value: stats.outOfStock, icon: Ban, color: 'red' }
                 ].map((stat, i) => (
                     <motion.div
@@ -412,11 +413,17 @@ export function AdminProductsPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
                         key={stat.label + i}
-                        onClick={() => !stat.secondary && setInventoryFilter(stat.id)}
+                        onClick={() => setInventoryFilter(stat.id)}
                         className={cn(
                             "bg-white p-7 rounded-[2.5rem] border shadow-sm relative overflow-hidden group transition-all cursor-pointer",
-                            !stat.secondary && inventoryFilter === stat.id 
-                                ? "ring-2 ring-emerald-500 border-emerald-100 shadow-md scale-[1.02]" 
+                            inventoryFilter === stat.id
+                                ? cn(
+                                    "ring-2 shadow-md scale-[1.02]",
+                                    stat.color === 'emerald' && "ring-emerald-500 border-emerald-100",
+                                    stat.color === 'orange' && "ring-orange-500 border-orange-100",
+                                    stat.color === 'blue' && "ring-blue-500 border-blue-100",
+                                    stat.color === 'red' && "ring-red-500 border-red-100",
+                                )
                                 : "border-slate-100 hover:border-slate-200 hover:shadow-md"
                         )}
                     >
@@ -433,12 +440,13 @@ export function AdminProductsPage() {
                             <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1 leading-none">{stat.value}</p>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
                         </div>
-                        {inventoryFilter === stat.id && !stat.secondary && (
+                        {inventoryFilter === stat.id && (
                             <div className="absolute top-4 right-6">
                                 <span className={cn(
                                     "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
                                     stat.color === 'emerald' ? "bg-emerald-500 text-white" :
                                     stat.color === 'orange' ? "bg-orange-500 text-white" :
+                                    stat.color === 'blue' ? "bg-blue-500 text-white" :
                                     "bg-red-500 text-white"
                                 )}>
                                     Filtered

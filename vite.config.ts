@@ -9,6 +9,15 @@ const __dirname = dirname(__filename);
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Dev: product images are stored as /uploads/... on the Nest server; proxy so <img src="/uploads/..."> works when API_ORIGIN is this dev server.
+  server: {
+    proxy: {
+      "/uploads": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),

@@ -328,11 +328,17 @@ export async function verifyPayment(
   return res.json();
 }
 
-export async function registerUser(payload: { name: string; email: string; password: string }): Promise<{ message: string }> {
+export async function registerUser(payload: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}): Promise<{ message: string }> {
   const [firstName, ...rest] = payload.name.split(' ');
   const lastName = rest.join(' ');
   const body = {
     email: payload.email,
+    phone: payload.phone.trim(),
     password: payload.password,
     firstName: firstName || undefined,
     lastName: lastName || undefined,
@@ -344,13 +350,17 @@ export async function registerUser(payload: { name: string; email: string; passw
   });
   if (!res.ok) {
     let message = res.statusText;
+    let verifyEmail: string | undefined;
     try {
       const data = await res.json();
       if (typeof data?.message === 'string') message = data.message;
+      if (typeof data?.email === 'string' && data.email.trim()) verifyEmail = data.email.trim();
     } catch {
       message = await res.text().catch(() => res.statusText);
     }
-    throw new Error(message || 'Signup failed');
+    const err = new Error(message || 'Signup failed') as Error & { verifyEmail?: string };
+    if (verifyEmail) err.verifyEmail = verifyEmail;
+    throw err;
   }
   return res.json();
 }
@@ -490,22 +500,33 @@ export async function approveSeller(sellerId: string): Promise<void> {
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
 }
 
-/** Get serviceable cities (where we deliver). Public. */
-export async function getServiceableAreas(): Promise<{ cities: string[] }> {
+/** Get serviceable cities and optional 6-digit pincodes (where we deliver). Public. */
+export async function getServiceableAreas(): Promise<{ cities: string[]; pincodes: string[] }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
-  return res.json();
+  const data = await res.json();
+  return {
+    cities: Array.isArray(data?.cities) ? data.cities : [],
+    pincodes: Array.isArray(data?.pincodes) ? data.pincodes : [],
+  };
 }
 
-/** Update serviceable cities (admin only). */
-export async function updateServiceableAreas(cities: string[]): Promise<{ cities: string[] }> {
+/** Update serviceable cities and/or pincodes (admin only). Omit a field to leave it unchanged. */
+export async function updateServiceableAreas(body: {
+  cities?: string[];
+  pincodes?: string[];
+}): Promise<{ cities: string[]; pincodes: string[] }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ cities }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
-  return res.json();
+  const data = await res.json();
+  return {
+    cities: Array.isArray(data?.cities) ? data.cities : [],
+    pincodes: Array.isArray(data?.pincodes) ? data.pincodes : [],
+  };
 }
 
 /** Get store settings (theme, preferences, delivery charge) — public, for storefront. */

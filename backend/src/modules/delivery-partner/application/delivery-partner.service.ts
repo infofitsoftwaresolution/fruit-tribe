@@ -350,11 +350,29 @@ export class DeliveryPartnerService {
     }
 
     async remove(id: string) {
-        try {
-            return await this.prisma.deliveryPartner.delete({ where: { id } });
-        } catch {
+        const partner = await this.prisma.deliveryPartner.findUnique({
+            where: { id },
+            select: { id: true, userId: true },
+        });
+        if (!partner) {
             throw new NotFoundException('Delivery partner not found');
         }
+
+        const customerRole = await this.prisma.role.findUnique({
+            where: { name: 'CUSTOMER' },
+        });
+
+        await this.prisma.$transaction(async (tx) => {
+            if (partner.userId && customerRole) {
+                await tx.user.update({
+                    where: { id: partner.userId },
+                    data: { roleId: customerRole.id },
+                });
+            }
+            await tx.deliveryPartner.delete({ where: { id: partner.id } });
+        });
+
+        return { id: partner.id, removed: true };
     }
 
     /**

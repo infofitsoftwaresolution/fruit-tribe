@@ -5,7 +5,8 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { UserPlus, Eye, EyeOff, Shield, Loader2 } from 'lucide-react';
 
-const AUTH_BG_IMAGE = 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80';
+const AUTH_BG_IMAGE =
+  'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1920&q=80';
 
 export function SignUpPage() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export function SignUpPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -48,6 +50,12 @@ export function SignUpPage() {
       return;
     }
 
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match. Please try again.');
       return;
@@ -61,7 +69,7 @@ export function SignUpPage() {
     setIsLoading(true);
 
     try {
-      await signup(formData.name, formData.email, formData.password);
+      await signup(formData.name, formData.email, formData.phone, formData.password);
       navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
     } catch (err) {
       const msg = (err as any)?.message || '';
@@ -70,6 +78,12 @@ export function SignUpPage() {
         navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
       } else if (msg === 'EMAIL_ALREADY_REGISTERED') {
         setError('This email is already registered. Please sign in instead.');
+      } else if (msg === 'PHONE_ALREADY_REGISTERED') {
+        setError('This mobile number is already registered. Please sign in instead.');
+      } else if (msg === 'PHONE_PENDING_VERIFICATION') {
+        const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
+        setError('This mobile number already has a pending account. Please verify your email.');
+        navigate(`/verify-email?email=${encodeURIComponent(verifyEmail)}&next=${encodeURIComponent(next)}`);
       } else {
         setError('Sign up failed. Please try again.');
       }
@@ -171,6 +185,22 @@ export function SignUpPage() {
                 required
                 className="w-full h-11 px-4 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
                 placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">Mobile number</label>
+              <input
+                id="phone"
+                type="tel"
+                name="phone"
+                inputMode="numeric"
+                autoComplete="tel"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full h-11 px-4 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
+                placeholder="9876543210 or +91 9876543210"
               />
             </div>
 

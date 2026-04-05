@@ -1,11 +1,27 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { DeliverySidebar } from '@/app/components/delivery/DeliverySidebar';
 import { DeliveryHeader } from '@/app/components/delivery/DeliveryHeader';
 import { Toaster } from 'sonner';
+import { useAuth } from '@/app/context/AuthContext';
+import { toast } from 'sonner';
 
 export function DeliveryLayout() {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const { user, refreshSessionFromServer } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        void refreshSessionFromServer();
+    }, [refreshSessionFromServer]);
+
+    useEffect(() => {
+        if (!user) return;
+        if (user.role !== 'delivery_partner') {
+            navigate('/', { replace: true });
+            toast.info('You no longer have delivery partner access.');
+        }
+    }, [user?.role, navigate, user]);
 
     return (
         <div className="flex h-screen bg-slate-50 relative overflow-hidden">

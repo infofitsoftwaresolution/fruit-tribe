@@ -6,7 +6,9 @@ import { useStore } from '@/app/context/StoreContext';
 import { LogIn, Eye, EyeOff, Shield, Loader2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const AUTH_BG_IMAGE = 'https://images.unsplash.com/photo-1610348725531-843dff563e2c?w=1920&q=80';
+// Default login hero: fresh mixed fruits (store theme can override via authBackgroundImage)
+const AUTH_BG_IMAGE =
+  'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1920&q=80';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -50,10 +52,11 @@ export function LoginPage() {
       const msg = String(err?.message || '');
       if (msg.includes('not verified') || msg.includes('verification code')) {
         toast.info('Enter the OTP we sent to your email.');
-        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent('/login')}`);
+        const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
+        navigate(`/verify-email?email=${encodeURIComponent(verifyEmail)}&next=${encodeURIComponent('/login')}`);
         return;
       }
-      setError(msg || 'Invalid email or password. Please try again.');
+      setError(msg || 'Invalid email, mobile, or password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -113,16 +116,19 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
+                Email or mobile
+              </label>
               <input
                 id="email"
-                type="email"
+                type="text"
                 name="email"
+                autoComplete="username"
                 value={formData.email}
                 onChange={handleChange}
                 required
                 className="w-full h-11 px-4 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
-                placeholder="you@example.com"
+                placeholder="you@example.com or 9876543210"
               />
             </div>
 

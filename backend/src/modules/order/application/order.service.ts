@@ -106,6 +106,27 @@ export class OrderService {
         const taxAmount = subtotal * 0.05; // 5% GST
         const payableAmount = subtotal - discountAmount + shippingFee + taxAmount;
 
+        const addr = dto.shippingAddress as Record<string, unknown>;
+        const city = String(addr.city ?? '').trim();
+        const zipDigits = String(addr.zipCode ?? addr.pincode ?? addr.postalCode ?? '').replace(/\D/g, '');
+
+        const serviceableCities = await this.settingsService.getServiceableCities();
+        if (serviceableCities.length > 0 && city) {
+            const cityOk = serviceableCities.some((c) => c.toLowerCase() === city.toLowerCase());
+            if (!cityOk) {
+                throw new BadRequestException(
+                    `We do not deliver to "${city}". Available cities: ${serviceableCities.join(', ')}.`,
+                );
+            }
+        }
+
+        const serviceablePincodes = await this.settingsService.getServiceablePincodes();
+        if (serviceablePincodes.length > 0) {
+            if (zipDigits.length !== 6 || !serviceablePincodes.includes(zipDigits)) {
+                throw new BadRequestException('This PIN code is not in our delivery area.');
+            }
+        }
+
         // Use a transaction to create the full order atomically
         return this.prisma.$transaction(async (tx) => {
             const orderNumber = `FT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;

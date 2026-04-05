@@ -22,6 +22,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
 interface Delivery {
     id: string;
@@ -79,7 +80,60 @@ export function AdminLogisticsPage() {
     const [staffForm, setStaffForm] = useState({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
     const [isSavingWarehouse, setIsSavingWarehouse] = useState(false);
     const [isSavingStaff, setIsSavingStaff] = useState(false);
+    const [openingMap, setOpeningMap] = useState(false);
+    const [deliveryMapModal, setDeliveryMapModal] = useState<{
+        embedSrc: string;
+        warehouses: Array<{ id: string; name: string; lat: number; lng: number }>;
+    } | null>(null);
     const hasLoadedWarehouses = useRef(false);
+    const deliveriesPanelRef = useRef<HTMLDivElement>(null);
+
+    const openDeliveryMap = async () => {
+        if (openingMap) return;
+        setOpeningMap(true);
+        try {
+            let list = warehouses;
+            if (list.length === 0) {
+                list = await getWarehouses(false).catch(() => []);
+                setWarehouses(list);
+                hasLoadedWarehouses.current = true;
+            }
+            const candidates = list.filter((w) => w.isActive !== false);
+            const source = candidates.length > 0 ? candidates : list;
+            const whPoints = source
+                .map((w) => ({
+                    id: w.id,
+                    name: w.name,
+                    lat: Number(w.latitude),
+                    lng: Number(w.longitude),
+                }))
+                .filter((w) => Number.isFinite(w.lat) && Number.isFinite(w.lng));
+            if (whPoints.length === 0) {
+                toast.error('Add at least one warehouse with latitude and longitude in the Warehouses tab.');
+                setSectionTab('warehouses');
+                return;
+            }
+            const embedSrc = buildOpenStreetMapEmbedSrc(whPoints.map((w) => ({ lat: w.lat, lng: w.lng })));
+            if (!embedSrc) {
+                toast.error('Could not build map for these coordinates.');
+                return;
+            }
+            setDeliveryMapModal({ embedSrc, warehouses: whPoints });
+        } catch {
+            toast.error('Could not load warehouses. Try again.');
+        } finally {
+            setOpeningMap(false);
+        }
+    };
+
+    const openDispatch = () => {
+        setSectionTab('deliveries');
+        setActiveTab('Active');
+        setSearchQuery('');
+        window.setTimeout(() => {
+            deliveriesPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 80);
+    };
 
     useEffect(() => {
         if (sectionTab !== 'warehouses') return;
@@ -180,6 +234,42 @@ export function AdminLogisticsPage() {
         }
     };
 
+    const promptRemoveWarehouse = (w: { id: string; name: string }) => {
+        toast(`Remove warehouse “${w.name}”?`, {
+            description: 'Checkout distance and ETA will no longer use this location.',
+            action: {
+                label: 'Remove',
+                onClick: async () => {
+                    try {
+                        await deleteWarehouse(w.id);
+                        toast.success('Warehouse removed');
+                        void getWarehouses(false).then(setWarehouses);
+                    } catch (e: any) {
+                        toast.error(e?.message || 'Failed to remove warehouse');
+                    }
+                },
+            },
+        });
+    };
+
+    const promptRemoveDeliveryPartner = (dp: { id: string; name: string }) => {
+        toast(`Remove delivery partner “${dp.name}”?`, {
+            description: 'They lose delivery app access; linked logins revert to the customer role.',
+            action: {
+                label: 'Remove',
+                onClick: async () => {
+                    try {
+                        await deleteDeliveryPartner(dp.id);
+                        toast.success('Delivery partner removed');
+                        void refreshDeliveryPartners();
+                    } catch (e: any) {
+                        toast.error(e?.message || 'Failed to remove');
+                    }
+                },
+            },
+        });
+    };
+
     return (
         <div className="space-y-10 pb-20">
             {/* Ultra-Premium Header */}
@@ -193,12 +283,18 @@ export function AdminLogisticsPage() {
                     <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Track deliveries, staff, and warehouses in one place.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm">
+                    <button
+                        type="button"
+                        onClick={() => void openDeliveryMap()}
+                        disabled={openingMap}
+                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
                         <Globe className="w-4 h-4" />
-                        Delivery Map
+                        {openingMap ? 'Loading…' : 'Delivery Map'}
                     </button>
                     <button
-                        onClick={() => toast.info('Opening dispatch...')}
+                        type="button"
+                        onClick={openDispatch}
                         className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
                     >
                         <Zap className="h-4 w-4 text-emerald-400" />
@@ -252,7 +348,13 @@ export function AdminLogisticsPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => { setWarehouseModal({ open: true, editing: { id: w.id, name: w.name, address: w.address, latitude: Number(w.latitude), longitude: Number(w.longitude), isActive: w.isActive } }); setWarehouseForm({ name: w.name, address: w.address, latitude: String(w.latitude), longitude: String(w.longitude), isActive: w.isActive }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
-                                        <button onClick={async () => { if (confirm('Remove this warehouse?')) { try { await deleteWarehouse(w.id); toast.success('Warehouse removed'); getWarehouses(false).then(setWarehouses); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                        <button
+                                            type="button"
+                                            onClick={() => promptRemoveWarehouse(w)}
+                                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 </div>
                             ))
@@ -290,7 +392,13 @@ export function AdminLogisticsPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status, email: dp.user?.email || '' } }); setStaffForm({ name: dp.name, phone: dp.phone, email: dp.user?.email || '', vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
-                                        <button onClick={async () => { if (confirm('Remove this delivery partner?')) { try { await deleteDeliveryPartner(dp.id); toast.success('Removed'); void refreshDeliveryPartners(); } catch (e: any) { toast.error(e?.message); } } }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                                        <button
+                                            type="button"
+                                            onClick={() => promptRemoveDeliveryPartner(dp)}
+                                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
                                 </div>
                             ))
@@ -301,6 +409,7 @@ export function AdminLogisticsPage() {
 
             {sectionTab === 'deliveries' && (
             <>
+            <div ref={deliveriesPanelRef} className="scroll-mt-24" />
             {/* Logistics Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statsFromData.map((stat, i) => (
@@ -617,6 +726,69 @@ export function AdminLogisticsPage() {
                 </div>,
                 document.body
             )}
+
+            {deliveryMapModal &&
+                createPortal(
+                    <div
+                        className="fixed inset-0 z-[125] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md"
+                        onClick={() => setDeliveryMapModal(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.97 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden border border-slate-100 flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-6 sm:p-8 border-b border-slate-100 flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Warehouse map</h3>
+                                    <p className="text-xs text-slate-500 mt-1">
+                                        Same OpenStreetMap view as checkout and customer tracking.{' '}
+                                        {deliveryMapModal.warehouses.length > 1
+                                            ? 'Area covers all warehouses; locations are listed below.'
+                                            : 'Pin shows the warehouse coordinates.'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setDeliveryMapModal(null)}
+                                    className="p-3 rounded-2xl border border-slate-200 text-slate-400 hover:text-slate-900 hover:bg-slate-50 transition-colors shrink-0"
+                                    aria-label="Close map"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6">
+                                <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner bg-slate-50">
+                                    <OpenStreetMapEmbed
+                                        title="Warehouse locations map"
+                                        src={deliveryMapModal.embedSrc}
+                                        className="w-full min-h-[280px] h-[min(55vh,480px)] border-0"
+                                    />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+                                        Warehouse coordinates
+                                    </p>
+                                    <ul className="space-y-2">
+                                        {deliveryMapModal.warehouses.map((w) => (
+                                            <li
+                                                key={w.id}
+                                                className="flex flex-wrap items-baseline justify-between gap-2 text-sm rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3"
+                                            >
+                                                <span className="font-bold text-slate-900">{w.name}</span>
+                                                <span className="font-mono text-xs text-slate-600">
+                                                    {w.lat.toFixed(5)}, {w.lng.toFixed(5)}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>,
+                    document.body
+                )}
         </div>
     );
 }

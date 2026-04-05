@@ -4,6 +4,7 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 const KEY_RAZORPAY_KEY_ID = 'razorpay_key_id';
 const KEY_RAZORPAY_KEY_SECRET = 'razorpay_key_secret';
 const KEY_SERVICEABLE_CITIES = 'serviceable_cities';
+const KEY_SERVICEABLE_PINCODES = 'serviceable_pincodes';
 const KEY_STORE_THEME = 'store_theme';
 const KEY_STORE_PREFERENCES = 'store_preferences';
 const KEY_DELIVERY_CHARGE = 'delivery_charge';
@@ -114,6 +115,37 @@ export class SettingsService {
     async setServiceableCities(cities: string[]): Promise<void> {
         const list = cities.filter(c => typeof c === 'string' && c.trim().length > 0);
         await this.set(KEY_SERVICEABLE_CITIES, JSON.stringify(list));
+    }
+
+    /** 6-digit PINs where we deliver. Empty list = no pincode restriction (city rules still apply). */
+    async getServiceablePincodes(): Promise<string[]> {
+        const raw = await this.get(KEY_SERVICEABLE_PINCODES);
+        if (!raw?.trim()) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+            return [
+                ...new Set(
+                    parsed
+                        .filter((p): p is string => typeof p === 'string')
+                        .map((p) => p.replace(/\D/g, ''))
+                        .filter((p) => p.length === 6),
+                ),
+            ];
+        } catch {
+            return [];
+        }
+    }
+
+    async setServiceablePincodes(pincodes: string[]): Promise<void> {
+        const normalized = [
+            ...new Set(
+                pincodes
+                    .map((p) => String(p).replace(/\D/g, ''))
+                    .filter((p) => p.length === 6),
+            ),
+        ];
+        await this.set(KEY_SERVICEABLE_PINCODES, JSON.stringify(normalized));
     }
 
     /** Get store theme JSON (for storefront). Returns null if not set. */

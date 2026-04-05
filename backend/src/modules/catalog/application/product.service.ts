@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { CreateProductDto } from '../interface/dtos/create-product.dto';
 import { ProductFilterDto } from '../interface/dtos/product-filter.dto';
@@ -112,10 +113,11 @@ export class ProductService {
         // Principal Engineer Review Comment: 
         // We use a transaction to ensure atomicity between product, variants, and initial inventory.
         return this.prisma.$transaction(async (tx) => {
+            const slug = await this.resolveUniqueSlug(tx, dto.name);
             const product = await tx.product.create({
                 data: {
                     name: dto.name,
-                    slug: this.generateSlug(dto.name),
+                    slug,
                     description: dto.description,
                     basePrice: dto.basePrice,
                     unit: 'kg',
@@ -174,10 +176,14 @@ export class ProductService {
         if (!existing) throw new NotFoundException(`Product ${id} not found`);
 
         return this.prisma.$transaction(async (tx) => {
+            const nextSlug =
+                dto.name != null && dto.name !== ''
+                    ? await this.resolveUniqueSlug(tx, dto.name, id)
+                    : undefined;
             const product = await tx.product.update({
                 where: { id },
                 data: {
-                    ...(dto.name && { name: dto.name, slug: this.generateSlug(dto.name) }),
+                    ...(dto.name && { name: dto.name, ...(nextSlug && { slug: nextSlug }) }),
                     ...(dto.description !== undefined && { description: dto.description }),
                     ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
                     ...(dto.categoryId && { categoryId: dto.categoryId }),
@@ -480,6 +486,30 @@ export class ProductService {
             .toLowerCase()
             .replace(/[^\w ]+/g, '')
             .replace(/ +/g, '-');
+    }
+
+    /** Avoid P2002 on `slug` when two products share the same display name. */
+    private async resolveUniqueSlug(
+        tx: Prisma.TransactionClient,
+        name: string,
+        excludeProductId?: string,
+    ): Promise<string> {
+        const base = this.generateSlug(name) || 'product';
+        let candidate = base;
+        for (let i = 0; i < 64; i++) {
+            const existing = await tx.product.findFirst({
+                where: {
+                    slug: candidate,
+                    ...(excludeProductId ? { id: { not: excludeProductId } } : {}),
+                },
+                select: { id: true },
+            });
+            if (!existing) {
+                return candidate;
+            }
+            candidate = `${base}-${Math.random().toString(36).slice(2, 10)}`;
+        }
+        return `${base}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     }
 
     /** Store path only (e.g. /uploads/xxx) so it works across origins */

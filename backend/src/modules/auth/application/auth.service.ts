@@ -23,6 +23,23 @@ export class AuthService {
         private readonly mailService: MailService,
     ) { }
 
+    /** Normalize to 10-digit Indian mobile for storage and uniqueness checks. */
+    private normalizeIndianMobile(raw: string): string | null {
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 10 && /^[6-9]\d{9}$/.test(digits)) return digits;
+        if (digits.length === 11 && digits.startsWith('0') && /^0[6-9]\d{9}$/.test(digits)) {
+            return digits.slice(1);
+        }
+        if (digits.length === 12 && digits.startsWith('91') && /^91[6-9]\d{9}$/.test(digits)) {
+            return digits.slice(2);
+        }
+        if (digits.length >= 10) {
+            const last10 = digits.slice(-10);
+            if (/^[6-9]\d{9}$/.test(last10)) return last10;
+        }
+        return null;
+    }
+
     private async issueFreshVerificationOtp(userId: string, email: string) {
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
         const recentOtps = await this.prisma.otpLog.count({
@@ -71,8 +88,9 @@ export class AuthService {
             },
         });
 
+        const emailNorm = dto.email.trim().toLowerCase();
         const existing = await this.prisma.user.findUnique({
-            where: { email: dto.email },
+            where: { email: emailNorm },
             include: { role: true, deliveryPartner: true },
         });
         if (existing) {
@@ -88,6 +106,29 @@ export class AuthService {
             throw new ConflictException('EMAIL_ALREADY_REGISTERED');
         }
 
+        const normalizedPhone = this.normalizeIndianMobile(dto.phone);
+        if (!normalizedPhone) {
+            throw new BadRequestException('Please enter a valid 10-digit Indian mobile number.');
+        }
+        const phoneTaken = await this.prisma.user.findUnique({
+            where: { phone: normalizedPhone },
+            include: { role: true, deliveryPartner: true },
+        });
+        if (phoneTaken) {
+            if (phoneTaken.deliveryPartner || phoneTaken.role?.name === 'DELIVERY_PARTNER') {
+                throw new ConflictException(
+                    'This mobile number is used for delivery partner access. Sign in on the delivery login page.',
+                );
+            }
+            if (phoneTaken.otpCode && phoneTaken.otpExpiry && phoneTaken.isActive === false) {
+                throw new ConflictException({
+                    message: 'PHONE_PENDING_VERIFICATION',
+                    email: phoneTaken.email,
+                });
+            }
+            throw new ConflictException('PHONE_ALREADY_REGISTERED');
+        }
+
         const passwordHash = await bcrypt.hash(dto.password, 12);
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -99,7 +140,8 @@ export class AuthService {
         const user = await this.prisma.$transaction(async (tx) => {
             const created = await tx.user.create({
                 data: {
-                    email: dto.email,
+                    email: emailNorm,
+                    phone: normalizedPhone,
                     passwordHash,
                     firstName: dto.firstName,
                     lastName: dto.lastName,
@@ -108,7 +150,14 @@ export class AuthService {
                     otpExpiry: expiry,
                     isActive: false,
                 },
-                select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
+                select: {
+                    id: true,
+                    email: true,
+                    phone: true,
+                    firstName: true,
+                    lastName: true,
+                    createdAt: true,
+                },
             });
 
             await tx.cart.create({
@@ -138,24 +187,66 @@ export class AuthService {
         };
     }
 
-    async login(dto: LoginDto) {
-        let user = await this.prisma.user.findUnique({
-            where: { email: dto.email },
+    private async findUserForLogin(raw: string) {
+        const trimmed = raw.trim();
+        if (!trimmed) return null;
+
+        if (trimmed.includes('@')) {
+            return this.prisma.user.findUnique({
+                where: { email: trimmed.toLowerCase() },
+                include: { role: true },
+            });
+        }
+
+        const digits = trimmed.replace(/\D/g, '');
+        const candidates = new Set<string>();
+        const compact = trimmed.replace(/\s+/g, '');
+        if (compact) candidates.add(compact);
+        if (digits) {
+            candidates.add(digits);
+            if (digits.length === 10) {
+                candidates.add(`91${digits}`);
+                candidates.add(`+91${digits}`);
+            }
+            if (digits.length === 11 && digits.startsWith('0')) {
+                candidates.add(digits.slice(1));
+            }
+            if (digits.length === 12 && digits.startsWith('91')) {
+                candidates.add(digits.slice(2));
+                candidates.add(`+${digits}`);
+            }
+        }
+
+        const phones = [...candidates].filter((p) => p.length >= 8);
+        if (phones.length === 0) return null;
+
+        return this.prisma.user.findFirst({
+            where: { OR: phones.map((phone) => ({ phone })) },
             include: { role: true },
         });
+    }
+
+    async login(dto: LoginDto) {
+        let user = await this.findUserForLogin(dto.email);
 
         if (!user) throw new UnauthorizedException('Invalid credentials');
 
         // If user is pending verification (missed/expired OTP), send a fresh code on login attempt.
         if (!user.isActive && user.otpCode) {
             await this.issueFreshVerificationOtp(user.id, user.email);
-            throw new UnauthorizedException('EMAIL_PENDING_VERIFICATION_OTP_RESENT');
+            throw new UnauthorizedException({
+                message: 'EMAIL_PENDING_VERIFICATION_OTP_RESENT',
+                email: user.email,
+            });
         }
 
         if (!user.isActive) throw new UnauthorizedException('Account is inactive');
 
         if (user.otpCode && user.otpExpiry && user.otpExpiry > new Date()) {
-            throw new UnauthorizedException('EMAIL_PENDING_VERIFICATION_OTP_RESENT');
+            throw new UnauthorizedException({
+                message: 'EMAIL_PENDING_VERIFICATION_OTP_RESENT',
+                email: user.email,
+            });
         }
 
         // Account lockout check
@@ -240,6 +331,7 @@ export class AuthService {
             user: {
                 id: user.id,
                 email: user.email,
+                phone: user.phone,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role?.name,
@@ -344,10 +436,15 @@ export class AuthService {
             select: {
                 id: true,
                 email: true,
+                phone: true,
                 firstName: true,
                 lastName: true,
                 createdAt: true,
+                lastLogin: true,
                 isActive: true,
+                status: true,
+                requirePasswordChange: true,
+                walletBalance: true,
                 otpCode: true,
                 otpExpiry: true,
                 _count: { select: { orders: true } },
@@ -369,10 +466,16 @@ export class AuthService {
                 return {
                     id: u.id,
                     email: u.email,
+                    phone: u.phone ?? null,
                     firstName: u.firstName,
                     lastName: u.lastName,
                     name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
                     createdAt: u.createdAt,
+                    lastLogin: u.lastLogin,
+                    isActive: u.isActive,
+                    accountStatus: u.status,
+                    requirePasswordChange: u.requirePasswordChange,
+                    walletBalance: Number(u.walletBalance),
                     orderCount: u._count.orders,
                     totalSpent: u.orders.reduce((sum, o) => sum + Number(o.payableAmount), 0),
                     verificationStatus,

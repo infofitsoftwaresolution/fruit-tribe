@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
 
@@ -24,10 +24,13 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   requirePasswordChange: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role?: UserRole) => Promise<void>;
+  /** `emailOrPhone` is sent as the `email` field in the login API for backward compatibility. */
+  login: (emailOrPhone: string, password: string) => Promise<void>;
+  signup: (name: string, email: string, phone: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
+  /** Merge role, seller, and profile fields from GET /auth/me (no toast). */
+  refreshSessionFromServer: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,46 +71,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return stored === 'true';
   });
 
-  // Sellers need sellerId/storeName to scope catalog & orders; hydrate from API for older sessions.
+  const refreshSessionFromServer = useCallback(async () => {
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    if (!token) return;
+    try {
+      const p = await getAuthProfile();
+      setUser((prev) => {
+        if (!prev || prev.id !== p.id) return prev;
+        const mappedRole = mapBackendRoleToFrontend(p.role?.name);
+        const seller = p.seller as { id?: string; storeName?: string } | undefined;
+        const nameParts = [p.firstName, p.lastName].filter(Boolean).join(' ');
+        const name = nameParts
+          ? nameParts.charAt(0).toUpperCase() + nameParts.slice(1)
+          : prev.name;
+        const next: User = {
+          ...prev,
+          name,
+          email: p.email,
+          phone: typeof p.phone === 'string' ? p.phone : prev.phone,
+          role: mappedRole,
+          sellerId: seller?.id ?? prev.sellerId,
+          sellerStoreName: seller?.storeName ?? prev.sellerStoreName,
+        };
+        const same =
+          prev.role === next.role &&
+          prev.email === next.email &&
+          prev.phone === next.phone &&
+          prev.sellerId === next.sellerId &&
+          prev.sellerStoreName === next.sellerStoreName &&
+          prev.name === next.name;
+        if (same) return prev;
+        localStorage.setItem('user', JSON.stringify(next));
+        return next;
+      });
+    } catch {
+      /* offline or expired token */
+    }
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-    if (!token || !user || user.role !== 'seller') return;
-    if (user.sellerId) return;
-    let cancelled = false;
-    getAuthProfile()
-      .then((p) => {
-        if (cancelled || !p.seller?.id) return;
-        setUser((prev) => {
-          if (!prev) return prev;
-          const next: User = {
-            ...prev,
-            sellerId: p.seller!.id,
-            sellerStoreName: p.seller!.storeName,
-          };
-          localStorage.setItem('user', JSON.stringify(next));
-          return next;
-        });
-      })
-      .catch(() => {
-        /* offline or expired token */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, user?.role, user?.sellerId]);
+    const stored = localStorage.getItem('user');
+    if (!token || !stored) return;
+    void refreshSessionFromServer();
+  }, [refreshSessionFromServer]);
 
-  const login = async (email: string, password: string) => {
+  const login = async (emailOrPhone: string, password: string) => {
     try {
       const res = await fetch(`${getEffectiveApiBase()}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: emailOrPhone.trim(), password }),
       });
 
       if (!res.ok) {
-        let message = 'Invalid email or password.';
+        let message = 'Invalid credentials.';
+        let verifyEmail: string | undefined;
         try {
           const data = await res.json();
+          if (typeof data?.email === 'string' && data.email.trim()) {
+            verifyEmail = data.email.trim();
+          }
           const backendMessage = Array.isArray(data?.message)
             ? data.message.join('; ')
             : (data?.message || '');
@@ -119,7 +143,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // ignore parse errors and keep default message
         }
-        throw new Error(message);
+        const err = new Error(message) as Error & { verifyEmail?: string };
+        if (verifyEmail) err.verifyEmail = verifyEmail;
+        throw err;
       }
 
       const data = await res.json();
@@ -130,14 +156,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Invalid login response.');
       }
 
-      const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || email.split('@')[0];
+      const fromInput =
+        emailOrPhone.includes('@')
+          ? emailOrPhone.split('@')[0]
+          : emailOrPhone.replace(/\D/g, '').slice(-4) || 'User';
+      const name =
+        [u.firstName, u.lastName].filter(Boolean).join(' ') || fromInput;
       const seller = u.seller as { id?: string; storeName?: string } | undefined;
       const userData: User = {
         id: u.id,
         name: name.charAt(0).toUpperCase() + name.slice(1),
         email: u.email,
         role: mapBackendRoleToFrontend(u.role),
-        phone: '',
+        phone: typeof u.phone === 'string' ? u.phone : '',
         address: '',
         memberSince: new Date().getFullYear().toString(),
         sellerId: seller?.id,
@@ -151,14 +182,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error(error?.message || 'Login failed. Please check your email and password.');
+      toast.error(error?.message || 'Login failed. Please check your email or mobile and password.');
       throw error;
     }
   };
 
-  const signup = async (name: string, email: string, password: string, role: UserRole = 'customer') => {
+  const signup = async (
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    role: UserRole = 'customer'
+  ) => {
     try {
-      await registerUser({ name, email, password });
+      await registerUser({ name, email, phone, password });
       // Store pending credentials for optional auto-login after verification
       try {
         sessionStorage.setItem('pendingSignup', JSON.stringify({ email, password }));
@@ -204,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signup,
         logout,
         updateUser,
+        refreshSessionFromServer,
       }}
     >
       {children}
