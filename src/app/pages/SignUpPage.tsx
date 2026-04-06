@@ -5,6 +5,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { UserPlus, Eye, EyeOff, Shield, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn, pressableSurfaceClass } from '@/lib/utils';
 
 const AUTH_BG_IMAGE =
   'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1920&q=80';
@@ -263,7 +264,10 @@ export function SignUpPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed text-sm"
+              className={cn(
+                pressableSurfaceClass,
+                'w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed text-sm',
+              )}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

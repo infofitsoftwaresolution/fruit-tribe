@@ -155,6 +155,17 @@
     line-height: 1.5;
   }
 
+  /* Snappier taps on touch devices (no legacy 300ms delay); remove grey flash on iOS */
+  button:not([disabled]),
+  [type='submit']:not([disabled]),
+  [type='button']:not([disabled]),
+  [type='reset']:not([disabled]),
+  [role='button']:not([aria-disabled='true']),
+  a[href] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* Premium Custom Scrollbar */
   .custom-scrollbar {
     scrollbar-width: thin;

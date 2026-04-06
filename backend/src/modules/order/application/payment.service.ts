@@ -10,11 +10,26 @@ const Razorpay = require('razorpay');
 @Injectable()
 export class PaymentService {
     private readonly logger = new Logger(PaymentService.name);
+    /** Reuse SDK client per key pair (avoids reconstructing on every payment). */
+    private readonly razorpayByKey = new Map<string, any>();
 
     constructor(
         private readonly prisma: PrismaService,
         private readonly settingsService: SettingsService,
     ) {}
+
+    private getRazorpayInstance(keyId: string, keySecret: string) {
+        const cacheKey = `${keyId}\0${keySecret}`;
+        let inst = this.razorpayByKey.get(cacheKey);
+        if (!inst) {
+            inst = new Razorpay({
+                key_id: keyId,
+                key_secret: keySecret,
+            });
+            this.razorpayByKey.set(cacheKey, inst);
+        }
+        return inst;
+    }
 
     /**
      * Create a Razorpay order using credentials stored by admin. All payments go to the configured account.
@@ -38,10 +53,7 @@ export class PaymentService {
             });
             if (!order) throw new BadRequestException('Order not found');
 
-            const instance = new Razorpay({
-                key_id: credentials.keyId,
-                key_secret: credentials.keySecret,
-            });
+            const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
 
             const receipt = String(order.orderNumber).slice(0, 40);
             const options = {

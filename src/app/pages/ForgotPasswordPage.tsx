@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestPasswordReset, resetPasswordWithCode } from '@/lib/api';
+import { motionTapTransition } from '@/lib/utils';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -86,9 +87,10 @@ export function ForgotPasswordPage() {
                 <motion.button
                   type="submit"
                   disabled={isLoading}
+                  transition={motionTapTransition}
                   whileHover={{ scale: isLoading ? 1 : 1.02, y: isLoading ? 0 : -2 }}
-                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
-                  className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileTap={{ scale: isLoading ? 1 : 0.97 }}
+                  className="touch-manipulation w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-[transform,opacity,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
                     'Sending...'
@@ -164,9 +166,10 @@ export function ForgotPasswordPage() {
                 <motion.button
                   type="submit"
                   disabled={isLoading}
+                  transition={motionTapTransition}
                   whileHover={{ scale: isLoading ? 1 : 1.02, y: isLoading ? 0 : -2 }}
-                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
-                  className="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileTap={{ scale: isLoading ? 1 : 0.97 }}
+                  className="touch-manipulation w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-[transform,opacity,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Updating...' : 'Reset Password'}
                 </motion.button>

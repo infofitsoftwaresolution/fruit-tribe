@@ -25,3 +25,14 @@ export function getRoundedClass(style?: 'Rounded' | 'Square' | 'Pill') {
         default: return 'rounded-full';
     }
 }
+
+/** Native `<button>` / form CTAs: instant tap scale + no mobile tap delay (use with `cn()`). */
+export const pressableSurfaceClass =
+    'touch-manipulation select-none transition-[transform,opacity] duration-100 ease-out active:scale-[0.98] disabled:active:scale-100';
+
+/** Framer Motion: fast press feedback (avoids sluggish default spring on taps). */
+export const motionTapTransition = {
+    type: 'tween' as const,
+    duration: 0.1,
+    ease: 'easeOut' as const,
+};

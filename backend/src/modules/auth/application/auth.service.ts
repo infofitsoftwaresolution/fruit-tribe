@@ -21,6 +21,7 @@ import {
     BulkCustomerAnnouncementDto,
 } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { MailService } from '../../../common/mail/mail.service';
 
 @Injectable()
@@ -295,7 +296,7 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // If this user is a delivery partner but has no role yet, attach DELIVERY_PARTNER role.
+        // Attach DELIVERY_PARTNER role if missing (single write; session fields updated below).
         if (!user.role) {
             const deliveryPartner = await this.prisma.deliveryPartner.findUnique({
                 where: { userId: user.id },
@@ -311,32 +312,10 @@ export class AuthService {
                 });
                 user = await this.prisma.user.update({
                     where: { id: user.id },
-                    data: {
-                        roleId: role.id,
-                        failedLoginAttempts: 0,
-                        lastLogin: new Date(),
-                    },
+                    data: { roleId: role.id },
                     include: { role: true },
                 });
-            } else {
-                // Not a delivery partner: still reset attempts and lastLogin.
-                await this.prisma.user.update({
-                    where: { id: user.id },
-                    data: {
-                        failedLoginAttempts: 0,
-                        lastLogin: new Date(),
-                    },
-                });
             }
-        } else {
-            // Reset failed attempts on successful login
-            await this.prisma.user.update({
-                where: { id: user.id },
-                data: {
-                    failedLoginAttempts: 0,
-                    lastLogin: new Date(),
-                },
-            });
         }
 
         const payload = { sub: user.id, email: user.email, role: user.role?.name };
@@ -346,16 +325,23 @@ export class AuthService {
             expiresIn: '7d',
         });
 
-        const refreshHash = await bcrypt.hash(refreshToken, 10);
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: { refreshTokenHash: refreshHash },
-        });
+        // SHA-256 is instant; bcrypt on refresh was adding ~50–150ms per login with no refresh flow using it yet.
+        const refreshHash = createHash('sha256').update(refreshToken).digest('hex');
 
-        const sellerProfile = await this.prisma.seller.findUnique({
-            where: { userId: user.id },
-            select: { id: true, storeName: true },
-        });
+        const [sellerProfile] = await Promise.all([
+            this.prisma.seller.findUnique({
+                where: { userId: user.id },
+                select: { id: true, storeName: true },
+            }),
+            this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    failedLoginAttempts: 0,
+                    lastLogin: new Date(),
+                    refreshTokenHash: refreshHash,
+                },
+            }),
+        ]);
 
         return {
             accessToken,

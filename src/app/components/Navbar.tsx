@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
-import { cn } from '@/lib/utils';
+import { cn, motionTapTransition } from '@/lib/utils';
 
 interface NavbarProps {
   cartCount: number;
@@ -122,13 +122,13 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
             {/* High-End Operations Node */}
             <div className="flex items-center gap-4">
               {isAdmin && (
-                <Link to="/admin" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl shadow-emerald-500/20">
+                <Link to="/admin" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-[transform,opacity,background-color] duration-100 ease-out active:scale-[0.98] shadow-xl shadow-emerald-500/20">
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   Admin
                 </Link>
               )}
               {isDeliveryPartner && (
-                <Link to="/delivery" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-slate-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-all shadow-xl shadow-slate-900/20">
+                <Link to="/delivery" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-slate-900 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-[transform,opacity,background-color] duration-100 ease-out active:scale-[0.98] shadow-xl shadow-slate-900/20">
                   <Truck className="w-3.5 h-3.5" />
                   Delivery
                 </Link>
@@ -140,6 +140,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                     type="button"
                     title="Log out"
                     aria-label="Log out"
+                    transition={motionTapTransition}
                     whileHover={{ scale: 1.04 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={() => {
@@ -147,7 +148,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                       navigate('/');
                     }}
                     className={cn(
-                      'hidden sm:inline-flex h-10 md:h-12 min-w-[2.5rem] md:min-w-[7.5rem] px-2 md:px-4 items-center justify-center gap-2 rounded-xl sm:rounded-2xl transition-all font-black text-[8px] md:text-[9px] uppercase tracking-[0.14em] md:tracking-widest shadow-lg',
+                      'touch-manipulation hidden sm:inline-flex h-10 md:h-12 min-w-[2.5rem] md:min-w-[7.5rem] px-2 md:px-4 items-center justify-center gap-2 rounded-xl sm:rounded-2xl transition-[transform,opacity] duration-100 ease-out font-black text-[8px] md:text-[9px] uppercase tracking-[0.14em] md:tracking-widest shadow-lg',
                       'bg-slate-900 text-white hover:bg-slate-800 border border-slate-800',
                     )}
                   >
@@ -156,24 +157,26 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   </motion.button>
                 )}
                 <motion.button
+                  transition={motionTapTransition}
                   whileHover={{ scale: 1.1, rotate: 15 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleAccountClick}
                   className={cn(
-                    "h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all",
-                    isScrolled ? "bg-white/5 text-white hover:bg-white/10" : "bg-slate-900/5 text-slate-900 hover:bg-slate-900 hover:text-white"
+                    'touch-manipulation h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-[transform,opacity] duration-100 ease-out',
+                    isScrolled ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-slate-900/5 text-slate-900 hover:bg-slate-900 hover:text-white',
                   )}
                 >
                   {isAuthenticated ? <User className="w-4 h-4 md:w-5 md:h-5" /> : <LogIn className="w-4 h-4 md:w-5 md:h-5" />}
                 </motion.button>
 
                 <motion.button
+                  transition={motionTapTransition}
                   whileHover={{ scale: 1.1, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onCartClick}
                   className={cn(
-                    "relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all shadow-2xl",
-                    isScrolled ? "bg-emerald-500 text-white" : "bg-slate-900 text-white"
+                    'touch-manipulation relative h-10 w-10 md:h-12 md:w-12 flex items-center justify-center rounded-xl sm:rounded-2xl transition-[transform,opacity] duration-100 ease-out shadow-2xl',
+                    isScrolled ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white',
                   )}
                 >
                   <ShoppingCart className="w-4 h-4 md:w-5 md:h-5" />
@@ -192,12 +195,13 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 </motion.button>
 
                 <motion.button
+                  transition={motionTapTransition}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsMenuOpen(true)}
                   className={cn(
-                    "lg:hidden h-10 w-10 flex items-center justify-center rounded-xl sm:rounded-2xl transition-all",
-                    isScrolled ? "bg-white/5 text-white" : "bg-slate-900/5 text-slate-900"
+                    'touch-manipulation lg:hidden h-10 w-10 flex items-center justify-center rounded-xl sm:rounded-2xl transition-[transform,opacity] duration-100 ease-out',
+                    isScrolled ? 'bg-white/5 text-white' : 'bg-slate-900/5 text-slate-900',
                   )}
                 >
                   <Menu className="w-5 h-5" />

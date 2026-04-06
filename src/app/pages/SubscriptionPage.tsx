@@ -20,27 +20,13 @@ import {
   checkoutFormToCreateAddressBody,
   type SavedDeliveryAddress,
 } from '@/lib/deliveryAddressUtils';
+import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 
 const BENEFIT_ICONS: Record<string, LucideIcon> = {
   gift: Gift,
   truck: Truck,
   calendar: Calendar,
 };
-
-function loadRazorpayScript(): Promise<void> {
-  return new Promise((resolve) => {
-    if ((window as unknown as { Razorpay?: unknown }).Razorpay) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => resolve();
-    document.body.appendChild(script);
-  });
-}
 
 export function SubscriptionPage() {
   const { theme, setSubscription, subscription, preferences } = useStore();
@@ -81,6 +67,10 @@ export function SubscriptionPage() {
     } catch {
       /* ignore */
     }
+  }, []);
+
+  useEffect(() => {
+    void ensureRazorpayScript();
   }, []);
 
   useEffect(() => {
@@ -313,8 +303,10 @@ export function SubscriptionPage() {
       const amountInPaise = Math.round(payableAmount * 100);
 
       const openRazorpay = async () => {
-        const { razorpayOrderId, keyId } = await createRazorpayOrder(orderId, amountInPaise, 'INR');
-        await loadRazorpayScript();
+        const [{ razorpayOrderId, keyId }] = await Promise.all([
+          createRazorpayOrder(orderId, amountInPaise, 'INR'),
+          ensureRazorpayScript(),
+        ]);
         const Razorpay = (window as unknown as { Razorpay?: new (opts: object) => { open: () => void } }).Razorpay;
         if (!Razorpay) {
           toast.error('Payment could not be loaded. Your subscription is not active until payment succeeds.', {

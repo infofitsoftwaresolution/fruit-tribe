@@ -79,12 +79,14 @@ export class SettingsService {
     }
 
     async getRazorpayCredentials(): Promise<{ keyId: string; keySecret: string } | null> {
-        const [keyId, keySecret] = await Promise.all([
-            this.get(KEY_RAZORPAY_KEY_ID),
-            this.get(KEY_RAZORPAY_KEY_SECRET),
-        ]);
-        if (!keyId?.trim() || !keySecret?.trim()) return null;
-        return { keyId: keyId.trim(), keySecret: keySecret.trim() };
+        const rows = await this.prisma.storeSetting.findMany({
+            where: { key: { in: [KEY_RAZORPAY_KEY_ID, KEY_RAZORPAY_KEY_SECRET] } },
+        });
+        const map = Object.fromEntries(rows.map((r) => [r.key, r.value ?? '']));
+        const keyId = map[KEY_RAZORPAY_KEY_ID]?.trim();
+        const keySecret = map[KEY_RAZORPAY_KEY_SECRET]?.trim();
+        if (!keyId || !keySecret) return null;
+        return { keyId, keySecret };
     }
 
     async setRazorpayCredentials(keyId: string, keySecret: string): Promise<void> {

@@ -23,7 +23,8 @@ import {
   checkoutFormToCreateAddressBody,
   type SavedDeliveryAddress,
 } from '@/lib/deliveryAddressUtils';
-import { cn, getRoundedClass } from '@/lib/utils';
+import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
+import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { toast } from 'sonner';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
@@ -59,6 +60,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   useEffect(() => {
     if (!codAllowedForCart && paymentMethod === 'cod') setPaymentMethod('online');
   }, [codAllowedForCart, paymentMethod]);
+
+  useEffect(() => {
+    if (paymentMethod !== 'online') return;
+    void ensureRazorpayScript();
+  }, [paymentMethod]);
   const { user } = useAuth();
   const { cities: serviceableCities, pincodes: serviceablePincodes, isCityServiceable, isPincodeServiceable } =
     useServiceableAreas();
@@ -554,8 +560,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       }
 
       try {
-        const { razorpayOrderId, keyId } = await createRazorpayOrder(orderId, amountInPaise, 'INR');
-        await loadRazorpayScript();
+        const [{ razorpayOrderId, keyId }] = await Promise.all([
+          createRazorpayOrder(orderId, amountInPaise, 'INR'),
+          ensureRazorpayScript(),
+        ]);
         const Razorpay = (window as any).Razorpay;
         if (!Razorpay) {
           toast.success('Order placed. Payment gateway could not be loaded; pay from My Orders.', {
@@ -641,24 +649,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setSubmitting(false);
     }
   };
-
-  function loadRazorpayScript(): Promise<void> {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve();
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      // Do not set crossOrigin: Razorpay's script reads response headers that browsers forbid to JS
-      // (e.g. x-rtb-fingerprint-id), causing "Refused to get unsafe header". Loading without
-      // crossOrigin can reduce CORS-related behavior that triggers that path.
-      script.onload = () => resolve();
-      script.onerror = () => resolve();
-      document.body.appendChild(script);
-    });
-  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -1280,12 +1270,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   <motion.button
                     type="submit"
                     disabled={submitting}
+                    transition={motionTapTransition}
                     whileHover={{ scale: submitting ? 1 : 1.02 }}
-                    whileTap={{ scale: submitting ? 1 : 0.98 }}
+                    whileTap={{ scale: submitting ? 1 : 0.97 }}
                     className={cn(
-                      "w-full py-4 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.25em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-all flex items-center justify-center gap-2 min-h-[48px]",
-                      submitting && "opacity-70 cursor-wait",
-                      getRoundedClass(theme.buttonStyle)
+                      'touch-manipulation w-full py-4 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.25em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-[transform,opacity,background-color,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 min-h-[48px]',
+                      submitting && 'opacity-70 cursor-wait',
+                      getRoundedClass(theme.buttonStyle),
                     )}
                   >
                     {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
