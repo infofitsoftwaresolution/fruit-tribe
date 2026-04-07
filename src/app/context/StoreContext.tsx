@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getStoreSettings } from '@/lib/api';
+import { getEffectiveUnitPrice, getEffectiveUnitPriceFromCartItem } from '@/lib/pricing';
 import type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 
 export type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
@@ -197,11 +198,16 @@ export interface ThemeSettings {
 export interface CartItem {
     id: string | number;
     name: string;
+    /** Effective unit price for the current quantity tier (retail or bulk). */
     price: number;
     quantity: number;
     image: string;
     vendor: string;
     stock?: number; // for validation when updating quantity
+    /** Retail unit price (for bulk tier recalculation when quantity changes). */
+    retailUnitPrice?: number;
+    bulkDiscountQty?: number;
+    bulkDiscountPrice?: number;
 }
 
 export interface Page {
@@ -511,9 +517,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 return prevItems;
             }
 
+            const unitPrice = getEffectiveUnitPrice(product, newQty);
             if (existingItem) {
                 const updatedItems = prevItems.map(item =>
-                    item.id === product.id ? { ...item, quantity: newQty } : item
+                    item.id === product.id
+                        ? {
+                            ...item,
+                            quantity: newQty,
+                            price: unitPrice,
+                            retailUnitPrice: product.price,
+                            bulkDiscountQty: product.bulkDiscountQty,
+                            bulkDiscountPrice: product.bulkDiscountPrice,
+                        }
+                        : item
                 );
                 const added = newQty - currentQty;
                 toast.success(`Updated ${existingItem.name} quantity to ${newQty} (added ${added})`);
@@ -523,11 +539,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 return [...prevItems, {
                     id: product.id,
                     name: product.name,
-                    price: product.price,
+                    price: unitPrice,
                     quantity: newQty,
                     image: product.image,
                     vendor: product.vendor,
-                    stock: product.stock
+                    stock: product.stock,
+                    retailUnitPrice: product.price,
+                    bulkDiscountQty: product.bulkDiscountQty,
+                    bulkDiscountPrice: product.bulkDiscountPrice,
                 }];
             }
         });
@@ -543,7 +562,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     toast.error(`Only ${maxStock} units available in stock`);
                     return item;
                 }
-                return { ...item, quantity: Math.max(0, newQuantity) };
+                const q = Math.max(0, newQuantity);
+                const nextPrice =
+                    item.retailUnitPrice != null || item.bulkDiscountQty != null
+                        ? getEffectiveUnitPriceFromCartItem(item, q)
+                        : item.price;
+                return { ...item, quantity: q, price: nextPrice };
             }
             return item;
         }).filter(item => item.quantity > 0));

@@ -151,8 +151,8 @@ export function AdminThemeEditor() {
         switch (activePage) {
             case 'home': return <div className="bg-white min-h-full"><HomePage onAddToCart={() => toast.info('Preview mode: Added to cart')} /></div>;
             case 'about': return <div className="bg-white min-h-full"><AboutPage /></div>;
-            case 'login': return <div className="bg-white min-h-full"><LoginPage /></div>;
-            case 'signup': return <div className="bg-white min-h-full"><SignUpPage /></div>;
+            case 'login': return <div className="bg-white min-h-full"><LoginPage embedded /></div>;
+            case 'signup': return <div className="bg-white min-h-full"><SignUpPage embedded /></div>;
             default: return null;
         }
     };
@@ -200,30 +200,46 @@ export function AdminThemeEditor() {
                             { id: 'design', label: 'Design', icon: Palette },
                             { id: 'layout', label: 'Layout', icon: LayoutDashboard }
                         ].map(tab => (
-                            <button
+                            <motion.button
                                 key={tab.id}
                                 onClick={() => setSidebarTab(tab.id as any)}
                                 className={cn(
-                                    "flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-all",
+                                    "relative flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-all",
                                     sidebarTab === tab.id
-                                        ? "bg-white text-slate-900 shadow-md"
+                                        ? "text-slate-900 shadow-md"
                                         : "text-slate-400 hover:text-white hover:bg-slate-700"
                                 )}
+                                whileTap={{ scale: 0.98 }}
                             >
-                                <tab.icon className={cn("h-5 w-5 shrink-0", sidebarTab === tab.id ? "text-emerald-600" : "text-inherit")} />
-                                <span className="text-[10px] font-semibold uppercase tracking-wide truncate w-full text-center">{tab.label}</span>
                                 {sidebarTab === tab.id && (
-                                    <motion.div layoutId="tab-underline" className="h-0.5 w-6 bg-emerald-500 rounded-full" />
+                                    <motion.div
+                                        layoutId="theme-editor-tab-active"
+                                        className="absolute inset-0 rounded-lg bg-white"
+                                        transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                                    />
                                 )}
-                            </button>
+                                <tab.icon className={cn("relative z-10 h-5 w-5 shrink-0", sidebarTab === tab.id ? "text-emerald-600" : "text-inherit")} />
+                                <span className="relative z-10 text-[10px] font-semibold uppercase tracking-wide truncate w-full text-center">{tab.label}</span>
+                                {sidebarTab === tab.id && (
+                                    <motion.div layoutId="tab-underline" className="relative z-10 h-0.5 w-6 bg-emerald-500 rounded-full" />
+                                )}
+                            </motion.button>
                         ))}
                     </div>
                 </div>
 
                 {/* Scrollable form area - nothing clipped */}
-                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 py-6 space-y-10">
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 py-6">
+                    <AnimatePresence mode="wait">
                     {sidebarTab === 'content' && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-12">
+                        <motion.div
+                            key="tab-content"
+                            initial={{ opacity: 0, y: 12, filter: 'blur(3px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -8, filter: 'blur(3px)' }}
+                            transition={{ duration: 0.22, ease: 'easeOut' }}
+                            className="space-y-12"
+                        >
                             <div className="space-y-6">
                                 <SectionHeader icon={Globe} title="Site identity" />
                                 <div className="grid gap-5">
@@ -279,7 +295,71 @@ export function AdminThemeEditor() {
                     )}
 
                     {sidebarTab === 'design' && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+                        <motion.div
+                            key="tab-design"
+                            initial={{ opacity: 0, y: 12, filter: 'blur(3px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -8, filter: 'blur(3px)' }}
+                            transition={{ duration: 0.22, ease: 'easeOut' }}
+                            className="space-y-8"
+                        >
+                            <div className="space-y-5">
+                                <SectionHeader icon={ImageIcon} title="Database image assets" />
+                                <p className="text-xs text-slate-400">
+                                    These values are persisted in store settings and used by live pages.
+                                </p>
+                                <div className="grid gap-5">
+                                    {[
+                                        { key: 'heroImage', label: 'Hero image URL' },
+                                        { key: 'aboutPageImage', label: 'About page image URL' },
+                                        { key: 'authBackgroundImage', label: 'Login & signup background image URL' },
+                                        { key: 'logoUrl', label: 'Logo URL' },
+                                        { key: 'faviconUrl', label: 'Favicon URL' },
+                                    ].map((field) => (
+                                        <div
+                                            key={field.key}
+                                            className="space-y-3 p-4 bg-slate-800/90 rounded-xl border border-slate-700 hover:border-slate-600 transition-colors"
+                                        >
+                                            <PremiumInput
+                                                label={field.label}
+                                                name={field.key}
+                                                value={(formData as any)[field.key] || ''}
+                                                onChange={handleChange}
+                                                placeholder="https://..."
+                                            />
+                                            <div className="flex items-center gap-3">
+                                                <label className="inline-flex h-10 min-w-[148px] items-center justify-center gap-2 px-3 bg-slate-900 border border-slate-600 rounded-lg cursor-pointer hover:bg-slate-700 transition-colors text-xs font-semibold text-slate-300 whitespace-nowrap">
+                                                    <Upload className="h-4 w-4" />
+                                                    Upload image
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload(field.key)} />
+                                                </label>
+                                                <span className="text-[11px] text-slate-500 truncate">
+                                                    {(formData as any)[field.key] ? 'Image selected' : 'No image selected'}
+                                                </span>
+                                            </div>
+                                            <div className="h-24 w-full rounded-lg border border-slate-700 bg-slate-900/60 overflow-hidden">
+                                                {(formData as any)[field.key] ? (
+                                                    <img
+                                                        src={(formData as any)[field.key]}
+                                                        alt=""
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="h-full w-full flex items-center justify-center text-[11px] text-slate-500">
+                                                        Preview not available
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {field.key === 'authBackgroundImage' ? (
+                                                <p className="text-[11px] text-slate-400">
+                                                    This image is used on both `Login` and `Sign up` pages.
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
                             <div className="space-y-5">
                                 <SectionHeader icon={Palette} title="Colors" />
                                 <div className="grid grid-cols-2 gap-5">
@@ -326,7 +406,14 @@ export function AdminThemeEditor() {
                     )}
 
                     {sidebarTab === 'layout' && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                        <motion.div
+                            key="tab-layout"
+                            initial={{ opacity: 0, y: 12, filter: 'blur(3px)' }}
+                            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: -8, filter: 'blur(3px)' }}
+                            transition={{ duration: 0.22, ease: 'easeOut' }}
+                            className="space-y-4"
+                        >
                             <SectionHeader icon={LayoutDashboard} title="Homepage sections" />
                             <p className="text-xs text-slate-400 mb-4">Show or hide sections on the homepage.</p>
                             <div className="grid gap-3">
@@ -349,6 +436,7 @@ export function AdminThemeEditor() {
                             </div>
                         </motion.div>
                     )}
+                    </AnimatePresence>
                 </div>
 
                 <div className="p-6 border-t border-slate-700 bg-slate-900 shrink-0">

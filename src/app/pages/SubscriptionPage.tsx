@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, type ChangeEvent } from 'react';
+import { Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Gift, Truck, Star, Calendar, Zap, Heart, ShieldCheck, Leaf, Loader2, MapPin, type LucideIcon } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
@@ -405,6 +406,10 @@ export function SubscriptionPage() {
 
   const periodDisplaySuffix = (period: string) =>
     period.includes(' ') ? period.split(' ').slice(1).join(' ') : period;
+
+  if (!cfg.enabled) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="pt-28 pb-16 min-h-screen bg-slate-50">

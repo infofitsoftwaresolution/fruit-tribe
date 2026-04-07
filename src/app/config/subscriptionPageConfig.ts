@@ -29,6 +29,8 @@ export interface SubscriptionBenefitConfig {
 }
 
 export interface SubscriptionPageConfig {
+    /** When false, `/subscription` is hidden and nav/CTAs do not link to it. */
+    enabled: boolean;
     badgeLabel: string;
     heroPrefix: string;
     heroGradientText: string;
@@ -44,6 +46,7 @@ export interface SubscriptionPageConfig {
 
 export function getDefaultSubscriptionPageConfig(): SubscriptionPageConfig {
     return {
+        enabled: true,
         badgeLabel: 'Member Plans',
         heroPrefix: 'Join the',
         heroGradientText: 'Fruit Tribe',
@@ -146,6 +149,7 @@ export function mergeSubscriptionPageConfig(
     const d = getDefaultSubscriptionPageConfig();
     if (!partial || typeof partial !== 'object') return d;
     return {
+        enabled: partial.enabled !== false,
         badgeLabel: partial.badgeLabel ?? d.badgeLabel,
         heroPrefix: partial.heroPrefix ?? d.heroPrefix,
         heroGradientText: partial.heroGradientText ?? d.heroGradientText,

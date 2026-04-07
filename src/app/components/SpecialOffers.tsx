@@ -5,9 +5,11 @@ import { useStore } from '@/app/context/StoreContext';
 import { useProducts } from '@/app/hooks/useProducts';
 import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
+import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 
 export function SpecialOffers() {
-  const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart } = useStore();
+  const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart, preferences } = useStore();
+  const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
   const { products: apiProducts } = useProducts({ limit: 100 });
   const products = apiProducts.length > 0 ? apiProducts : storeProducts;
   const bulkProducts = products.filter((p: any) => 
@@ -167,7 +169,8 @@ export function SpecialOffers() {
           ))}
         </div>
 
-        {/* Global Node Subscription HUD */}
+        {/* Global Node Subscription HUD — hidden when admin disables subscription storefront */}
+        {subscriptionPageEnabled && (
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           whileInView={{ opacity: 1, scale: 1 }}
@@ -197,6 +200,7 @@ export function SpecialOffers() {
             <Zap className="h-5 w-5 text-emerald-500 group-hover:scale-125 transition-transform" />
           </motion.button>
         </motion.div>
+        )}
 
         {/* Bulk Acquisition Signals */}
         <div className="mt-40 space-y-12">

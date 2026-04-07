@@ -53,6 +53,25 @@ export function AdminOrdersPage() {
         return (dpRows || []).map((p) => ({ id: p.id, name: p.name }));
     }, [dpRows, user?.role]);
 
+    function extractDistanceKm(api: any): number | null {
+        const firstDelivery = (api?.deliveries || [])[0] || null;
+        const candidates = [
+            api?.deliveryDistanceKm,
+            api?.distanceKm,
+            api?.shippingDistanceKm,
+            firstDelivery?.distanceKm,
+            firstDelivery?.distance,
+            api?.shippingAddress?.distanceKm,
+            api?.shippingAddress?.distance,
+            api?.shippingAddress?.meta?.distanceKm,
+        ];
+        for (const value of candidates) {
+            const num = typeof value === 'string' ? parseFloat(value) : Number(value);
+            if (Number.isFinite(num) && num >= 0) return num;
+        }
+        return null;
+    }
+
     function mapApiOrderToOrder(api: any): Order {
         const userName = api.user ? [api.user.firstName, api.user.lastName].filter(Boolean).join(' ') || api.user.email : '—';
         const statusMap: Record<string, Order['status']> = {
@@ -87,6 +106,7 @@ export function AdminOrdersPage() {
             shippingAddress: api.shippingAddress || null,
             courierName,
             vendorNames,
+            distanceKm: extractDistanceKm(api),
         } as any;
     }
 
@@ -474,13 +494,14 @@ export function AdminOrdersPage() {
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Vendor</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Fiscal State</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Order Status</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Distance</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Amount</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {ordersLoading ? (
-                                <AdminTableSkeletonRows rows={10} cols={7} />
+                                <AdminTableSkeletonRows rows={10} cols={8} />
                             ) : (
                             <AnimatePresence mode='popLayout'>
                                 {displayedOrders.map((order, idx) => {
@@ -564,6 +585,15 @@ export function AdminOrdersPage() {
                                                         ))}
                                                     </select>
                                                 </div>
+                                            </td>
+                                            <td className="px-10 py-10">
+                                                {typeof (order as any).distanceKm === 'number' ? (
+                                                    <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase tracking-widest">
+                                                        {(order as any).distanceKm.toFixed(2)} km
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">—</span>
+                                                )}
                                             </td>
                                             <td className="px-10 py-10 text-right">
                                                 <span className="text-lg font-black text-slate-900 tracking-tighter leading-none">₹{order.total.toLocaleString()}</span>

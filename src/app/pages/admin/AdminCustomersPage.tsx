@@ -25,6 +25,9 @@ export function AdminCustomersPage() {
     const { user } = useAuth();
     const { customers, orders, isInitialLoading: loading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
+    const [segmentFilter, setSegmentFilter] = useState<'all' | 'VIP' | 'Active' | 'Inactive'>('all');
+    const [verificationFilter, setVerificationFilter] = useState<'all' | 'Verified' | 'Unverified'>('all');
+    const [activityFilter, setActivityFilter] = useState<'all' | 'with_orders' | 'no_orders'>('all');
     const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
     const isAdmin = user?.role === 'admin';
     const [bulkOpen, setBulkOpen] = useState(false);
@@ -57,7 +60,7 @@ export function AdminCustomersPage() {
         if (!trimmed) return base;
         const q = trimmed.toLowerCase();
         const qDigits = q.replace(/\D/g, '');
-        return base.filter((c) => {
+        return base.filter((c: any) => {
             if (c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)) return true;
             if (c.phone && c.phone.toLowerCase().includes(q)) return true;
             if (qDigits.length >= 3 && c.phone.replace(/\D/g, '').includes(qDigits)) return true;
@@ -65,18 +68,32 @@ export function AdminCustomersPage() {
         });
     }, [customers, searchQuery]);
 
+    const filteredCustomersByAllFilters = useMemo(() => {
+        return filteredCustomers.filter((c: any) => {
+            const segmentOk = segmentFilter === 'all' || c.status === segmentFilter;
+            const verificationOk = verificationFilter === 'all' || c.verificationStatus === verificationFilter;
+            const activityOk =
+                activityFilter === 'all'
+                    ? true
+                    : activityFilter === 'with_orders'
+                        ? c.orders > 0
+                        : c.orders === 0;
+            return segmentOk && verificationOk && activityOk;
+        });
+    }, [filteredCustomers, segmentFilter, verificationFilter, activityFilter]);
+
     const stats = useMemo(() => {
-        const total = filteredCustomers.length;
-        const vip = filteredCustomers.filter(c => c.status === 'VIP').length;
-        const active = filteredCustomers.filter(c => c.status === 'Active').length;
-        const verified = filteredCustomers.filter(c => c.verificationStatus === 'Verified').length;
+        const total = filteredCustomersByAllFilters.length;
+        const vip = filteredCustomersByAllFilters.filter(c => c.status === 'VIP').length;
+        const active = filteredCustomersByAllFilters.filter(c => c.status === 'Active').length;
+        const verified = filteredCustomersByAllFilters.filter(c => c.verificationStatus === 'Verified').length;
         return {
             total,
             vip,
             active,
             growth: `${verified}/${total} verified`,
         };
-    }, [filteredCustomers]);
+    }, [filteredCustomersByAllFilters]);
 
     const handleViewDetails = (customer: any) => {
         setSelectedCustomer(customer);
@@ -273,6 +290,36 @@ export function AdminCustomersPage() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full md:w-auto md:min-w-[520px]">
+                        <select
+                            value={segmentFilter}
+                            onChange={(e) => setSegmentFilter(e.target.value as 'all' | 'VIP' | 'Active' | 'Inactive')}
+                            className="h-12 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600"
+                        >
+                            <option value="all">All Segments</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
+                        <select
+                            value={verificationFilter}
+                            onChange={(e) => setVerificationFilter(e.target.value as 'all' | 'Verified' | 'Unverified')}
+                            className="h-12 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600"
+                        >
+                            <option value="all">All Verification</option>
+                            <option value="Verified">Verified</option>
+                            <option value="Unverified">Unverified</option>
+                        </select>
+                        <select
+                            value={activityFilter}
+                            onChange={(e) => setActivityFilter(e.target.value as 'all' | 'with_orders' | 'no_orders')}
+                            className="h-12 px-3 bg-slate-50 border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600"
+                        >
+                            <option value="all">All Activity</option>
+                            <option value="with_orders">With Orders</option>
+                            <option value="no_orders">No Orders</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto min-h-[400px]">
@@ -293,7 +340,7 @@ export function AdminCustomersPage() {
                                 <tr><td colSpan={7} className="px-8 py-16 text-center text-slate-400 text-sm">Loading customers...</td></tr>
                             ) : (
                             <AnimatePresence mode='popLayout'>
-                                {filteredCustomers.map((customer, idx) => (
+                                {filteredCustomersByAllFilters.map((customer, idx) => (
                                     <motion.tr
                                         key={customer.id}
                                         initial={{ opacity: 0 }}

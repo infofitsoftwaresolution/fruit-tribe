@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
 /** Map backend order to Profile order-history shape (includes product details per item) */
@@ -107,7 +108,8 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
 export function ProfilePage() {
   const navigate = useNavigate();
   const { user, logout, updateUser } = useAuth();
-  const { subscription } = useStore();
+  const { subscription, preferences } = useStore();
+  const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
   const [apiOrders, setApiOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -363,23 +365,29 @@ export function ProfilePage() {
                     </div>
                   </div>
 
-                  <button onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
-                    Manage Subscription
-                  </button>
+                  {subscriptionPageEnabled ? (
+                    <button type="button" onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
+                      Manage Subscription
+                    </button>
+                  ) : (
+                    <p className="text-[10px] font-bold text-emerald-100/90 text-center uppercase tracking-widest">
+                      Subscription page is currently hidden by the store.
+                    </p>
+                  )}
                 </div>
               </motion.div>
-            ) : (
+            ) : subscriptionPageEnabled ? (
               <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl text-center">
                 <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
                   <Leaf className="w-10 h-10 text-slate-300" />
                 </div>
                 <h3 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight">Try a subscription?</h3>
                 <p className="text-slate-500 text-sm font-medium mb-8">Get scheduled deliveries and save up to 45%.</p>
-                <button onClick={() => navigate('/subscription')} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
+                <button type="button" onClick={() => navigate('/subscription')} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
                   View subscription plans
                 </button>
               </div>
-            )}
+            ) : null}
 
             {/* Profile card */}
             <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl">

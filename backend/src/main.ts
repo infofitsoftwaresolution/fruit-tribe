@@ -26,8 +26,24 @@ async function bootstrap() {
     );
 
     // CORS Configuration
+    // Note: `credentials: true` should not be combined with wildcard "*".
+    const envOrigins = (process.env.ALLOWED_ORIGINS ?? '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+    const defaultDevOrigins = ['http://localhost:5173', 'http://localhost:5174'];
+    const allowList = new Set([...defaultDevOrigins, ...envOrigins]);
     app.enableCors({
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+        origin: (origin, callback) => {
+            // Non-browser or same-origin requests may not send Origin.
+            if (!origin) return callback(null, true);
+            // Keep local dev smooth across different Vite ports.
+            if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+                return callback(null, true);
+            }
+            if (allowList.has(origin)) return callback(null, true);
+            return callback(new Error(`CORS blocked for origin: ${origin}`), false);
+        },
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
     });

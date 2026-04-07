@@ -7,11 +7,15 @@ import { LogIn, Eye, EyeOff, Shield, Loader2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, pressableSurfaceClass } from '@/lib/utils';
 
-// Default login hero: fresh mixed fruits (store theme can override via authBackgroundImage)
+// Default auth background: fruits only (store can override via authBackgroundImage).
 const AUTH_BG_IMAGE =
-  'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=1920&q=80';
+  'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&q=80';
 
-export function LoginPage() {
+interface LoginPageProps {
+  embedded?: boolean;
+}
+
+export function LoginPage({ embedded = false }: LoginPageProps) {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { theme } = useStore();
@@ -28,6 +32,8 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const resolvedAuthBg =
+    (theme?.authBackgroundImage && theme.authBackgroundImage.trim()) || AUTH_BG_IMAGE;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,18 +74,32 @@ export function LoginPage() {
   };
 
   return (
-    <div ref={containerRef} className="relative min-h-screen w-full flex items-center justify-center overflow-auto pt-28 pb-12 bg-slate-100">
+    <div
+      ref={containerRef}
+      className={cn(
+        'relative min-h-screen w-full flex items-center justify-center overflow-auto bg-slate-100',
+        embedded ? 'pt-16 pb-8' : 'pt-28 pb-12',
+      )}
+    >
       {/* Parallax background image */}
       <motion.div
         style={{
           y: bgY,
-          backgroundImage: `url(${theme?.authBackgroundImage || AUTH_BG_IMAGE})`,
+          backgroundImage: `url(${resolvedAuthBg})`,
         }}
-        className="fixed inset-0 z-0 bg-cover bg-center scale-105"
+        className={cn(
+          'inset-0 z-0 bg-cover bg-center scale-105',
+          embedded ? 'absolute' : 'fixed',
+        )}
         aria-hidden
       />
       {/* Overlay so form stays readable */}
-      <div className="fixed inset-0 z-0 bg-gradient-to-br from-slate-100/95 via-emerald-50/40 to-slate-100/95" />
+      <div
+        className={cn(
+          'inset-0 z-0 bg-gradient-to-br from-slate-100/95 via-emerald-50/40 to-slate-100/95',
+          embedded ? 'absolute' : 'fixed',
+        )}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}

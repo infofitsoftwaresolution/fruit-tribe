@@ -1,9 +1,10 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, Menu, X, Search, User, LogIn, ChevronRight, LayoutDashboard, Globe, Zap, ArrowUpRight, Truck, LogOut } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
+import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { cn, motionTapTransition } from '@/lib/utils';
 
 interface NavbarProps {
@@ -12,7 +13,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ cartCount, onCartClick }: NavbarProps) {
-  const { theme } = useStore();
+  const { theme, preferences } = useStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
@@ -42,13 +43,17 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
     }
   };
 
-  const navItems = [
-    { path: '/', label: 'Home' },
-    { path: '/products', label: 'Products' },
-    { path: '/subscription', label: 'Subscription' },
-    { path: '/about', label: 'About' },
-    { path: '/contact', label: 'Contact' },
-  ];
+  const navItems = useMemo(() => {
+    const all = [
+      { path: '/', label: 'Home' },
+      { path: '/products', label: 'Products' },
+      { path: '/subscription', label: 'Subscription' },
+      { path: '/about', label: 'About' },
+      { path: '/contact', label: 'Contact' },
+    ];
+    const subOn = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
+    return subOn ? all : all.filter((i) => i.path !== '/subscription');
+  }, [preferences.subscriptionPage]);
 
   return (
     <>

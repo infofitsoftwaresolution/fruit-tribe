@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
@@ -8,12 +9,25 @@ import { toast } from 'sonner';
 
 export function ContactPage() {
   const { theme } = useStore();
+  const [searchParams] = useSearchParams();
+  const subjectFromUrl = searchParams.get('subject')?.trim() ?? '';
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     subject: '',
     message: '',
   });
+
+  useEffect(() => {
+    if (!subjectFromUrl) return;
+    setFormData((prev) => ({
+      ...prev,
+      subject: subjectFromUrl,
+      message: prev.message.trim()
+        ? prev.message
+        : `I'd like to discuss: ${subjectFromUrl}`,
+    }));
+  }, [subjectFromUrl]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

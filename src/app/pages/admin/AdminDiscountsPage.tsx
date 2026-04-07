@@ -47,6 +47,9 @@ export function AdminDiscountsPage() {
     const [scopes, setScopes] = useState<CouponScopeRule[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled'>('all');
+    const [discountTypeFilter, setDiscountTypeFilter] = useState<'all' | 'PERCENTAGE' | 'FIXED'>('all');
+    const [scopeFilter, setScopeFilter] = useState<'all' | 'ALL' | 'CATEGORY' | 'PRODUCT'>('all');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editing, setEditing] = useState<AdminCoupon | null>(null);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -68,10 +71,18 @@ export function AdminDiscountsPage() {
         void loadData();
     }, []);
 
-    const filteredCoupons = useMemo(
-        () => coupons.filter((c) => c.code.toLowerCase().includes(search.toLowerCase())),
-        [coupons, search],
-    );
+    const filteredCoupons = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return coupons.filter((c) => {
+            const scope = scopes.find((s) => s.code.toUpperCase() === c.code.toUpperCase());
+            const searchOk = q.length === 0 || c.code.toLowerCase().includes(q);
+            const statusOk =
+                statusFilter === 'all' ? true : statusFilter === 'active' ? c.isActive : !c.isActive;
+            const typeOk = discountTypeFilter === 'all' || c.discountType === discountTypeFilter;
+            const scopeOk = scopeFilter === 'all' || (scope?.scopeType ?? 'ALL') === scopeFilter;
+            return searchOk && statusOk && typeOk && scopeOk;
+        });
+    }, [coupons, search, statusFilter, discountTypeFilter, scopeFilter, scopes]);
 
     const getScopeForCode = (code: string): CouponScopeRule | undefined =>
         scopes.find((s) => s.code.toUpperCase() === code.toUpperCase());
@@ -199,9 +210,39 @@ export function AdminDiscountsPage() {
                 </button>
             </div>
 
-            <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search coupon code" className="w-full h-11 min-h-[44px] pl-10 pr-3 rounded-xl border border-slate-200" />
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
+                <div className="relative lg:col-span-2">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search coupon code" className="w-full h-11 min-h-[44px] pl-10 pr-3 rounded-xl border border-slate-200" />
+                </div>
+                <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'disabled')}
+                    className="h-11 min-h-[44px] px-3 rounded-xl border border-slate-200 text-sm font-semibold"
+                >
+                    <option value="all">All status</option>
+                    <option value="active">Active</option>
+                    <option value="disabled">Disabled</option>
+                </select>
+                <select
+                    value={discountTypeFilter}
+                    onChange={(e) => setDiscountTypeFilter(e.target.value as 'all' | 'PERCENTAGE' | 'FIXED')}
+                    className="h-11 min-h-[44px] px-3 rounded-xl border border-slate-200 text-sm font-semibold"
+                >
+                    <option value="all">All types</option>
+                    <option value="PERCENTAGE">Percentage</option>
+                    <option value="FIXED">Fixed</option>
+                </select>
+                <select
+                    value={scopeFilter}
+                    onChange={(e) => setScopeFilter(e.target.value as 'all' | 'ALL' | 'CATEGORY' | 'PRODUCT')}
+                    className="h-11 min-h-[44px] px-3 rounded-xl border border-slate-200 text-sm font-semibold lg:col-start-4"
+                >
+                    <option value="all">All scopes</option>
+                    <option value="ALL">All products</option>
+                    <option value="CATEGORY">Category</option>
+                    <option value="PRODUCT">Product</option>
+                </select>
             </div>
 
             <div className="bg-white border border-slate-100 rounded-2xl overflow-auto">

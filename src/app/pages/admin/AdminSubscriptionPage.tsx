@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { useStore } from '@/app/context/StoreContext';
 import { updateStoreSettings } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import {
     getDefaultSubscriptionPageConfig,
     mergeSubscriptionPageConfig,
@@ -158,6 +159,10 @@ export function AdminSubscriptionPage() {
                     <button
                         type="button"
                         onClick={() => {
+                            if (!draft.enabled) {
+                                toast.info('Turn on “Show subscription page on website” below, then save, to preview.');
+                                return;
+                            }
                             const base = window.location.href.split('#')[0];
                             window.open(`${base}#/subscription`, '_blank', 'noopener,noreferrer');
                         }}
@@ -184,6 +189,33 @@ export function AdminSubscriptionPage() {
                         {saving ? 'Saving…' : 'Save'}
                     </button>
                 </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+                <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Storefront</p>
+                    <p className="text-lg font-black text-slate-900 mt-1">Show subscription page on website</p>
+                    <p className="text-sm text-slate-500 mt-0.5 max-w-xl">
+                        When off, customers won’t see Subscription in the nav or promos; opening /subscription sends them home.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    role="switch"
+                    aria-checked={draft.enabled}
+                    onClick={() => setDraft((d) => ({ ...d, enabled: !d.enabled }))}
+                    className={cn(
+                        'relative h-10 w-[4.5rem] shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
+                        draft.enabled ? 'bg-emerald-500' : 'bg-slate-300',
+                    )}
+                >
+                    <span
+                        className={cn(
+                            'absolute top-1 left-1 h-8 w-8 rounded-full bg-white shadow transition-transform',
+                            draft.enabled ? 'translate-x-[2.15rem]' : 'translate-x-0',
+                        )}
+                    />
+                </button>
             </div>
 
             {/* Hero */}

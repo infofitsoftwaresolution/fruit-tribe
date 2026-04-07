@@ -74,6 +74,8 @@ export function AdminSellersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSeller, setSelectedSeller] = useState<Seller | null>(null);
     const [activeTab, setActiveTab] = useState('All');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'REJECTED'>('all');
+    const [kycFilter, setKycFilter] = useState<'all' | 'VERIFIED' | 'PENDING' | 'REJECTED' | 'NOT_SUBMITTED'>('all');
 
     const handleApprove = async (id: string) => {
         try {
@@ -98,12 +100,19 @@ export function AdminSellersPage() {
                 s.ownerName.toLowerCase().includes(searchQuery.toLowerCase());
             if (!matchesSearch) return false;
 
-            if (activeTab === 'Pending') return s.status === 'PENDING';
-            if (activeTab === 'Verified') return s.kycStatus === 'VERIFIED';
-            if (activeTab === 'Suspended') return s.status === 'SUSPENDED';
-            return true;
+            const tabOk =
+                activeTab === 'Pending'
+                    ? s.status === 'PENDING'
+                    : activeTab === 'Verified'
+                        ? s.kycStatus === 'VERIFIED'
+                        : activeTab === 'Suspended'
+                            ? s.status === 'SUSPENDED'
+                            : true;
+            const statusOk = statusFilter === 'all' || s.status === statusFilter;
+            const kycOk = kycFilter === 'all' || s.kycStatus === kycFilter;
+            return tabOk && statusOk && kycOk;
         });
-    }, [sellers, searchQuery, activeTab]);
+    }, [sellers, searchQuery, activeTab, statusFilter, kycFilter]);
 
     const escapeCsvValue = (value: unknown) => {
         const str = value == null ? '' : String(value);
@@ -243,6 +252,30 @@ export function AdminSellersPage() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto md:min-w-[360px]">
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'REJECTED')}
+                            className="h-14 px-3 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                        <select
+                            value={kycFilter}
+                            onChange={(e) => setKycFilter(e.target.value as 'all' | 'VERIFIED' | 'PENDING' | 'REJECTED' | 'NOT_SUBMITTED')}
+                            className="h-14 px-3 bg-white border border-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600"
+                        >
+                            <option value="all">All KYC</option>
+                            <option value="VERIFIED">Verified</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="NOT_SUBMITTED">Not Submitted</option>
+                        </select>
                     </div>
                 </div>
 

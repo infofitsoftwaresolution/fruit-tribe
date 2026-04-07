@@ -9,7 +9,9 @@ import type { Product } from '@/lib/api';
 import { toast } from 'sonner';
 import { NotFoundPage } from './NotFoundPage';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
+import { BulkInquiryForm } from '@/app/components/BulkInquiryForm';
 import { cn, getRoundedClass } from '@/lib/utils';
+import { productHasBulkPricing } from '@/lib/pricing';
 
 interface ProductDetailPageProps {
   onAddToCart: (product: Product, quantity?: number) => void;
@@ -22,6 +24,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const navigate = useNavigate();
   const { product: apiProduct, loading, error } = useProduct(id || null);
   const [quantity, setQuantity] = useState(1);
+  const [packKind, setPackKind] = useState<'retail' | 'bulk'>('retail');
   const [isLiked, setIsLiked] = useState(false);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
@@ -82,6 +85,11 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     }
   }, [product, activeImage]);
 
+  useEffect(() => {
+    setPackKind('retail');
+    setQuantity(1);
+  }, [productId]);
+
   if (loading) {
     return (
       <div className="pt-32 pb-32 min-h-screen flex items-center justify-center">
@@ -93,9 +101,25 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     return <NotFoundPage />;
   }
 
+  const hasBulk = productHasBulkPricing(product);
+  const bulkQty = product.bulkDiscountQty;
+  const bulkPriceVal = product.bulkDiscountPrice;
+  const bulkLineTotal =
+    hasBulk && bulkQty != null && bulkPriceVal != null && Number(bulkPriceVal) > 0
+      ? bulkQty * Number(bulkPriceVal)
+      : null;
+  const effectiveQty =
+    hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : 1;
+
   const handleAddToCart = () => {
     handleAction(() => {
-      const safeQty = Math.max(1, Math.min(quantity, product.stock || quantity));
+      const safeQty = hasBulk
+        ? effectiveQty
+        : Math.max(1, Math.min(quantity, product.stock || quantity));
+      if (safeQty > (product.stock || 0)) {
+        toast.error(`Only ${product.stock} units available`);
+        return;
+      }
       onAddToCart(product, safeQty);
       toast.success(`${product.name} added to cart!`, {
         description: `Quantity: ${safeQty}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
@@ -360,7 +384,30 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               )}
 
               <div className="relative z-10 space-y-6 pt-4 border-t border-white/5">
+                {hasBulk && (
+                  <div className="space-y-2">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select pack</span>
+                    <select
+                      value={packKind}
+                      onChange={(e) => setPackKind(e.target.value as 'retail' | 'bulk')}
+                      disabled={product.stock <= 0}
+                      className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                    >
+                      <option value="retail" className="text-slate-900">
+                        1 {product.unit || 'unit'} · ₹{product.price} each
+                      </option>
+                      {bulkQty != null && bulkPriceVal != null && (
+                        <option value="bulk" className="text-slate-900">
+                          {bulkQty} {product.unit || 'units'} · ₹{Number(bulkPriceVal)} each
+                          {bulkLineTotal != null ? ` · ₹${bulkLineTotal} total` : ''}
+                        </option>
+                      )}
+                    </select>
+                  </div>
+                )}
+
                 <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
+                  {!hasBulk ? (
                   <div className={cn(
                     "flex-1 flex items-center justify-between gap-3 sm:gap-4 rounded-[1.75rem] p-3 h-16 bg-white/5 border border-white/10",
                     product.stock <= 0 && "opacity-30 pointer-events-none"
@@ -404,6 +451,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                       <Plus className="w-3 h-3" />
                     </motion.button>
                   </div>
+                  ) : (
+                    <div className="flex-1 rounded-[1.75rem] p-4 bg-white/5 border border-white/10 text-center">
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pack quantity</p>
+                      <p className="text-2xl font-black text-white">{effectiveQty}</p>
+                    </div>
+                  )}
 
                   <motion.button
                     whileHover={{ scale: product.stock <= 0 ? 1 : 1.05 }}
@@ -423,6 +476,10 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 </div>
               </div>
             </div>
+
+            {hasBulk && (
+              <BulkInquiryForm productName={product.name} theme={theme} className="mt-6" />
+            )}
 
             {/* Freshness score */}
             <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[2.5rem] relative overflow-hidden group">

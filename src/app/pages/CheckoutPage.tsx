@@ -25,6 +25,7 @@ import {
 } from '@/lib/deliveryAddressUtils';
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
+import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
 import { toast } from 'sonner';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 
@@ -313,9 +314,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const vendorSummaries = useMemo(() => {
     const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
-    const rules = (preferences.deliveryFeeRules || []).slice().sort((a, b) => a.upToKm - b.upToKm);
-    const matched = rules.find((r) => deliveryStats.distanceKm <= r.upToKm);
-    const deliveryChargeTotal = matched ? Number(matched.fee) : fallbackDeliveryCharge;
+    const rules = preferences.deliveryFeeRules || [];
+    const deliveryChargeTotal = computeDeliveryFeeByDistanceKm(
+      deliveryStats.distanceKm,
+      rules,
+      fallbackDeliveryCharge,
+    );
     const entries = Object.entries(groupedItems);
     return entries.map(([vendor, vendorItems], i) => {
       const vSubtotal = vendorItems.reduce((sum, i) => sum + i.price * i.quantity, 0);

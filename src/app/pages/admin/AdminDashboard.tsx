@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
@@ -22,6 +22,13 @@ export function AdminDashboard() {
 
     const isAdmin = user?.role === 'admin';
     const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
+    const [inventorySearch, setInventorySearch] = useState('');
+    const [inventoryVendorFilter, setInventoryVendorFilter] = useState('all');
+    const [inventoryStockFilter, setInventoryStockFilter] = useState<'all' | 'low' | 'out' | 'healthy'>('low');
+    const [orderSearch, setOrderSearch] = useState('');
+    const [orderPaymentFilter, setOrderPaymentFilter] = useState<'all' | 'Paid' | 'Pending'>('all');
+    const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'active' | 'DELIVERED' | 'CANCELLED'>('all');
+    const [orderWindow, setOrderWindow] = useState<'all' | 'today' | '7d' | '30d'>('7d');
 
     const lowStockCount = useMemo(
         () => products.filter((p) => (p.availableStock ?? p.stock) < (p.lowStockThreshold ?? 5) && (p.availableStock ?? p.stock) > 0).length,
@@ -39,14 +46,46 @@ export function AdminDashboard() {
         return { totalProducts, totalUnits, outOfStock, lowStock, healthy };
     }, [products]);
 
-    const lowStockPreview = useMemo(
+    const inventoryVendors = useMemo(
         () =>
-            products
-                .filter((p) => (p.availableStock ?? p.stock) > 0 && (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5))
-                .sort((a, b) => (a.availableStock ?? a.stock) - (b.availableStock ?? b.stock))
-                .slice(0, 5),
+            Array.from(
+                new Set(
+                    products
+                        .map((p) => String(p.vendor || '').trim())
+                        .filter(Boolean)
+                )
+            ).sort((a, b) => a.localeCompare(b)),
         [products]
     );
+
+    const inventoryPreview = useMemo(() => {
+        const query = inventorySearch.trim().toLowerCase();
+        return products
+            .filter((p) => {
+                const available = p.availableStock ?? p.stock;
+                const threshold = p.lowStockThreshold ?? 5;
+                const isLow = available > 0 && available <= threshold;
+                const isOut = available <= 0;
+                const isHealthy = available > threshold;
+                const stockOk =
+                    inventoryStockFilter === 'all'
+                        ? true
+                        : inventoryStockFilter === 'low'
+                          ? isLow
+                          : inventoryStockFilter === 'out'
+                            ? isOut
+                            : isHealthy;
+                const vendorOk = inventoryVendorFilter === 'all' || p.vendor === inventoryVendorFilter;
+                const searchOk =
+                    query.length === 0 ||
+                    p.name.toLowerCase().includes(query) ||
+                    String(p.sku ?? '').toLowerCase().includes(query) ||
+                    String(p.vendor ?? '').toLowerCase().includes(query);
+                return stockOk && vendorOk && searchOk;
+            })
+            .sort((a, b) => (a.availableStock ?? a.stock) - (b.availableStock ?? b.stock))
+            .slice(0, 8);
+    }, [products, inventorySearch, inventoryVendorFilter, inventoryStockFilter]);
 
         const intel = useMemo(() => {
         const fullOrders = orders.map((o: any) => ({
@@ -73,14 +112,16 @@ export function AdminDashboard() {
         ).length;
         const recent = [...baseOrders]
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-            .slice(0, 5)
             .map(o => ({
                 id: o.id,
+                orderNumber: o.orderNumber,
                 customer: o.user ? [o.user.firstName, o.user.lastName].filter(Boolean).join(' ') || o.user.email || '—' : '—',
                 items: o.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0,
                 channel: 'Online Store',
                 total: o.total,
                 payment: o.payment,
+                status: o.status,
+                date: o.date,
             }));
 
         const globalRevenue = fullOrders.reduce(
@@ -101,6 +142,43 @@ export function AdminDashboard() {
             growth: '—'
         };
     }, [orders, products, customers, sellers, user, isSeller]);
+
+    const filteredRecentOrders = useMemo(() => {
+        const query = orderSearch.trim().toLowerCase();
+        const now = Date.now();
+        return intel.recent
+            .filter((o: any) => {
+                const paymentOk = orderPaymentFilter === 'all' || o.payment === orderPaymentFilter;
+                const statusOk =
+                    orderStatusFilter === 'all'
+                        ? true
+                        : orderStatusFilter === 'active'
+                          ? o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
+                          : o.status === orderStatusFilter;
+                const timeOk =
+                    orderWindow === 'all'
+                        ? true
+                        : (() => {
+                              const ts = new Date(o.date).getTime();
+                              if (Number.isNaN(ts)) return false;
+                              if (orderWindow === 'today') {
+                                  const d = new Date();
+                                  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+                                  return ts >= start;
+                              }
+                              const diff = now - ts;
+                              const max = orderWindow === '7d' ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
+                              return diff <= max;
+                          })();
+                const searchOk =
+                    query.length === 0 ||
+                    String(o.customer).toLowerCase().includes(query) ||
+                    String(o.id).toLowerCase().includes(query) ||
+                    String(o.orderNumber ?? '').toLowerCase().includes(query);
+                return paymentOk && statusOk && timeOk && searchOk;
+            })
+            .slice(0, 8);
+    }, [intel.recent, orderSearch, orderPaymentFilter, orderStatusFilter, orderWindow]);
 
     return (
         <div className="space-y-10 pb-20">
@@ -300,9 +378,39 @@ export function AdminDashboard() {
                     </div>
 
                     <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-5">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Restock First</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Inventory List Filters</p>
+                        <div className="space-y-2 mb-4">
+                            <input
+                                value={inventorySearch}
+                                onChange={(e) => setInventorySearch(e.target.value)}
+                                placeholder="Search product / SKU / vendor"
+                                className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 placeholder:text-slate-400"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                                <select
+                                    value={inventoryStockFilter}
+                                    onChange={(e) => setInventoryStockFilter(e.target.value as 'all' | 'low' | 'out' | 'healthy')}
+                                    className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                >
+                                    <option value="all">All Stock</option>
+                                    <option value="low">Low</option>
+                                    <option value="out">Out</option>
+                                    <option value="healthy">Healthy</option>
+                                </select>
+                                <select
+                                    value={inventoryVendorFilter}
+                                    onChange={(e) => setInventoryVendorFilter(e.target.value)}
+                                    className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                >
+                                    <option value="all">All Vendors</option>
+                                    {inventoryVendors.map((vendor) => (
+                                        <option key={vendor} value={vendor}>{vendor}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
                         <div className="space-y-3">
-                            {lowStockPreview.length ? lowStockPreview.map((p) => (
+                            {inventoryPreview.length ? inventoryPreview.map((p) => (
                                 <button
                                     key={String(p.id)}
                                     type="button"
@@ -321,7 +429,7 @@ export function AdminDashboard() {
                                 </button>
                             )) : (
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    No low-stock products right now.
+                                    No products match these filters.
                                 </p>
                             )}
                         </div>
@@ -334,16 +442,55 @@ export function AdminDashboard() {
                 {/* Recent Orders */}
                 <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
                     <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
-                        <div>
+                        <div className="flex-1">
                             <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Recent Transactions</h3>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Latest order activity</p>
+                            <div className="mt-4 space-y-2">
+                                <input
+                                    value={orderSearch}
+                                    onChange={(e) => setOrderSearch(e.target.value)}
+                                    placeholder="Search customer / order id"
+                                    className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 placeholder:text-slate-400"
+                                />
+                                <div className="grid grid-cols-3 gap-2">
+                                    <select
+                                        value={orderWindow}
+                                        onChange={(e) => setOrderWindow(e.target.value as 'all' | 'today' | '7d' | '30d')}
+                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                    >
+                                        <option value="all">All Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="7d">7 Days</option>
+                                        <option value="30d">30 Days</option>
+                                    </select>
+                                    <select
+                                        value={orderPaymentFilter}
+                                        onChange={(e) => setOrderPaymentFilter(e.target.value as 'all' | 'Paid' | 'Pending')}
+                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                    >
+                                        <option value="all">All Pay</option>
+                                        <option value="Paid">Paid</option>
+                                        <option value="Pending">Pending</option>
+                                    </select>
+                                    <select
+                                        value={orderStatusFilter}
+                                        onChange={(e) => setOrderStatusFilter(e.target.value as 'all' | 'active' | 'DELIVERED' | 'CANCELLED')}
+                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                    >
+                                        <option value="all">All Status</option>
+                                        <option value="active">Active</option>
+                                        <option value="DELIVERED">Delivered</option>
+                                        <option value="CANCELLED">Cancelled</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <Link to="/admin/orders" className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all">
                             <ArrowRight className="h-4 w-4 text-slate-400" />
                         </Link>
                     </div>
                     <div className="divide-y divide-slate-50">
-                        {intel.recent.length > 0 ? intel.recent.map((order, i) => (
+                        {filteredRecentOrders.length > 0 ? filteredRecentOrders.map((order: any, i: number) => (
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -358,7 +505,9 @@ export function AdminDashboard() {
                                 <div className="flex-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
-                                        <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest leading-none">ID-{order.id}</span>
+                                        <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest leading-none">
+                                            {order.orderNumber ? `#${order.orderNumber}` : `ID-${order.id}`}
+                                        </span>
                                     </div>
                                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
                                         Purchased {order.items} Units • {order.channel}
@@ -375,7 +524,7 @@ export function AdminDashboard() {
                         )) : (
                             <div className="py-20 text-center">
                                 <Activity className="h-12 w-12 text-slate-100 mx-auto mb-4" />
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No recent transactions.</p>
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No transactions match selected filters.</p>
                             </div>
                         )}
                     </div>
