@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { Clock, Users, ArrowRight, Zap, X } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
 import { cn } from '@/lib/utils';
@@ -14,40 +15,41 @@ export function RecipesSection() {
     updateTheme({ [field]: newText });
   };
 
-  const recipes = [
+  const recipesData = [
     {
       title: 'Tropical Mango Smoothie',
       image: 'https://images.unsplash.com/photo-1590301157890-4810ed352733?w=800',
-      execution: '600s',
-      yield: '02 Units',
+      execution: '10 mins',
+      yield: '2 servings',
       description: 'A refreshing blend of mango, banana, coconut and granola.',
-      ingredients: ['Mango.v1', 'Banana.Core', 'Coconut.Fluid', 'Granola.Grain'],
+      ingredients: ['Mango', 'Banana', 'Coconut milk', 'Granola'],
       color: 'emerald',
     },
     {
       title: 'Berry Blast Parfait',
       image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800',
-      execution: '900s',
-      yield: '04 Units',
+      execution: '15 mins',
+      yield: '4 servings',
       description: 'Layers of fresh berries, yogurt and honey.',
       ingredients: ['Strawberries', 'Blueberries', 'Yogurt', 'Honey'],
       color: 'amber',
     },
     {
-      title: 'Fresh Fruit Salad Manifest',
+      title: 'Fresh Fruit Salad',
       image: 'https://images.unsplash.com/photo-1603046891726-36bfd957e243?w=800',
-      execution: '1200s',
-      yield: '06 Units',
+      execution: '20 mins',
+      yield: '6 servings',
       description: 'A mix of seasonal fruit with mint and lime.',
       ingredients: ['Mixed fruit', 'Mint', 'Lime', 'Honey'],
       color: 'blue',
     },
   ];
+  const activeRecipe = activeRecipeIndex === null ? null : recipesData[activeRecipeIndex] ?? null;
 
-  const colorClasses: Record<string, string> = {
-    emerald: 'bg-emerald-500',
-    amber: 'bg-amber-500',
-    blue: 'bg-blue-500',
+  const buttonHoverClasses: Record<string, string> = {
+    emerald: 'group-hover:bg-emerald-500',
+    amber: 'group-hover:bg-amber-500',
+    blue: 'group-hover:bg-blue-500',
   };
 
   const RECIPE_PLACEHOLDER =
@@ -71,6 +73,20 @@ export function RecipesSection() {
     );
   }
 
+  useEffect(() => {
+    if (!activeRecipe) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveRecipeIndex(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activeRecipe]);
+
   return (
     <section className="relative py-32 bg-white overflow-hidden">
       {/* Background Architectural Elements */}
@@ -89,7 +105,7 @@ export function RecipesSection() {
           >
             <div className="flex items-center gap-3">
               <div className="h-[1px] w-12 bg-emerald-500" />
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Culinaric Integration Protocols</span>
+              <span className="text-xs font-semibold text-emerald-600 tracking-wide">Fresh recipe ideas</span>
             </div>
 
             <h2 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none">
@@ -107,7 +123,7 @@ export function RecipesSection() {
               contentEditable={isEditing}
               suppressContentEditableWarning
               onBlur={handleTextChange('recipesSectionSubtitle')}
-              className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic leading-relaxed outline-none"
+              className="text-lg md:text-xl text-slate-500 font-medium tracking-tight leading-relaxed outline-none"
             >
               {theme.recipesSectionSubtitle || 'Simple, delicious ways to use your fresh produce.'}
             </p>
@@ -118,7 +134,7 @@ export function RecipesSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
           >
-            <button className="h-16 px-12 bg-slate-900 text-white rounded-[1.75rem] text-[10px] font-black uppercase tracking-widest flex items-center gap-4 hover:bg-emerald-500 transition-all shadow-3xl active:scale-95 group">
+            <button className="h-16 px-12 bg-slate-900 text-white rounded-[1.75rem] text-sm font-semibold flex items-center gap-4 hover:bg-emerald-500 transition-all shadow-3xl active:scale-95 group">
               View all recipes
               <ArrowRight className="h-4 w-4 group-hover:translate-x-2 transition-transform" />
             </button>
@@ -127,7 +143,7 @@ export function RecipesSection() {
 
         {/* Integration Registry Grid */}
         <div className="grid md:grid-cols-3 gap-8">
-          {recipes.map((recipe, index) => (
+          {recipesData.map((recipe, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 30 }}
@@ -145,11 +161,11 @@ export function RecipesSection() {
                   <div className="flex gap-2">
                     <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center gap-2">
                       <Clock className="h-3 w-3 text-white" />
-                      <span className="text-[8px] font-black text-white uppercase tracking-widest">{recipe.execution}</span>
+                      <span className="text-xs font-semibold text-white">{recipe.execution}</span>
                     </div>
                     <div className="px-3 py-1.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center gap-2">
                       <Users className="h-3 w-3 text-white" />
-                      <span className="text-[8px] font-black text-white uppercase tracking-widest">{recipe.yield}</span>
+                      <span className="text-xs font-semibold text-white">{recipe.yield}</span>
                     </div>
                   </div>
                 </div>
@@ -157,19 +173,19 @@ export function RecipesSection() {
 
               <div className="p-10 flex flex-col flex-1 space-y-8">
                 <div className="space-y-4">
-                  <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-tight group-hover:text-emerald-600 transition-colors">
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight group-hover:text-emerald-600 transition-colors">
                     {recipe.title}
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed italic line-clamp-2">
+                  <p className="text-sm text-slate-500 leading-relaxed line-clamp-2">
                     {recipe.description}
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <span className="text-[8px] font-black text-slate-300 uppercase tracking-[0.3em]">Integration Modules</span>
+                  <span className="text-xs font-semibold text-slate-500 tracking-wide">Ingredients</span>
                   <div className="flex flex-wrap gap-2">
                     {recipe.ingredients.map((ing, i) => (
-                      <span key={i} className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg text-[8px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-900 group-hover:border-emerald-100 transition-all">
+                      <span key={i} className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-lg text-xs font-medium text-slate-600 group-hover:text-slate-900 group-hover:border-emerald-100 transition-all">
                         {ing}
                       </span>
                     ))}
@@ -181,13 +197,17 @@ export function RecipesSection() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     className={cn(
-                      "h-12 w-full flex items-center justify-center gap-3 text-[9px] font-black uppercase tracking-widest transition-all shadow-xl",
+                      "h-12 w-full flex items-center justify-center gap-3 text-sm font-semibold transition-all shadow-xl",
                       "bg-slate-900 text-white rounded-2xl",
-                      `group-hover:${colorClasses[recipe.color] || 'bg-emerald-500'}`
+                      buttonHoverClasses[recipe.color] || 'group-hover:bg-emerald-500'
                     )}
-                    onClick={() => setActiveRecipeIndex(index)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setActiveRecipeIndex(index);
+                    }}
                   >
-                    Execute Integration
+                    View recipe
                     <Zap className="h-3 w-3 group-hover:scale-125 transition-transform" />
                   </motion.button>
                 </div>
@@ -195,79 +215,78 @@ export function RecipesSection() {
             </motion.div>
           ))}
         </div>
-        <AnimatePresence>
-          {activeRecipeIndex !== null && (
-            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm">
+        {activeRecipe && typeof document !== 'undefined' && createPortal(
+            <div
+              className="fixed inset-0 z-[1000] bg-slate-900/55 backdrop-blur-md overflow-y-auto p-4 md:p-8 flex items-center justify-center"
+              onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setActiveRecipeIndex(null);
+                }
+              }}
+            >
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 40 }}
-                className="bg-white rounded-[3rem] max-w-2xl w-full mx-4 overflow-hidden border border-slate-100 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+                className="relative bg-white rounded-[2rem] max-w-2xl w-full border border-slate-100 shadow-2xl max-h-[90vh] overflow-y-auto"
               >
-                {(() => {
-                  const recipe = recipes[activeRecipeIndex];
-                  return (
-                    <>
-                      <div className="relative h-64 overflow-hidden">
-                        <RecipeImage src={recipe.image} alt={recipe.title} />
-                        <button
-                          onClick={() => setActiveRecipeIndex(null)}
-                          className="absolute top-4 right-4 h-9 w-9 rounded-2xl bg-white/90 text-slate-500 hover:text-red-500 shadow-md flex items-center justify-center"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="p-8 space-y-6">
-                        <div className="space-y-2">
-                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">
-                            Recipe
-                          </p>
-                          <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">
-                            {recipe.title}
-                          </h3>
-                          <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                            {recipe.description}
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-xs text-slate-600 font-bold uppercase tracking-widest">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-emerald-500" />
-                            <span>Prep time: {recipe.execution}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Users className="h-4 w-4 text-emerald-500" />
-                            <span>Serves: {recipe.yield}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                            Ingredients
-                          </p>
-                          <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
-                            {recipe.ingredients.map((ing, i) => (
-                              <li key={i}>{ing}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                            Simple method
-                          </p>
-                          <ol className="list-decimal pl-5 space-y-1 text-sm text-slate-700">
-                            <li>Prepare all ingredients as listed above.</li>
-                            <li>Combine fruits in a large bowl.</li>
-                            <li>Add any herbs, yogurt or honey as desired.</li>
-                            <li>Toss gently and serve chilled.</li>
-                          </ol>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+                <div className="relative h-64 overflow-hidden">
+                  <RecipeImage src={activeRecipe.image} alt={activeRecipe.title} />
+                  <button
+                    onClick={() => setActiveRecipeIndex(null)}
+                    className="absolute top-4 right-4 h-9 w-9 rounded-2xl bg-white/90 text-slate-500 hover:text-red-500 shadow-md flex items-center justify-center"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="p-8 space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-emerald-500 tracking-wide">
+                      Recipe
+                    </p>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                      {activeRecipe.title}
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      {activeRecipe.description}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm text-slate-600 font-medium">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-emerald-500" />
+                      <span>Prep time: {activeRecipe.execution}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-emerald-500" />
+                      <span>Serves: {activeRecipe.yield}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 tracking-wide">
+                      Ingredients
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1 text-sm text-slate-700">
+                      {activeRecipe.ingredients.map((ing, i) => (
+                        <li key={i}>{ing}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 tracking-wide">
+                      Simple method
+                    </p>
+                    <ol className="list-decimal pl-5 space-y-1 text-sm text-slate-700">
+                      <li>Prepare all ingredients as listed above.</li>
+                      <li>Combine fruits in a large bowl.</li>
+                      <li>Add any herbs, yogurt or honey as desired.</li>
+                      <li>Toss gently and serve chilled.</li>
+                    </ol>
+                  </div>
+                </div>
               </motion.div>
-            </div>
+            </div>,
+            document.body
           )}
-        </AnimatePresence>
       </div>
     </section>
   );

@@ -42,13 +42,13 @@ export class AuthController {
         return this.authService.login(dto);
     }
 
-    @ApiOperation({ summary: 'Verify email with OTP code' })
+    @ApiOperation({ summary: 'Verify account with OTP code (email or phone)' })
     @Post('verify-email')
     async verifyEmail(@Body() dto: VerifyEmailDto) {
         return this.authService.verifyEmail(dto);
     }
 
-    @ApiOperation({ summary: 'Resend email verification code' })
+    @ApiOperation({ summary: 'Resend verification code (email or phone)' })
     @Post('resend-email-code')
     async resendEmail(@Body() dto: ResendEmailDto) {
         return this.authService.resendEmail(dto);

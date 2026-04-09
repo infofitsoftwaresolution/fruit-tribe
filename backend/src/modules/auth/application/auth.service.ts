@@ -23,6 +23,7 @@ import {
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { MailService } from '../../../common/mail/mail.service';
+import { SmsService } from '../../../common/sms/sms.service';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
         private readonly jwtService: JwtService,
         private readonly config: ConfigService,
         private readonly mailService: MailService,
+        private readonly smsService: SmsService,
     ) { }
 
     /** Normalize to 10-digit Indian mobile for storage and uniqueness checks. */
@@ -52,10 +54,37 @@ export class AuthService {
         return null;
     }
 
-    private async issueFreshVerificationOtp(userId: string, email: string) {
-        if (!this.mailService.isEnabled()) {
+    private hasAnyVerificationChannel(): boolean {
+        return this.smsService.isEnabled() || this.mailService.isEnabled();
+    }
+
+    private getVerificationResentPayload(user: { email: string; phone?: string | null }) {
+        const normalizedPhone = user.phone ? this.normalizeIndianMobile(user.phone) : null;
+        if (this.smsService.isEnabled() && normalizedPhone) {
+            return { message: 'PHONE_PENDING_VERIFICATION_OTP_RESENT', phone: normalizedPhone };
+        }
+        return { message: 'EMAIL_PENDING_VERIFICATION_OTP_RESENT', email: user.email };
+    }
+
+    private async sendVerificationCode(email: string, phone: string | null | undefined, code: string): Promise<'sms' | 'email'> {
+        const normalizedPhone = phone ? this.normalizeIndianMobile(phone) : null;
+        if (this.smsService.isEnabled() && normalizedPhone) {
+            await this.smsService.sendVerificationOtp(normalizedPhone, code);
+            return 'sms';
+        }
+        if (this.mailService.isEnabled()) {
+            await this.mailService.sendVerificationEmail(email, code);
+            return 'email';
+        }
+        throw new ServiceUnavailableException(
+            'Verification cannot be sent because both SMS and email are not configured on the server.',
+        );
+    }
+
+    private async issueFreshVerificationOtp(userId: string, email: string, phone: string | null | undefined) {
+        if (!this.hasAnyVerificationChannel()) {
             throw new ServiceUnavailableException(
-                'Cannot send a verification code because email is not configured on the server.',
+                'Cannot send a verification code because both SMS and email are not configured on the server.',
             );
         }
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -80,7 +109,7 @@ export class AuthService {
                 data: { userId, otp: code, expiresAt: expiry },
             });
         });
-        await this.mailService.sendVerificationEmail(email, code);
+        await this.sendVerificationCode(email, phone, code);
     }
 
     async register(dto: RegisterDto) {
@@ -146,10 +175,10 @@ export class AuthService {
             throw new ConflictException('PHONE_ALREADY_REGISTERED');
         }
 
-        if (!this.mailService.isEnabled()) {
-            this.logger.warn('Registration rejected: SMTP is not configured');
+        if (!this.hasAnyVerificationChannel()) {
+            this.logger.warn('Registration rejected: both SMS and email are not configured');
             throw new ServiceUnavailableException(
-                'Verification email cannot be sent because email is not configured on the server. Please contact support.',
+                'Verification cannot be sent because both SMS and email are not configured on the server. Please contact support.',
             );
         }
 
@@ -204,18 +233,18 @@ export class AuthService {
         });
 
         try {
-            await this.mailService.sendVerificationEmail(user.email, code);
+            await this.sendVerificationCode(user.email, user.phone, code);
         } catch (err: any) {
             this.logger.error(
-                `Verification email failed after user create (${user.email}): ${err?.message || err}`,
+                `Verification send failed after user create (${user.email}/${user.phone}): ${err?.message || err}`,
             );
             throw new ServiceUnavailableException(
-                'We could not send the verification email. Please try again in a few minutes. If an account was created, open the verify page and use “Resend code”.',
+                'We could not send the verification code. Please try again in a few minutes. If an account was created, open the verify page and use "Resend code".',
             );
         }
 
         return {
-            message: 'Registration successful. Please check your email for the verification code.',
+            message: 'Registration successful. Please check your phone or email for the verification code.',
             user,
         };
     }
@@ -266,20 +295,14 @@ export class AuthService {
 
         // If user is pending verification (missed/expired OTP), send a fresh code on login attempt.
         if (!user.isActive && user.otpCode) {
-            await this.issueFreshVerificationOtp(user.id, user.email);
-            throw new UnauthorizedException({
-                message: 'EMAIL_PENDING_VERIFICATION_OTP_RESENT',
-                email: user.email,
-            });
+            await this.issueFreshVerificationOtp(user.id, user.email, user.phone);
+            throw new UnauthorizedException(this.getVerificationResentPayload(user));
         }
 
         if (!user.isActive) throw new UnauthorizedException('Account is inactive');
 
         if (user.otpCode && user.otpExpiry && user.otpExpiry > new Date()) {
-            throw new UnauthorizedException({
-                message: 'EMAIL_PENDING_VERIFICATION_OTP_RESENT',
-                email: user.email,
-            });
+            throw new UnauthorizedException(this.getVerificationResentPayload(user));
         }
 
         // Account lockout check
@@ -360,7 +383,12 @@ export class AuthService {
     }
 
     async verifyEmail(dto: VerifyEmailDto) {
-        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        const identifier = dto.email.trim();
+        const user = identifier.includes('@')
+            ? await this.prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
+            : await this.prisma.user.findUnique({
+                where: { phone: this.normalizeIndianMobile(identifier) || '__invalid__' },
+            });
         if (!user) throw new BadRequestException('Invalid email or code');
         if (!user.otpCode || !user.otpExpiry) {
             throw new BadRequestException('No active verification code. Please register again.');
@@ -387,19 +415,24 @@ export class AuthService {
             });
         });
 
-        return { message: 'Email verified successfully. You can now log in.' };
+        return { message: 'Account verified successfully. You can now log in.' };
     }
 
     async resendEmail(dto: ResendEmailDto) {
-        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
+        const identifier = dto.email.trim();
+        const user = identifier.includes('@')
+            ? await this.prisma.user.findUnique({ where: { email: identifier.toLowerCase() } })
+            : await this.prisma.user.findUnique({
+                where: { phone: this.normalizeIndianMobile(identifier) || '__invalid__' },
+            });
         if (!user) {
-            // Do not leak that email does not exist
-            return { message: 'If this email exists, a new code has been sent.' };
+            // Do not leak that account does not exist
+            return { message: 'If this account exists, a new code has been sent.' };
         }
 
-        if (!this.mailService.isEnabled()) {
+        if (!this.hasAnyVerificationChannel()) {
             throw new ServiceUnavailableException(
-                'Cannot resend the code because email is not configured on the server.',
+                'Cannot resend the code because both SMS and email are not configured on the server.',
             );
         }
 
@@ -433,14 +466,14 @@ export class AuthService {
         });
 
         try {
-            await this.mailService.sendVerificationEmail(user.email, code);
+            await this.sendVerificationCode(user.email, user.phone, code);
         } catch (err: any) {
-            this.logger.error(`Resend verification email failed (${user.email}): ${err?.message || err}`);
+            this.logger.error(`Resend verification failed (${user.email}/${user.phone}): ${err?.message || err}`);
             throw new ServiceUnavailableException(
-                'We could not send the email. Please try again in a few minutes.',
+                'We could not send the verification code. Please try again in a few minutes.',
             );
         }
-        return { message: 'A new verification code has been sent if the email exists.' };
+        return { message: 'A new verification code has been sent if the account exists.' };
     }
 
     async getProfile(userId: string) {

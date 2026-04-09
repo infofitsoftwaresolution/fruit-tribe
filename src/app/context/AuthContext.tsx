@@ -132,11 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (typeof data?.email === 'string' && data.email.trim()) {
             verifyEmail = data.email.trim();
           }
+          if (!verifyEmail && typeof data?.phone === 'string' && data.phone.trim()) {
+            verifyEmail = data.phone.trim();
+          }
           const backendMessage = Array.isArray(data?.message)
             ? data.message.join('; ')
             : (data?.message || '');
-          if (backendMessage === 'EMAIL_PENDING_VERIFICATION_OTP_RESENT') {
-            message = 'Your email is not verified yet. We sent a new verification code to your email.';
+          if (
+            backendMessage === 'EMAIL_PENDING_VERIFICATION_OTP_RESENT' ||
+            backendMessage === 'PHONE_PENDING_VERIFICATION_OTP_RESENT'
+          ) {
+            message = 'Your account is not verified yet. We sent a new OTP to your phone or email.';
           } else if (typeof backendMessage === 'string' && backendMessage.trim()) {
             message = backendMessage;
           }
@@ -202,8 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // ignore storage failures
       }
-      toast.success('Account created. We emailed you a verification code.', {
-        description: 'Enter the code to complete your registration.',
+      toast.success('Account created. We sent an OTP to your phone or email.', {
+        description: 'Enter the OTP to complete your registration.',
       });
     } catch (error) {
       throw error;

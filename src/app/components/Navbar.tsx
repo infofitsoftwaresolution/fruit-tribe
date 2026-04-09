@@ -260,7 +260,6 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                     >
                       <div className="space-y-1">
                         <span className="text-2xl sm:text-3xl font-black tracking-tight sm:tracking-tighter leading-none">{item.label}</span>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.path === '/' ? 'Home' : item.label}</p>
                       </div>
                       <ArrowUpRight className="h-10 w-10 opacity-10 group-hover:opacity-100 group-hover:translate-x-2 group-hover:-translate-y-2 transition-all" />
                     </motion.div>

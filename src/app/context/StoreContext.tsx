@@ -400,8 +400,48 @@ const INITIAL_PREFERENCES: StorePreferences = {
 const INITIAL_PAGES: Page[] = [
     { id: '1', title: 'About Us', handle: 'about', content: 'We are a group of farmers...', updatedAt: '2023-11-20', status: 'Active' },
     { id: '2', title: 'Contact Us', handle: 'contact', content: 'Get in touch with us...', updatedAt: '2023-11-21', status: 'Active' },
-    { id: '3', title: 'Terms of Service', handle: 'terms', content: 'Our terms and conditions...', updatedAt: '2023-10-05', status: 'Active' },
-    { id: '4', title: 'Privacy Policy', handle: 'privacy', content: 'How we handle your data...', updatedAt: '2023-10-05', status: 'Active' },
+    {
+        id: '3',
+        title: 'Terms of Service',
+        handle: 'terms',
+        content:
+            'Using our service\n' +
+            'By using The Fruit Tribe, you agree to provide accurate account and delivery details.\n\n' +
+            'Orders and payments\n' +
+            'Pricing and availability may change based on stock and service area.\n\n' +
+            'Cancellations and refunds\n' +
+            'Refunds depend on order status, product condition, and support review.',
+        updatedAt: '2023-10-05',
+        status: 'Active',
+    },
+    {
+        id: '4',
+        title: 'Privacy Policy',
+        handle: 'privacy',
+        content:
+            'Information we collect\n' +
+            'We collect account, order, and delivery details to fulfill your orders.\n\n' +
+            'How we use information\n' +
+            'We use your data for account verification, order processing, and support.\n\n' +
+            'Data security\n' +
+            'We apply reasonable security controls to protect your information.',
+        updatedAt: '2023-10-05',
+        status: 'Active',
+    },
+    {
+        id: '5',
+        title: 'Cookie Policy',
+        handle: 'cookies',
+        content:
+            'What are cookies?\n' +
+            'Cookies are small files stored on your device to improve site experience.\n\n' +
+            'How we use cookies\n' +
+            'We use cookies for login sessions, cart continuity, and basic analytics.\n\n' +
+            'Managing cookies\n' +
+            'You can manage cookies in your browser settings at any time.',
+        updatedAt: '2023-10-05',
+        status: 'Active',
+    },
 ];
 
 // --- Context & Provider ---
@@ -456,6 +496,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const saved = localStorage.getItem('store_pages');
         return saved ? JSON.parse(saved) : INITIAL_PAGES;
     });
+
+    // Backfill required legal pages for older localStorage snapshots.
+    useEffect(() => {
+        setPages((prev) => {
+            const existingHandles = new Set(prev.map((p) => p.handle));
+            const required = INITIAL_PAGES.filter((p) =>
+                ['privacy', 'terms', 'cookies'].includes(p.handle) && !existingHandles.has(p.handle)
+            );
+            if (!required.length) return prev;
+            return [...prev, ...required];
+        });
+    }, []);
 
 
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {

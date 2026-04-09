@@ -21,6 +21,13 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [offers, setOffers] = useState<AvailableOffer[]>([]);
   const [initialCategoryName, setInitialCategoryName] = useState<string | null>(null);
+  const [sortOption, setSortOption] = useState<'relevance' | 'newest' | 'price_low' | 'price_high' | 'name_az' | 'stock_high'>('relevance');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'in_stock' | 'out_of_stock'>('all');
+  const [priceFilter, setPriceFilter] = useState<'all' | 'under_100' | '100_250' | '250_500' | '500_plus'>('all');
+  const [showOffersOnly, setShowOffersOnly] = useState(false);
+  const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
+  const [showCodOnly, setShowCodOnly] = useState(false);
+  const [productTab, setProductTab] = useState<'all' | 'bulk' | 'seasonal'>('all');
 
   // Initialize search and category from URL query (?q=apple&categoryName=Fruits)
   useEffect(() => {
@@ -75,11 +82,79 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   });
 
   const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return storeProducts;
+    let next = storeProducts;
+
+    // Keep category filtering on client as a reliable fallback (backend already filters too).
+    if (selectedCategoryId) {
+      const selectedCategory = categories.find((c) => String(c.id) === String(selectedCategoryId));
+      const selectedCategoryName = selectedCategory?.name?.trim().toLowerCase();
+      if (selectedCategoryName) {
+        next = next.filter((p) => (p.category || '').trim().toLowerCase() === selectedCategoryName);
+      }
+    }
+
+    if (!searchQuery.trim()) return next;
     const q = searchQuery.trim().toLowerCase();
     // Ensure search is strictly by product name on the client so we don't show unrelated items
-    return storeProducts.filter((p) => p.name?.toLowerCase().includes(q));
-  }, [storeProducts, searchQuery]);
+    return next.filter((p) => p.name?.toLowerCase().includes(q));
+  }, [storeProducts, searchQuery, selectedCategoryId, categories]);
+
+  const displayedProducts = useMemo(() => {
+    let next = [...filteredProducts];
+
+    if (availabilityFilter === 'in_stock') {
+      next = next.filter((p) => (p.availableStock ?? p.stock ?? 0) > 0);
+    } else if (availabilityFilter === 'out_of_stock') {
+      next = next.filter((p) => (p.availableStock ?? p.stock ?? 0) <= 0);
+    }
+
+    if (priceFilter !== 'all') {
+      next = next.filter((p) => {
+        const price = Number(p.price ?? 0);
+        if (priceFilter === 'under_100') return price < 100;
+        if (priceFilter === '100_250') return price >= 100 && price <= 250;
+        if (priceFilter === '250_500') return price > 250 && price <= 500;
+        if (priceFilter === '500_plus') return price > 500;
+        return true;
+      });
+    }
+
+    if (showOffersOnly) {
+      next = next.filter((p) => Boolean(getOfferHintForProduct(p)));
+    }
+    if (showSeasonalOnly) {
+      next = next.filter((p) => Boolean(p.isSeasonal));
+    }
+    if (showCodOnly) {
+      next = next.filter((p) => p.allowCashOnDelivery !== false);
+    }
+
+    if (productTab === 'bulk') {
+      next = next.filter((p) => Number(p.bulkDiscountQty ?? 0) > 0 && Number(p.bulkDiscountPrice ?? 0) > 0);
+    } else if (productTab === 'seasonal') {
+      next = next.filter((p) => Boolean(p.isSeasonal));
+    }
+
+    next.sort((a, b) => {
+      if (sortOption === 'price_low') return Number(a.price ?? 0) - Number(b.price ?? 0);
+      if (sortOption === 'price_high') return Number(b.price ?? 0) - Number(a.price ?? 0);
+      if (sortOption === 'name_az') return (a.name || '').localeCompare(b.name || '');
+      if (sortOption === 'stock_high') return Number(b.availableStock ?? b.stock ?? 0) - Number(a.availableStock ?? a.stock ?? 0);
+      // "newest" and "relevance" rely on backend ordering from useProducts
+      return 0;
+    });
+
+    return next;
+  }, [
+    filteredProducts,
+    availabilityFilter,
+    priceFilter,
+    showOffersOnly,
+    showSeasonalOnly,
+    showCodOnly,
+    productTab,
+    sortOption,
+  ]);
 
   const categoryOptions = useMemo(() => {
     const list = [{ id: '', name: 'All' }, ...categories.map((c) => ({ id: c.id, name: c.name }))];
@@ -114,8 +189,8 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 <span className="text-emerald-500">Products</span>
               </h1>
 
-              <p className="text-base sm:text-lg md:text-xl text-slate-400 font-bold tracking-normal sm:tracking-tight italic leading-relaxed max-w-xl">
-                Real-time synchronization with primary orchards. Extracting maximum bioavailability benchmarks for premium distribution.
+              <p className="text-base sm:text-lg md:text-xl text-slate-500 font-medium tracking-normal sm:tracking-tight leading-relaxed max-w-xl">
+                Browse fresh fruits and vegetables sourced daily from trusted farms.
               </p>
             </motion.div>
 
@@ -129,9 +204,9 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 <Activity className="h-6 w-6" />
               </div>
               <div className="relative z-10 text-right">
-                <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1">Live Sync Status</p>
-                <p className="text-xl sm:text-2xl font-black text-white tracking-tight sm:tracking-tighter leading-none">{filteredProducts.length} products</p>
-                <p className="text-[10px] font-bold text-slate-500 tracking-[0.08em] sm:tracking-[0.2em] mt-1">In stock</p>
+                <p className="text-[10px] font-semibold text-emerald-500 tracking-wide mb-1">Available products</p>
+                <p className="text-xl sm:text-2xl font-black text-white tracking-tight sm:tracking-tighter leading-none">{displayedProducts.length} products</p>
+                <p className="text-[11px] font-medium text-slate-300 mt-1">Currently in stock</p>
               </div>
             </motion.div>
           </div>
@@ -172,6 +247,98 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Category filter</span>
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'bulk', label: 'Bulk' },
+              { key: 'seasonal', label: 'Seasons' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setProductTab(tab.key as 'all' | 'bulk' | 'seasonal')}
+                className={cn(
+                  "h-10 px-5 rounded-xl border text-sm font-semibold transition-colors",
+                  productTab === tab.key
+                    ? "bg-emerald-500 text-white border-emerald-500"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Quick sort and advanced filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+            <select
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
+              className="h-12 px-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"
+            >
+              <option value="relevance">Sort: Relevance</option>
+              <option value="newest">Sort: Newest arrivals</option>
+              <option value="price_low">Sort: Price low to high</option>
+              <option value="price_high">Sort: Price high to low</option>
+              <option value="name_az">Sort: Name A to Z</option>
+              <option value="stock_high">Sort: Stock high to low</option>
+            </select>
+            <select
+              value={availabilityFilter}
+              onChange={(e) => setAvailabilityFilter(e.target.value as typeof availabilityFilter)}
+              className="h-12 px-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"
+            >
+              <option value="all">Availability: All</option>
+              <option value="in_stock">Availability: In stock</option>
+              <option value="out_of_stock">Availability: Out of stock</option>
+            </select>
+            <select
+              value={priceFilter}
+              onChange={(e) => setPriceFilter(e.target.value as typeof priceFilter)}
+              className="h-12 px-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium text-slate-700 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500"
+            >
+              <option value="all">Price: All</option>
+              <option value="under_100">Price: Under Rs 100</option>
+              <option value="100_250">Price: Rs 100 to Rs 250</option>
+              <option value="250_500">Price: Rs 250 to Rs 500</option>
+              <option value="500_plus">Price: Above Rs 500</option>
+            </select>
+            <button
+              onClick={() => {
+                setSortOption('relevance');
+                setAvailabilityFilter('all');
+                setPriceFilter('all');
+                setShowOffersOnly(false);
+                setShowSeasonalOnly(false);
+                setShowCodOnly(false);
+                setProductTab('all');
+              }}
+              className="h-12 px-4 bg-slate-900 text-white rounded-2xl text-sm font-semibold hover:bg-emerald-500 transition-colors"
+            >
+              Reset all filters
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {[
+              { key: 'offers', label: 'Offers', active: showOffersOnly, onClick: () => setShowOffersOnly((v) => !v) },
+              { key: 'seasonal', label: 'Seasonal', active: showSeasonalOnly, onClick: () => setShowSeasonalOnly((v) => !v) },
+              { key: 'cod', label: 'Cash on delivery', active: showCodOnly, onClick: () => setShowCodOnly((v) => !v) },
+            ].map((chip) => (
+              <button
+                key={chip.key}
+                onClick={chip.onClick}
+                className={cn(
+                  "h-10 px-4 rounded-xl border text-sm font-medium transition-colors",
+                  chip.active
+                    ? "bg-emerald-500 text-white border-emerald-500"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                )}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {/* Filter Rail & View Toggle */}
@@ -226,7 +393,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
           {error && (
             <div className="py-40 text-center text-red-500 font-bold uppercase tracking-widest">{error}</div>
           )}
-          {!loading && !error && filteredProducts.length > 0 ? (
+          {!loading && !error && displayedProducts.length > 0 ? (
             <motion.div
               layout
               className={cn(
@@ -234,7 +401,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
               )}
             >
-              {filteredProducts.map((product, index) => (
+              {displayedProducts.map((product, index) => (
                 <motion.div
                   key={product.id}
                   layout
@@ -276,15 +443,25 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 </h3>
                 <p className="text-slate-400 text-sm font-bold tracking-[0.03em] sm:tracking-widest italic">
                   {searchQuery.trim()
-                    ? `No products found for “${searchQuery.trim()}”.`
-                    : 'No products match the current filters.'}
+                    ? `No products found for "${searchQuery.trim()}".`
+                    : 'No products match the selected filters.'}
                 </p>
               </div>
               <button
-                onClick={() => { setSelectedCategoryId(''); setSearchQuery(''); }}
+                onClick={() => {
+                  setSelectedCategoryId('');
+                  setSearchQuery('');
+                  setSortOption('relevance');
+                  setAvailabilityFilter('all');
+                  setPriceFilter('all');
+                  setShowOffersOnly(false);
+                  setShowSeasonalOnly(false);
+                  setShowCodOnly(false);
+                  setProductTab('all');
+                }}
                 className="px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-widest hover:bg-emerald-500 transition-all shadow-3xl"
               >
-                Clear search and filters
+                Clear all filters
               </button>
             </motion.div>
           )}

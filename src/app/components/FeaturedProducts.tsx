@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ProductCard } from '@/app/components/ProductCard';
 import { Sparkles, ArrowRight, Zap, Leaf } from 'lucide-react';
@@ -15,6 +15,7 @@ interface FeaturedProductsProps {
 export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     const { theme, isEditing, updateTheme } = useStore();
     const { products, loading, error } = useProducts({ limit: 6 });
+    const [productTab, setProductTab] = useState<'all' | 'bulk' | 'seasonal'>('all');
 
     const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
         if (!isEditing) return;
@@ -23,8 +24,14 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     };
 
     const featuredProducts = useMemo(() => {
-        return products.filter(p => p.status === 'Active' && p.availableStock > 0).slice(0, 3);
-    }, [products]);
+        let next = products.filter(p => p.status === 'Active' && p.availableStock > 0);
+        if (productTab === 'bulk') {
+            next = next.filter((p) => Number(p.bulkDiscountQty ?? 0) > 0 && Number(p.bulkDiscountPrice ?? 0) > 0);
+        } else if (productTab === 'seasonal') {
+            next = next.filter((p) => Boolean(p.isSeasonal));
+        }
+        return next.slice(0, 3);
+    }, [products, productTab]);
 
     return (
         <section className="relative py-32 overflow-hidden bg-white">
@@ -87,6 +94,27 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                 </div>
 
                 {/* High-Performance Products Grid */}
+                <div className="mb-8 flex flex-wrap items-center gap-2">
+                    {[
+                        { key: 'all', label: 'All' },
+                        { key: 'bulk', label: 'Bulk' },
+                        { key: 'seasonal', label: 'Seasons' },
+                    ].map((tab) => (
+                        <button
+                            key={tab.key}
+                            onClick={() => setProductTab(tab.key as 'all' | 'bulk' | 'seasonal')}
+                            className={cn(
+                                "h-10 px-5 rounded-xl border text-sm font-semibold transition-colors",
+                                productTab === tab.key
+                                    ? "bg-emerald-500 text-white border-emerald-500"
+                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                            )}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     {loading && (
                         <div className="col-span-full py-20 text-center text-slate-500 font-bold uppercase tracking-widest">Loading products…</div>
@@ -136,9 +164,12 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                             <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest leading-relaxed italic max-w-sm">We ship quickly so your fruit stays fresh.</p>
                         </div>
                     </div>
-                    <button className="h-16 px-12 bg-white text-slate-900 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl active:scale-95">
+                    <Link
+                        to="/about"
+                        className="h-16 px-12 bg-white text-slate-900 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl active:scale-95 inline-flex items-center justify-center"
+                    >
                         Learn more
-                    </button>
+                    </Link>
                 </motion.div>
             </div>
         </section>

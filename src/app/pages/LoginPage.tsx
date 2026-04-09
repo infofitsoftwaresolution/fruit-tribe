@@ -58,7 +58,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
     } catch (err: any) {
       const msg = String(err?.message || '');
       if (msg.includes('not verified') || msg.includes('verification code')) {
-        toast.info('Enter the OTP we sent to your email.');
+        toast.info('Enter the OTP we sent to your phone or email.');
         const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
         navigate(`/verify-email?email=${encodeURIComponent(verifyEmail)}&next=${encodeURIComponent('/login')}`);
         return;

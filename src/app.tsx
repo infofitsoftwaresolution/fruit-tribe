@@ -18,6 +18,9 @@ const ProductsPage = lazy(() => import('@/app/pages/ProductsPage').then(m => ({ 
 const ProductDetailPage = lazy(() => import('@/app/pages/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
 const AboutPage = lazy(() => import('@/app/pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const ContactPage = lazy(() => import('@/app/pages/ContactPage').then(m => ({ default: m.ContactPage })));
+const PrivacyPage = lazy(() => import('@/app/pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
+const TermsPage = lazy(() => import('@/app/pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const CookiesPage = lazy(() => import('@/app/pages/CookiesPage').then(m => ({ default: m.CookiesPage })));
 const CartPage = lazy(() => import('@/app/pages/CartPage').then(m => ({ default: m.CartPage })));
 const ProfilePage = lazy(() => import('@/app/pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const LoginPage = lazy(() => import('@/app/pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -273,6 +276,9 @@ function AppRoutes() {
           <Route path="/product/:id" element={<MainLayout {...mainLayoutProps}><ProductDetailPage onAddToCart={handleAddToCart} /></MainLayout>} />
           <Route path="/about" element={<MainLayout {...mainLayoutProps}><AboutPage /></MainLayout>} />
           <Route path="/contact" element={<MainLayout {...mainLayoutProps}><ContactPage /></MainLayout>} />
+          <Route path="/privacy" element={<MainLayout {...mainLayoutProps}><PrivacyPage /></MainLayout>} />
+          <Route path="/terms" element={<MainLayout {...mainLayoutProps}><TermsPage /></MainLayout>} />
+          <Route path="/cookies" element={<MainLayout {...mainLayoutProps}><CookiesPage /></MainLayout>} />
           <Route path="/cart" element={<MainLayout {...mainLayoutProps}><CartPage items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} /></MainLayout>} />
           <Route path="/checkout" element={<MainLayout {...mainLayoutProps}><CheckoutPage items={cartItems} /></MainLayout>} />
           <Route path="/profile" element={<MainLayout {...mainLayoutProps}><ProfilePage /></MainLayout>} />

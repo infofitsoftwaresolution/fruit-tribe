@@ -78,7 +78,7 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
 
     try {
       await signup(formData.name, formData.email, formData.phone, formData.password);
-      navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`);
+      navigate(`/verify-email?email=${encodeURIComponent(formData.phone)}&next=${encodeURIComponent(next)}`);
     } catch (err) {
       const msg = String((err as Error)?.message || '');
       const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail;
@@ -92,9 +92,9 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
       } else if (msg === 'PHONE_ALREADY_REGISTERED') {
         setError('This mobile number is already in use. Sign in or use a different number.');
       } else if (msg === 'PHONE_PENDING_VERIFICATION') {
-        const emailForVerify = verifyEmail?.trim() || formData.email;
+        const emailForVerify = verifyEmail?.trim() || formData.phone;
         toast.info(
-          'This mobile number is already linked to an account that has not finished email verification. Continue with the email address registered for that number.',
+          'This mobile number is already linked to an account that has not finished verification. Continue and verify with OTP.',
         );
         navigate(`/verify-email?email=${encodeURIComponent(emailForVerify)}&next=${encodeURIComponent(next)}`, {
           replace: true,

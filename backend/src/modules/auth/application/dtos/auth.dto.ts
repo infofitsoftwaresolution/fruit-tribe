@@ -53,8 +53,13 @@ export class RefreshTokenDto {
 }
 
 export class VerifyEmailDto {
-    @ApiProperty({ example: 'user@example.com' })
-    @IsEmail()
+    @ApiProperty({
+        example: '9876543210',
+        description: 'Registered email or Indian mobile number used during signup.',
+    })
+    @IsString()
+    @MinLength(6)
+    @MaxLength(200)
     email: string;
 
     @ApiProperty({ example: '123456' })
@@ -64,8 +69,13 @@ export class VerifyEmailDto {
 }
 
 export class ResendEmailDto {
-    @ApiProperty({ example: 'user@example.com' })
-    @IsEmail()
+    @ApiProperty({
+        example: '9876543210',
+        description: 'Registered email or Indian mobile number used during signup.',
+    })
+    @IsString()
+    @MinLength(6)
+    @MaxLength(200)
     email: string;
 }
 

@@ -4,11 +4,14 @@ import { Link } from 'react-router-dom';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
+import { useProducts } from '@/app/hooks/useProducts';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 export function Footer() {
-  const { theme } = useStore();
+  const { theme, products: localProducts } = useStore();
+  const { products: apiProducts } = useProducts({ limit: 200, showOutOfSeason: true });
+  const products = apiProducts.length > 0 ? apiProducts : localProducts;
   const { cities: deliveryCities } = useServiceableAreas();
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterError, setNewsletterError] = useState('');
@@ -27,14 +30,14 @@ export function Footer() {
     { name: 'Contact', path: '/contact' },
   ];
 
-  const categories = [
-    'Tropical fruits',
-    'Berries',
-    'Citrus',
-    'Exotic fruits',
-    'Seasonal picks',
-    'Organic',
-  ];
+  const categories = useMemo(() => {
+    const names = products
+      .map((p) => (p.category || '').trim())
+      .filter((name): name is string => Boolean(name))
+      .filter((name, idx, arr) => arr.findIndex((v) => v.toLowerCase() === name.toLowerCase()) === idx)
+      .sort((a, b) => a.localeCompare(b));
+    return names.slice(0, 8);
+  }, [products]);
 
   const { address: footerAddress, phone: footerPhone, email: footerEmail } = STORE_PUBLIC_CONTACT;
   const footerPhoneHref = storePhoneTelHref(footerPhone);
@@ -124,15 +127,24 @@ export function Footer() {
             <ul className="space-y-4">
               {categories.map((category, index) => (
                 <li key={index}>
-                  <motion.div
+                  <Link to={`/products?categoryName=${encodeURIComponent(category)}`}>
+                    <motion.div
                     whileHover={{ x: 5 }}
                     className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-3 cursor-pointer transition-colors"
                   >
                     <div className="w-1 h-1 bg-slate-800 rounded-full" />
                     {category}
-                  </motion.div>
+                    </motion.div>
+                  </Link>
                 </li>
               ))}
+              {categories.length === 0 && (
+                <li>
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                    No categories yet
+                  </span>
+                </li>
+              )}
             </ul>
           </div>
 
@@ -237,18 +249,33 @@ export function Footer() {
           </div>
 
           <div className="flex gap-10">
-            {['Privacy', 'Terms of service', 'Cookies'].map((txt, i) => (
-              <motion.a
-                key={i}
-                whileHover={{ y: -2, textDecoration: 'underline' }}
-                href="#"
-                className="text-[9px] font-black text-slate-600 hover:text-white uppercase tracking-widest transition-colors"
-              >
-                {txt}
-              </motion.a>
+            {[
+              { label: 'Privacy', path: '/privacy' },
+              { label: 'Terms of service', path: '/terms' },
+              { label: 'Cookies', path: '/cookies' },
+            ].map((item) => (
+              <Link key={item.path} to={item.path}>
+                <motion.span
+                  whileHover={{ y: -2, textDecoration: 'underline' }}
+                  className="text-[9px] font-black text-slate-600 hover:text-white uppercase tracking-widest transition-colors"
+                >
+                  {item.label}
+                </motion.span>
+              </Link>
             ))}
           </div>
         </motion.div>
+
+        <div className="mt-6 text-center">
+          <a
+            href="https://infofitsoftware.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] font-semibold text-slate-500 hover:text-emerald-400 transition-colors"
+          >
+            Made with Infofit Software Solution
+          </a>
+        </div>
       </div>
     </footer>
   );
