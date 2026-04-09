@@ -33,7 +33,7 @@ export function Hero() {
       </div>
 
       {/* Main Content Manifold */}
-      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12 pt-24 sm:pt-32 pb-14 sm:pb-20 w-full">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12 pt-36 sm:pt-32 pb-14 sm:pb-20 w-full">
         <div className="grid lg:grid-cols-12 gap-8 sm:gap-16 items-center">
 
           {/* Left Column: Symbolic & Textual Signals */}
@@ -121,10 +121,10 @@ export function Hero() {
                 />
               </div>
 
-              <div className="flex flex-wrap gap-4 justify-center lg:justify-start">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <button
                 onClick={() => navigate('/products')}
-                className="min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-slate-900 text-white rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center gap-3 sm:gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
+                className="w-full sm:w-auto min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-slate-900 text-white rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center justify-center gap-3 sm:gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
               >
                 Shop now
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
@@ -132,7 +132,7 @@ export function Hero() {
 
               <button
                 onClick={() => navigate('/about')}
-                className="min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center gap-3 sm:gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
+                className="w-full sm:w-auto min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center justify-center gap-3 sm:gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
               >
                 Heritage Manual
                 <PlayCircle className="w-5 h-5 text-emerald-500" />
@@ -178,13 +178,13 @@ export function Hero() {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
 
               {/* Cinematic Overlay Artifacts */}
-              <div className="absolute top-10 right-10 flex gap-2">
+              <div className="absolute top-10 right-10 hidden lg:flex gap-2">
                 <div className="px-4 py-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl">
                   <span className="text-[10px] font-black text-white uppercase tracking-widest">Asset #884</span>
                 </div>
               </div>
 
-              <div className="absolute bottom-10 left-10 space-y-2">
+              <div className="absolute bottom-10 left-10 hidden lg:block space-y-2">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white">
                     <ShieldCheck className="w-5 h-5" />

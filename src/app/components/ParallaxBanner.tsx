@@ -40,7 +40,7 @@ export function ParallaxBanner() {
         </motion.div>
 
         {/* Technical HUD Overlay Elements */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
+        <div className="absolute inset-0 z-10 pointer-events-none hidden lg:block">
           <div className="absolute top-20 right-20 flex gap-4">
             <div className="px-6 py-3 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl flex items-center gap-3">
               <Activity className="h-4 w-4 text-emerald-500" />
@@ -94,12 +94,12 @@ export function ParallaxBanner() {
                 {theme.parallaxSubtitle || 'Quality fruit, delivered with care.'}
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-8 justify-center items-center pt-8">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-8 justify-center items-center pt-6 sm:pt-8">
                 <motion.button
                   whileHover={{ scale: 1.05, x: 5 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/products')}
-                  className="h-20 px-16 bg-white text-slate-900 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] flex items-center gap-4 hover:bg-emerald-400 transition-all shadow-3xl active:scale-95 group"
+                  className="w-full sm:w-auto h-16 sm:h-20 px-10 sm:px-16 bg-white text-slate-900 rounded-[2rem] sm:rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center justify-center gap-4 hover:bg-emerald-400 transition-all shadow-3xl active:scale-95 group"
                 >
                   Shop now
                   <Zap className="h-5 w-5 text-emerald-500 group-hover:scale-125 transition-transform" />
@@ -109,7 +109,7 @@ export function ParallaxBanner() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate('/about')}
-                  className="h-20 px-16 bg-white/5 backdrop-blur-md text-white border-2 border-white/20 rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all"
+                  className="w-full sm:w-auto h-16 sm:h-20 px-10 sm:px-16 bg-white/5 backdrop-blur-md text-white border-2 border-white/20 rounded-[2rem] sm:rounded-[2.5rem] text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] hover:bg-white/10 transition-all"
                 >
                   About us
                 </motion.button>
