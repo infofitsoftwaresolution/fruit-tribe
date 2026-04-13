@@ -826,7 +826,10 @@ export async function createDeliveryPartner(data: { name: string; phone: string;
 }
 
 /** Update delivery partner (admin only). */
-export async function updateDeliveryPartner(id: string, data: Partial<{ name: string; phone: string; vehicle: string; status: string }>): Promise<unknown> {
+export async function updateDeliveryPartner(
+  id: string,
+  data: Partial<{ name: string; phone: string; email: string; vehicle: string; status: string }>,
+): Promise<unknown> {
   const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),

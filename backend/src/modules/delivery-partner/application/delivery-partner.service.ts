@@ -311,6 +311,26 @@ export class DeliveryPartnerService {
             },
         });
 
+        // Keep linked login profile in sync when this partner already has a user account.
+        if (existing.user) {
+            const userPatch: Record<string, unknown> = {};
+            if (data.email && data.email.trim().toLowerCase() !== existing.user.email.toLowerCase()) {
+                userPatch.email = data.email.trim().toLowerCase();
+            }
+            if (data.phone && data.phone !== existing.user.phone) {
+                userPatch.phone = data.phone;
+            }
+            if (data.name && data.name !== existing.user.firstName) {
+                userPatch.firstName = data.name;
+            }
+            if (Object.keys(userPatch).length > 0) {
+                await this.prisma.user.update({
+                    where: { id: existing.user.id },
+                    data: userPatch,
+                });
+            }
+        }
+
         // If an email is now provided and this partner has no linked user, provision one and send welcome email.
         if (data.email && !existing.user) {
             const role = await this.prisma.role.upsert({
