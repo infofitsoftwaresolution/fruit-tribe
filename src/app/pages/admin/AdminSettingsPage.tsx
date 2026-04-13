@@ -48,6 +48,8 @@ export function AdminSettingsPage() {
     const [citiesLoading, setCitiesLoading] = useState(true);
     const [citiesSaving, setCitiesSaving] = useState(false);
     const [deliveryCharge, setDeliveryCharge] = useState<string>(String(preferences.deliveryCharge ?? 0));
+    const [deliveryFeeMode, setDeliveryFeeMode] = useState<'SLAB' | 'PER_KM'>(preferences.deliveryFeeMode === 'PER_KM' ? 'PER_KM' : 'SLAB');
+    const [deliveryPerKmRate, setDeliveryPerKmRate] = useState<string>(String(preferences.deliveryPerKmRate ?? 10));
     const [deliveryFeeRules, setDeliveryFeeRules] = useState<Array<{ upToKm: string; fee: string }>>(
         (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length
             ? preferences.deliveryFeeRules
@@ -85,6 +87,14 @@ export function AdminSettingsPage() {
     }, [preferences.deliveryCharge]);
 
     useEffect(() => {
+        setDeliveryFeeMode(preferences.deliveryFeeMode === 'PER_KM' ? 'PER_KM' : 'SLAB');
+    }, [preferences.deliveryFeeMode]);
+
+    useEffect(() => {
+        setDeliveryPerKmRate(String(preferences.deliveryPerKmRate ?? 10));
+    }, [preferences.deliveryPerKmRate]);
+
+    useEffect(() => {
         if (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length) {
             setDeliveryFeeRules(
                 preferences.deliveryFeeRules.map((r) => ({ upToKm: String(r.upToKm), fee: String(r.fee) }))
@@ -104,13 +114,29 @@ export function AdminSettingsPage() {
                 .map((r) => ({ upToKm: Number(r.upToKm), fee: Number(r.fee) }))
                 .filter((r) => Number.isFinite(r.upToKm) && r.upToKm > 0 && Number.isFinite(r.fee) && r.fee >= 0)
                 .sort((a, b) => a.upToKm - b.upToKm);
-            if (!normalizedRules.length) {
+            if (deliveryFeeMode === 'SLAB' && !normalizedRules.length) {
                 toast.error('Add at least one valid distance rule');
                 setDeliverySaving(false);
                 return;
             }
-            await updateStoreSettings({ deliveryCharge: num, deliveryFeeRules: normalizedRules });
-            updatePreferences({ deliveryCharge: num, deliveryFeeRules: normalizedRules });
+            const perKmRateNum = Number(deliveryPerKmRate);
+            if (deliveryFeeMode === 'PER_KM' && (!Number.isFinite(perKmRateNum) || perKmRateNum <= 0)) {
+                toast.error('Enter a valid per-km rate (greater than 0)');
+                setDeliverySaving(false);
+                return;
+            }
+            await updateStoreSettings({
+                deliveryCharge: num,
+                deliveryFeeRules: normalizedRules,
+                deliveryFeeMode,
+                deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
+            });
+            updatePreferences({
+                deliveryCharge: num,
+                deliveryFeeRules: normalizedRules,
+                deliveryFeeMode,
+                deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
+            });
             toast.success('Delivery charge updated. It will apply to new orders.');
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save');
@@ -341,57 +367,86 @@ export function AdminSettingsPage() {
                     <div>
                         <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery fee by distance</h2>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Set distance slabs and fee in ₹. Flat fee below is used only as fallback.
+                            Choose slab mode or per-km mode. Flat fee below is only fallback.
                         </p>
                     </div>
                 </div>
-                <div className="space-y-3 mb-6">
-                    {deliveryFeeRules.map((rule, index) => (
-                        <div key={`rule-${index}`} className="flex items-center gap-3">
-                            <span className="text-xs font-bold text-slate-500 w-20">Up to (km)</span>
-                            <input
-                                type="number"
-                                min={0.1}
-                                step={0.1}
-                                value={rule.upToKm}
-                                onChange={(e) =>
-                                    setDeliveryFeeRules((prev) =>
-                                        prev.map((r, i) => (i === index ? { ...r, upToKm: e.target.value } : r))
-                                    )
-                                }
-                                className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
-                            />
-                            <span className="text-xs font-bold text-slate-500">Fee (₹)</span>
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fee mode</label>
+                        <select
+                            value={deliveryFeeMode}
+                            onChange={(e) => setDeliveryFeeMode(e.target.value === 'PER_KM' ? 'PER_KM' : 'SLAB')}
+                            className="h-11 w-full px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                        >
+                            <option value="SLAB">Slab-based</option>
+                            <option value="PER_KM">Per km (distance × rate)</option>
+                        </select>
+                    </div>
+                    {deliveryFeeMode === 'PER_KM' && (
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rate per km (₹)</label>
                             <input
                                 type="number"
                                 min={0}
                                 step={1}
-                                value={rule.fee}
-                                onChange={(e) =>
-                                    setDeliveryFeeRules((prev) =>
-                                        prev.map((r, i) => (i === index ? { ...r, fee: e.target.value } : r))
-                                    )
-                                }
-                                className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
+                                value={deliveryPerKmRate}
+                                onChange={(e) => setDeliveryPerKmRate(e.target.value)}
+                                className="h-11 w-full px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                                placeholder="e.g. 10"
                             />
-                            <button
-                                type="button"
-                                onClick={() => setDeliveryFeeRules((prev) => prev.filter((_, i) => i !== index))}
-                                className="h-10 px-3 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </button>
                         </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={() => setDeliveryFeeRules((prev) => [...prev, { upToKm: '', fee: '' }])}
-                        className="h-10 px-4 rounded-xl bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Add distance slab
-                    </button>
+                    )}
                 </div>
+                {deliveryFeeMode === 'SLAB' && (
+                    <div className="space-y-3 mb-6">
+                        {deliveryFeeRules.map((rule, index) => (
+                            <div key={`rule-${index}`} className="flex items-center gap-3">
+                                <span className="text-xs font-bold text-slate-500 w-20">Up to (km)</span>
+                                <input
+                                    type="number"
+                                    min={0.1}
+                                    step={0.1}
+                                    value={rule.upToKm}
+                                    onChange={(e) =>
+                                        setDeliveryFeeRules((prev) =>
+                                            prev.map((r, i) => (i === index ? { ...r, upToKm: e.target.value } : r))
+                                        )
+                                    }
+                                    className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
+                                />
+                                <span className="text-xs font-bold text-slate-500">Fee (₹)</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    value={rule.fee}
+                                    onChange={(e) =>
+                                        setDeliveryFeeRules((prev) =>
+                                            prev.map((r, i) => (i === index ? { ...r, fee: e.target.value } : r))
+                                        )
+                                    }
+                                    className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setDeliveryFeeRules((prev) => prev.filter((_, i) => i !== index))}
+                                    className="h-10 px-3 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => setDeliveryFeeRules((prev) => [...prev, { upToKm: '', fee: '' }])}
+                            className="h-10 px-4 rounded-xl bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Add distance slab
+                        </button>
+                    </div>
+                )}
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
                         <span className="text-slate-500 font-bold">₹</span>

@@ -109,14 +109,13 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
 
   const handleAction = (callback: () => void) => {
     if (!user) {
-toast.error('Please sign in', {
-      description: 'Sign in to add items to your cart.',
-      action: {
-        label: 'Sign in',
-        onClick: () => navigate('/login')
-      }
-    });
-      return;
+      toast.info('Saved in cart', {
+        description: 'Your cart is saved on this device. Sign in at checkout to place the order.',
+        action: {
+          label: 'Sign in',
+          onClick: () => navigate('/login'),
+        },
+      });
     }
     callback();
   };

@@ -9,12 +9,16 @@ const KEY_STORE_THEME = 'store_theme';
 const KEY_STORE_PREFERENCES = 'store_preferences';
 const KEY_DELIVERY_CHARGE = 'delivery_charge';
 const KEY_DELIVERY_FEE_RULES = 'delivery_fee_rules';
+const KEY_DELIVERY_FEE_MODE = 'delivery_fee_mode';
+const KEY_DELIVERY_PER_KM_RATE = 'delivery_per_km_rate';
 const KEY_COUPON_SCOPES = 'coupon_scopes';
 
 export interface DeliveryFeeRule {
     upToKm: number;
     fee: number;
 }
+
+export type DeliveryFeeMode = 'SLAB' | 'PER_KM';
 
 export interface PublicCouponOffer {
     code: string;
@@ -256,6 +260,24 @@ export class SettingsService {
         const d = Number(distanceKm);
         if (!Number.isFinite(d) || d < 0) return flat;
 
+        const mode = await this.getDeliveryFeeMode();
+        if (mode === 'PER_KM') {
+            let rate = await this.getDeliveryPerKmRate();
+            // Backward compatibility: if legacy "1 km => ₹X" slab exists, treat that as per-km rate
+            // when saved per-km rate is missing/incorrectly low.
+            if (!(rate > 0) || rate <= 1) {
+                const legacyRules = await this.getDeliveryFeeRules();
+                const oneKmRule = legacyRules.find((r) => r.upToKm === 1 && r.fee > 0);
+                if (oneKmRule && oneKmRule.fee > rate) {
+                    rate = oneKmRule.fee;
+                }
+            }
+            if (rate > 0) {
+                return Math.ceil(d * rate);
+            }
+            return flat;
+        }
+
         const rules = await this.getDeliveryFeeRules();
         const matched = rules.find((r) => d <= r.upToKm);
         if (matched) return matched.fee;
@@ -268,14 +290,18 @@ export class SettingsService {
         preferences: Record<string, unknown> | null;
         deliveryCharge: number;
         deliveryFeeRules: DeliveryFeeRule[];
+        deliveryFeeMode: DeliveryFeeMode;
+        deliveryPerKmRate: number;
     }> {
-        const [theme, preferences, deliveryCharge, deliveryFeeRules] = await Promise.all([
+        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate] = await Promise.all([
             this.getStoreTheme(),
             this.getStorePreferences(),
             this.getDeliveryCharge(),
             this.getDeliveryFeeRules(),
+            this.getDeliveryFeeMode(),
+            this.getDeliveryPerKmRate(),
         ]);
-        return { theme, preferences, deliveryCharge, deliveryFeeRules };
+        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate };
     }
 
     /** Update store settings (admin only). Partial update. */
@@ -284,6 +310,8 @@ export class SettingsService {
         preferences?: Record<string, unknown>;
         deliveryCharge?: number;
         deliveryFeeRules?: DeliveryFeeRule[];
+        deliveryFeeMode?: DeliveryFeeMode;
+        deliveryPerKmRate?: number;
     }): Promise<void> {
         if (updates.theme !== undefined) {
             await this.setStoreTheme(updates.theme);
@@ -297,6 +325,35 @@ export class SettingsService {
         if (updates.deliveryFeeRules !== undefined) {
             await this.setDeliveryFeeRules(updates.deliveryFeeRules);
         }
+        if (updates.deliveryFeeMode !== undefined) {
+            await this.setDeliveryFeeMode(updates.deliveryFeeMode);
+        }
+        if (updates.deliveryPerKmRate !== undefined) {
+            await this.setDeliveryPerKmRate(updates.deliveryPerKmRate);
+        }
+    }
+
+    async getDeliveryFeeMode(): Promise<DeliveryFeeMode> {
+        const raw = (await this.get(KEY_DELIVERY_FEE_MODE))?.trim().toUpperCase();
+        if (raw === 'PER_KM') return 'PER_KM';
+        return 'SLAB';
+    }
+
+    async setDeliveryFeeMode(mode: DeliveryFeeMode): Promise<void> {
+        const normalized: DeliveryFeeMode = String(mode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB';
+        await this.set(KEY_DELIVERY_FEE_MODE, normalized);
+    }
+
+    async getDeliveryPerKmRate(): Promise<number> {
+        const raw = await this.get(KEY_DELIVERY_PER_KM_RATE);
+        if (raw == null || raw === '') return 0;
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    async setDeliveryPerKmRate(rate: number): Promise<void> {
+        const n = Number(rate);
+        await this.set(KEY_DELIVERY_PER_KM_RATE, Number.isFinite(n) && n >= 0 ? String(n) : '0');
     }
 
     /** Validate a coupon code (public). Returns discount info if valid. */

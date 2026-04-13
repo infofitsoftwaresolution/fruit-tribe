@@ -313,14 +313,27 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }, {});
   }, [items]);
 
-  const vendorSummaries = useMemo(() => {
+  const shippingFeeForDistance = useMemo(() => {
     const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
     const rules = preferences.deliveryFeeRules || [];
-    const deliveryChargeTotal = computeDeliveryFeeByDistanceKm(
-      deliveryStats.distanceKm,
+    const mode = preferences.deliveryFeeMode || 'SLAB';
+    const perKmRate = Number(preferences.deliveryPerKmRate) || 0;
+    return computeDeliveryFeeByDistanceKm(
+      deliveryDistance,
       rules,
       fallbackDeliveryCharge,
+      mode,
+      perKmRate,
     );
+  }, [
+    deliveryDistance,
+    preferences.deliveryCharge,
+    preferences.deliveryFeeRules,
+    preferences.deliveryFeeMode,
+    preferences.deliveryPerKmRate,
+  ]);
+
+  const vendorSummaries = useMemo(() => {
     const entries = Object.entries(groupedItems);
     return entries.map(([vendor, vendorItems], i) => {
       const vSubtotal = vendorItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -329,7 +342,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const rate = taxRates[product?.category || 'Fruits'] || 0;
         return totalTax + (item.price * item.quantity * (rate / 100));
       }, 0);
-      const shipping = i === 0 ? deliveryChargeTotal : 0;
+      const shipping = i === 0 ? shippingFeeForDistance : 0;
       return {
         vendor,
         items: vendorItems,
@@ -339,7 +352,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         total: vSubtotal + vTax + shipping,
       };
     });
-  }, [groupedItems, products, taxRates, preferences.deliveryCharge, preferences.deliveryFeeRules, deliveryStats.distanceKm]);
+  }, [groupedItems, products, taxRates, shippingFeeForDistance]);
 
   const subtotalOnly = vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0);
   const discountAmount = useMemo(() => {
@@ -1075,7 +1088,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       <span>Shipping ({deliveryDistance} km)</span>
                       <span className="text-emerald-500">
-                        {vendorSummaries.reduce((sum, s) => sum + s.shipping, 0) === 0 ? 'Free' : `₹${vendorSummaries.reduce((sum, s) => sum + s.shipping, 0)}`}
+                        {shippingFeeForDistance === 0 ? 'Free' : `₹${shippingFeeForDistance}`}
                       </span>
                     </div>
                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">

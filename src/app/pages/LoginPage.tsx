@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { LogIn, Eye, EyeOff, Shield, Loader2, UserCircle } from 'lucide-react';
@@ -17,6 +17,7 @@ interface LoginPageProps {
 
 export function LoginPage({ embedded = false }: LoginPageProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
   const { theme } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -42,6 +43,13 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
 
     try {
       await login(formData.email, formData.password);
+      const redirectFromState = (location.state as { from?: string } | null)?.from;
+      const redirectFromQuery = new URLSearchParams(location.search).get('next') || undefined;
+      const redirectTarget = redirectFromState || redirectFromQuery;
+      if (redirectTarget && redirectTarget !== '/login') {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);

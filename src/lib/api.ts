@@ -731,6 +731,8 @@ export async function getStoreSettings(): Promise<{
   preferences: Record<string, unknown> | null;
   deliveryCharge: number;
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+  deliveryFeeMode?: 'SLAB' | 'PER_KM';
+  deliveryPerKmRate?: number;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -743,11 +745,15 @@ export async function updateStoreSettings(body: {
   preferences?: Record<string, unknown>;
   deliveryCharge?: number;
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+  deliveryFeeMode?: 'SLAB' | 'PER_KM';
+  deliveryPerKmRate?: number;
 }): Promise<{
   theme: Record<string, unknown> | null;
   preferences: Record<string, unknown> | null;
   deliveryCharge: number;
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+  deliveryFeeMode?: 'SLAB' | 'PER_KM';
+  deliveryPerKmRate?: number;
   message?: string;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {

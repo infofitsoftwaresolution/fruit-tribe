@@ -19,6 +19,7 @@ const FREE_SHIPPING_THRESHOLD = 500;
 
 export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProps) {
   const { products, taxRates, theme, preferences } = useStore();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
   const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
@@ -264,7 +265,14 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
               <motion.button
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => navigate('/checkout')}
+                onClick={() => {
+                  if (!user) {
+                    toast.info('Please sign in to continue checkout.');
+                    navigate('/login', { state: { from: '/cart' } });
+                    return;
+                  }
+                  navigate('/checkout');
+                }}
                 className={cn(
                   "w-full py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 mb-4",
                   getRoundedClass(theme.buttonStyle)

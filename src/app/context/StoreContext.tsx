@@ -234,6 +234,10 @@ export interface StorePreferences {
     deliveryCharge?: number;
     /** Distance-based delivery fee slabs (admin-configurable) */
     deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
+    /** Delivery fee mode: slab-based or per-km rate based. */
+    deliveryFeeMode?: 'SLAB' | 'PER_KM';
+    /** Per-km shipping rate used when deliveryFeeMode = PER_KM. */
+    deliveryPerKmRate?: number;
     /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
     subscriptionPage?: SubscriptionPageConfig;
 }
@@ -398,6 +402,8 @@ const INITIAL_PREFERENCES: StorePreferences = {
         { upToKm: 15, fee: 60 },
         { upToKm: 9999, fee: 90 },
     ],
+    deliveryFeeMode: 'SLAB',
+    deliveryPerKmRate: 10,
 };
 
 const INITIAL_PAGES: Page[] = [
@@ -548,6 +554,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 }
                 if (Array.isArray((data as any).deliveryFeeRules)) {
                     setPreferences((prev) => ({ ...prev, deliveryFeeRules: (data as any).deliveryFeeRules }));
+                }
+                if (typeof (data as any).deliveryFeeMode === 'string') {
+                    const mode = String((data as any).deliveryFeeMode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB';
+                    setPreferences((prev) => ({ ...prev, deliveryFeeMode: mode }));
+                }
+                if (typeof (data as any).deliveryPerKmRate === 'number' && (data as any).deliveryPerKmRate >= 0) {
+                    setPreferences((prev) => ({ ...prev, deliveryPerKmRate: (data as any).deliveryPerKmRate }));
                 }
             })
             .catch(() => {});
