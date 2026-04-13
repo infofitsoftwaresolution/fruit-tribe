@@ -13,32 +13,89 @@ export type CartPricingInput = {
   bulkDiscountPrice?: number;
 };
 
-/** Unit price when ordering `quantity` units (bulk tier applies when qty ≥ bulk threshold). */
-export function getEffectiveUnitPrice(product: ProductPricingInput, quantity: number): number {
+/** Product shape for bulk display & pricing (includes variants + stock when available). */
+export type ProductLikeForBulk = ProductPricingInput & {
+  availableStock?: number;
+  stock?: number;
+  variants?: { price: number; availableStock?: number; stock?: number }[];
+};
+
+/**
+ * Normal retail unit price for display and non-bulk lines.
+ * Ignores outlier variant prices far below the rest (e.g. ₹1 typo next to ₹400) so `Math.min`
+ * cannot pick a bogus low value.
+ */
+export function getRetailUnitReference(
+  product: ProductPricingInput & { variants?: { price: number }[] },
+): number {
+  const base = Number(product.price);
+  const vars = product.variants;
+  if (!vars?.length) {
+    return Number.isFinite(base) && base > 0 ? base : 0;
+  }
+  const vp = vars.map((v) => Number(v.price)).filter((x) => Number.isFinite(x) && x > 0);
+  const candidates = [base, ...vp].filter((x) => Number.isFinite(x) && x > 0);
+  if (candidates.length === 0) return Number.isFinite(base) ? base : 0;
+  const hi = Math.max(...candidates);
+  const floor = hi * 0.05;
+  const sane = candidates.filter((x) => x >= floor);
+  const pool = sane.length > 0 ? sane : candidates;
+  return Math.min(...pool);
+}
+
+/**
+ * True when admin saved a bulk rule (min qty + price per unit). Storefront shows these values exactly.
+ * No comparison to retail and no stock gate — those are business choices left to the admin.
+ */
+export function productHasAdminBulkOffer(product: ProductLikeForBulk | undefined | null): boolean {
+  if (!product) return false;
+  const bulkQ = product.bulkDiscountQty;
+  const bulkP = product.bulkDiscountPrice;
+  const q = bulkQ != null ? Number(bulkQ) : 0;
+  const p = bulkP != null ? Number(bulkP) : NaN;
+  return q > 0 && Number.isFinite(p) && p > 0;
+}
+
+/** @alias Same as {@link productHasAdminBulkOffer} — bulk block visible whenever admin configured qty + price. */
+export function productHasBulkPricing(product: ProductLikeForBulk | undefined | null): boolean {
+  return productHasAdminBulkOffer(product);
+}
+
+/** @deprecated Kept for compatibility. */
+export function isBulkTierValid(
+  retailUnitPrice: number,
+  bulkQty?: number | null,
+  bulkUnitPrice?: number | null,
+): boolean {
+  const retail = Number(retailUnitPrice);
+  if (!Number.isFinite(retail) || retail <= 0) return false;
+  const q = bulkQty != null ? Number(bulkQty) : 0;
+  const p = bulkUnitPrice != null ? Number(bulkUnitPrice) : NaN;
+  return q > 0 && Number.isFinite(p) && p > 0 && p <= retail;
+}
+
+/**
+ * When quantity meets admin threshold, unit price is exactly {@link ProductPricingInput.bulkDiscountPrice}.
+ * Otherwise retail reference (cheapest normal unit).
+ */
+export function getEffectiveUnitPrice(product: ProductLikeForBulk, quantity: number): number {
   const q = Math.max(0, Math.floor(quantity));
   const bulkQ = product.bulkDiscountQty;
   const bulkP = product.bulkDiscountPrice;
-  if (bulkQ && bulkQ > 0 && bulkP != null && Number(bulkP) > 0 && q >= bulkQ) {
-    return Number(bulkP);
+  if (bulkQ && bulkQ > 0 && q >= bulkQ && bulkP != null && Number(bulkP) > 0) {
+    return Number(bulkP) / Number(bulkQ);
   }
-  return product.price;
+  return getRetailUnitReference(product);
 }
 
-/** Recalculate unit price from cart line metadata (works without a live product in context). */
+/** Recalculate unit price from cart line metadata. */
 export function getEffectiveUnitPriceFromCartItem(item: CartPricingInput, quantity: number): number {
   const q = Math.max(0, Math.floor(quantity));
   const retail = item.retailUnitPrice ?? item.price;
   const bulkQ = item.bulkDiscountQty;
   const bulkP = item.bulkDiscountPrice;
-  if (bulkQ && bulkQ > 0 && bulkP != null && Number(bulkP) > 0 && q >= bulkQ) {
-    return Number(bulkP);
+  if (bulkQ && bulkQ > 0 && q >= bulkQ && bulkP != null && Number(bulkP) > 0) {
+    return Number(bulkP) / Number(bulkQ);
   }
-  return retail;
-}
-
-export function productHasBulkPricing(product: ProductPricingInput | undefined | null): boolean {
-  if (!product) return false;
-  const q = product.bulkDiscountQty;
-  const p = product.bulkDiscountPrice;
-  return !!(q && q > 0 && p != null && Number(p) > 0);
+  return Number(retail);
 }

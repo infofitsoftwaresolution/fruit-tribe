@@ -623,6 +623,7 @@ export async function createProduct(body: {
   harvestDate?: string;
   expiryDate?: string;
   isSeasonal?: boolean;
+  isOrganic?: boolean;
   seasonalStart?: string;
   seasonalEnd?: string;
   bulkDiscountQty?: number;
@@ -654,6 +655,7 @@ export async function updateProduct(
     harvestDate: string | null;
     expiryDate: string | null;
     isSeasonal: boolean;
+    isOrganic: boolean;
     seasonalStart: string | null;
     seasonalEnd: string | null;
     bulkDiscountQty: number;

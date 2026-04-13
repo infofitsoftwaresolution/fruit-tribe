@@ -28,6 +28,7 @@ import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
 import { toast } from 'sonner';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
+import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
 
 interface CheckoutPageProps {
   items: CartItem[];
@@ -439,7 +440,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         toast.error('We don\'t deliver to this PIN code yet.', {
           description:
             pinDigits.length === 6
-              ? `Enter a serviceable 6-digit PIN. Currently: ${serviceablePincodes.slice(0, 12).join(', ')}${serviceablePincodes.length > 12 ? '…' : ''}.`
+              ? `We currently serve ${serviceablePincodes.length} PIN code${serviceablePincodes.length === 1 ? '' : 's'}. Open the list below the ZIP field to see them.`
               : 'Enter a valid 6-digit PIN code for delivery.',
         });
         return;
@@ -861,9 +862,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       )}
                     />
                     {serviceablePincodes.length > 0 && (
-                      <p className="text-[10px] font-bold text-slate-500 pl-4">
-                        We deliver only to these PIN codes: {serviceablePincodes.join(', ')}
-                      </p>
+                      <div className="pl-2 pr-1">
+                        <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
+                      </div>
                     )}
                     {serviceablePincodes.length > 0 &&
                       formData.zipCode.replace(/\D/g, '').length >= 6 &&

@@ -22,6 +22,7 @@ import {
   type SavedDeliveryAddress,
 } from '@/lib/deliveryAddressUtils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
+import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
 
 const BENEFIT_ICONS: Record<string, LucideIcon> = {
   gift: Gift,
@@ -742,6 +743,9 @@ export function SubscriptionPage() {
                           placeholder="PIN code"
                           className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                         />
+                        {serviceablePincodes.length > 0 && (
+                          <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
+                        )}
                         {user && !selectedSavedAddressId && (
                           <label className="flex items-start gap-2 cursor-pointer text-[11px] font-bold text-slate-600">
                             <input

@@ -5,6 +5,13 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
+/** Full INR for product UI (grouped digits), e.g. ₹1,80,000 — not raw 180000. */
+export function formatInr(amount: number): string {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return '₹0';
+    return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: n % 1 === 0 ? 0 : 2 })}`;
+}
+
 /** Compact INR for dashboards: avoids ₹0.0K when revenue is under ₹1,000. */
 export function formatInrCompact(amount: number): string {
     const n = Math.max(0, Number(amount) || 0);

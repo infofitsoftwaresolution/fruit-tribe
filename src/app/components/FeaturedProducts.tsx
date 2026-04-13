@@ -7,6 +7,7 @@ import { useStore } from '@/app/context/StoreContext';
 import { useProducts } from '@/app/hooks/useProducts';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { productHasBulkPricing } from '@/lib/pricing';
 
 interface FeaturedProductsProps {
     onAddToCart: (product: Product) => void;
@@ -26,11 +27,11 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     const featuredProducts = useMemo(() => {
         let next = products.filter(p => p.status === 'Active' && p.availableStock > 0);
         if (productTab === 'bulk') {
-            next = next.filter((p) => Number(p.bulkDiscountQty ?? 0) > 0 && Number(p.bulkDiscountPrice ?? 0) > 0);
+            next = next.filter((p) => productHasBulkPricing(p));
         } else if (productTab === 'seasonal') {
             next = next.filter((p) => Boolean(p.isSeasonal));
         }
-        return next.slice(0, 3);
+        return next.slice(0, 6);
     }, [products, productTab]);
 
     return (

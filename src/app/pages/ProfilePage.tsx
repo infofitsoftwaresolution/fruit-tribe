@@ -10,6 +10,8 @@ import {
   createUserAddress,
   deleteUserAddress,
   setDefaultUserAddress,
+  createRazorpayOrder,
+  verifyPayment,
 } from '@/lib/api';
 import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import {
@@ -21,11 +23,13 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
+import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 
 /** Map backend order to Profile order-history shape (includes product details per item) */
 function mapApiOrderToProfileOrder(api: any, userName: string) {
   const statusMap: Record<string, string> = {
     CREATED: 'Processing',
+    ON_HOLD: 'On hold',
     CONFIRMED: 'Confirmed',
     PACKED: 'Packed',
     SHIPPED: 'Shipped',
@@ -69,7 +73,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
   // Fallback: if there are no explicit status logs yet (older orders),
   // synthesize a simple linear timeline up to the current status.
   if (!timeline.length) {
-    const ordered = ['CREATED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'] as const;
+    const ordered = ['CREATED', 'ON_HOLD', 'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED'] as const;
     const upper = rawStatus.toUpperCase();
     const idx = ordered.indexOf(upper as any);
     const endIndex = idx === -1 ? 0 : idx;
@@ -239,6 +243,65 @@ export function ProfilePage() {
       return db - da;
     });
   }, [user, ordersLoading, apiOrders]);
+
+  const handlePayNow = useCallback(async (order: any) => {
+    try {
+      if (String(order.payment).toUpperCase() === 'PAID') {
+        toast.success('This order is already paid.');
+        return;
+      }
+      if (String(order.rawStatus).toUpperCase() === 'CANCELLED') {
+        toast.error('This order is cancelled and cannot be paid.');
+        return;
+      }
+
+      const amount = Number(order.total || 0);
+      const amountInPaise = Math.round(amount * 100);
+      if (!(amountInPaise > 0)) {
+        toast.error('Invalid payable amount for this order.');
+        return;
+      }
+
+      const [{ razorpayOrderId, keyId }] = await Promise.all([
+        createRazorpayOrder(order.orderId, amountInPaise, 'INR'),
+        ensureRazorpayScript(),
+      ]);
+      const Razorpay = (window as any).Razorpay;
+      if (!Razorpay) {
+        toast.error('Payment gateway not available right now. Try again.');
+        return;
+      }
+
+      const rzp = new Razorpay({
+        key: keyId,
+        order_id: razorpayOrderId,
+        currency: 'INR',
+        name: 'The Fruit Tribe',
+        description: `Order ${order.id}`,
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            await verifyPayment(order.orderId, {
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+            });
+            toast.success('Payment successful.');
+            await loadOrders();
+          } catch (err: any) {
+            toast.error(err?.message || 'Payment verification failed.');
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info('Payment not completed. You can try Pay now again.');
+          },
+        },
+      });
+      rzp.open();
+    } catch (err: any) {
+      toast.error(err?.message || 'Unable to start payment.');
+    }
+  }, [loadOrders]);
 
   const loadSavedAddresses = useCallback(async () => {
     if (!user) {
@@ -663,10 +726,26 @@ export function ProfilePage() {
                             </div>
                             <div className={cn(
                               "px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border",
-                              order.status === 'Delivered' ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-blue-50 text-blue-600 border-blue-100 animate-pulse"
+                              order.status === 'Delivered'
+                                ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                : order.status === 'On hold'
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-blue-50 text-blue-600 border-blue-100 animate-pulse"
                             )}>
                               {order.status}
                             </div>
+                            {order.payment !== 'Paid' && order.status !== 'Cancelled' && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handlePayNow(order);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
+                              >
+                                Pay now
+                              </button>
+                            )}
                           </div>
                         </div>
 

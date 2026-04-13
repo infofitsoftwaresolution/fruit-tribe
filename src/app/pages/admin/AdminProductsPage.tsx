@@ -358,6 +358,7 @@ export function AdminProductsPage() {
                     harvestDate: formData.harvestDate || null,
                     expiryDate: formData.expiryDate || null,
                     isSeasonal: formData.isSeasonal,
+                    isOrganic: formData.isOrganic,
                     seasonalStart: formData.seasonalStart || null,
                     seasonalEnd: formData.seasonalEnd || null,
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
@@ -388,6 +389,7 @@ export function AdminProductsPage() {
                     harvestDate: formData.harvestDate,
                     expiryDate: formData.expiryDate,
                     isSeasonal: formData.isSeasonal,
+                    isOrganic: formData.isOrganic,
                     seasonalStart: formData.seasonalStart,
                     seasonalEnd: formData.seasonalEnd,
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
@@ -937,7 +939,7 @@ export function AdminProductsPage() {
                                             <TrendingUp className="w-4 h-4 text-emerald-500" />
                                             Sell in bulk
                                         </h3>
-                                        <p className="text-[10px] text-slate-500 -mt-2">Min quantity and price per unit for bulk purchase. Leave empty to disable.</p>
+                                        <p className="text-[10px] text-slate-500 -mt-2">Set bulk pack quantity and total pack price. Example: 30 units = ₹6000. Leave empty to disable.</p>
                                         <div className="grid grid-cols-2 gap-6 p-8 bg-emerald-50/20 border border-emerald-100 rounded-[2.5rem]">
                                             <FormInput
                                                 label="Threshold Quantity (Units)"
@@ -947,11 +949,11 @@ export function AdminProductsPage() {
                                                 placeholder="e.g. 5"
                                             />
                                             <FormInput
-                                                label="Bulk Price (₹ / Unit)"
+                                                label="Bulk Pack Price (₹ Total)"
                                                 type="number"
                                                 value={formData.bulkDiscountPrice}
                                                 onChange={(v: string) => setFormData({ ...formData, bulkDiscountPrice: v })}
-                                                placeholder="e.g. 400"
+                                                placeholder="e.g. 6000"
                                             />
                                         </div>
                                     </div>

@@ -52,6 +52,12 @@ export class PaymentService {
                 where: { id: orderId, userId },
             });
             if (!order) throw new BadRequestException('Order not found');
+            if (String(order.status).toUpperCase() === 'CANCELLED') {
+                throw new BadRequestException('This order was cancelled and cannot be paid.');
+            }
+            if (String(order.paymentStatus).toUpperCase() === 'PAID') {
+                throw new BadRequestException('Order is already paid.');
+            }
 
             const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
 
@@ -99,6 +105,9 @@ export class PaymentService {
             where: { id: orderId, userId },
         });
         if (!order) throw new BadRequestException('Order not found');
+        if (String(order.status).toUpperCase() === 'CANCELLED') {
+            throw new BadRequestException('This order was cancelled and cannot be paid.');
+        }
 
         const body = `${razorpayOrderId}|${razorpayPaymentId}`;
         const expectedSignature = crypto

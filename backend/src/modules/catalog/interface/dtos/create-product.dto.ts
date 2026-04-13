@@ -78,6 +78,11 @@ export class CreateProductDto {
     @IsBoolean()
     isSeasonal?: boolean;
 
+    @ApiProperty({ example: false, required: false, description: 'Whether product is organically produced' })
+    @IsOptional()
+    @IsBoolean()
+    isOrganic?: boolean;
+
     @ApiProperty({ example: '2024-03-01T00:00:00Z', required: false })
     @IsOptional()
     @IsString()

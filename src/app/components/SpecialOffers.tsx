@@ -6,16 +6,16 @@ import { useProducts } from '@/app/hooks/useProducts';
 import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
+import { productHasBulkPricing } from '@/lib/pricing';
 
 export function SpecialOffers() {
   const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart, preferences } = useStore();
   const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
-  const { products: apiProducts } = useProducts({ limit: 100 });
-  const products = apiProducts.length > 0 ? apiProducts : storeProducts;
-  const bulkProducts = products.filter((p: any) => 
-    p.status === 'Active' && 
-    p.availableStock > 0 && 
-    (p.bulkDiscountQty ?? 0) > 0
+  const { products: apiProducts, loading: productsLoading } = useProducts({ limit: 100 });
+  const products =
+    apiProducts.length > 0 ? apiProducts : productsLoading ? [] : storeProducts;
+  const bulkProducts = products.filter(
+    (p: any) => p.status === 'Active' && productHasBulkPricing(p),
   );
   const navigate = useNavigate();
 

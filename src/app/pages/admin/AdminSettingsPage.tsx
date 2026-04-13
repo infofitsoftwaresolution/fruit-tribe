@@ -484,27 +484,45 @@ export function AdminSettingsPage() {
                         </div>
 
                         <div className="mt-10 pt-8 border-t border-slate-100">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Serviceable PIN codes (optional)</p>
-                            <p className="text-xs text-slate-500 mb-4">
-                                Leave empty to allow any PIN (only city list applies). If you add PINs, customers must use one of them at checkout.
-                            </p>
-                            <div className="flex flex-wrap gap-3 mb-4">
-                                {serviceablePincodes.map((pin, index) => (
-                                    <span
-                                        key={pin}
-                                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-900 text-sm font-mono font-bold"
-                                    >
-                                        {pin}
-                                        <button
-                                            type="button"
-                                            onClick={() => handleRemovePincode(index)}
-                                            className="p-0.5 rounded-lg text-emerald-600 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                            aria-label={`Remove PIN ${pin}`}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                        </button>
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviceable PIN codes (optional)</p>
+                                    <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                                        Leave empty to allow any 6-digit PIN inside your cities. If you add PINs, checkout only accepts addresses in this list (still combined with city rules above).
+                                    </p>
+                                </div>
+                                {serviceablePincodes.length > 0 && (
+                                    <span className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
+                                        {serviceablePincodes.length} PIN{serviceablePincodes.length === 1 ? '' : 's'}
                                     </span>
-                                ))}
+                                )}
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 mb-4">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">Saved PINs</p>
+                                {serviceablePincodes.length === 0 ? (
+                                    <p className="text-sm text-slate-400 italic">No PIN restrictions — any valid 6-digit PIN is allowed within your cities.</p>
+                                ) : (
+                                    <div className="max-h-48 overflow-y-auto pr-1">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                            {serviceablePincodes.map((pin, index) => (
+                                                <div
+                                                    key={pin}
+                                                    className="flex items-center justify-between gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 shadow-sm"
+                                                >
+                                                    <span className="font-mono text-sm font-bold text-slate-900 tabular-nums tracking-tight">{pin}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleRemovePincode(index)}
+                                                        className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                                                        aria-label={`Remove PIN ${pin}`}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <div className="flex flex-wrap gap-3 items-center">
                                 <input
@@ -515,16 +533,17 @@ export function AdminSettingsPage() {
                                     onChange={(e) => setNewPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPincode())}
                                     placeholder="560001"
-                                    className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 font-mono text-sm w-32"
+                                    className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 font-mono text-sm w-36 shadow-sm"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleAddPincode}
-                                    className="h-12 px-4 rounded-xl bg-emerald-100 text-emerald-800 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-200 transition-all flex items-center gap-2"
+                                    className="h-12 px-5 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm"
                                 >
                                     <Plus className="h-4 w-4" />
                                     Add PIN
                                 </button>
+                                <p className="text-[11px] text-slate-400 w-full sm:w-auto sm:ml-2">Press Enter or Add PIN, then use &quot;Save service areas&quot; above.</p>
                             </div>
                         </div>
                     </>

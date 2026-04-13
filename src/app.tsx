@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useMemo, useCallback, memo } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
 import { StoreProvider, useStore, type CartItem } from '@/app/context/StoreContext';
+import { CartPricingSync } from '@/app/components/CartPricingSync';
 import { Navbar } from '@/app/components/Navbar';
 import { MobileBottomNav } from '@/app/components/MobileBottomNav';
 import { Footer } from '@/app/components/Footer';
@@ -183,6 +184,7 @@ const MainLayout = memo(function MainLayout({
 export default function App() {
   return (
     <StoreProvider>
+      <CartPricingSync />
       <ThemeWrapper>
         <AuthProvider>
           <Router>

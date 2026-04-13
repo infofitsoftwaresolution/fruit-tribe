@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
 import { toast } from 'sonner';
 import { getStoreSettings } from '@/lib/api';
-import { getEffectiveUnitPrice, getEffectiveUnitPriceFromCartItem } from '@/lib/pricing';
+import { getEffectiveUnitPrice, getEffectiveUnitPriceFromCartItem, getRetailUnitReference } from '@/lib/pricing';
+import type { Product as CatalogProduct } from '@/lib/api';
 import type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 
 export type { SubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
@@ -276,6 +277,8 @@ interface StoreContextType {
     handleAddToCart: (product: Product, quantity?: number) => void;
     handleUpdateQuantity: (id: string | number, change: number) => void;
     handleRemoveItem: (id: string | number) => void;
+    /** Align cart line retail/bulk fields with the live catalog (call when API products load). */
+    syncCartPricingFromCatalog: (catalog: CatalogProduct[]) => void;
     clearCart: () => void;
     isEditing: boolean;
     setIsEditing: (val: boolean) => void;
@@ -570,6 +573,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             }
 
             const unitPrice = getEffectiveUnitPrice(product, newQty);
+            const retailRef = getRetailUnitReference(product);
             if (existingItem) {
                 const updatedItems = prevItems.map(item =>
                     item.id === product.id
@@ -577,7 +581,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                             ...item,
                             quantity: newQty,
                             price: unitPrice,
-                            retailUnitPrice: product.price,
+                            retailUnitPrice: retailRef,
                             bulkDiscountQty: product.bulkDiscountQty,
                             bulkDiscountPrice: product.bulkDiscountPrice,
                         }
@@ -596,7 +600,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     image: product.image,
                     vendor: product.vendor,
                     stock: product.stock,
-                    retailUnitPrice: product.price,
+                    retailUnitPrice: retailRef,
                     bulkDiscountQty: product.bulkDiscountQty,
                     bulkDiscountPrice: product.bulkDiscountPrice,
                 }];
@@ -631,6 +635,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (item) toast.error(`${item.name} removed from cart`);
             return prevItems.filter(i => i.id !== productId);
         });
+    }, []);
+
+    const syncCartPricingFromCatalog = useCallback((catalog: CatalogProduct[]) => {
+        if (!catalog?.length) return;
+        const byId = new Map(catalog.map((p) => [String(p.id), p]));
+        setCartItems((items) =>
+            items.map((item) => {
+                const p = byId.get(String(item.id));
+                if (!p) return item;
+                const maxStock = p.availableStock ?? p.stock ?? item.stock ?? 999;
+                const q = Math.min(Math.max(0, Math.floor(item.quantity)), Math.max(0, maxStock));
+                const unitPrice = getEffectiveUnitPrice(
+                    {
+                        price: p.price,
+                        bulkDiscountQty: p.bulkDiscountQty,
+                        bulkDiscountPrice: p.bulkDiscountPrice,
+                        variants: p.variants,
+                    },
+                    q,
+                );
+                return {
+                    ...item,
+                    quantity: q,
+                    price: unitPrice,
+                    retailUnitPrice: getRetailUnitReference(p),
+                    bulkDiscountQty: p.bulkDiscountQty,
+                    bulkDiscountPrice: p.bulkDiscountPrice,
+                    stock: maxStock,
+                };
+            }),
+        );
     }, []);
 
     const clearCart = useCallback(() => setCartItems([]), []);
@@ -738,6 +773,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         handleAddToCart,
         handleUpdateQuantity,
         handleRemoveItem,
+        syncCartPricingFromCatalog,
         clearCart,
         isEditing,
         setIsEditing,
@@ -768,6 +804,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         handleAddToCart,
         handleUpdateQuantity,
         handleRemoveItem,
+        syncCartPricingFromCatalog,
         clearCart,
         isEditing,
         setIsEditing,

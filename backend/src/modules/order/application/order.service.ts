@@ -13,6 +13,7 @@ import { CreateSubscriptionOrderDto } from '../interface/dtos/create-subscriptio
 @Injectable()
 export class OrderService {
     private readonly logger = new Logger(OrderService.name);
+    private static readonly ONLINE_HOLD_MINUTES = 10;
 
     constructor(
         private readonly prisma: PrismaService,
@@ -103,6 +104,21 @@ export class OrderService {
             throw new BadRequestException('Too many active reservations. Please complete your existing orders first.');
         }
 
+        // Server-side COD enforcement: if any cart product disables COD, order must be paid online.
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: dto.items.map((i) => i.productId) } },
+            select: { id: true, allowCashOnDelivery: true },
+        });
+        const codBlocked = new Set(
+            products.filter((p) => p.allowCashOnDelivery === false).map((p) => p.id),
+        );
+        const requestedCod = String(dto.paymentMethod || 'online').toLowerCase() === 'cod';
+        const hasCodBlockedItem = dto.items.some((i) => codBlocked.has(i.productId));
+        const isCod = requestedCod && !hasCodBlockedItem;
+        if (requestedCod && hasCodBlockedItem) {
+            this.logger.warn(`Order create: forcing online payment because one or more products are COD-disabled.`);
+        }
+
         const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null);
         const taxAmount = subtotal * 0.05; // 5% GST
         const payableAmount = subtotal - discountAmount + shippingFee + taxAmount;
@@ -168,6 +184,7 @@ export class OrderService {
                 // For now, we allow the sale but log the buffer hit if needed.
             }
 
+            const initialOrderStatus = isCod ? 'CONFIRMED' : 'ON_HOLD';
             const order = await tx.order.create({
                 data: {
                     orderNumber,
@@ -183,7 +200,7 @@ export class OrderService {
                     couponId,
                     idempotencyKey: dto.idempotencyKey,
                     addressId: linkedAddressId,
-                    status: 'CREATED',
+                    status: initialOrderStatus,
                     paymentStatus: 'PENDING',
                     items: {
                         create: dto.items.map((item) => ({
@@ -201,7 +218,6 @@ export class OrderService {
             });
 
             // Decrement stock for each variant (Professional approach: RESERVE STOCK vs COMMIT)
-            const isCod = dto.paymentMethod === 'cod';
             
             for (const item of dto.items) {
                 // If COD, we commit immediately. If online, we reserve.
@@ -213,7 +229,7 @@ export class OrderService {
                         orderId: order.id,
                         userId,
                         quantity: item.quantity,
-                        expiresAt: new Date(Date.now() + 15 * 60000), // 15 minute hold
+                        expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000), // 10-minute hold
                         status: reservationStatus
                     }
                 });
@@ -228,11 +244,6 @@ export class OrderService {
                         }
                     });
                     
-                    // Confirmation status for the order
-                    await tx.order.update({
-                        where: { id: order.id },
-                        data: { status: 'CONFIRMED' }
-                    });
                 } else {
                     // Online: Just reserve, don't reduce physical stock yet
                     await tx.productVariant.update({
@@ -265,7 +276,7 @@ export class OrderService {
             await tx.orderStatusLog.create({
                 data: {
                     orderId: order.id,
-                    status: 'CREATED',
+                    status: initialOrderStatus,
                     changedByRole: 'CUSTOMER',
                     changedByName: null,
                 },
@@ -449,7 +460,7 @@ export class OrderService {
 
     /** Update order status (admin or seller who has items in the order). Persists to DB. */
     async updateStatus(orderId: string, userId: string, userRole: string, status: string) {
-        const allowed = ['CREATED', 'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
+        const allowed = ['CREATED', 'ON_HOLD', 'CONFIRMED', 'PACKED', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
         const nextStatus = status?.toUpperCase();
         if (!nextStatus || !allowed.includes(nextStatus)) {
             throw new BadRequestException(`Invalid status. Use one of: ${allowed.join(', ')}`);
@@ -579,5 +590,72 @@ export class OrderService {
                 },
             },
         });
+    }
+
+    /** Auto-cancel unpaid ON_HOLD orders after hold window and release their reserved stock. */
+    async expireUnpaidOnHoldOrders(): Promise<number> {
+        const staleThreshold = new Date(Date.now() - OrderService.ONLINE_HOLD_MINUTES * 60000);
+        const staleOrders = await this.prisma.order.findMany({
+            where: {
+                status: { in: ['ON_HOLD', 'CREATED'] },
+                paymentStatus: 'PENDING',
+                createdAt: { lte: staleThreshold },
+            },
+            select: { id: true },
+            take: 200,
+            orderBy: { createdAt: 'asc' },
+        });
+        if (!staleOrders.length) return 0;
+
+        let cancelled = 0;
+        for (const order of staleOrders) {
+            await this.prisma.$transaction(async (tx) => {
+                const current = await tx.order.findUnique({
+                    where: { id: order.id },
+                    select: { id: true, status: true, paymentStatus: true },
+                });
+                if (!current || !['ON_HOLD', 'CREATED'].includes(String(current.status)) || current.paymentStatus !== 'PENDING') return;
+
+                const reservations = await tx.stockReservation.findMany({
+                    where: { orderId: order.id, status: 'PENDING' },
+                });
+                for (const res of reservations) {
+                    await tx.productVariant.update({
+                        where: { id: res.variantId },
+                        data: {
+                            reservedQuantity: { decrement: res.quantity },
+                            availableQuantity: { increment: res.quantity },
+                        },
+                    });
+                    await tx.inventoryLog.create({
+                        data: {
+                            variantId: res.variantId,
+                            changeAmount: res.quantity,
+                            reason: 'ORDER_HOLD_EXPIRED_RELEASE',
+                            referenceId: order.id,
+                        },
+                    });
+                    await tx.stockReservation.update({
+                        where: { id: res.id },
+                        data: { status: 'CANCELLED' },
+                    });
+                }
+
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: { status: 'CANCELLED' },
+                });
+                await tx.orderStatusLog.create({
+                    data: {
+                        orderId: order.id,
+                        status: 'CANCELLED',
+                        changedByRole: 'SYSTEM',
+                        changedByName: 'Auto-cancel (hold expired)',
+                    },
+                });
+                cancelled += 1;
+            });
+        }
+        return cancelled;
     }
 }

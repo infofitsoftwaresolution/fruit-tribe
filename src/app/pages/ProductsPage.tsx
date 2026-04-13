@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { getCategories, getAvailableOffers, type Category, type AvailableOffer } from '@/lib/api';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { productHasBulkPricing } from '@/lib/pricing';
 
 interface ProductsPageProps {
   onAddToCart: (product: Product) => void;
@@ -130,7 +131,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     }
 
     if (productTab === 'bulk') {
-      next = next.filter((p) => Number(p.bulkDiscountQty ?? 0) > 0 && Number(p.bulkDiscountPrice ?? 0) > 0);
+      next = next.filter((p) => productHasBulkPricing(p));
     } else if (productTab === 'seasonal') {
       next = next.filter((p) => Boolean(p.isSeasonal));
     }

@@ -5,8 +5,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { productHasBulkPricing } from '@/lib/pricing';
+import { cn, formatInr } from '@/lib/utils';
+import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
 
@@ -41,6 +41,7 @@ interface ProductCardProps {
   image: string;
   description?: string;
   badge?: string;
+  isOrganic?: boolean;
   isSeasonal?: boolean;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
@@ -53,20 +54,34 @@ interface ProductCardProps {
   liveOfferHint?: string;
 }
 
-export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode, liveOfferHint }: ProductCardProps) => {
+export const ProductCard = memo(({ id, name, price, stock, image, description, badge, isOrganic, isSeasonal, bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode, liveOfferHint }: ProductCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const pricingSource = useMemo(
+  const productForBulk = useMemo(
     () => ({
-      price,
+      price: product?.price ?? price,
       bulkDiscountQty: bulkDiscountQty ?? product?.bulkDiscountQty,
       bulkDiscountPrice: bulkDiscountPrice ?? product?.bulkDiscountPrice,
+      availableStock: product?.availableStock ?? stock,
+      stock,
+      variants: product?.variants,
     }),
-    [price, bulkDiscountQty, bulkDiscountPrice, product?.bulkDiscountQty, product?.bulkDiscountPrice]
+    [
+      price,
+      stock,
+      bulkDiscountQty,
+      bulkDiscountPrice,
+      product?.price,
+      product?.availableStock,
+      product?.bulkDiscountQty,
+      product?.bulkDiscountPrice,
+      product?.variants,
+    ]
   );
-  const hasBulk = productHasBulkPricing(pricingSource);
-  const bulkQty = pricingSource.bulkDiscountQty;
-  const bulkPriceVal = pricingSource.bulkDiscountPrice;
+  const hasBulk = productHasBulkPricing(productForBulk);
+  const retailRef = useMemo(() => getRetailUnitReference(productForBulk), [productForBulk]);
+  const bulkQty = productForBulk.bulkDiscountQty;
+  const bulkPriceVal = productForBulk.bulkDiscountPrice;
   const [packKind, setPackKind] = useState<'retail' | 'bulk'>(() =>
     bulkDealMode && hasBulk ? 'bulk' : 'retail'
   );
@@ -77,13 +92,15 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
   const unitLabel = product?.unit ? product.unit : 'kg';
   const effectiveQty =
     hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : 1;
+  const bulkPackTotal =
+    hasBulk && bulkPriceVal != null ? Number(bulkPriceVal) : null;
   const displayUnitPrice =
-    hasBulk && packKind === 'bulk' && bulkPriceVal != null
-      ? Number(bulkPriceVal)
-      : price;
-  const bulkLineTotal =
-    hasBulk && bulkQty && bulkPriceVal != null
-      ? bulkQty * Number(bulkPriceVal)
+    hasBulk && packKind === 'bulk' && bulkPackTotal != null
+      ? bulkPackTotal
+      : retailRef;
+  const bulkDerivedUnitPrice =
+    bulkPackTotal != null && bulkQty && bulkQty > 0
+      ? bulkPackTotal / bulkQty
       : null;
 
   const { user } = useAuth();
@@ -107,6 +124,7 @@ toast.error('Please sign in', {
   const avail = product?.availableStock ?? stock;
   const isOutOfStock = avail <= 0;
   const lowStock = !isOutOfStock && avail <= (product?.lowStockThreshold ?? 10);
+  const isOrganicProduct = Boolean(product?.isOrganic ?? isOrganic);
   const cartQty = cartItems.find((item) => String(item.id) === String(id))?.quantity ?? 0;
 
   return (
@@ -196,24 +214,23 @@ toast.error('Please sign in', {
                 disabled={!!bulkDealMode}
                 className="w-full text-[11px] font-bold text-slate-900 border border-slate-200 rounded-lg px-2 py-1.5 bg-white"
               >
-                {!bulkDealMode && <option value="retail">1 {unitLabel} · ₹{price} each</option>}
+                {!bulkDealMode && <option value="retail">1 {unitLabel} · {formatInr(retailRef)} each</option>}
                 {bulkQty != null && bulkPriceVal != null && (
                   <option value="bulk">
-                    {bulkQty} {unitLabel} · ₹{Number(bulkPriceVal)} each
-                    {bulkLineTotal != null ? ` · ₹${bulkLineTotal} total` : ''}
+                    {bulkQty} {unitLabel} pack · {formatInr(Number(bulkPriceVal))} total
                   </option>
                 )}
               </select>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-emerald-700 leading-none">₹{displayUnitPrice}</span>
-                {hasBulk && packKind === 'bulk' && price > displayUnitPrice && (
-                  <span className="text-xs line-through text-slate-400 leading-none">₹{price}</span>
+                <span className="text-lg font-black text-emerald-700 leading-none">{formatInr(displayUnitPrice)}</span>
+                {hasBulk && packKind === 'bulk' && retailRef > displayUnitPrice && (
+                  <span className="text-xs line-through text-slate-400 leading-none">{formatInr(retailRef)}</span>
                 )}
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className="text-lg font-black text-emerald-700 leading-none">₹{price}</span>
+              <span className="text-lg font-black text-emerald-700 leading-none">{formatInr(retailRef)}</span>
             </div>
           )}
           {liveOfferHint && !isOutOfStock && (
@@ -223,6 +240,11 @@ toast.error('Please sign in', {
           )}
           <h3 className="text-sm font-bold text-slate-900 leading-tight line-clamp-2">{name}</h3>
           <p className="text-[11px] text-slate-500 line-clamp-1">{product?.unit ? `Per ${product.unit}` : 'Per kg'}</p>
+          {isOrganicProduct && (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-emerald-700">
+              Organic
+            </span>
+          )}
           {hasBulk && (
             <Link
               to={`/contact?subject=${encodeURIComponent(`Bulk order: ${name}`)}`}
@@ -337,6 +359,13 @@ toast.error('Please sign in', {
           </div>
           <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-2">Rated 4.8</span>
         </div>
+        {isOrganicProduct && (
+          <div className="mb-4 shrink-0">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[9px] font-black uppercase tracking-wider text-emerald-700">
+              Organic
+            </span>
+          </div>
+        )}
 
         {/* Stock & ETA */}
         {(() => {
@@ -377,11 +406,10 @@ toast.error('Please sign in', {
               disabled={!!bulkDealMode}
               className="w-full text-[11px] font-black text-slate-900 border border-slate-200 rounded-xl px-3 py-2 bg-white"
             >
-              {!bulkDealMode && <option value="retail">1 {unitLabel} · ₹{price} each</option>}
+              {!bulkDealMode && <option value="retail">1 {unitLabel} · {formatInr(retailRef)} each</option>}
               {bulkQty != null && bulkPriceVal != null && (
                 <option value="bulk">
-                  {bulkQty} {unitLabel} · ₹{Number(bulkPriceVal)} each
-                  {bulkLineTotal != null ? ` · ₹${bulkLineTotal} total` : ''}
+                  {bulkQty} {unitLabel} pack · {formatInr(Number(bulkPriceVal))} total
                 </option>
               )}
             </select>
@@ -477,17 +505,23 @@ toast.error('Please sign in', {
                 "text-2xl sm:text-3xl font-black tracking-tighter transition-colors",
                 isOutOfStock ? "text-slate-300" : "text-slate-900 group-hover:text-emerald-500"
               )}>
-                {displayUnitPrice}
+                {formatInr(displayUnitPrice)}
               </span>
-              {hasBulk && packKind === 'bulk' && price > displayUnitPrice && (
-                <span className="text-sm font-bold text-slate-400 line-through">{price}</span>
+              {hasBulk && packKind === 'bulk' && retailRef > displayUnitPrice && (
+                <span className="text-sm font-bold text-slate-400 line-through">{formatInr(retailRef)}</span>
               )}
             </div>
-            <p className="text-[8px] font-bold text-slate-600 uppercase tracking-wider italic">per {unitLabel}</p>
+            <p className="text-[8px] font-bold text-slate-600 uppercase tracking-wider italic">
+              {hasBulk && packKind === 'bulk' && bulkQty ? `for ${bulkQty} ${unitLabel} pack` : `per ${unitLabel}`}
+            </p>
             {hasBulk && bulkQty && bulkPriceVal != null && (
               <div className="mt-2 py-1 px-3 bg-emerald-50 rounded-lg inline-block border border-emerald-100/50">
                 <span className="text-[8px] font-bold text-emerald-600 uppercase tracking-wider whitespace-nowrap">
-                  {packKind === 'bulk' ? 'Bulk pack selected' : `Bulk available: ₹${bulkPriceVal}/${unitLabel} for ${bulkQty}+`}
+                  {packKind === 'bulk'
+                    ? (bulkDerivedUnitPrice != null
+                        ? `Bulk pack selected · ${formatInr(bulkDerivedUnitPrice)}/${unitLabel}`
+                        : 'Bulk pack selected')
+                    : `Bulk available: ${formatInr(Number(bulkPriceVal))} for ${bulkQty} ${unitLabel} pack`}
                 </span>
               </div>
             )}

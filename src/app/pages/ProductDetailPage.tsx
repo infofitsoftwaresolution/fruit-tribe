@@ -10,8 +10,8 @@ import { toast } from 'sonner';
 import { NotFoundPage } from './NotFoundPage';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { BulkInquiryForm } from '@/app/components/BulkInquiryForm';
-import { cn, getRoundedClass } from '@/lib/utils';
-import { productHasBulkPricing } from '@/lib/pricing';
+import { cn, getRoundedClass, formatInr } from '@/lib/utils';
+import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
 
 interface ProductDetailPageProps {
   onAddToCart: (product: Product, quantity?: number) => void;
@@ -52,9 +52,16 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       ? apiProduct.variants.find(v => v.sku === activeVariant)
       : null;
 
+    const sellPrice = variantData
+      ? variantData.price
+      : getRetailUnitReference(apiProduct);
+
     return {
       ...apiProduct,
-      price: variantData ? variantData.price : apiProduct.price,
+      /** Base price from catalog (bulk math uses this + variants). */
+      price: apiProduct.price,
+      /** Unit price for the selected variant (or cheapest retail). */
+      sellPrice,
       stock: variantData ? variantData.stock : apiProduct.stock,
       availableStock: variantData ? variantData.availableStock : apiProduct.availableStock,
       lowStockThreshold: apiProduct.lowStockThreshold || 10,
@@ -97,16 +104,20 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       </div>
     );
   }
-  if (error || !product) {
+  if (error || !product || !apiProduct) {
     return <NotFoundPage />;
   }
 
-  const hasBulk = productHasBulkPricing(product);
+  const hasBulk = productHasBulkPricing(apiProduct);
   const bulkQty = product.bulkDiscountQty;
   const bulkPriceVal = product.bulkDiscountPrice;
-  const bulkLineTotal =
-    hasBulk && bulkQty != null && bulkPriceVal != null && Number(bulkPriceVal) > 0
-      ? bulkQty * Number(bulkPriceVal)
+  const bulkPackTotal =
+    hasBulk && bulkPriceVal != null && Number(bulkPriceVal) > 0
+      ? Number(bulkPriceVal)
+      : null;
+  const bulkDerivedUnitPrice =
+    bulkPackTotal != null && bulkQty && bulkQty > 0
+      ? bulkPackTotal / bulkQty
       : null;
   const effectiveQty =
     hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : 1;
@@ -120,7 +131,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
         toast.error(`Only ${product.stock} units available`);
         return;
       }
-      onAddToCart(product, safeQty);
+      onAddToCart(
+        {
+          ...apiProduct,
+          availableStock: product.availableStock,
+          stock: product.stock,
+        },
+        safeQty,
+      );
       toast.success(`${product.name} added to cart!`, {
         description: `Quantity: ${safeQty}. ${activeVariant ? 'Variant selected' : 'Standard product'}.`,
         icon: <Zap className="w-4 h-4 text-emerald-500" />
@@ -316,14 +334,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter">₹{product.price}</span>
+                    <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter">{formatInr(product.sellPrice)}</span>
                     <span className="text-emerald-500/60 font-black uppercase text-xs tracking-[0.2em] italic">/ {product.unit || 'kg'}</span>
                   </div>
                   {product.discountPrice && (
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-500 line-through text-lg font-bold">₹{product.discountPrice}</span>
+                      <span className="text-slate-500 line-through text-lg font-bold">{formatInr(product.discountPrice)}</span>
                       <span className="text-emerald-400 font-black text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                        Save {Math.round((1 - product.price / product.discountPrice) * 100)}%
+                        Save {Math.round((1 - product.sellPrice / product.discountPrice) * 100)}%
                       </span>
                     </div>
                   )}
@@ -363,7 +381,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               </div>
 
               {/* Bulk / quantity */}
-              {product.bulkDiscountQty && product.bulkDiscountPrice && (
+              {hasBulk && (
                 <div className="relative z-10 p-6 bg-white/5 border border-white/10 rounded-3xl space-y-4">
                   <div className="flex items-center gap-3">
                     <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -371,8 +389,16 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Bulk Price</p>
-                      <p className="text-xl font-black text-emerald-400 tracking-tighter">₹{product.bulkDiscountPrice} <span className="text-[10px]">/ unit</span></p>
+                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">Bulk Pack Price</p>
+                      <p className="text-xl font-black text-emerald-400 tracking-tighter">
+                        {formatInr(Number(product.bulkDiscountPrice))}
+                        <span className="text-[10px]"> total</span>
+                      </p>
+                      {bulkDerivedUnitPrice != null && (
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                          Effective unit: {formatInr(bulkDerivedUnitPrice)}/{product.unit || 'unit'}
+                        </p>
+                      )}
                     </div>
                     <div className="h-10 w-[1px] bg-white/10" />
                     <div className="space-y-1 text-right">
@@ -394,12 +420,11 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                       className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     >
                       <option value="retail" className="text-slate-900">
-                        1 {product.unit || 'unit'} · ₹{product.price} each
+                        1 {product.unit || 'unit'} · {formatInr(product.sellPrice)} each
                       </option>
                       {bulkQty != null && bulkPriceVal != null && (
                         <option value="bulk" className="text-slate-900">
-                          {bulkQty} {product.unit || 'units'} · ₹{Number(bulkPriceVal)} each
-                          {bulkLineTotal != null ? ` · ₹${bulkLineTotal} total` : ''}
+                          {bulkQty} {product.unit || 'units'} pack · {formatInr(Number(bulkPriceVal))} total
                         </option>
                       )}
                     </select>

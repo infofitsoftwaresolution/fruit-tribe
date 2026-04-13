@@ -6,6 +6,7 @@ import {
   type ProductFilters,
   type Product,
 } from '@/lib/api';
+import { dedupeSimilarCatalogProducts } from '@/lib/catalogDedupe';
 
 export function useProducts(filters: ProductFilters = {}) {
   const [data, setData] = useState<Product[]>([]);
@@ -18,7 +19,15 @@ export function useProducts(filters: ProductFilters = {}) {
     setError(null);
     try {
       const res = await getProductsCached({ ...filters, limit: filters.limit ?? 24 });
-      setData((res.data || []).map(mapApiProductToProduct));
+      const mapped = (res.data || []).map(mapApiProductToProduct);
+      const seen = new Set<string>();
+      const idDeduped = mapped.filter((p) => {
+        const k = String(p.id);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      setData(dedupeSimilarCatalogProducts(idDeduped));
       setMeta(res.meta ?? null);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load products');

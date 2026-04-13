@@ -10,6 +10,19 @@ export class ProductService {
 
     constructor(private readonly prisma: PrismaService) { }
 
+    /** Persist admin bulk qty / unit price as entered (positive numbers only). No auto-clear vs base price. */
+    private parseBulkTier(
+        qty: number | null | undefined,
+        price: Prisma.Decimal | number | string | null | undefined,
+    ): { qty: number | null; price: Prisma.Decimal | null } {
+        const q = qty != null ? Number(qty) : NaN;
+        const bu = price != null ? Number(price) : NaN;
+        if (Number.isFinite(q) && q > 0 && Number.isFinite(bu) && bu > 0) {
+            return { qty: Math.floor(q), price: price as Prisma.Decimal };
+        }
+        return { qty: null, price: null };
+    }
+
     async findAll(filters: ProductFilterDto) {
         const { page = 1, limit = 10, search, categoryId, minPrice, maxPrice, sortBy, sortOrder } = filters;
         const skip = (page - 1) * limit;
@@ -114,6 +127,7 @@ export class ProductService {
         // We use a transaction to ensure atomicity between product, variants, and initial inventory.
         return this.prisma.$transaction(async (tx) => {
             const slug = await this.resolveUniqueSlug(tx, dto.name);
+            const bulk = this.parseBulkTier(dto.bulkDiscountQty, dto.bulkDiscountPrice);
             const product = await tx.product.create({
                 data: {
                     name: dto.name,
@@ -127,10 +141,11 @@ export class ProductService {
                     harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
                     expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
                     isSeasonal: dto.isSeasonal ?? false,
+                    isOrganic: dto.isOrganic ?? false,
                     seasonalStart: dto.seasonalStart ? new Date(dto.seasonalStart) : undefined,
                     seasonalEnd: dto.seasonalEnd ? new Date(dto.seasonalEnd) : undefined,
-                    bulkDiscountQty: dto.bulkDiscountQty ?? undefined,
-                    bulkDiscountPrice: dto.bulkDiscountPrice ?? undefined,
+                    bulkDiscountQty: bulk.qty ?? undefined,
+                    bulkDiscountPrice: bulk.price ?? undefined,
                     allowCashOnDelivery: dto.allowCashOnDelivery ?? true,
                     stock: dto.variants?.reduce((sum, v) => sum + (v.stockQuantity || 0), 0) || 0,
                 },
@@ -175,6 +190,10 @@ export class ProductService {
         const existing = await this.prisma.product.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException(`Product ${id} not found`);
 
+        const mergedBulkQty = dto.bulkDiscountQty !== undefined ? dto.bulkDiscountQty : existing.bulkDiscountQty;
+        const mergedBulkPrice = dto.bulkDiscountPrice !== undefined ? dto.bulkDiscountPrice : existing.bulkDiscountPrice;
+        const bulk = this.parseBulkTier(mergedBulkQty, mergedBulkPrice);
+
         return this.prisma.$transaction(async (tx) => {
             const nextSlug =
                 dto.name != null && dto.name !== ''
@@ -191,10 +210,11 @@ export class ProductService {
                     ...(dto.harvestDate !== undefined && { harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : null }),
                     ...(dto.expiryDate !== undefined && { expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null }),
                     ...(dto.isSeasonal !== undefined && { isSeasonal: dto.isSeasonal }),
+                    ...(dto.isOrganic !== undefined && { isOrganic: dto.isOrganic }),
                     ...(dto.seasonalStart !== undefined && { seasonalStart: dto.seasonalStart ? new Date(dto.seasonalStart) : null }),
                     ...(dto.seasonalEnd !== undefined && { seasonalEnd: dto.seasonalEnd ? new Date(dto.seasonalEnd) : null }),
-                    ...(dto.bulkDiscountQty !== undefined && { bulkDiscountQty: dto.bulkDiscountQty }),
-                    ...(dto.bulkDiscountPrice !== undefined && { bulkDiscountPrice: dto.bulkDiscountPrice }),
+                    bulkDiscountQty: bulk.qty,
+                    bulkDiscountPrice: bulk.price,
                     ...(dto.allowCashOnDelivery !== undefined && { allowCashOnDelivery: dto.allowCashOnDelivery }),
                     ...(dto.isActive !== undefined && { isActive: dto.isActive }),
                 },
