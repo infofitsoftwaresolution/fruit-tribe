@@ -200,6 +200,7 @@ export class OrderService {
                     couponId,
                     idempotencyKey: dto.idempotencyKey,
                     addressId: linkedAddressId,
+                    distanceKm: dto.distanceKm,
                     status: initialOrderStatus,
                     paymentStatus: 'PENDING',
                     items: {

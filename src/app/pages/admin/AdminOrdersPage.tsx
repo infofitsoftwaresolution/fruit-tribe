@@ -56,8 +56,8 @@ export function AdminOrdersPage() {
     function extractDistanceKm(api: any): number | null {
         const firstDelivery = (api?.deliveries || [])[0] || null;
         const candidates = [
-            api?.deliveryDistanceKm,
             api?.distanceKm,
+            api?.deliveryDistanceKm,
             api?.shippingDistanceKm,
             firstDelivery?.distanceKm,
             firstDelivery?.distance,

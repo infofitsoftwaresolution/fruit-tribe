@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { productHasBulkPricing } from '@/lib/pricing';
 
 interface FeaturedProductsProps {
-    onAddToCart: (product: Product) => void;
+    onAddToCart: (product: Product, quantity?: number) => void;
 }
 
 export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
@@ -142,8 +142,9 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                                 isSeasonal={product.isSeasonal}
                                 bulkDiscountQty={product.bulkDiscountQty}
                                 bulkDiscountPrice={product.bulkDiscountPrice}
-                                onAddToCart={onAddToCart}
+                                onAddToCart={(payload: any, qty?: number) => onAddToCart(payload, qty)}
                                 product={product}
+                                bulkDealMode={productTab === 'bulk'}
                             />
                         </motion.div>
                     ))}

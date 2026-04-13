@@ -33,14 +33,59 @@ export function AdminPayoutsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
     const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
-    const [payouts, setPayouts] = useState<Payout[]>([]);
+    const payouts = useMemo(() => {
+        if (!orders) return [];
+        const generated: Payout[] = [];
+        const seen = new Set<string>();
+
+        orders.forEach((order: any) => {
+            const orderId = order.orderNumber || order.id?.substring(0, 8) || Math.random().toString(36).substring(7);
+            if (seen.has(orderId)) return;
+            seen.add(orderId);
+
+            const amount = Number(order.payableAmount ?? order.totalAmount ?? 0);
+            if (amount <= 0) return;
+
+            const platformFee = amount * 0.10;
+            const tax = amount * 0.05;
+            const netAmount = amount - platformFee - tax;
+
+            let vendor = 'The Fruit Tribe';
+            if (order.items?.length > 0 && order.items[0]?.seller) {
+                vendor = order.items[0].seller.storeName || order.items[0].seller.name || vendor;
+            } else if (order.seller) {
+                 vendor = order.seller.storeName || order.seller.name || vendor;
+            }
+
+            // Normalize status: backend may send 'Delivered', 'DELIVERED', 'Created', etc.
+            const rawStatus = (order.status ?? '').toUpperCase();
+            const payoutStatus: Payout['status'] =
+                rawStatus === 'DELIVERED' ? 'Processed'
+                : (rawStatus === 'CANCELLED' || rawStatus === 'RETURNED') ? 'Flagged'
+                : 'Pending';
+
+            generated.push({
+                id: orderId,
+                vendor,
+                amount,
+                platformFee,
+                tax,
+                netAmount,
+                status: payoutStatus,
+                date: new Date(order.createdAt || Date.now()).toLocaleDateString(),
+                method: 'Bank Transfer',
+                period: new Date(order.createdAt || Date.now()).toLocaleString('default', { month: 'short', year: 'numeric' })
+            });
+        });
+        return generated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }, [orders]);
 
     const totalRevenue = useMemo(() => orders.reduce((s, o) => s + Number(o.payableAmount ?? o.totalAmount ?? 0), 0), [orders]);
     const statsCards = useMemo(() => [
         { label: 'Next Settlement', value: '₹0', sub: '—', icon: Wallet, color: 'emerald', trend: 'Projected' },
         { label: 'Platform Revenue', value: `₹${(totalRevenue / 1000).toFixed(0)}K`, sub: 'All time', icon: TrendingUp, color: 'blue', trend: 'Verified' },
         { label: 'Pending payouts', value: `${sellers.length} Vendors`, sub: sellers.length ? 'Action required' : 'None', icon: Clock, color: 'orange', trend: 'Queued' },
-        { label: 'Total Settled', value: payouts.length ? `₹${payouts.reduce((s, p) => s + p.netAmount, 0).toLocaleString()}` : '₹0', sub: 'Settlements', icon: Shield, color: 'purple', trend: 'Audited' }
+        { label: 'Total Settled', value: payouts.length ? `₹${payouts.reduce((s, p) => s + (p.status === 'Processed' ? p.netAmount : 0), 0).toLocaleString()}` : '₹0', sub: 'Settlements', icon: Shield, color: 'purple', trend: 'Audited' }
     ], [totalRevenue, sellers.length, payouts]);
 
     const filteredPayouts = useMemo(() => {
@@ -152,7 +197,7 @@ export function AdminPayoutsPage() {
                             {loading ? (
                                 <tr><td colSpan={6} className="px-10 py-16 text-center text-slate-400 text-sm">Loading...</td></tr>
                             ) : null}
-                            <AnimatePresence mode='popLayout'>
+                            <AnimatePresence>
                                 {filteredPayouts.map((payout, idx) => (
                                     <motion.tr
                                         key={payout.id}

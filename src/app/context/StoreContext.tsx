@@ -65,6 +65,7 @@ export interface Order {
     status: 'Created' | 'Confirmed' | 'Packed' | 'Shipped' | 'Delivered' | 'Cancelled';
     channel: 'Online Store' | 'POS';
     itemsDetails?: { productId: number; quantity: number }[];
+    distanceKm?: number | null;
 }
 
 export interface Customer {

@@ -1144,7 +1144,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                           Available offers
                         </p>
-                        <div className="space-y-2 max-h-64 overflow-auto pr-1">
+                        <div className="flex overflow-x-auto gap-3 pb-4 pt-1 snap-x snap-mandatory flex-nowrap custom-scrollbar">
                           {availableOffers.map((offer) => {
                             const eligible = isOfferEligible(offer, subtotalOnly);
                             const isApplied = appliedCoupon?.code?.toUpperCase() === offer.code.toUpperCase();
@@ -1152,7 +1152,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                               ? `${offer.discountValue}% OFF${offer.maxDiscount != null ? ` up to ₹${offer.maxDiscount}` : ''}`
                               : `₹${offer.discountValue} OFF`;
                             return (
-                              <div key={offer.code} className="border border-slate-200 rounded-2xl p-3 bg-slate-50">
+                              <div key={offer.code} className="border border-slate-200 rounded-2xl p-4 bg-slate-50 shrink-0 w-[280px] snap-center flex flex-col justify-between">
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{offer.code}</p>

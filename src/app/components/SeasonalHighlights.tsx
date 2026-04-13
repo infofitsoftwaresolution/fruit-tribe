@@ -5,7 +5,7 @@ import { useProducts } from '@/app/hooks/useProducts';
 import { ProductCard } from '@/app/components/ProductCard';
 
 export function SeasonalHighlights() {
-  const { theme, isEditing, updateTheme, products: storeProducts } = useStore();
+  const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart } = useStore();
   const { products: apiProducts, loading: productsLoading } = useProducts({ limit: 100, showOutOfSeason: true });
   const products =
     apiProducts.length > 0 ? apiProducts : productsLoading ? [] : storeProducts;
@@ -104,7 +104,8 @@ export function SeasonalHighlights() {
                   isSeasonal={product.isSeasonal}
                   bulkDiscountQty={product.bulkDiscountQty}
                   bulkDiscountPrice={product.bulkDiscountPrice}
-                  onAddToCart={() => { }}
+                  onAddToCart={(payload: any, qty?: number) => handleAddToCart(payload, qty)}
+                  product={product}
                 />
               </motion.div>
             ))}

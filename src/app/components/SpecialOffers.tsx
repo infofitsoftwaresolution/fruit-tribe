@@ -235,13 +235,14 @@ export function SpecialOffers() {
                   isSeasonal={product.isSeasonal}
                   bulkDiscountQty={product.bulkDiscountQty}
                   bulkDiscountPrice={product.bulkDiscountPrice}
-                  onAddToCart={(payload: any) => {
+                  onAddToCart={(payload: any, qty?: number) => {
                     const p =
                       typeof payload === 'object'
                         ? payload
                         : products.find((pr: any) => String(pr.id) === String(payload));
                     if (!p) return;
-                    handleAddToCart(p);
+                    // Pass the bulk quantity through — ProductCard already computed it as bulkDiscountQty
+                    handleAddToCart(p, qty);
                   }}
                   product={product}
                   bulkDealMode

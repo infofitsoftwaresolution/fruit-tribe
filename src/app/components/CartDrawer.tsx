@@ -103,7 +103,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={onClose}
+                    onClick={() => {
+                      onClose();
+                      navigate('/products');
+                    }}
                     className={cn(
                       "px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold shadow-lg",
                       getRoundedClass(theme.buttonStyle)
