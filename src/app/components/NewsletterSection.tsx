@@ -36,7 +36,8 @@ export function NewsletterSection() {
       {/* Background Architectural Manifold */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.1)_0%,transparent_70%)] opacity-40" />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        {/* Hidden on mobile to reduce visual noise */}
+        <div className="hidden md:block absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
       </div>
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">

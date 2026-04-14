@@ -13,6 +13,7 @@ const KEY_DELIVERY_FEE_MODE = 'delivery_fee_mode';
 const KEY_DELIVERY_PER_KM_RATE = 'delivery_per_km_rate';
 const KEY_FREE_DELIVERY_THRESHOLD = 'free_delivery_threshold';
 const KEY_COUPON_SCOPES = 'coupon_scopes';
+const KEY_PLATFORM_FEE = 'platform_fee';
 
 export interface DeliveryFeeRule {
     upToKm: number;
@@ -302,8 +303,9 @@ export class SettingsService {
         deliveryFeeMode: DeliveryFeeMode;
         deliveryPerKmRate: number;
         freeDeliveryThreshold: number;
+        platformFee: number;
     }> {
-        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold] = await Promise.all([
+        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, platformFee] = await Promise.all([
             this.getStoreTheme(),
             this.getStorePreferences(),
             this.getDeliveryCharge(),
@@ -311,8 +313,9 @@ export class SettingsService {
             this.getDeliveryFeeMode(),
             this.getDeliveryPerKmRate(),
             this.getFreeDeliveryThreshold(),
+            this.getPlatformFee(),
         ]);
-        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold };
+        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, platformFee };
     }
 
     /** Update store settings (admin only). Partial update. */
@@ -324,6 +327,7 @@ export class SettingsService {
         deliveryFeeMode?: DeliveryFeeMode;
         deliveryPerKmRate?: number;
         freeDeliveryThreshold?: number;
+        platformFee?: number;
     }): Promise<void> {
         if (updates.theme !== undefined) {
             await this.setStoreTheme(updates.theme);
@@ -345,6 +349,9 @@ export class SettingsService {
         }
         if (updates.freeDeliveryThreshold !== undefined) {
             await this.setFreeDeliveryThreshold(updates.freeDeliveryThreshold);
+        }
+        if (updates.platformFee !== undefined) {
+            await this.setPlatformFee(updates.platformFee);
         }
     }
 
@@ -381,6 +388,18 @@ export class SettingsService {
     async setFreeDeliveryThreshold(threshold: number): Promise<void> {
         const n = Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
         await this.set(KEY_FREE_DELIVERY_THRESHOLD, String(n));
+    }
+
+    async getPlatformFee(): Promise<number> {
+        const raw = await this.get(KEY_PLATFORM_FEE);
+        if (raw == null || raw === '') return 5; // Default Zepto-like fee
+        const n = parseFloat(raw);
+        return Number.isFinite(n) && n >= 0 ? n : 5;
+    }
+
+    async setPlatformFee(fee: number): Promise<void> {
+        const n = Number.isFinite(fee) && fee >= 0 ? fee : 5;
+        await this.set(KEY_PLATFORM_FEE, String(n));
     }
 
     /** Validate a coupon code (public). Returns discount info if valid. */

@@ -23,13 +23,13 @@ export function Hero() {
 
   return (
     <div ref={containerRef} className="relative min-h-[100vh] flex items-center justify-center overflow-x-hidden bg-white">
-      {/* Cinematic Background Layer */}
+      {/* Cinematic Background Layer - Simplified for Mobile */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,#ecfdf5_0%,transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,#fef3c7_0%,transparent_50%)] opacity-40" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,#fef3c7_0%,transparent_50%)] opacity-40 md:opacity-100" />
 
-        {/* Animated Grid Artifact */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        {/* Animated Grid Artifact - Hidden on Mobile */}
+        <div className="hidden md:block absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
       </div>
 
       {/* Main Content Manifold */}
@@ -37,21 +37,15 @@ export function Hero() {
         <div className="grid lg:grid-cols-12 gap-8 sm:gap-16 items-center">
 
           {/* Left Column: Symbolic & Textual Signals */}
-          <div className="lg:col-span-7 text-center lg:text-left space-y-10">
+          <div className="lg:col-span-7 text-center lg:text-left space-y-8">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="inline-flex items-center gap-3 px-5 py-2.5 bg-slate-900 rounded-full shadow-2xl transition-all hover:scale-105 group cursor-default"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100 shadow-sm transition-all hover:scale-105 group cursor-default"
             >
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="h-5 w-5 rounded-full border-2 border-slate-900 bg-emerald-500 flex items-center justify-center">
-                    <Leaf className="w-2.5 h-2.5 text-white" />
-                  </div>
-                ))}
-              </div>
-              <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
-                Fresh from the farm
+              <Leaf className="w-4 h-4 text-emerald-600" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+                Fresh from Trusted Farms
               </span>
             </motion.div>
 
@@ -60,10 +54,9 @@ export function Hero() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
-                className="text-4xl sm:text-6xl md:text-8xl font-black text-slate-900 tracking-tight sm:tracking-tighter leading-[0.9]"
+                className="text-4xl sm:text-6xl md:text-8xl font-black text-slate-900 tracking-tight sm:tracking-tighter leading-[1.0]"
               >
-                <span className="block italic font-serif text-emerald-600 lowercase tracking-tight mb-2">The</span>
-                {theme.heroTitle}
+                Premium <span className="text-emerald-600">Fresh Fruits</span> Delivered in 24 Hours
               </motion.h1>
 
               <motion.p
@@ -72,71 +65,51 @@ export function Hero() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 className="text-base sm:text-lg md:text-xl text-slate-500 font-bold max-w-xl mx-auto lg:mx-0 leading-relaxed tracking-normal"
               >
-                {theme.heroSubtitle}
+                Handpicked seasonal produce delivered fresh within 24 hours — guaranteed.
               </motion.p>
-
-              {/* Location + trust strip */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.25 }}
-                className="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-3 text-[9px] sm:text-[10px] font-black tracking-[0.08em] sm:tracking-[0.25em] text-slate-500"
-              >
-                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                  <MapPin className="w-3 h-3" />
-                  Delivering in Bengaluru
-                </div>
-                <span className="hidden md:inline text-slate-300">•</span>
-                <span className="text-center sm:text-left">Farm fresh • Same-day delivery • Secure payments</span>
-              </motion.div>
             </div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="flex flex-col gap-4 justify-center lg:justify-start max-w-xl"
+              className="space-y-10"
             >
-              {/* Search bar */}
-              <div className="relative">
-                <div className="absolute inset-y-0 left-4 sm:left-5 flex items-center pointer-events-none">
-                  <Search className="w-4 h-4 text-slate-300" />
-                </div>
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      const trimmed = query.trim();
-                      if (trimmed) {
-                        navigate(`/products?q=${encodeURIComponent(trimmed)}`);
-                      } else {
-                        navigate('/products');
-                      }
-                    }
-                  }}
-                  placeholder="Search fresh fruits..."
-                  className="w-full h-12 sm:h-14 pl-11 sm:pl-12 pr-4 rounded-2xl sm:rounded-[1.75rem] border border-slate-200 bg-white/80 text-[11px] sm:text-xs md:text-sm font-black tracking-[0.04em] sm:tracking-[0.2em] text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all"
-                />
+              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                <button
+                  onClick={() => navigate('/products')}
+                  className="w-full sm:w-auto px-10 h-16 sm:h-20 bg-emerald-600 text-white rounded-[2rem] text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 active:scale-95 group"
+                >
+                  Order Fresh Fruits Now
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+                </button>
+
+                <button
+                  onClick={() => navigate('/products')}
+                  className="w-full sm:w-auto px-10 h-16 sm:h-20 bg-white border-2 border-slate-100 text-slate-900 rounded-[2rem] text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 hover:border-emerald-600 transition-all active:scale-95 group"
+                >
+                  Browse Collections
+                </button>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <button
-                onClick={() => navigate('/products')}
-                className="w-full sm:w-auto min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-slate-900 text-white rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center justify-center gap-3 sm:gap-4 hover:bg-emerald-600 transition-all shadow-2xl shadow-slate-900/20 active:scale-95 group"
-              >
-                Shop now
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => navigate('/about')}
-                className="w-full sm:w-auto min-h-[44px] h-14 sm:h-20 px-6 sm:px-12 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl sm:rounded-[2.5rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.12em] sm:tracking-[0.3em] flex items-center justify-center gap-3 sm:gap-4 hover:border-emerald-600 transition-all active:scale-95 group"
-              >
-                Heritage Manual
-                <PlayCircle className="w-5 h-5 text-emerald-500" />
-              </button>
+              {/* Trust Signals Row - Stacked on Mobile */}
+              <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 sm:gap-10 pt-4 border-t border-slate-100/50 sm:border-t-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-amber-400">⭐⭐⭐⭐⭐</span>
+                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">4.8 (2k+ Orders)</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">Delivered in 24 Hours</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">100% Fresh Guarantee</span>
+                </div>
               </div>
             </motion.div>
 
@@ -165,17 +138,17 @@ export function Hero() {
           <div className="lg:col-span-5 relative">
             <motion.div
               style={{ y: y1 }}
-              initial={{ opacity: 0, scale: 0.9, rotate: -5 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, delay: 0.2 }}
-              className="relative aspect-[4/5] rounded-3xl sm:rounded-[4rem] bg-slate-100 overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.1)] border-[8px] sm:border-[12px] border-white group"
+              className="relative aspect-[4/5] rounded-[3rem] sm:rounded-[4rem] bg-slate-100 overflow-hidden shadow-2xl border-8 border-white group"
             >
               <img
-                src={theme.heroImage}
-                alt="Fresh produce"
+                src="/images/hero.png"
+                alt="Premium fresh fruits"
                 className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[3s]"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
               {/* Cinematic Overlay Artifacts */}
               <div className="absolute top-10 right-10 hidden lg:flex gap-2">

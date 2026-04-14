@@ -41,6 +41,7 @@ export class OrderService {
         }
 
         // 2. Calculate totals
+        const platformFee = await this.settingsService.getPlatformFee();
         const subtotal = dto.items.reduce(
             (sum, item) => sum + item.pricePerUnit * item.quantity,
             0,
@@ -48,7 +49,7 @@ export class OrderService {
 
         const shippingFee = 0; // Manual orders usually have specific shipping or included
         const taxAmount = subtotal * 0.05; // 5% GST
-        const payableAmount = subtotal + shippingFee + taxAmount;
+        const payableAmount = subtotal + shippingFee + taxAmount + platformFee;
 
         const orderNumber = `FT-MN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -77,6 +78,7 @@ export class OrderService {
                     discountAmount: 0,
                     shippingFee,
                     taxAmount,
+                    platformFee,
                     payableAmount,
                     shippingAddress: dto.shippingAddress,
                     status: initialStatus,
@@ -252,9 +254,10 @@ export class OrderService {
             this.logger.warn(`Order create: forcing online payment because one or more products are COD-disabled.`);
         }
 
+        const platformFee = await this.settingsService.getPlatformFee();
         const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null, subtotal);
         const taxAmount = subtotal * 0.05; // 5% GST
-        const payableAmount = subtotal - discountAmount + shippingFee + taxAmount;
+        const payableAmount = subtotal - discountAmount + shippingFee + taxAmount + platformFee;
 
         const addr = dto.shippingAddress as Record<string, unknown>;
         const city = String(addr.city ?? '').trim();
@@ -327,6 +330,7 @@ export class OrderService {
                     discountAmount,
                     shippingFee,
                     taxAmount,
+                    platformFee,
                     payableAmount,
                     shippingAddress: dto.shippingAddress,
                     billingAddress: dto.billingAddress,

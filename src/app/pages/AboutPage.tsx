@@ -60,9 +60,8 @@ export function AboutPage() {
               <Activity className="w-5 h-5 text-emerald-500" />
               <span className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em]">About us</span>
             </div>
-            <h1 className="text-7xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-[0.85] mb-8">
-              Heritage <br />
-              <span className="text-emerald-500 italic">Persistence.</span>
+            <h1 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-[0.85] mb-8">
+              Our <span className="text-emerald-500 italic">Story.</span>
             </h1>
             <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed max-w-2xl italic">
               {theme.aboutHeroSubtitle || "We connect you with the freshest fruit from farm to table. Quality and freshness you can trust."}

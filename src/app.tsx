@@ -12,6 +12,7 @@ import { SeasonalEffects } from '@/app/components/SeasonalEffects';
 import { ThemeWrapper } from '@/app/components/ThemeWrapper';
 import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { Toaster } from 'sonner';
+import { BottomCartBar } from '@/app/components/BottomCartBar';
 
 // Lazy-load pages for smaller initial bundle and faster first paint
 const HomePage = lazy(() => import('@/app/pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -135,6 +136,7 @@ const MainLayout = memo(function MainLayout({
         {children}
       </main>
       <MobileBottomNav cartCount={cartCount} onCartClick={onCartClick} />
+      <BottomCartBar />
       <Footer />
       <CartDrawer
         isOpen={isCartOpen}

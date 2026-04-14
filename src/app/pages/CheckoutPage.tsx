@@ -380,7 +380,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     return appliedCoupon.discountValue;
   }, [appliedCoupon, subtotalOnly]);
 
-  const grandTotal = Math.max(0, vendorSummaries.reduce((sum, s) => sum + s.total, 0) - discountAmount);
+  const platformFee = Number(preferences.platformFee) || 0;
+  const grandTotal = Math.max(0, vendorSummaries.reduce((sum, s) => sum + s.total, 0) + platformFee - discountAmount);
+
+  const [orderPlacedOptimistically, setOrderPlacedOptimistically] = useState(false);
+  const [optimisticOrderId, setOptimisticOrderId] = useState<string | null>(null);
+  const [optimisticOrderNumber, setOptimisticOrderNumber] = useState<string | null>(null);
 
   const applyPromoCode = async (rawCode: string) => {
     const code = rawCode.trim();
@@ -533,63 +538,40 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       state: formData.state?.trim() || 'Karnataka',
     };
 
-    setSubmitting(true);
-    try {
-      const created = await createOrder({
-        items: orderItems,
-        shippingAddress,
-        billingAddress: shippingAddress,
-        couponCode: appliedCoupon?.code || undefined,
-        deliverySlot: deliverySlot || undefined,
-        distanceKm: deliveryStats.distanceKm,
-        paymentMethod: paymentMethod,
-        savedAddressId: selectedSavedAddressId || undefined,
-      });
-      const orderId = created.id as string;
-      const orderNumber = (created.orderNumber as string) || orderId;
-      const payableAmount = Number((created as any).payableAmount ?? grandTotal);
-      const amountInPaise = Math.round(payableAmount * 100);
-
-      // Persist address for next checkout (this device)
+      // --- Truly Optimistic UI Start ---
+      setSubmitting(false); 
+      setOrderPlacedOptimistically(true); 
+      // Initially, we don't have orderId/orderNumber, but the overlay will show "Placing..."
+      
       try {
-        localStorage.setItem('saved_checkout_address', JSON.stringify(formData));
-      } catch {
-        // ignore
-      }
+          const created = await createOrder({
+            items: orderItems,
+            shippingAddress,
+            billingAddress: shippingAddress,
+            couponCode: appliedCoupon?.code || undefined,
+            deliverySlot: deliverySlot || undefined,
+            distanceKm: deliveryStats.distanceKm,
+            paymentMethod: paymentMethod,
+            savedAddressId: selectedSavedAddressId || undefined,
+          });
+          const orderId = created.id as string;
+          const orderNumber = (created.orderNumber as string) || orderId;
+          const payableAmount = Number((created as any).payableAmount ?? grandTotal);
+          const amountInPaise = Math.round(payableAmount * 100);
 
-      if (user && saveNewAddressToAccount && !selectedSavedAddressId) {
-        try {
-          await createUserAddress(
-            checkoutFormToCreateAddressBody(
-              {
-                firstName: formData.firstName,
-                lastName: formData.lastName,
-                email: formData.email,
-                phone: formData.phone,
-                address: formData.address,
-                city: formData.city,
-                state: formData.state || 'Karnataka',
-                zipCode: formData.zipCode,
-              },
-              { isDefault: savedAddresses.length === 0 },
-            ),
-          );
-          toast.success('Address saved to your account');
-        } catch {
-          toast.info('Order placed. You can save this address later from Profile.');
-        }
-      }
+          setOptimisticOrderId(orderId);
+          setOptimisticOrderNumber(orderNumber);
+          clearCart(); 
 
-      if (paymentMethod === 'cod') {
-        clearCart();
-        toast.success('Order placed. Pay when you receive.', {
-          description: `Order #${orderNumber} — Cash on Delivery`,
-          icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
-        });
-        navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
-        setSubmitting(false);
-        return;
-      }
+          if (paymentMethod === 'cod') {
+            toast.success('Order placed. Pay when you receive.', {
+              description: `Order #${orderNumber} — Cash on Delivery`,
+              icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
+            });
+            return;
+          }
+          
+          // For online... continue with Razorpay in background of overlay
 
       try {
         const [{ razorpayOrderId, keyId }] = await Promise.all([
@@ -700,8 +682,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }
 
   return (
-    <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+    <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white overflow-x-hidden">
+      {orderPlacedOptimistically && optimisticOrderId && (
+        <CheckoutSuccessOverlay
+          orderId={optimisticOrderId}
+          orderNumber={optimisticOrderNumber || optimisticOrderId}
+          subtotal={grandTotal}
+          onDismiss={() => {
+            setOrderPlacedOptimistically(false);
+            navigate('/orders');
+          }}
+        />
+      )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Delivery info */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -744,14 +737,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         </motion.div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-12 gap-6 sm:gap-10">
+          <div className="grid lg:grid-cols-12 gap-6 sm:gap-10 min-w-0">
             {/* Left Column - Forms */}
-            <div className="lg:col-span-8 space-y-10">
+            <div className="lg:col-span-8 space-y-10 min-w-0">
               {/* Shipping Information */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="bg-white rounded-3xl sm:rounded-[3.5rem] p-5 sm:p-10 border border-slate-100 shadow-2xl"
+                className="w-full max-w-full bg-white rounded-2xl sm:rounded-[3.5rem] p-4 sm:p-10 border border-slate-100 shadow-2xl overflow-hidden"
               >
                 <div className="flex items-center gap-4 mb-10">
                   <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center">
@@ -768,7 +761,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <select
                       value={selectedSavedAddressId}
                       onChange={(e) => handleSavedAddressPick(e.target.value)}
-                      className="w-full px-4 sm:px-6 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold min-h-[44px]"
+                      className="w-full px-4 sm:px-6 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold min-h-[44px] max-w-full text-ellipsis overflow-hidden"
                     >
                       <option value="">Enter a new address below</option>
                       {savedAddresses.map((a) => (
@@ -996,12 +989,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
 
             {/* Right Column - Order Summary */}
-            <div className="lg:col-span-4">
+            <div className="lg:col-span-4 min-w-0">
               <div className="lg:sticky lg:top-28 space-y-6">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="bg-white rounded-3xl sm:rounded-[3.5rem] p-5 sm:p-10 border border-slate-100 shadow-2xl relative overflow-hidden"
+                  className="w-full max-w-full bg-white rounded-2xl sm:rounded-[3.5rem] p-4 md:p-10 border border-slate-100 shadow-2xl relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16" />
 
@@ -1109,6 +1102,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <span>Tax</span>
                       <span className="text-slate-900">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
                     </div>
+                    {platformFee > 0 && (
+                      <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <span>Platform Fee</span>
+                        <span className="text-slate-900">₹{platformFee}</span>
+                      </div>
+                    )}
 
                     {(() => {
                         const threshold = Number(preferences.freeDeliveryThreshold) || 0;
@@ -1119,9 +1118,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                                     animate={{ opacity: 1, scale: 1 }}
                                     className="bg-emerald-50 border border-emerald-100/50 p-4 rounded-2xl flex items-center justify-between gap-4"
                                 >
-                                    <div>
-                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">Free Delivery Unlock</p>
-                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Add ₹{(threshold - subtotalOnly).toFixed(2)} more to pay ₹0 delivery</p>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1 truncate">Free Delivery Unlock</p>
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight truncate">Add ₹{(threshold - subtotalOnly).toFixed(2)} more to pay ₹0 delivery</p>
                                     </div>
                                     <div className="h-8 w-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
                                         <Truck className="w-4 h-4" />
@@ -1141,7 +1140,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           value={promoCode}
                           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                           placeholder="e.g. SAVE10"
-                          className="flex-1 h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium uppercase min-h-[44px]"
+                          className="flex-1 w-full min-w-0 h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium uppercase min-h-[44px]"
                         />
                         <button
                           type="button"
@@ -1259,7 +1258,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <div className="flex justify-between items-end">
                         <span className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Total</span>
                         <div className="text-right">
-                          <p className="text-4xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
+                          <p className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
                           <p className="text-[8px] font-black text-orange-500 uppercase mt-1">Split across sellers</p>
                         </div>
                       </div>
@@ -1268,12 +1267,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     {/* Payment method */}
                     <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment method</p>
-                      <div className={cn('grid gap-4', codAllowedForCart ? 'grid-cols-2' : 'grid-cols-1')}>
+                      <div className={cn('grid gap-4', codAllowedForCart ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
                         <button
                           type="button"
                           onClick={() => setPaymentMethod('online')}
                           className={cn(
-                            'p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                            'p-3 sm:p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
                             paymentMethod === 'online'
                               ? 'border-emerald-500 bg-emerald-50 text-slate-900'
                               : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -1292,7 +1291,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                             type="button"
                             onClick={() => setPaymentMethod('cod')}
                             className={cn(
-                              'p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                              'p-3 sm:p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
                               paymentMethod === 'cod'
                                 ? 'border-emerald-500 bg-emerald-50 text-slate-900'
                                 : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -1307,7 +1306,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                             </div>
                           </button>
                         ) : (
-                          <div className="p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center gap-3 text-left opacity-80">
+                          <div className="p-3 sm:p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center gap-3 text-left opacity-80">
                             <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center">
                               <Banknote className="w-5 h-5" />
                             </div>
@@ -1328,7 +1327,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     whileHover={{ scale: submitting ? 1 : 1.02 }}
                     whileTap={{ scale: submitting ? 1 : 0.97 }}
                     className={cn(
-                      'touch-manipulation w-full py-4 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-xs uppercase tracking-[0.25em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-[transform,opacity,background-color,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 min-h-[48px]',
+                      'touch-manipulation w-full py-5 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-[transform,opacity,background-color,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 min-h-[48px]',
                       submitting && 'opacity-70 cursor-wait',
                       getRoundedClass(theme.buttonStyle),
                     )}
@@ -1356,5 +1355,110 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         </form>
       </div>
     </div>
+  );
+}
+
+function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: { orderId: string | null, orderNumber: string | null, subtotal: number, onDismiss: () => void }) {
+  const navigate = useNavigate();
+  const isProcessing = !orderId;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-xl"
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        className="bg-white rounded-[3rem] p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl overflow-hidden relative"
+      >
+         {/* Success Background Animation Pattern */}
+        <div className={cn("absolute top-0 left-0 w-full h-32 -mt-16 rounded-full blur-3xl opacity-20 transition-colors duration-500", isProcessing ? "bg-orange-500" : "bg-emerald-500")} />
+
+        <div className="relative z-10 w-full">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 relative">
+                <div className={cn("absolute inset-0 rounded-full transition-colors duration-500", isProcessing ? "bg-orange-100" : "bg-emerald-100")} />
+                <motion.div
+                key={isProcessing ? 'processing' : 'success'}
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", damping: 12, stiffness: 200 }}
+                className={cn("w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl", isProcessing ? "bg-orange-500 shadow-orange-200" : "bg-emerald-500 shadow-emerald-200")}
+                >
+                {isProcessing ? <Loader2 className="w-8 h-8 animate-spin" /> : <ShieldCheck className="w-10 h-10" />}
+                </motion.div>
+                
+                {!isProcessing && [...Array(6)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full bg-emerald-400"
+                        initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
+                        animate={{
+                            opacity: [0, 1, 0],
+                            scale: [0, 1.5, 0],
+                            x: Math.cos(i * 60 * Math.PI / 180) * 80,
+                            y: Math.sin(i * 60 * Math.PI / 180) * 80,
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
+                    />
+                ))}
+            </div>
+
+            <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight uppercase">
+                {isProcessing ? 'Placing Order...' : 'Order Placed!'}
+            </h2>
+            <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mb-8">
+                {isProcessing ? 'Verifying items & delivery' : `Order #${orderNumber}`}
+            </p>
+
+            <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-100">
+                <div className="flex justify-between items-center mb-4 pb-4 border-b border-white/50">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Payable</span>
+                    <span className="text-xl font-black text-slate-900 tracking-tight">₹{subtotal.toFixed(2)}</span>
+                </div>
+                {!isProcessing && (
+                    <div className="flex items-center gap-3 text-left">
+                        <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                            <Truck className="w-5 h-5 text-orange-600" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest leading-none mb-1">Estimated ETA</p>
+                            <p className="text-xs font-bold text-slate-700">35 – 45 Minutes</p>
+                        </div>
+                    </div>
+                )}
+                {isProcessing && (
+                    <div className="flex items-center gap-3 text-left">
+                        <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center shrink-0 animate-pulse">
+                            <Activity className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Assigning Partner</p>
+                            <p className="text-xs font-bold text-slate-400 italic">Please wait...</p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {!isProcessing && (
+                <div className="space-y-3">
+                    <button
+                        onClick={() => navigate('/orders')}
+                        className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200"
+                    >
+                        Track order details
+                    </button>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="w-full py-4 bg-white text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all border border-slate-200"
+                    >
+                        Keep shopping
+                    </button>
+                </div>
+            )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

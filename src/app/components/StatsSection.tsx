@@ -47,8 +47,8 @@ export function StatsSection() {
 
   return (
     <section className="relative py-32 bg-slate-900 overflow-hidden">
-      {/* Cinematic Grid Noise */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
+      {/* Cinematic Grid Noise - Visible on Tablet/Desktop only */}
+      <div className="hidden md:block absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '80px 80px' }} />
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-16 mb-24">

@@ -93,15 +93,14 @@ export function AboutSection() {
               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">About us</span>
             </div>
 
-            <h2 className="text-5xl md:text-8xl font-black text-slate-900 tracking-tighter uppercase leading-none mb-8">
-              <span className="block italic font-serif text-emerald-600 lowercase tracking-tight mb-2">The</span>
+            <h2 className="text-[9vw] sm:text-5xl md:text-8xl font-black text-slate-900 tracking-tight sm:tracking-tighter uppercase leading-tight mb-8 break-words hyphens-auto">
               <span
                 contentEditable={isEditing}
                 suppressContentEditableWarning
                 onBlur={handleTextChange('aboutSectionTitle')}
-                className="outline-none"
+                className="outline-none block w-full"
               >
-                {theme.aboutSectionTitle || 'Fruit Tribe'}
+                {theme.aboutSectionTitle || 'Our Story'}
               </span>
             </h2>
           </motion.div>
@@ -179,8 +178,8 @@ export function AboutSection() {
           viewport={{ once: true }}
           className="mt-32 p-16 bg-slate-900 rounded-[4rem] relative overflow-hidden flex flex-col items-center justify-center text-center space-y-16"
         >
-          {/* Background Technical Noise */}
-          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+          {/* Background Technical Noise - Visible on Tablet/Desktop only */}
+          <div className="hidden md:block absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
           <div className="space-y-4">
             <span className="text-[10px] font-black text-emerald-400 uppercase tracking-[0.5em]">By the numbers</span>

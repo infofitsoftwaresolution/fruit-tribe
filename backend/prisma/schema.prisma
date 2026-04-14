@@ -53,6 +53,8 @@ model User {
   role                  Role?               @relation(fields: [roleId], references: [id])
   walletTransactions    WalletTransaction[]
   wishlists             Wishlist?
+  defaultAddressId      String?             @map("default_address_id") @db.Uuid
+  defaultPaymentMethod  String?             @map("default_payment_method")
 
   @@map("users")
 }
@@ -232,6 +234,7 @@ model Order {
   discountAmount   Decimal            @default(0) @map("discount_amount") @db.Decimal(10, 2)
   shippingFee      Decimal            @default(0) @map("shipping_fee") @db.Decimal(10, 2)
   taxAmount        Decimal            @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  platformFee      Decimal            @default(0) @map("platform_fee") @db.Decimal(10, 2)
   payableAmount    Decimal            @map("payable_amount") @db.Decimal(10, 2)
   status           String             @default("CREATED")
   paymentStatus    String             @default("PENDING") @map("payment_status")

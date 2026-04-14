@@ -241,6 +241,8 @@ export interface StorePreferences {
     deliveryPerKmRate?: number;
     /** Free delivery for orders >= this amount. */
     freeDeliveryThreshold?: number;
+    /** Standard platform/handling fee per order. */
+    platformFee?: number;
     /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
     subscriptionPage?: SubscriptionPageConfig;
 }
@@ -567,6 +569,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 }
                 if (typeof (data as any).freeDeliveryThreshold === 'number' && (data as any).freeDeliveryThreshold >= 0) {
                     setPreferences((prev) => ({ ...prev, freeDeliveryThreshold: (data as any).freeDeliveryThreshold }));
+                }
+                if (typeof (data as any).platformFee === 'number' && (data as any).platformFee >= 0) {
+                    setPreferences((prev) => ({ ...prev, platformFee: (data as any).platformFee }));
                 }
             })
             .catch(() => {});

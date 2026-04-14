@@ -60,14 +60,27 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[120]"
           />
 
-          {/* Drawer */}
+          {/* Drawer / Sheet */}
           <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
+            initial={{ y: '100%', x: 0 }}
+            animate={{ y: 0, x: 0 }}
+            exit={{ y: '100%', x: 0 }}
+            variants={{
+              mobile: { y: '100%', x: 0 },
+              desktop: { x: '100%', y: 0 }
+            }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl z-[130] flex flex-col"
+            className={cn(
+              "fixed bg-white shadow-2xl z-[130] flex flex-col focus:outline-none",
+              "bottom-0 left-0 right-0 h-[85vh] rounded-t-[2.5rem]", // Mobile default (Sheet)
+              "md:top-0 md:right-0 md:left-auto md:h-full md:w-full md:max-w-md md:rounded-l-[2rem] md:rounded-tr-none" // Desktop (Drawer)
+            )}
           >
+            {/* Mobile Sheet Handle */}
+            <div className="w-full flex justify-center pt-3 pb-1 md:hidden">
+              <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+            </div>
+
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
               <div className="flex items-center gap-3">
