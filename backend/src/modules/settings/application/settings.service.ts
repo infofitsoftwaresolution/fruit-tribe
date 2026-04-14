@@ -11,6 +11,7 @@ const KEY_DELIVERY_CHARGE = 'delivery_charge';
 const KEY_DELIVERY_FEE_RULES = 'delivery_fee_rules';
 const KEY_DELIVERY_FEE_MODE = 'delivery_fee_mode';
 const KEY_DELIVERY_PER_KM_RATE = 'delivery_per_km_rate';
+const KEY_FREE_DELIVERY_THRESHOLD = 'free_delivery_threshold';
 const KEY_COUPON_SCOPES = 'coupon_scopes';
 
 export interface DeliveryFeeRule {
@@ -255,7 +256,15 @@ export class SettingsService {
     }
 
     /** Calculate delivery fee from distance and current admin-defined slabs. */
-    async calculateDeliveryFeeByDistance(distanceKm?: number | null): Promise<number> {
+    async calculateDeliveryFeeByDistance(distanceKm: number | null, orderValue?: number): Promise<number> {
+        // Free delivery threshold check
+        if (orderValue !== undefined) {
+            const threshold = await this.getFreeDeliveryThreshold();
+            if (threshold > 0 && orderValue >= threshold) {
+                return 0;
+            }
+        }
+
         const flat = await this.getDeliveryCharge();
         const d = Number(distanceKm);
         if (!Number.isFinite(d) || d < 0) return flat;
@@ -292,16 +301,18 @@ export class SettingsService {
         deliveryFeeRules: DeliveryFeeRule[];
         deliveryFeeMode: DeliveryFeeMode;
         deliveryPerKmRate: number;
+        freeDeliveryThreshold: number;
     }> {
-        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate] = await Promise.all([
+        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold] = await Promise.all([
             this.getStoreTheme(),
             this.getStorePreferences(),
             this.getDeliveryCharge(),
             this.getDeliveryFeeRules(),
             this.getDeliveryFeeMode(),
             this.getDeliveryPerKmRate(),
+            this.getFreeDeliveryThreshold(),
         ]);
-        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate };
+        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold };
     }
 
     /** Update store settings (admin only). Partial update. */
@@ -312,6 +323,7 @@ export class SettingsService {
         deliveryFeeRules?: DeliveryFeeRule[];
         deliveryFeeMode?: DeliveryFeeMode;
         deliveryPerKmRate?: number;
+        freeDeliveryThreshold?: number;
     }): Promise<void> {
         if (updates.theme !== undefined) {
             await this.setStoreTheme(updates.theme);
@@ -330,6 +342,9 @@ export class SettingsService {
         }
         if (updates.deliveryPerKmRate !== undefined) {
             await this.setDeliveryPerKmRate(updates.deliveryPerKmRate);
+        }
+        if (updates.freeDeliveryThreshold !== undefined) {
+            await this.setFreeDeliveryThreshold(updates.freeDeliveryThreshold);
         }
     }
 
@@ -354,6 +369,18 @@ export class SettingsService {
     async setDeliveryPerKmRate(rate: number): Promise<void> {
         const n = Number(rate);
         await this.set(KEY_DELIVERY_PER_KM_RATE, Number.isFinite(n) && n >= 0 ? String(n) : '0');
+    }
+
+    async getFreeDeliveryThreshold(): Promise<number> {
+        const raw = await this.get(KEY_FREE_DELIVERY_THRESHOLD);
+        if (raw == null || raw === '') return 0;
+        const n = parseFloat(raw);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    async setFreeDeliveryThreshold(threshold: number): Promise<void> {
+        const n = Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
+        await this.set(KEY_FREE_DELIVERY_THRESHOLD, String(n));
     }
 
     /** Validate a coupon code (public). Returns discount info if valid. */

@@ -144,13 +144,13 @@ export function Testimonials() {
                 />
               ))}
               <div className="h-12 w-12 rounded-full bg-emerald-500 border-4 border-slate-900 flex items-center justify-center text-[10px] font-black text-white shadow-2xl">
-                +50K
+                +300
               </div>
             </div>
 
             <div className="space-y-1">
               <h4 className="text-xl font-black text-white uppercase tracking-tighter">Happy customers</h4>
-              <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest italic">Join thousands who get fresh fruit delivered.</p>
+              <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest italic">Join hundreds who get fresh fruit delivered.</p>
             </div>
           </div>
 

@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useStore, Order } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
-import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller, getImageDisplayUrl } from '@/lib/api';
+import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller, getImageDisplayUrl, createManualOrder, generateOrderPaymentLink, updateOrderPaymentStatus } from '@/lib/api';
 import {
     Plus, Minus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
     Printer, Truck, User, Calendar, CreditCard, Package,
@@ -39,6 +39,8 @@ export function AdminOrdersPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [formData, setFormData] = useState({
         customer: '',
+        email: '',
+        phone: '',
         status: 'Created' as Order['status'],
         payment: 'Pending' as Order['payment'],
         fulfillment: 'Unfulfilled' as Order['fulfillment'],
@@ -182,6 +184,20 @@ export function AdminOrdersPage() {
         }
     }, [refreshOrders]);
 
+    const handlePaymentStatusChange = useCallback(async (id: string, newPaymentStatus: Order['payment']) => {
+        const paymentMap: Record<Order['payment'], string> = {
+            Paid: 'PAID', Pending: 'PENDING', Refunded: 'REFUNDED',
+        };
+        const apiStatus = paymentMap[newPaymentStatus];
+        try {
+            await updateOrderPaymentStatus(id, apiStatus);
+            await refreshOrders();
+            toast.success(`Payment status updated to ${newPaymentStatus}`);
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to update payment status');
+        }
+    }, [refreshOrders]);
+
     const handleAssignDelivery = useCallback(async (orderId: string, partnerId: string) => {
         if (!partnerId) return;
         try {
@@ -194,7 +210,7 @@ export function AdminOrdersPage() {
     }, [refreshOrders]);
 
     const handleOpenModal = () => {
-        setFormData({ customer: '', status: 'Created', payment: 'Pending', fulfillment: 'Unfulfilled', selectedProducts: [] });
+        setFormData({ customer: '', email: '', phone: '', status: 'Created', payment: 'Pending', fulfillment: 'Unfulfilled', selectedProducts: [] });
         setFreshEntryProductSearch('');
         setIsModalOpen(true);
     };
@@ -357,28 +373,79 @@ export function AdminOrdersPage() {
         }, 0);
     }, [formData.selectedProducts, products]);
 
-    const handleSubmitOrder = (e: React.FormEvent) => {
+    const handleSubmitOrder = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.customer || formData.selectedProducts.length === 0) {
-            toast.error('Identity and payload required');
+        if (!formData.customer || !formData.email || formData.selectedProducts.length === 0) {
+            toast.error('Identity (Name/Email) and payload required');
             return;
         }
-        const newOrderId = `temp-${Date.now()}`;
-        const newOrder: Order = {
-            id: newOrderId,
-            customer: formData.customer,
-            items: formData.selectedProducts.reduce((sum, p) => sum + p.quantity, 0),
-            date: new Date().toLocaleDateString(),
-            total: currentTotal,
-            payment: formData.payment,
-            fulfillment: formData.fulfillment,
-            status: formData.status,
-            channel: 'Direct Entry',
-            itemsDetails: formData.selectedProducts as any,
+
+        const items = formData.selectedProducts.map((item) => {
+            const product = products.find(p => p.id === item.productId || p.id === String(item.productId));
+            return {
+                productId: String(item.productId),
+                variantId: (product?.variants?.[0]?.id || String(item.productId)) as string, // Fallback to productId if no variants
+                sellerId: product?.sellerId || '',
+                quantity: item.quantity,
+                pricePerUnit: product?.discountPrice || product?.price || 0,
+            };
+        });
+
+        const shippingAddress = {
+            addressLine1: (formData as any).addressLine1 || 'Direct Entry Address',
+            addressLine2: (formData as any).addressLine2 || '',
+            city: (formData as any).city || 'Manual City',
+            state: (formData as any).state || 'Manual State',
+            pincode: (formData as any).pincode || '000000',
         };
-        setLocalDraftOrders((prev) => [newOrder, ...prev]);
-        toast.success(`Entry added (local). Sync with backend when order API supports manual entry.`);
-        setIsModalOpen(false);
+
+        try {
+            const result = await createManualOrder({
+                customerName: formData.customer,
+                customerEmail: formData.email,
+                customerPhone: formData.phone,
+                items,
+                shippingAddress,
+                status: formData.status,
+                paymentStatus: formData.payment,
+            });
+
+            await refreshOrders();
+            toast.success(`Order #${result.orderNumber} created successfully.`);
+            
+            if (result.paymentLink) {
+                navigator.clipboard.writeText(result.paymentLink);
+                toast.success('Payment link generated and copied to clipboard.');
+            }
+
+            setIsModalOpen(false);
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to create manual order');
+        }
+    };
+
+    const handleGeneratePaymentLink = async (order: Order | any) => {
+        if (!order) return;
+        const amountInPaise = Math.round(order.total * 100);
+        
+        toast.promise(
+            generateOrderPaymentLink(order.id, amountInPaise, {
+                name: order.customer,
+                email: (order as any).user?.email,
+                contact: (order as any).user?.phone
+            }),
+            {
+                loading: 'Initializing Razorpay Telemetry…',
+                success: (data) => {
+                    if (data.paymentLink) {
+                        navigator.clipboard.writeText(data.paymentLink);
+                        return `Link copied: ${data.paymentLink}`;
+                    }
+                    return 'Payment link generated.';
+                },
+                error: (err) => `Link generation failed: ${err.message}`
+            }
+        );
     };
 
     const getStatusVariant = (status: string) => {
@@ -492,7 +559,7 @@ export function AdminOrdersPage() {
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Transaction ID</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Customer</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Vendor</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Fiscal State</th>
+                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Payment Status</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Order Status</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Distance</th>
                                 <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Amount</th>
@@ -559,18 +626,21 @@ export function AdminOrdersPage() {
                                                 )}
                                             </td>
                                             <td className="px-10 py-10">
-                                                <span className={cn(
-                                                    "inline-flex items-center gap-2 px-4 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest",
-                                                    order.payment === 'Paid' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                        order.payment === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                                            'bg-red-50 text-red-700 border-red-100'
-                                                )}>
-                                                    <div className={cn("h-2 w-2 rounded-full",
+                                                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                                                    <div className={cn("h-3 w-3 rounded-full border border-white shadow-sm", 
                                                         order.payment === 'Paid' ? 'bg-emerald-500' :
-                                                            order.payment === 'Pending' ? 'bg-amber-500' : 'bg-red-500'
+                                                        order.payment === 'Pending' ? 'bg-amber-500' : 'bg-red-500'
                                                     )} />
-                                                    {order.payment}
-                                                </span>
+                                                    <select
+                                                        value={order.payment}
+                                                        onChange={(e) => handlePaymentStatusChange(order.id, e.target.value as any)}
+                                                        className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-900 outline-none cursor-pointer hover:bg-slate-100 p-2 rounded-xl transition-all border border-transparent hover:border-slate-100"
+                                                    >
+                                                        {['Pending', 'Paid', 'Refunded'].map(p => (
+                                                            <option key={p} value={p}>{p}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </td>
                                             <td className="px-10 py-10">
                                                 <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
@@ -606,6 +676,16 @@ export function AdminOrdersPage() {
                                                             className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:shadow-xl transition-all"
                                                         >
                                                             <Eye className="w-5 h-5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleGeneratePaymentLink(order);
+                                                            }}
+                                                            title="Generate Payment Link"
+                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-orange-600 hover:shadow-xl transition-all"
+                                                        >
+                                                            <CreditCard className="w-5 h-5" />
                                                         </button>
                                                         <button
                                                             onClick={() => toast.info('Printing order slip...')}
@@ -684,6 +764,13 @@ export function AdminOrdersPage() {
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secure Ledger Analysis v4.2</p>
                                 </div>
                                 <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => handleGeneratePaymentLink(selectedOrder)} 
+                                        title="Generate Payment Link"
+                                        className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-400 hover:text-orange-600 hover:shadow-xl transition-all"
+                                    >
+                                        <CreditCard className="h-6 w-6" />
+                                    </button>
                                     <button onClick={() => toast.info('Exporting PDF...')} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all">
                                         <Download className="h-6 w-6" />
                                     </button>
@@ -891,13 +978,83 @@ export function AdminOrdersPage() {
 
                             <form onSubmit={handleSubmitOrder} className="p-12 space-y-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-3 md:col-span-2">
+                                    <div className="space-y-3">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receiver name</label>
                                         <input
                                             required
                                             placeholder="Customer / receiver name"
                                             value={formData.customer}
                                             onChange={e => setFormData({ ...formData, customer: e.target.value })}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Email</label>
+                                        <input
+                                            required
+                                            type="email"
+                                            placeholder="customer@example.com"
+                                            value={formData.email}
+                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3 md:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Phone</label>
+                                        <input
+                                            required
+                                            placeholder="+91 9876543210"
+                                            value={formData.phone}
+                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3 md:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Shipping Address (Line 1)</label>
+                                        <input
+                                            required
+                                            placeholder="House No, Street, Area"
+                                            value={(formData as any).addressLine1 || ''}
+                                            onChange={e => setFormData({ ...formData, addressLine1: e.target.value } as any)}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3 md:col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Shipping Address (Line 2)</label>
+                                        <input
+                                            placeholder="Landmark, Apartment (Optional)"
+                                            value={(formData as any).addressLine2 || ''}
+                                            onChange={e => setFormData({ ...formData, addressLine2: e.target.value } as any)}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
+                                        <input
+                                            required
+                                            placeholder="City"
+                                            value={(formData as any).city || ''}
+                                            onChange={e => setFormData({ ...formData, city: e.target.value } as any)}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">State</label>
+                                        <input
+                                            required
+                                            placeholder="State"
+                                            value={(formData as any).state || ''}
+                                            onChange={e => setFormData({ ...formData, state: e.target.value } as any)}
+                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pincode</label>
+                                        <input
+                                            required
+                                            placeholder="6-digit PIN"
+                                            value={(formData as any).pincode || ''}
+                                            onChange={e => setFormData({ ...formData, pincode: e.target.value } as any)}
                                             className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
                                         />
                                     </div>

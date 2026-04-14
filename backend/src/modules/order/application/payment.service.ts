@@ -187,4 +187,62 @@ export class PaymentService {
         this.logger.log(`Payment verified for order ${order.orderNumber}`);
         return { success: true };
     }
+
+    async createPaymentLink(
+        orderId: string,
+        userId: string,
+        amountInPaise: number,
+        customerDetails?: { name: string; email?: string; contact?: string },
+    ): Promise<{ paymentLink: string }> {
+        try {
+            const credentials = await this.settingsService.getRazorpayCredentials();
+            if (!credentials) {
+                throw new BadRequestException('Razorpay is not configured.');
+            }
+
+            const order = await this.prisma.order.findUnique({
+                where: { id: orderId },
+            });
+            if (!order) throw new BadRequestException('Order not found');
+
+            // If order is already confirmed or paid, do not allow generating a new link
+            const isConfirmed = String(order.status).toUpperCase() === 'CONFIRMED';
+            const isPaid = String(order.paymentStatus).toUpperCase() === 'PAID';
+            if (isConfirmed || isPaid) {
+                throw new BadRequestException('This order is already confirmed or paid. No payment link needed.');
+            }
+
+            const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
+
+            const options = {
+                amount: Math.round(amountInPaise),
+                currency: 'INR',
+                accept_partial: false,
+                description: `Payment for Order #${order.orderNumber}`,
+                customer: {
+                    name: customerDetails?.name || 'Customer',
+                    email: customerDetails?.email || 'customer@example.com',
+                    contact: customerDetails?.contact || '9876543210',
+                },
+                notify: {
+                    sms: true,
+                    email: true,
+                },
+                reminder_enable: true,
+                notes: {
+                    orderId: order.id,
+                },
+                callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/order-confirmation?id=${order.id}`,
+                callback_method: 'get',
+            };
+
+            const response = await instance.paymentLink.create(options);
+            this.logger.log(`Razorpay payment link created for order ${order.orderNumber}: ${response.short_url}`);
+
+            return { paymentLink: response.short_url };
+        } catch (err: any) {
+            this.logger.error(`createPaymentLink failed: ${err.message}`, err.stack);
+            throw new BadRequestException(err?.error?.description || 'Failed to create payment link');
+        }
+    }
 }

@@ -52,4 +52,8 @@ export class ProductFilterDto {
     @ApiProperty({ required: false, description: 'If true, include products that are out of season' })
     @IsOptional()
     showOutOfSeason?: boolean;
+
+    @ApiProperty({ required: false, description: 'If true, also include inactive/draft products (for admins)' })
+    @IsOptional()
+    includeInactive?: boolean;
 }

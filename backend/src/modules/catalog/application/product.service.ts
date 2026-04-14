@@ -29,7 +29,7 @@ export class ProductService {
 
         const now = new Date();
         const where: any = {
-            isActive: true,
+            ...(filters.includeInactive !== true && { isActive: true }),
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
@@ -50,8 +50,8 @@ export class ProductService {
                     {
                         AND: [
                             { isSeasonal: true },
-                            { seasonalStart: { lte: now } },
-                            { seasonalEnd: { gte: now } },
+                            { OR: [{ seasonalStart: null }, { seasonalStart: { lte: now } }] },
+                            { OR: [{ seasonalEnd: null }, { seasonalEnd: { gte: now } }] },
                         ]
                     }
                 ]
@@ -481,7 +481,7 @@ export class ProductService {
     private mapStats(product: any) {
         const availableQuantity = product.variants?.length > 0
             ? product.variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0)
-            : 0;
+            : product.stock || 0;
         const reservedQuantity = product.variants?.length > 0
             ? product.variants.reduce((sum, v) => sum + (v.reservedQuantity || 0), 0)
             : 0;

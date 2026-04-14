@@ -79,6 +79,7 @@ export class SettingsController {
         deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
         deliveryFeeMode?: 'SLAB' | 'PER_KM';
         deliveryPerKmRate?: number;
+        freeDeliveryThreshold?: number;
     }) {
         await this.settingsService.setStoreSettings(body);
         const store = await this.settingsService.getStoreSettings();

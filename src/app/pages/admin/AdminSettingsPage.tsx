@@ -50,6 +50,7 @@ export function AdminSettingsPage() {
     const [deliveryCharge, setDeliveryCharge] = useState<string>(String(preferences.deliveryCharge ?? 0));
     const [deliveryFeeMode, setDeliveryFeeMode] = useState<'SLAB' | 'PER_KM'>(preferences.deliveryFeeMode === 'PER_KM' ? 'PER_KM' : 'SLAB');
     const [deliveryPerKmRate, setDeliveryPerKmRate] = useState<string>(String(preferences.deliveryPerKmRate ?? 10));
+    const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState<string>(String(preferences.freeDeliveryThreshold ?? 0));
     const [deliveryFeeRules, setDeliveryFeeRules] = useState<Array<{ upToKm: string; fee: string }>>(
         (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length
             ? preferences.deliveryFeeRules
@@ -95,6 +96,10 @@ export function AdminSettingsPage() {
     }, [preferences.deliveryPerKmRate]);
 
     useEffect(() => {
+        setFreeDeliveryThreshold(String(preferences.freeDeliveryThreshold ?? 0));
+    }, [preferences.freeDeliveryThreshold]);
+
+    useEffect(() => {
         if (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length) {
             setDeliveryFeeRules(
                 preferences.deliveryFeeRules.map((r) => ({ upToKm: String(r.upToKm), fee: String(r.fee) }))
@@ -125,17 +130,20 @@ export function AdminSettingsPage() {
                 setDeliverySaving(false);
                 return;
             }
+            const thresholdNum = parseFloat(freeDeliveryThreshold);
             await updateStoreSettings({
                 deliveryCharge: num,
                 deliveryFeeRules: normalizedRules,
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
+                freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
             });
             updatePreferences({
                 deliveryCharge: num,
                 deliveryFeeRules: normalizedRules,
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
+                freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
             });
             toast.success('Delivery charge updated. It will apply to new orders.');
         } catch (e: any) {
@@ -447,6 +455,26 @@ export function AdminSettingsPage() {
                         </button>
                     </div>
                 )}
+                <div className="mb-8 p-6 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Free Delivery Threshold</p>
+                            <p className="text-xs text-slate-500 max-w-sm">Set to 0 to disable. Example: 500 means delivery is free for orders ₹500 and above.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-emerald-600 font-bold">₹</span>
+                            <input
+                                type="number"
+                                min={0}
+                                step={1}
+                                value={freeDeliveryThreshold}
+                                onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+                                className="h-12 w-32 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                                placeholder="e.g. 500"
+                            />
+                        </div>
+                    </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2">
                         <span className="text-slate-500 font-bold">₹</span>

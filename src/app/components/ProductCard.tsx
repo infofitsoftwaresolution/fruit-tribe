@@ -496,7 +496,7 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
         </div>
 
         {/* Transaction Rail */}
-        <div className="flex items-center justify-between gap-4 sm:gap-6 mt-5 sm:mt-8 pt-5 sm:pt-8 border-t border-slate-50">
+        <div className="flex flex-wrap items-center justify-between gap-4 sm:gap-6 mt-5 sm:mt-8 pt-5 sm:pt-8 border-t border-slate-50">
           <div className="shrink-0 space-y-1">
             <div className="flex items-baseline gap-1">
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest mr-1">INR</span>
@@ -526,7 +526,7 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
             )}
           </div>
 
-            <motion.button
+          <motion.button
             whileHover={{ scale: isOutOfStock ? 1 : 1.05, x: 5 }}
             whileTap={{ scale: isOutOfStock ? 1 : 0.95 }}
             disabled={isOutOfStock}
@@ -543,16 +543,16 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
               handleAction(() => onAddToCart(payload as any, finalQty));
             }}
             className={cn(
-              "h-12 sm:h-16 px-4 sm:px-8 flex items-center gap-2 sm:gap-4 transition-all duration-500 shadow-2xl rounded-2xl sm:rounded-[1.75rem]",
+              "h-12 sm:h-16 px-4 sm:px-8 flex items-center gap-2 sm:gap-4 transition-all duration-500 shadow-2xl rounded-2xl sm:rounded-[1.75rem] shrink-0",
               isOutOfStock
                 ? "bg-slate-50 text-slate-200 cursor-not-allowed shadow-none"
                 : "bg-slate-900 text-white hover:bg-emerald-500"
             )}
           >
-            <div className="h-7 w-7 sm:h-8 sm:w-8 bg-white/10 rounded-xl flex items-center justify-center">
+            <div className="h-7 w-7 sm:h-8 sm:w-8 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
               <Zap className="h-4 w-4" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">
               {isOutOfStock ? 'Out of stock' : 'Add to cart'}
             </span>
           </motion.button>

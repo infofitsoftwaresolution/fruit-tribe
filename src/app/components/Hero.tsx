@@ -149,7 +149,7 @@ export function Hero() {
             >
               {[
                 { label: 'Varieties', value: '100+', sub: 'Active SKUs' },
-                { label: 'Global Reach', value: '50K+', sub: 'Nodes Active' },
+                { label: 'Local Trust', value: '300+', sub: 'Members Active' },
                 { label: 'High Yield', value: '4.9★', sub: 'Satisfaction' },
               ].map((stat, i) => (
                 <div key={i} className="space-y-1">

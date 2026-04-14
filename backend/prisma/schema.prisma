@@ -1,4 +1,3 @@
-// Prisma schema for The Fruit Tribe
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,208 +11,199 @@ model Role {
   id          String   @id @default(uuid()) @db.Uuid
   name        String   @unique
   permissions Json     @default("{}")
-  users       User[]
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
+  users       User[]
 
   @@map("roles")
 }
 
 model User {
-  id                   String    @id @default(uuid()) @db.Uuid
-  email                String    @unique
-  phone                String?   @unique
-  passwordHash         String    @map("password_hash")
-  firstName            String?   @map("first_name")
-  lastName             String?   @map("last_name")
-  roleId               String?   @db.Uuid @map("role_id")
-  role                 Role?     @relation(fields: [roleId], references: [id])
-  isActive             Boolean   @default(true) @map("is_active")
-  status               String    @default("active") @map("status")
-  walletBalance        Decimal   @default(0.0) @db.Decimal(10, 2) @map("wallet_balance")
-  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
-  lockedUntil          DateTime? @map("locked_until")
-  otpCode              String?   @map("otp_code") @db.VarChar(6)
-  otpExpiry            DateTime? @map("otp_expiry")
-  lastLogin            DateTime? @map("last_login")
-  refreshTokenHash     String?   @map("refresh_token_hash")
-  requirePasswordChange Boolean  @default(false) @map("require_password_change")
-  seller               Seller?
-  orders               Order[]
-  carts                Cart?
-  reviews              Review[]
-  addresses            UserAddress[]
-  otpLogs              OtpLog[]
-  walletTransactions   WalletTransaction[]
-  sentMessages         Message[] @relation("SentMessages")
-  receivedMessages     Message[] @relation("ReceivedMessages")
-  notifications        Notification[]
-  wishlists            Wishlist[]
-  supportTickets       SupportTicket[]
-  auditLogs            AuditLog[]
-  deliveryPartner      DeliveryPartner?
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
+  id                    String              @id @default(uuid()) @db.Uuid
+  email                 String              @unique
+  phone                 String?             @unique
+  passwordHash          String              @map("password_hash")
+  firstName             String?             @map("first_name")
+  lastName              String?             @map("last_name")
+  roleId                String?             @map("role_id") @db.Uuid
+  isActive              Boolean             @default(true) @map("is_active")
+  status                String              @default("active") @map("status")
+  walletBalance         Decimal             @default(0.0) @map("wallet_balance") @db.Decimal(10, 2)
+  failedLoginAttempts   Int                 @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime?           @map("locked_until")
+  otpCode               String?             @map("otp_code") @db.VarChar(6)
+  otpExpiry             DateTime?           @map("otp_expiry")
+  lastLogin             DateTime?           @map("last_login")
+  refreshTokenHash      String?             @map("refresh_token_hash")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  requirePasswordChange Boolean             @default(false) @map("require_password_change")
+  auditLogs             AuditLog[]
+  carts                 Cart?
+  deliveryPartner       DeliveryPartner?
+  receivedMessages      Message[]           @relation("ReceivedMessages")
+  sentMessages          Message[]           @relation("SentMessages")
+  notifications         Notification[]
+  orders                Order[]
+  otpLogs               OtpLog[]
+  reviews               Review[]
+  seller                Seller?
+  supportTickets        SupportTicket[]
+  addresses             UserAddress[]
+  role                  Role?               @relation(fields: [roleId], references: [id])
+  walletTransactions    WalletTransaction[]
+  wishlists             Wishlist?
 
   @@map("users")
 }
 
 model Seller {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @unique @db.Uuid @map("user_id")
-  user        User     @relation(fields: [userId], references: [id])
-  storeName   String   @map("store_name")
-  description String?
-  gstNumber   String?  @unique @map("gst_number")
-  bankDetails Json?    @map("bank_details")
-  address     Json?
-  rating      Decimal  @default(0.0) @db.Decimal(3, 2)
-  status      String   @default("PENDING")
-  kycStatus   String   @default("pending") @map("kyc_status")
-  commissionRate Decimal @default(0.0) @db.Decimal(5, 2) @map("commission_rate")
-  isOpen      Boolean  @default(true) @map("is_open")
-  vacationMode Boolean @default(false) @map("vacation_mode")
-  products    Product[]
-  orderItems  OrderItem[]
-  kycs        SellerKyc[]
-  bankAccounts SellerBankDetail[]
-  settlements Settlement[]
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @unique @map("user_id") @db.Uuid
+  storeName      String             @map("store_name")
+  description    String?
+  gstNumber      String?            @unique @map("gst_number")
+  bankDetails    Json?              @map("bank_details")
+  address        Json?
+  rating         Decimal            @default(0.0) @db.Decimal(3, 2)
+  status         String             @default("PENDING")
+  kycStatus      String             @default("pending") @map("kyc_status")
+  commissionRate Decimal            @default(0.0) @map("commission_rate") @db.Decimal(5, 2)
+  isOpen         Boolean            @default(true) @map("is_open")
+  vacationMode   Boolean            @default(false) @map("vacation_mode")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  orderItems     OrderItem[]
+  products       Product[]
+  bankAccounts   SellerBankDetail[]
+  kycs           SellerKyc[]
+  user           User               @relation(fields: [userId], references: [id])
+  settlements    Settlement[]
 
   @@map("sellers")
 }
 
 model Category {
   id          String     @id @default(uuid()) @db.Uuid
-  parentId    String?    @db.Uuid @map("parent_id")
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
+  parentId    String?    @map("parent_id") @db.Uuid
   name        String     @unique
   slug        String     @unique
   description String?
   imageUrl    String?    @map("image_url")
-  products    Product[]
   createdAt   DateTime   @default(now()) @map("created_at")
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
 
   @@map("categories")
 }
 
 model Product {
-  id          String           @id @default(uuid()) @db.Uuid
-  sellerId    String           @db.Uuid @map("seller_id")
-  seller      Seller           @relation(fields: [sellerId], references: [id])
-  categoryId  String           @db.Uuid @map("category_id")
-  category    Category         @relation(fields: [categoryId], references: [id])
-  name        String
-  slug        String           @unique
-  description String?
-  basePrice   Decimal          @db.Decimal(10, 2) @map("base_price")
-  currency    String           @default("INR")
-  tags        String[]
-  isActive    Boolean          @default(true) @map("is_active")
-  isOrganic   Boolean          @default(false) @map("is_organic")
-  stock       Int              @default(0)
-  unit        String           @map("unit")
-  status      String           @default("active") @map("status")
-  
-  // Perishable Tracking
-  harvestDate DateTime?        @map("harvest_date")
-  expiryDate  DateTime?        @map("expiry_date")
-  
-  // Seasonal Logic
-  isSeasonal    Boolean          @default(false) @map("is_seasonal")
-  seasonalStart DateTime?        @map("seasonal_start")
-  seasonalEnd   DateTime?        @map("seasonal_end")
-
-  // Bulk Commerce
-  bulkDiscountQty   Int?           @map("bulk_discount_qty")
-  bulkDiscountPrice Decimal?       @db.Decimal(10, 2) @map("bulk_discount_price")
-
-  // Payment: seller can disable Cash on Delivery for this product
-  allowCashOnDelivery Boolean @default(true) @map("allow_cod")
-
-  variants    ProductVariant[]
-  images      ProductImage[]
-  reviews     Review[]
-  orderItems  OrderItem[]
-  cartItems   CartItem[]
-  wishlistItems WishlistItem[]
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  id                  String           @id @default(uuid()) @db.Uuid
+  sellerId            String           @map("seller_id") @db.Uuid
+  categoryId          String           @map("category_id") @db.Uuid
+  name                String
+  slug                String           @unique
+  description         String?
+  basePrice           Decimal          @map("base_price") @db.Decimal(10, 2)
+  currency            String           @default("INR")
+  tags                String[]
+  isActive            Boolean          @default(true) @map("is_active")
+  isOrganic           Boolean          @default(false) @map("is_organic")
+  stock               Int              @default(0)
+  unit                String           @map("unit")
+  status              String           @default("active") @map("status")
+  harvestDate         DateTime?        @map("harvest_date")
+  expiryDate          DateTime?        @map("expiry_date")
+  isSeasonal          Boolean          @default(false) @map("is_seasonal")
+  seasonalStart       DateTime?        @map("seasonal_start")
+  seasonalEnd         DateTime?        @map("seasonal_end")
+  bulkDiscountQty     Int?             @map("bulk_discount_qty")
+  bulkDiscountPrice   Decimal?         @map("bulk_discount_price") @db.Decimal(10, 2)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  allowCashOnDelivery Boolean          @default(true) @map("allow_cod")
+  cartItems           CartItem[]
+  orderItems          OrderItem[]
+  images              ProductImage[]
+  variants            ProductVariant[]
+  category            Category         @relation(fields: [categoryId], references: [id])
+  seller              Seller           @relation(fields: [sellerId], references: [id])
+  reviews             Review[]
+  wishlistItems       WishlistItem[]
 
   @@map("products")
 }
 
 model ProductVariant {
-  id             String         @id @default(uuid()) @db.Uuid
-  productId      String         @db.Uuid @map("product_id")
-  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
-  sku            String         @unique
-  attributeName  String?        @map("attribute_name")
-  attributeValue String?        @map("attribute_value")
-  priceOverride  Decimal?       @db.Decimal(10, 2) @map("price_override")
-  stockQuantity  Int            @default(0) @map("stock_quantity")
-  reservedQuantity Int          @default(0) @map("reserved_quantity")
-  availableQuantity Int         @default(0) @map("available_quantity")
-  lowStockThreshold Int         @default(5) @map("low_stock_threshold")
-  inventoryLogs  InventoryLog[]
-  reservations   StockReservation[]
-  orderItems     OrderItem[]
-  cartItems      CartItem[]
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  id                String             @id @default(uuid()) @db.Uuid
+  productId         String             @map("product_id") @db.Uuid
+  sku               String             @unique
+  attributeName     String?            @map("attribute_name")
+  attributeValue    String?            @map("attribute_value")
+  priceOverride     Decimal?           @map("price_override") @db.Decimal(10, 2)
+  stockQuantity     Int                @default(0) @map("stock_quantity")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  availableQuantity Int                @default(0) @map("available_quantity")
+  lowStockThreshold Int                @default(5) @map("low_stock_threshold")
+  reservedQuantity  Int                @default(0) @map("reserved_quantity")
+  cartItems         CartItem[]
+  inventoryLogs     InventoryLog[]
+  orderItems        OrderItem[]
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reservations      StockReservation[]
 
   @@map("product_variants")
 }
 
 model StockReservation {
-  id          String         @id @default(uuid()) @db.Uuid
-  variantId   String         @db.Uuid @map("variant_id")
-  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  orderId     String?        @db.Uuid @map("order_id")
-  order       Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  userId      String?        @db.Uuid @map("user_id")
-  quantity    Int
-  status      String         @default("PENDING") // PENDING, COMPLETED, EXPIRED, CANCELLED
-  expiresAt   DateTime       @map("expires_at")
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id        String         @id @default(uuid()) @db.Uuid
+  variantId String         @map("variant_id") @db.Uuid
+  userId    String?        @map("user_id") @db.Uuid
+  quantity  Int
+  status    String         @default("PENDING")
+  expiresAt DateTime       @map("expires_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  orderId   String?        @map("order_id") @db.Uuid
+  order     Order?         @relation(fields: [orderId], references: [id])
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@map("stock_reservations")
 }
 
 model ProductImage {
   id        String  @id @default(uuid()) @db.Uuid
-  productId String  @db.Uuid @map("product_id")
-  product   Product @relation(fields: [productId], references: [id])
+  productId String  @map("product_id") @db.Uuid
   imageUrl  String  @map("image_url")
   isPrimary Boolean @default(false) @map("is_primary")
   sortOrder Int     @default(0) @map("sort_order")
+  product   Product @relation(fields: [productId], references: [id])
 
   @@map("product_images")
 }
 
 model InventoryLog {
   id           String         @id @default(uuid()) @db.Uuid
-  variantId    String         @db.Uuid @map("variant_id")
-  variant      ProductVariant @relation(fields: [variantId], references: [id])
+  variantId    String         @map("variant_id") @db.Uuid
   changeAmount Int            @map("change_amount")
   reason       String?
   referenceId  String?        @map("reference_id")
   createdAt    DateTime       @default(now()) @map("created_at")
+  variant      ProductVariant @relation(fields: [variantId], references: [id])
 
   @@map("inventory_logs")
 }
 
 model Cart {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @unique @db.Uuid @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
-  items     Json     @default("[]")
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @unique @map("user_id") @db.Uuid
+  items     Json       @default("[]")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
   cartItems CartItem[]
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User       @relation(fields: [userId], references: [id])
 
   @@map("carts")
 }
@@ -222,9 +212,9 @@ model Coupon {
   id            String    @id @default(uuid()) @db.Uuid
   code          String    @unique
   discountType  String    @map("discount_type")
-  discountValue Decimal   @db.Decimal(10, 2) @map("discount_value")
-  minOrderValue Decimal?  @db.Decimal(10, 2) @map("min_order_value")
-  maxDiscount   Decimal?  @db.Decimal(10, 2) @map("max_discount")
+  discountValue Decimal   @map("discount_value") @db.Decimal(10, 2)
+  minOrderValue Decimal?  @map("min_order_value") @db.Decimal(10, 2)
+  maxDiscount   Decimal?  @map("max_discount") @db.Decimal(10, 2)
   expiryDate    DateTime? @map("expiry_date")
   usageLimit    Int?      @map("usage_limit")
   usedCount     Int       @default(0) @map("used_count")
@@ -235,64 +225,63 @@ model Coupon {
 }
 
 model Order {
-  id               String      @id @default(uuid()) @db.Uuid
-  orderNumber      String      @unique @map("order_number")
-  userId           String      @db.Uuid @map("user_id")
-  user             User        @relation(fields: [userId], references: [id])
-  totalAmount      Decimal     @db.Decimal(10, 2) @map("total_amount")
-  discountAmount   Decimal     @default(0) @db.Decimal(10, 2) @map("discount_amount")
-  shippingFee      Decimal     @default(0) @db.Decimal(10, 2) @map("shipping_fee")
-  taxAmount        Decimal     @default(0) @db.Decimal(10, 2) @map("tax_amount")
-  payableAmount    Decimal     @db.Decimal(10, 2) @map("payable_amount")
-  status           String      @default("CREATED")
-  paymentStatus    String      @default("PENDING") @map("payment_status")
-  shippingAddress  Json        @map("shipping_address")
-  billingAddress   Json?       @map("billing_address")
-  couponId         String?     @db.Uuid @map("coupon_id")
-  coupon           Coupon?     @relation(fields: [couponId], references: [id])
-  idempotencyKey   String?     @unique @map("idempotency_key")
-  addressId        String?     @db.Uuid @map("address_id")
-  address          UserAddress? @relation(fields: [addressId], references: [id])
-  deliverySlot     String?     @map("delivery_slot")
-  distanceKm       Decimal?    @db.Decimal(10, 2) @map("distance_km")
+  id               String             @id @default(uuid()) @db.Uuid
+  orderNumber      String             @unique @map("order_number")
+  userId           String             @map("user_id") @db.Uuid
+  totalAmount      Decimal            @map("total_amount") @db.Decimal(10, 2)
+  discountAmount   Decimal            @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  shippingFee      Decimal            @default(0) @map("shipping_fee") @db.Decimal(10, 2)
+  taxAmount        Decimal            @default(0) @map("tax_amount") @db.Decimal(10, 2)
+  payableAmount    Decimal            @map("payable_amount") @db.Decimal(10, 2)
+  status           String             @default("CREATED")
+  paymentStatus    String             @default("PENDING") @map("payment_status")
+  shippingAddress  Json               @map("shipping_address")
+  billingAddress   Json?              @map("billing_address")
+  couponId         String?            @map("coupon_id") @db.Uuid
+  idempotencyKey   String?            @unique @map("idempotency_key")
+  addressId        String?            @map("address_id") @db.Uuid
+  deliverySlot     String?            @map("delivery_slot")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
   /// Optional JSON: e.g. subscription plan snapshot when orderKind is subscription
-  metadata         Json?       @map("metadata")
-  items            OrderItem[]
-  payments         Payment[]
-  deliveries       Delivery[]
-  statusLogs       OrderStatusLog[]
-  deliveryEarnings DeliveryEarning[]
+  metadata         Json?              @map("metadata")
+  distanceKm       Decimal?           @map("distance_km") @db.Decimal(10, 2)
   codTransactions  CodTransaction[]
-  supportTickets   SupportTicket[]
+  deliveries       Delivery[]
+  deliveryEarnings DeliveryEarning[]
+  items            OrderItem[]
+  statusLogs       OrderStatusLog[]
+  address          UserAddress?       @relation(fields: [addressId], references: [id])
+  coupon           Coupon?            @relation(fields: [couponId], references: [id])
+  user             User               @relation(fields: [userId], references: [id])
+  payments         Payment[]
   reservations     StockReservation[]
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
+  supportTickets   SupportTicket[]
 
   @@map("orders")
 }
 
 model OrderItem {
   id           String         @id @default(uuid()) @db.Uuid
-  orderId      String         @db.Uuid @map("order_id")
-  order        Order          @relation(fields: [orderId], references: [id])
-  productId    String         @db.Uuid @map("product_id")
-  product      Product        @relation(fields: [productId], references: [id])
-  variantId    String         @db.Uuid @map("variant_id")
-  variant      ProductVariant @relation(fields: [variantId], references: [id])
-  sellerId     String         @db.Uuid @map("seller_id")
-  seller       Seller         @relation(fields: [sellerId], references: [id])
+  orderId      String         @map("order_id") @db.Uuid
+  productId    String         @map("product_id") @db.Uuid
+  variantId    String         @map("variant_id") @db.Uuid
+  sellerId     String         @map("seller_id") @db.Uuid
   quantity     Int
-  pricePerUnit Decimal        @db.Decimal(10, 2) @map("price_per_unit")
+  pricePerUnit Decimal        @map("price_per_unit") @db.Decimal(10, 2)
   subtotal     Decimal        @db.Decimal(10, 2)
   status       String         @default("PENDING")
+  order        Order          @relation(fields: [orderId], references: [id])
+  product      Product        @relation(fields: [productId], references: [id])
+  seller       Seller         @relation(fields: [sellerId], references: [id])
+  variant      ProductVariant @relation(fields: [variantId], references: [id])
 
   @@map("order_items")
 }
 
 model Payment {
   id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid @map("order_id")
-  order           Order    @relation(fields: [orderId], references: [id])
+  orderId         String   @map("order_id") @db.Uuid
   transactionId   String?  @unique @map("transaction_id")
   paymentMethod   String   @map("payment_method")
   amount          Decimal  @db.Decimal(10, 2)
@@ -300,51 +289,50 @@ model Payment {
   gatewayResponse Json?    @map("gateway_response")
   status          String
   createdAt       DateTime @default(now()) @map("created_at")
+  order           Order    @relation(fields: [orderId], references: [id])
 
   @@map("payments")
 }
 
 model Delivery {
-  id                 String    @id @default(uuid()) @db.Uuid
-  orderId            String    @db.Uuid @map("order_id")
-  order              Order     @relation(fields: [orderId], references: [id])
-  deliveryPartnerId  String?   @db.Uuid @map("delivery_partner_id")
-  deliveryPartner    DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
-  trackingNumber     String?   @map("tracking_number")
-  otpCode            String?   @map("otp_code")
-  status             String?
-  estimatedDelivery  DateTime? @map("estimated_delivery")
-  actualDelivery     DateTime? @map("actual_delivery")
-  geoLocation        Json?     @map("geo_location")
-  createdAt          DateTime  @default(now()) @map("created_at")
-
-  trackingEvents     DeliveryTracking[]
-  earnings           DeliveryEarning[]
+  id                String             @id @default(uuid()) @db.Uuid
+  orderId           String             @map("order_id") @db.Uuid
+  deliveryPartnerId String?            @map("delivery_partner_id") @db.Uuid
+  trackingNumber    String?            @map("tracking_number")
+  otpCode           String?            @map("otp_code")
+  status            String?
+  estimatedDelivery DateTime?          @map("estimated_delivery")
+  actualDelivery    DateTime?          @map("actual_delivery")
+  geoLocation       Json?              @map("geo_location")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  deliveryPartner   DeliveryPartner?   @relation(fields: [deliveryPartnerId], references: [id])
+  order             Order              @relation(fields: [orderId], references: [id])
+  earnings          DeliveryEarning[]
+  trackingEvents    DeliveryTracking[]
 
   @@map("deliveries")
 }
 
 model Review {
   id                 String   @id @default(uuid()) @db.Uuid
-  productId          String   @db.Uuid @map("product_id")
-  product            Product  @relation(fields: [productId], references: [id])
-  userId             String   @db.Uuid @map("user_id")
-  user               User     @relation(fields: [userId], references: [id])
-  orderId            String?  @db.Uuid @map("order_id")
+  productId          String   @map("product_id") @db.Uuid
+  userId             String   @map("user_id") @db.Uuid
+  orderId            String?  @map("order_id") @db.Uuid
   rating             Int
   comment            String?
   images             String[]
   isVerifiedPurchase Boolean  @default(true) @map("is_verified_purchase")
   status             String   @default("PENDING")
   createdAt          DateTime @default(now()) @map("created_at")
+  product            Product  @relation(fields: [productId], references: [id])
+  user               User     @relation(fields: [userId], references: [id])
 
   @@map("reviews")
 }
 
 model UserAddress {
   id           String   @id @default(uuid()) @db.Uuid
-  userId       String   @db.Uuid @map("user_id")
-  user         User     @relation(fields: [userId], references: [id])
+  userId       String   @map("user_id") @db.Uuid
   label        String?
   name         String
   phone        String
@@ -357,168 +345,168 @@ model UserAddress {
   lng          Decimal? @db.Decimal(9, 6)
   isDefault    Boolean  @default(false) @map("is_default")
   createdAt    DateTime @default(now()) @map("created_at")
-
   orders       Order[]
+  user         User     @relation(fields: [userId], references: [id])
 
   @@map("user_addresses")
 }
 
 model OtpLog {
   id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @map("user_id") @db.Uuid
   otp       String   @db.VarChar(6)
   expiresAt DateTime @map("expires_at")
   verified  Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("otp_logs")
 }
 
 model SellerKyc {
   id           String   @id @default(uuid()) @db.Uuid
-  sellerId     String   @db.Uuid @map("seller_id")
-  seller       Seller   @relation(fields: [sellerId], references: [id])
+  sellerId     String   @map("seller_id") @db.Uuid
   documentType String   @map("document_type")
   documentUrl  String   @map("document_url")
   verified     Boolean  @default(false)
   submittedAt  DateTime @map("submitted_at")
+  seller       Seller   @relation(fields: [sellerId], references: [id])
 
   @@map("seller_kyc")
 }
 
 model SellerBankDetail {
-  id            String   @id @default(uuid()) @db.Uuid
-  sellerId      String   @db.Uuid @map("seller_id")
-  seller        Seller   @relation(fields: [sellerId], references: [id])
-  accountHolder String   @map("account_holder")
-  accountNumber String   @map("account_number")
+  id            String  @id @default(uuid()) @db.Uuid
+  sellerId      String  @map("seller_id") @db.Uuid
+  accountHolder String  @map("account_holder")
+  accountNumber String  @map("account_number")
   ifsc          String
-  bankName      String   @map("bank_name")
-  verified      Boolean  @default(false)
+  bankName      String  @map("bank_name")
+  verified      Boolean @default(false)
+  seller        Seller  @relation(fields: [sellerId], references: [id])
 
   @@map("seller_bank_details")
 }
 
 model CartItem {
-  id            String         @id @default(uuid()) @db.Uuid
-  cartId        String         @db.Uuid @map("cart_id")
-  cart          Cart           @relation(fields: [cartId], references: [id])
-  productId     String         @db.Uuid @map("product_id")
-  product       Product        @relation(fields: [productId], references: [id])
-  variantId     String?        @db.Uuid @map("variant_id")
-  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  id            String          @id @default(uuid()) @db.Uuid
+  cartId        String          @map("cart_id") @db.Uuid
+  productId     String          @map("product_id") @db.Uuid
+  variantId     String?         @map("variant_id") @db.Uuid
   quantity      Int
-  priceSnapshot Decimal        @db.Decimal(10, 2) @map("price_snapshot")
+  priceSnapshot Decimal         @map("price_snapshot") @db.Decimal(10, 2)
+  cart          Cart            @relation(fields: [cartId], references: [id])
+  product       Product         @relation(fields: [productId], references: [id])
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
 
   @@map("cart_items")
 }
 
 model Wishlist {
-  id        String        @id @default(uuid()) @db.Uuid
-  userId    String        @unique @db.Uuid @map("user_id")
-  user      User          @relation(fields: [userId], references: [id])
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @unique @map("user_id") @db.Uuid
+  createdAt DateTime       @default(now()) @map("created_at")
   items     WishlistItem[]
-  createdAt DateTime      @default(now()) @map("created_at")
+  user      User           @relation(fields: [userId], references: [id])
 
   @@map("wishlists")
 }
 
 model WishlistItem {
   id         String   @id @default(uuid()) @db.Uuid
-  wishlistId String   @db.Uuid @map("wishlist_id")
-  wishlist   Wishlist @relation(fields: [wishlistId], references: [id])
-  productId  String   @db.Uuid @map("product_id")
+  wishlistId String   @map("wishlist_id") @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
   product    Product  @relation(fields: [productId], references: [id])
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id])
 
   @@map("wishlist_items")
 }
 
 model OrderStatusLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  orderId   String   @db.Uuid @map("order_id")
-  order     Order    @relation(fields: [orderId], references: [id])
-  status    String
-  createdAt DateTime @default(now()) @map("changed_at")
-  changedByRole String? @map("changed_by_role")
-  changedByName String? @map("changed_by_name")
+  id            String   @id @default(uuid()) @db.Uuid
+  orderId       String   @map("order_id") @db.Uuid
+  status        String
+  createdAt     DateTime @default(now()) @map("changed_at")
+  changedByRole String?  @map("changed_by_role")
+  changedByName String?  @map("changed_by_name")
+  order         Order    @relation(fields: [orderId], references: [id])
 
   @@map("order_status_logs")
 }
 
 model WalletTransaction {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid @map("user_id")
-  user       User     @relation(fields: [userId], references: [id])
-  type       String
-  amount     Decimal  @db.Decimal(10, 2)
-  referenceId String? @map("reference_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  type        String
+  amount      Decimal  @db.Decimal(10, 2)
+  referenceId String?  @map("reference_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  user        User     @relation(fields: [userId], references: [id])
 
   @@map("wallet_transactions")
 }
 
 model SupportTicket {
   id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
-  orderId   String?  @db.Uuid @map("order_id")
-  order     Order?   @relation(fields: [orderId], references: [id])
+  userId    String   @map("user_id") @db.Uuid
+  orderId   String?  @map("order_id") @db.Uuid
   subject   String
   status    String
   createdAt DateTime @default(now()) @map("created_at")
+  order     Order?   @relation(fields: [orderId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("support_tickets")
 }
 
 model Message {
   id         String   @id @default(uuid()) @db.Uuid
-  senderId   String   @db.Uuid @map("sender_id")
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiverId String   @db.Uuid @map("receiver_id")
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  senderId   String   @map("sender_id") @db.Uuid
+  receiverId String   @map("receiver_id") @db.Uuid
   message    String
   createdAt  DateTime @default(now()) @map("created_at")
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
 
   @@map("messages")
 }
 
 model Notification {
   id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @map("user_id") @db.Uuid
   title     String
   message   String
   type      String
   isRead    Boolean  @default(false) @map("is_read")
   createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id])
 
   @@map("notifications")
 }
 
 model Settlement {
   id          String   @id @default(uuid()) @db.Uuid
-  sellerId    String   @db.Uuid @map("seller_id")
-  seller      Seller   @relation(fields: [sellerId], references: [id])
+  sellerId    String   @map("seller_id") @db.Uuid
   totalOrders Int      @map("total_orders")
-  grossAmount Decimal  @db.Decimal(10, 2) @map("gross_amount")
+  grossAmount Decimal  @map("gross_amount") @db.Decimal(10, 2)
   commission  Decimal  @db.Decimal(10, 2)
-  netAmount   Decimal  @db.Decimal(10, 2) @map("net_amount")
+  netAmount   Decimal  @map("net_amount") @db.Decimal(10, 2)
   status      String
   createdAt   DateTime @default(now()) @map("created_at")
+  seller      Seller   @relation(fields: [sellerId], references: [id])
 
   @@map("settlements")
 }
 
 model AuditLog {
   id        String   @id @default(uuid()) @db.Uuid
-  userId    String?  @db.Uuid @map("user_id")
-  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?  @map("user_id") @db.Uuid
   action    String
   entity    String
   entityId  String   @map("entity_id")
   createdAt DateTime @default(now()) @map("created_at")
   metadata  Json?
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
 }
@@ -526,7 +514,7 @@ model AuditLog {
 model Warehouse {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  address   String   @db.Text
+  address   String
   latitude  Decimal  @db.Decimal(10, 7)
   longitude Decimal  @db.Decimal(10, 7)
   isActive  Boolean  @default(true) @map("is_active")
@@ -537,75 +525,73 @@ model Warehouse {
 }
 
 model DeliveryPartner {
-  id         String    @id @default(uuid()) @db.Uuid
-  userId     String?   @unique @db.Uuid @map("user_id")
-  user       User?     @relation(fields: [userId], references: [id])
-  name       String
-  phone      String
-  vehicle    String?
-  status     String   @default("ACTIVE")
-  // Operational fields for delivery app
-  onlineStatus        String    @default("OFFLINE") @map("online_status")
-  currentLat          Decimal?  @db.Decimal(9, 6) @map("current_lat")
-  currentLng          Decimal?  @db.Decimal(9, 6) @map("current_lng")
-  rating              Decimal   @default(0.0) @db.Decimal(3, 2)
-  completedDeliveries Int       @default(0) @map("completed_deliveries")
-
-  deliveries          Delivery[]
-  trackingEvents      DeliveryTracking[]
-  earnings            DeliveryEarning[]
+  id                  String             @id @default(uuid()) @db.Uuid
+  userId              String?            @unique @map("user_id") @db.Uuid
+  name                String
+  phone               String
+  vehicle             String?
+  status              String             @default("ACTIVE")
+  onlineStatus        String             @default("OFFLINE") @map("online_status")
+  currentLat          Decimal?           @map("current_lat") @db.Decimal(9, 6)
+  currentLng          Decimal?           @map("current_lng") @db.Decimal(9, 6)
+  rating              Decimal            @default(0) @db.Decimal(3, 2)
+  completedDeliveries Int                @default(0) @map("completed_deliveries")
   codTransactions     CodTransaction[]
+  deliveries          Delivery[]
+  earnings            DeliveryEarning[]
+  user                User?              @relation(fields: [userId], references: [id])
+  trackingEvents      DeliveryTracking[]
 
   @@map("delivery_partners")
 }
 
 model DeliveryTracking {
-  id                String    @id @default(uuid()) @db.Uuid
-  deliveryId        String    @db.Uuid @map("delivery_id")
-  delivery          Delivery  @relation(fields: [deliveryId], references: [id])
-  deliveryPartnerId String?   @db.Uuid @map("delivery_partner_id")
-  deliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  id                String           @id @default(uuid()) @db.Uuid
+  deliveryId        String           @map("delivery_id") @db.Uuid
+  deliveryPartnerId String?          @map("delivery_partner_id") @db.Uuid
   status            String
-  lat               Decimal?  @db.Decimal(9, 6)
-  lng               Decimal?  @db.Decimal(9, 6)
+  lat               Decimal?         @db.Decimal(9, 6)
+  lng               Decimal?         @db.Decimal(9, 6)
   note              String?
-  source            String    @default("APP")
-  createdAt         DateTime  @default(now()) @map("created_at")
+  source            String           @default("APP")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  delivery          Delivery         @relation(fields: [deliveryId], references: [id])
+  deliveryPartner   DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
 
   @@map("delivery_tracking")
 }
 
 model DeliveryEarning {
-  id                String         @id @default(uuid()) @db.Uuid
-  deliveryPartnerId String         @db.Uuid @map("delivery_partner_id")
+  id                String          @id @default(uuid()) @db.Uuid
+  deliveryPartnerId String          @map("delivery_partner_id") @db.Uuid
+  orderId           String          @map("order_id") @db.Uuid
+  deliveryId        String?         @map("delivery_id") @db.Uuid
+  baseFee           Decimal         @map("base_fee") @db.Decimal(10, 2)
+  distanceFee       Decimal         @default(0) @map("distance_fee") @db.Decimal(10, 2)
+  incentive         Decimal         @default(0) @db.Decimal(10, 2)
+  penalty           Decimal         @default(0) @db.Decimal(10, 2)
+  total             Decimal         @db.Decimal(10, 2)
+  payoutStatus      String          @default("PENDING") @map("payout_status")
+  payoutDate        DateTime?       @map("payout_date")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  delivery          Delivery?       @relation(fields: [deliveryId], references: [id])
   deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id])
-  orderId           String         @db.Uuid @map("order_id")
-  order             Order          @relation(fields: [orderId], references: [id])
-  deliveryId        String?        @db.Uuid @map("delivery_id")
-  delivery          Delivery?      @relation(fields: [deliveryId], references: [id])
-  baseFee           Decimal        @db.Decimal(10, 2) @map("base_fee")
-  distanceFee       Decimal        @default(0) @db.Decimal(10, 2) @map("distance_fee")
-  incentive         Decimal        @default(0) @db.Decimal(10, 2)
-  penalty           Decimal        @default(0) @db.Decimal(10, 2)
-  total             Decimal        @db.Decimal(10, 2)
-  payoutStatus      String         @default("PENDING") @map("payout_status")
-  payoutDate        DateTime?      @map("payout_date")
-  createdAt         DateTime       @default(now()) @map("created_at")
+  order             Order           @relation(fields: [orderId], references: [id])
 
   @@map("delivery_earnings")
 }
 
 model CodTransaction {
-  id                String         @id @default(uuid()) @db.Uuid
-  deliveryPartnerId String         @db.Uuid @map("delivery_partner_id")
+  id                String          @id @default(uuid()) @db.Uuid
+  deliveryPartnerId String          @map("delivery_partner_id") @db.Uuid
+  orderId           String?         @map("order_id") @db.Uuid
+  amount            Decimal         @db.Decimal(10, 2)
+  type              String          @map("type")
+  paymentMode       String?         @map("payment_mode")
+  reference         String?         @map("reference")
+  createdAt         DateTime        @default(now()) @map("created_at")
   deliveryPartner   DeliveryPartner @relation(fields: [deliveryPartnerId], references: [id])
-  orderId           String?        @db.Uuid @map("order_id")
-  order             Order?         @relation(fields: [orderId], references: [id])
-  amount            Decimal        @db.Decimal(10, 2)
-  type              String         @map("type")
-  paymentMode       String?        @map("payment_mode")
-  reference         String?        @map("reference")
-  createdAt         DateTime       @default(now()) @map("created_at")
+  order             Order?          @relation(fields: [orderId], references: [id])
 
   @@map("cod_transactions")
 }
@@ -613,7 +599,7 @@ model CodTransaction {
 model StoreSetting {
   id        String   @id @default(uuid()) @db.Uuid
   key       String   @unique
-  value     String   @db.Text
+  value     String
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("store_settings")

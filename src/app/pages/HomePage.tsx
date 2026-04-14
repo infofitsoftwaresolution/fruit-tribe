@@ -71,7 +71,7 @@ export function HomePage({ onAddToCart }: HomePageProps) {
       <section className="py-16 bg-slate-50">
         <div className="max-w-[1400px] mx-auto px-6 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { title: '5000+ orders delivered', desc: 'Happy fruit lovers across the city', icon: '😊' },
+            { title: '1200+ orders delivered', desc: 'Happy fruit lovers across the city', icon: '😊' },
             { title: 'Farm-fresh guarantee', desc: 'Picked close to delivery, never old stock', icon: '🌱' },
             { title: 'Same / next-day delivery', desc: 'Smart routing for fresh and fast drops', icon: '⚡' },
             { title: 'Secure online payments', desc: 'Trusted gateways and encrypted checkout', icon: '🔒' },

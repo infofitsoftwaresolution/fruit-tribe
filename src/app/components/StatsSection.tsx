@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion';
 import { Users, Award, TrendingUp, Globe, Activity, ShieldCheck, Zap, Microscope } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
+import { useProducts } from '@/app/hooks/useProducts';
 import { cn } from '@/lib/utils';
 
 export function StatsSection() {
   const { theme, isEditing, updateTheme } = useStore();
+  const { products } = useProducts({ limit: 100 });
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;
@@ -22,7 +24,7 @@ export function StatsSection() {
     },
     {
       icon: Microscope,
-      value: '100+',
+      value: `${products.length}+`,
       label: 'Varieties',
       sub: 'To choose from',
       color: 'amber',

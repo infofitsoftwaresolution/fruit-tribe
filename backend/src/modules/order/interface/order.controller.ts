@@ -14,6 +14,7 @@ import { OrderService } from '../application/order.service';
 import { PaymentService } from '../application/payment.service';
 import { CreateOrderDto } from './dtos/create-order.dto';
 import { CreateSubscriptionOrderDto } from './dtos/create-subscription-order.dto';
+import { CreateManualOrderDto } from './dtos/create-manual-order.dto';
 import { CreateRazorpayOrderDto } from './dtos/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dtos/verify-payment.dto';
 import { JwtAuthGuard } from '../../auth/interface/guards/jwt-auth.guard';
@@ -38,6 +39,34 @@ export class OrderController {
     @Post('subscription')
     async createSubscription(@Request() req: any, @Body() dto: CreateSubscriptionOrderDto) {
         return this.orderService.createSubscriptionOrder(req.user.id, dto);
+    }
+
+    @ApiOperation({ summary: 'Create a manual order (admin only)' })
+    @Post('manual')
+    async createManual(@Request() req: any, @Body() dto: CreateManualOrderDto) {
+        const order = await this.orderService.createManualOrder(req.user.id, dto);
+        
+        // If the order is created with payment status PENDING, generate a payment link automatically
+        if (order.paymentStatus === 'PENDING') {
+            try {
+                const { paymentLink } = await this.paymentService.createPaymentLink(
+                    order.id,
+                    order.userId,
+                    Math.round(Number(order.payableAmount) * 100), // convert to paise
+                    {
+                        name: dto.customerName,
+                        email: dto.customerEmail,
+                        contact: dto.customerPhone,
+                    }
+                );
+                return { ...order, paymentLink };
+            } catch (err: any) {
+                // Return order even if link generation fails (can be generated later)
+                return { ...order, paymentLinkError: err.message };
+            }
+        }
+        
+        return order;
     }
 
     @ApiOperation({ summary: 'Get all orders (admin: all orders, user: own orders)' })
@@ -97,5 +126,30 @@ export class OrderController {
             dto.razorpayPaymentId,
             dto.signature,
         );
+    }
+
+    @ApiOperation({ summary: 'Generate Razorpay payment link for manual sharing' })
+    @Post(':id/payment-link')
+    async createPaymentLink(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Request() req: any,
+        @Body() dto: { amountInPaise: number; customerDetails?: { name: string; email?: string; contact?: string } },
+    ) {
+        return this.paymentService.createPaymentLink(
+            id,
+            req.user.id,
+            dto.amountInPaise,
+            dto.customerDetails,
+        );
+    }
+
+    @ApiOperation({ summary: 'Update payment status (admin only)' })
+    @Patch(':id/payment-status')
+    async updatePaymentStatus(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Request() req: any,
+        @Body() body: { paymentStatus: string },
+    ) {
+        return this.orderService.updatePaymentStatus(id, body.paymentStatus);
     }
 }

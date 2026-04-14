@@ -15,7 +15,8 @@ interface CartPageProps {
 }
 
 
-const FREE_SHIPPING_THRESHOLD = 500;
+// Threshold is now dynamic from preferences.freeDeliveryThreshold
+// const FREE_SHIPPING_THRESHOLD = 500;
 
 export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProps) {
   const { products, taxRates, theme, preferences } = useStore();
@@ -23,7 +24,8 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
   const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : deliveryCharge;
+  const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+  const shipping = (threshold > 0 && subtotal >= threshold) ? 0 : deliveryCharge;
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
@@ -243,13 +245,13 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                   <span>Tax</span>
                   <span className="font-semibold">₹{calculatedTax.toFixed(2)}</span>
                 </div>
-                {subtotal > 0 && subtotal < 500 && (
+                {threshold > 0 && subtotal > 0 && subtotal < threshold && (
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                   >
-                    Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)} more for free shipping!
+                    Add ₹{(threshold - subtotal).toFixed(2)} more for free shipping!
                   </motion.p>
                 )}
                 <div className="border-t border-gray-200 pt-4">

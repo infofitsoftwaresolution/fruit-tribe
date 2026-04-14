@@ -21,14 +21,16 @@ interface CartDrawerProps {
 
 import { useStore } from '@/app/context/StoreContext';
 
-const FREE_SHIPPING_THRESHOLD = 500;
+// Threshold is now dynamic from preferences.freeDeliveryThreshold
+// const FREE_SHIPPING_THRESHOLD = 500;
 
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: CartDrawerProps) {
   const { products, taxRates, theme, preferences } = useStore();
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
   const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
-  const shipping = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : deliveryCharge;
+  const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+  const shipping = (threshold > 0 && subtotal >= threshold) ? 0 : deliveryCharge;
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
@@ -241,13 +243,13 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     <span className="text-gray-600">Tax:</span>
                     <span className="font-semibold text-gray-800">₹{calculatedTax.toFixed(2)}</span>
                   </div>
-                  {subtotal > 0 && subtotal < 500 && (
+                  {threshold > 0 && subtotal > 0 && subtotal < threshold && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                     >
-                      Add ₹{(FREE_SHIPPING_THRESHOLD - subtotal).toFixed(2)} more for free shipping!
+                      Add ₹{(threshold - subtotal).toFixed(2)} more for free shipping!
                     </motion.p>
                   )}
                   <div className="border-t border-gray-300 pt-3">

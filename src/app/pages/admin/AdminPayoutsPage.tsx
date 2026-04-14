@@ -59,9 +59,12 @@ export function AdminPayoutsPage() {
 
             // Normalize status: backend may send 'Delivered', 'DELIVERED', 'Created', etc.
             const rawStatus = (order.status ?? '').toUpperCase();
+            const isPaid = (order.paymentStatus ?? '').toUpperCase() === 'PAID';
+            
             const payoutStatus: Payout['status'] =
                 rawStatus === 'DELIVERED' ? 'Processed'
                 : (rawStatus === 'CANCELLED' || rawStatus === 'RETURNED') ? 'Flagged'
+                : isPaid ? 'Scheduled' // Paid but not yet delivered
                 : 'Pending';
 
             generated.push({

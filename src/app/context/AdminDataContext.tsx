@@ -72,7 +72,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             safe(getCustomers(), []),
             safe(getSellers(), []),
             safe(getCategories(), []),
-            safe(getProducts({ limit: 500, page: 1 }), { data: [] as any[], meta: null as any }),
+            safe(getProducts({ limit: 500, page: 1, showOutOfSeason: true, includeInactive: true }), { data: [] as any[], meta: null as any }),
             safe(getDeliveryPartners(), []),
         ]);
         setOrders(Array.isArray(o) ? o : []);
@@ -138,7 +138,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     const refreshProducts = useCallback(async () => {
         try {
             invalidateProductsListCache();
-            const pr = await getProducts({ limit: 500, page: 1 });
+            const pr = await getProducts({ limit: 500, page: 1, showOutOfSeason: true, includeInactive: true });
             setProducts((pr?.data ?? []).map(mapApiProductToProduct));
         } catch {
             /* keep cached snapshot */

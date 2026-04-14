@@ -9,6 +9,8 @@ import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { SettingsService } from '../../settings/application/settings.service';
 import { CreateOrderDto } from '../interface/dtos/create-order.dto';
 import { CreateSubscriptionOrderDto } from '../interface/dtos/create-subscription-order.dto';
+import { CreateManualOrderDto } from '../interface/dtos/create-manual-order.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class OrderService {
@@ -19,6 +21,137 @@ export class OrderService {
         private readonly prisma: PrismaService,
         private readonly settingsService: SettingsService,
     ) { }
+
+    async createManualOrder(adminUserId: string, dto: CreateManualOrderDto) {
+        // 1. Find or create user
+        let targetUser = await this.prisma.user.findUnique({
+            where: { email: dto.customerEmail },
+        });
+
+        if (!targetUser) {
+            targetUser = await this.prisma.user.create({
+                data: {
+                    email: dto.customerEmail,
+                    phone: dto.customerPhone,
+                    firstName: dto.customerName.split(' ')[0],
+                    lastName: dto.customerName.split(' ').slice(1).join(' ') || '',
+                    passwordHash: crypto.randomBytes(16).toString('hex'), // Random password
+                },
+            });
+        }
+
+        // 2. Calculate totals
+        const subtotal = dto.items.reduce(
+            (sum, item) => sum + item.pricePerUnit * item.quantity,
+            0,
+        );
+
+        const shippingFee = 0; // Manual orders usually have specific shipping or included
+        const taxAmount = subtotal * 0.05; // 5% GST
+        const payableAmount = subtotal + shippingFee + taxAmount;
+
+        const orderNumber = `FT-MN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        return this.prisma.$transaction(async (tx) => {
+            // Validate Stock
+            for (const item of dto.items) {
+                const variant = await tx.productVariant.findUnique({
+                    where: { id: item.variantId },
+                });
+
+                if (!variant || variant.availableQuantity < item.quantity) {
+                    throw new BadRequestException(
+                        `Insufficient stock for variant ${item.variantId}. Available: ${variant?.availableQuantity ?? 0}`,
+                    );
+                }
+            }
+
+            const initialStatus = (dto.status || 'CREATED').toUpperCase();
+            const paymentStatus = (dto.paymentStatus || 'PENDING').toUpperCase();
+
+            const order = await tx.order.create({
+                data: {
+                    orderNumber,
+                    userId: targetUser.id,
+                    totalAmount: subtotal,
+                    discountAmount: 0,
+                    shippingFee,
+                    taxAmount,
+                    payableAmount,
+                    shippingAddress: dto.shippingAddress,
+                    status: initialStatus,
+                    paymentStatus: paymentStatus,
+                    items: {
+                        create: dto.items.map((item) => ({
+                            productId: item.productId,
+                            variantId: item.variantId,
+                            sellerId: item.sellerId,
+                            quantity: item.quantity,
+                            pricePerUnit: item.pricePerUnit,
+                            subtotal: item.pricePerUnit * item.quantity,
+                            status: 'PENDING',
+                        })),
+                    },
+                },
+                include: { items: true },
+            });
+
+            // Handle stock reservations
+            for (const item of dto.items) {
+                const isFinalized = paymentStatus === 'PAID' || initialStatus === 'CONFIRMED';
+                
+                await tx.stockReservation.create({
+                    data: {
+                        variantId: item.variantId,
+                        orderId: order.id,
+                        userId: targetUser.id,
+                        quantity: item.quantity,
+                        expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000),
+                        status: isFinalized ? 'COMPLETED' : 'PENDING'
+                    }
+                });
+
+                if (isFinalized) {
+                    await tx.productVariant.update({
+                        where: { id: item.variantId },
+                        data: {
+                            stockQuantity: { decrement: item.quantity },
+                            availableQuantity: { decrement: item.quantity }
+                        }
+                    });
+                } else {
+                    await tx.productVariant.update({
+                        where: { id: item.variantId },
+                        data: {
+                            reservedQuantity: { increment: item.quantity },
+                            availableQuantity: { decrement: item.quantity }
+                        }
+                    });
+                }
+
+                await tx.inventoryLog.create({
+                    data: {
+                        variantId: item.variantId,
+                        changeAmount: -item.quantity,
+                        reason: isFinalized ? 'MANUAL_ORDER_PAID_OR_CONFIRMED_COMMIT' : 'MANUAL_ORDER_RESERVED',
+                        referenceId: order.id,
+                    },
+                });
+            }
+
+            // Log status
+            await tx.orderStatusLog.create({
+                data: {
+                    orderId: order.id,
+                    status: initialStatus,
+                    changedByRole: 'ADMIN',
+                    changedByName: 'Admin (Manual Entry)',
+                },
+            });
+
+            return order;
+        });
+    }
 
     async create(userId: string, dto: CreateOrderDto) {
         // Idempotency: prevent duplicate order submissions
@@ -119,7 +252,7 @@ export class OrderService {
             this.logger.warn(`Order create: forcing online payment because one or more products are COD-disabled.`);
         }
 
-        const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null);
+        const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null, subtotal);
         const taxAmount = subtotal * 0.05; // 5% GST
         const payableAmount = subtotal - discountAmount + shippingFee + taxAmount;
 
@@ -590,6 +723,65 @@ export class OrderService {
                     orderBy: { createdAt: 'asc' },
                 },
             },
+        });
+    }
+
+    async updatePaymentStatus(orderId: string, paymentStatus: string) {
+        const allowed = ['PENDING', 'PAID', 'REFUNDED'];
+        const nextPaymentStatus = paymentStatus?.toUpperCase();
+        if (!nextPaymentStatus || !allowed.includes(nextPaymentStatus)) {
+            throw new BadRequestException(`Invalid payment status. Use one of: ${allowed.join(', ')}`);
+        }
+
+        const order = await this.prisma.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+        });
+
+        if (!order) throw new NotFoundException('Order not found');
+
+        return this.prisma.$transaction(async (tx) => {
+            const updated = await tx.order.update({
+                where: { id: orderId },
+                data: { 
+                    paymentStatus: nextPaymentStatus,
+                    // Auto-confirm if paid
+                    status: nextPaymentStatus === 'PAID' ? 'CONFIRMED' : order.status
+                },
+            });
+
+            // Handle stock commitment if changed to PAID
+            if (nextPaymentStatus === 'PAID' && order.paymentStatus !== 'PAID') {
+                const reservations = await tx.stockReservation.findMany({
+                    where: { orderId: orderId, status: 'PENDING' }
+                });
+
+                for (const res of reservations) {
+                    await tx.stockReservation.update({
+                        where: { id: res.id },
+                        data: { status: 'COMPLETED' }
+                    });
+
+                    await tx.productVariant.update({
+                        where: { id: res.variantId },
+                        data: {
+                            stockQuantity: { decrement: res.quantity },
+                            reservedQuantity: { decrement: res.quantity }
+                        }
+                    });
+
+                    await tx.inventoryLog.create({
+                        data: {
+                            variantId: res.variantId,
+                            changeAmount: -res.quantity,
+                            reason: 'MANUAL_PAYMENT_PAID_COMMIT',
+                            referenceId: orderId
+                        }
+                    });
+                }
+            }
+
+            return updated;
         });
     }
 

@@ -191,7 +191,7 @@ export interface Product {
 }
 
 export function mapApiProductToProduct(p: ApiProduct): Product {
-  const price = typeof p.basePrice === 'string' ? parseFloat(p.basePrice) : p.basePrice;
+  const price = typeof p.basePrice === 'object' ? Number(p.basePrice) : (typeof p.basePrice === 'string' ? parseFloat(p.basePrice) : p.basePrice);
   const primaryImage = p.images?.find((i) => i.isPrimary) || p.images?.[0];
   const imageUrl = primaryImage?.imageUrl || '';
   const firstVariant = p.variants?.[0];
@@ -216,7 +216,7 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     seasonalStart: p.seasonalStart ?? undefined,
     seasonalEnd: p.seasonalEnd ?? undefined,
     bulkDiscountQty: p.bulkDiscountQty ?? undefined,
-    bulkDiscountPrice: p.bulkDiscountPrice != null ? (typeof p.bulkDiscountPrice === 'string' ? parseFloat(p.bulkDiscountPrice) : p.bulkDiscountPrice) : undefined,
+    bulkDiscountPrice: p.bulkDiscountPrice != null ? (typeof p.bulkDiscountPrice === 'object' ? Number(p.bulkDiscountPrice) : (typeof p.bulkDiscountPrice === 'string' ? parseFloat(p.bulkDiscountPrice) : p.bulkDiscountPrice)) : undefined,
     allowCashOnDelivery: p.allowCashOnDelivery ?? true,
     harvestDate: p.harvestDate ?? undefined,
     expiryDate: p.expiryDate ?? undefined,
@@ -224,7 +224,7 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     variants: p.variants?.map((v) => ({
       id: v.id,
       name: v.attributeValue || v.sku,
-      price: v.priceOverride != null ? (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : v.priceOverride) : price,
+      price: v.priceOverride != null ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : v.priceOverride)) : price,
       stock: v.stockQuantity ?? 0,
       availableStock: v.availableQuantity ?? v.stockQuantity,
       reservedStock: v.reservedQuantity ?? 0,
@@ -248,6 +248,7 @@ export interface ProductFilters {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   showOutOfSeason?: boolean;
+  includeInactive?: boolean;
 }
 
 function productFiltersCacheKey(filters: ProductFilters): string {
@@ -261,6 +262,7 @@ function productFiltersCacheKey(filters: ProductFilters): string {
     sb: filters.sortBy ?? '',
     so: filters.sortOrder ?? '',
     oos: filters.showOutOfSeason === true,
+    ii: filters.includeInactive === true,
   });
 }
 
@@ -309,6 +311,7 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   if (filters.sortBy) params.set('sortBy', filters.sortBy);
   if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
   if (filters.showOutOfSeason !== undefined) params.set('showOutOfSeason', String(filters.showOutOfSeason));
+  if (filters.includeInactive !== undefined) params.set('includeInactive', String(filters.includeInactive));
   const qs = params.toString();
   const res = await fetch(`${getEffectiveApiBase()}/products${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -440,6 +443,57 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Update order payment status (admin only). Persists to database. */
+export async function updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<unknown> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-status`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ paymentStatus }),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Admin: Place a manual order ( Direct Entry ). automatically creates user if email is new. */
+export async function createManualOrder(body: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  items: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }>;
+  shippingAddress: Record<string, unknown>;
+  status?: string;
+  paymentStatus?: string;
+}): Promise<any> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/manual`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || res.statusText);
+  }
+  return res.json();
+}
+
+/** Admin: Generate a sharable Razorpay payment link for an order. */
+export async function generateOrderPaymentLink(
+  orderId: string,
+  amountInPaise: number,
+  customerDetails?: { name: string; email?: string; contact?: string }
+): Promise<{ paymentLink: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-link`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ amountInPaise, customerDetails }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || res.statusText);
+  }
   return res.json();
 }
 
@@ -733,6 +787,7 @@ export async function getStoreSettings(): Promise<{
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
+  freeDeliveryThreshold?: number;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -747,6 +802,7 @@ export async function updateStoreSettings(body: {
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
+  freeDeliveryThreshold?: number;
 }): Promise<{
   theme: Record<string, unknown> | null;
   preferences: Record<string, unknown> | null;
@@ -754,6 +810,7 @@ export async function updateStoreSettings(body: {
   deliveryFeeRules?: Array<{ upToKm: number; fee: number }>;
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
+  freeDeliveryThreshold?: number;
   message?: string;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {

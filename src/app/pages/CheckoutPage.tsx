@@ -313,6 +313,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }, {});
   }, [items]);
 
+  const subtotalOnly = useMemo(() => {
+    return items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  }, [items]);
+
   const shippingFeeForDistance = useMemo(() => {
     const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
     const rules = preferences.deliveryFeeRules || [];
@@ -324,13 +328,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       fallbackDeliveryCharge,
       mode,
       perKmRate,
+      subtotalOnly,
+      Number(preferences.freeDeliveryThreshold) || 0,
     );
   }, [
     deliveryDistance,
+    subtotalOnly,
     preferences.deliveryCharge,
     preferences.deliveryFeeRules,
     preferences.deliveryFeeMode,
     preferences.deliveryPerKmRate,
+    preferences.freeDeliveryThreshold,
   ]);
 
   const vendorSummaries = useMemo(() => {
@@ -354,7 +362,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     });
   }, [groupedItems, products, taxRates, shippingFeeForDistance]);
 
-  const subtotalOnly = vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0);
+  const totalTax = useMemo(() => {
+    return vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0);
+  }, [vendorSummaries]);
+
+  const totalShipping = useMemo(() => {
+    return vendorSummaries.reduce((sum: number, s: any) => sum + s.shipping, 0);
+  }, [vendorSummaries]);
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
     if (appliedCoupon.minOrderValue != null && subtotalOnly < appliedCoupon.minOrderValue) return 0;
@@ -1093,8 +1107,30 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     </div>
                     <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
                       <span>Tax</span>
-                      <span className="text-slate-900">₹{vendorSummaries.reduce((sum, s) => sum + s.tax, 0).toFixed(2)}</span>
+                      <span className="text-slate-900">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
                     </div>
+
+                    {(() => {
+                        const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+                        if (threshold > 0 && subtotalOnly > 0 && subtotalOnly < threshold) {
+                            return (
+                                <motion.div
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="bg-emerald-50 border border-emerald-100/50 p-4 rounded-2xl flex items-center justify-between gap-4"
+                                >
+                                    <div>
+                                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">Free Delivery Unlock</p>
+                                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tight">Add ₹{(threshold - subtotalOnly).toFixed(2)} more to pay ₹0 delivery</p>
+                                    </div>
+                                    <div className="h-8 w-8 bg-emerald-500 rounded-lg flex items-center justify-center text-white">
+                                        <Truck className="w-4 h-4" />
+                                    </div>
+                                </motion.div>
+                            );
+                        }
+                        return null;
+                    })()}
 
                     {/* Promo code */}
                     <div className="pt-4 space-y-2">

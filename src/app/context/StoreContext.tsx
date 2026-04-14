@@ -239,6 +239,8 @@ export interface StorePreferences {
     deliveryFeeMode?: 'SLAB' | 'PER_KM';
     /** Per-km shipping rate used when deliveryFeeMode = PER_KM. */
     deliveryPerKmRate?: number;
+    /** Free delivery for orders >= this amount. */
+    freeDeliveryThreshold?: number;
     /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
     subscriptionPage?: SubscriptionPageConfig;
 }
@@ -562,6 +564,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 }
                 if (typeof (data as any).deliveryPerKmRate === 'number' && (data as any).deliveryPerKmRate >= 0) {
                     setPreferences((prev) => ({ ...prev, deliveryPerKmRate: (data as any).deliveryPerKmRate }));
+                }
+                if (typeof (data as any).freeDeliveryThreshold === 'number' && (data as any).freeDeliveryThreshold >= 0) {
+                    setPreferences((prev) => ({ ...prev, freeDeliveryThreshold: (data as any).freeDeliveryThreshold }));
                 }
             })
             .catch(() => {});

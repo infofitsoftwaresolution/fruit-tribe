@@ -8,7 +8,12 @@ export function computeDeliveryFeeByDistanceKm(
     flatFallback: number,
     mode?: 'SLAB' | 'PER_KM',
     perKmRate?: number,
+    orderValue?: number,
+    freeThreshold?: number,
 ): number {
+    if (freeThreshold != null && freeThreshold > 0 && orderValue != null && orderValue >= freeThreshold) {
+        return 0;
+    }
     const d = Number(distanceKm);
     if (!Number.isFinite(d) || d < 0) return flatFallback;
     const normalizedMode = String(mode || 'SLAB').toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB';

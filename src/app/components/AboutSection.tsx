@@ -65,7 +65,7 @@ export function AboutSection() {
     {
       icon: Users,
       title: theme.aboutFeature6Title || 'Trusted by many',
-      description: theme.aboutFeature6Desc || 'Join thousands of happy customers who choose us for fresh fruit.',
+      description: theme.aboutFeature6Desc || 'Join our growing tribe of happy customers who choose us for fresh fruit.',
       fieldTitle: 'aboutFeature6Title',
       fieldDesc: 'aboutFeature6Desc',
       color: 'pink'
@@ -190,7 +190,7 @@ export function AboutSection() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full max-w-5xl">
             {[
               { value: '100+', label: 'Product varieties', sub: 'In catalog' },
-              { value: '50K+', label: 'Happy customers', sub: 'And growing' },
+              { value: '300+', label: 'Happy customers', sub: 'And growing' },
               { value: '99%', label: 'Customer satisfaction', sub: 'Rated' },
               { value: '24/7', label: 'Support', sub: 'Always here' },
             ].map((stat, index) => (
