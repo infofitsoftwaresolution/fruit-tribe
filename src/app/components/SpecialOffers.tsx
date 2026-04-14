@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+
 import { Tag, Clock, TrendingUp, Gift, Zap, ShieldCheck, ArrowRight, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -7,6 +9,7 @@ import { ProductCard } from '@/app/components/ProductCard';
 import { cn } from '@/lib/utils';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { productHasBulkPricing } from '@/lib/pricing';
+import { getAvailableOffers, type AvailableOffer } from '@/lib/api';
 
 export function SpecialOffers() {
   const { theme, isEditing, updateTheme, products: storeProducts, handleAddToCart, preferences } = useStore();
@@ -25,38 +28,41 @@ export function SpecialOffers() {
     updateTheme({ [field]: newText });
   };
 
-  const offers = [
-    {
-      icon: TrendingUp,
-      title: theme.specialOffer1Title || '25% off',
-      subtitle: theme.specialOffer1Subtitle || 'Exotic fruits',
-      description: theme.specialOffer1Description || 'Great deals on dragon fruit, kiwi, and other tropical favorites.',
-      color: 'emerald',
-      titleField: 'specialOffer1Title',
-      subtitleField: 'specialOffer1Subtitle',
-      descriptionField: 'specialOffer1Description',
-    },
-    {
-      icon: Clock,
-      title: theme.specialOffer2Title || 'Limited time',
-      subtitle: theme.specialOffer2Subtitle || 'Berry bundle',
-      description: theme.specialOffer2Description || 'Strawberries, blueberries and grapes at a special price.',
-      color: 'amber',
-      titleField: 'specialOffer2Title',
-      subtitleField: 'specialOffer2Subtitle',
-      descriptionField: 'specialOffer2Description',
-    },
-    {
-      icon: Gift,
-      title: theme.specialOffer3Title || 'Buy 2 get 1',
-      subtitle: theme.specialOffer3Subtitle || 'Seasonal offer',
-      description: theme.specialOffer3Description || 'Buy two items and get one complimentary fruit of the season.',
-      color: 'blue',
-      titleField: 'specialOffer3Title',
-      subtitleField: 'specialOffer3Subtitle',
-      descriptionField: 'specialOffer3Description',
-    },
-  ] as const;
+  const [activeOffers, setActiveOffers] = useState<AvailableOffer[] | null>(null);
+
+  useEffect(() => {
+    getAvailableOffers().then(setActiveOffers).catch(() => setActiveOffers([]));
+  }, []);
+
+  const offers = activeOffers === null ? [] : activeOffers.map((offer, i) => {
+    const isPercentage = offer.discountType === 'PERCENTAGE';
+    const title = isPercentage ? `${offer.discountValue}% OFF` : `₹${offer.discountValue} OFF`;
+    const subtitle = `Use Code: ${offer.code}`;
+    let description = `Enjoy ${title} on your order.`;
+    if (offer.scopeType === 'CATEGORY' && offer.categoryNames.length > 0) {
+      description = `Valid on ${offer.categoryNames.join(', ')}.`;
+    } else if (offer.scopeType === 'ALL') {
+      description = `Available across our entire fruit catalog.`;
+    }
+
+    if (offer.minOrderValue) {
+      description += ` Min order: ₹${offer.minOrderValue}.`;
+    }
+
+    const colors = ['emerald', 'amber', 'blue', 'orange', 'purple', 'rose'];
+    const icons = [TrendingUp, Clock, Gift, Zap, Tag];
+    
+    return {
+      icon: icons[i % icons.length],
+      title,
+      subtitle,
+      description,
+      color: colors[i % colors.length],
+      titleField: '',
+      subtitleField: '',
+      descriptionField: '',
+    };
+  });
 
   return (
     <section className="relative py-32 bg-white overflow-hidden">
@@ -109,64 +115,60 @@ export function SpecialOffers() {
 
         {/* Tactical Rewards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {offers.map((offer, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              whileHover={{ y: -10 }}
-              onClick={() => navigate('/products')}
-              className="group relative bg-slate-900 rounded-[3rem] p-12 overflow-hidden cursor-pointer shadow-2xl transition-all duration-500"
-            >
-              <div className={cn(
-                "absolute -top-10 -right-10 h-40 w-40 blur-[80px] opacity-20 group-hover:opacity-40 transition-all duration-700",
-                `bg-${offer.color}-500`
-              )} />
-
-              <div className="relative z-10 space-y-10">
+          {activeOffers === null ? (
+            <div className="col-span-full py-20 text-center">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
+            </div>
+          ) : offers.length > 0 ? (
+            offers.map((offer, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -10 }}
+                onClick={() => navigate('/products')}
+                className="group relative bg-slate-900 rounded-[3rem] p-12 overflow-hidden cursor-pointer shadow-2xl transition-all duration-500"
+              >
                 <div className={cn(
-                  "h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl transition-all group-hover:rotate-12 group-hover:scale-110",
-                  `bg-${offer.color}-500 text-white`
-                )}>
-                  <offer.icon className="h-8 w-8" />
-                </div>
+                  "absolute -top-10 -right-10 h-40 w-40 blur-[80px] opacity-20 group-hover:opacity-40 transition-all duration-700",
+                  `bg-${offer.color}-500`
+                )} />
 
-                <div className="space-y-4">
-                  <h3
-                    className={cn("text-4xl font-black tracking-tighter uppercase leading-none", `text-${offer.color}-400`)}
-                    contentEditable={isEditing}
-                    suppressContentEditableWarning
-                    onBlur={handleTextChange(offer.titleField)}
-                  >
-                    {offer.title}
-                  </h3>
-                  <h4
-                    className="text-xl font-black text-white uppercase tracking-tight"
-                    contentEditable={isEditing}
-                    suppressContentEditableWarning
-                    onBlur={handleTextChange(offer.subtitleField)}
-                  >
-                    {offer.subtitle}
-                  </h4>
-                  <p
-                    className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed italic"
-                    contentEditable={isEditing}
-                    suppressContentEditableWarning
-                    onBlur={handleTextChange(offer.descriptionField)}
-                  >
-                    {offer.description}
-                  </p>
-                </div>
+                <div className="relative z-10 space-y-10">
+                  <div className={cn(
+                    "h-16 w-16 rounded-2xl flex items-center justify-center shadow-xl transition-all group-hover:rotate-12 group-hover:scale-110",
+                    `bg-${offer.color}-500 text-white`
+                  )}>
+                    <offer.icon className="h-8 w-8" />
+                  </div>
 
-                <div className="pt-8 border-t border-white/5 flex items-center justify-between group-hover:text-white transition-colors">
-                  <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest group-hover:text-slate-300">View offer</span>
-                  <ArrowRight className="h-4 w-4 text-slate-600 group-hover:translate-x-2 transition-transform" />
+                  <div className="space-y-4">
+                    <h3 className={cn("text-4xl font-black tracking-tighter uppercase leading-none", `text-${offer.color}-400`)}>
+                      {offer.title}
+                    </h3>
+                    <h4 className="text-xl font-black text-white uppercase tracking-tight">
+                      {offer.subtitle}
+                    </h4>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed italic">
+                      {offer.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-8 border-t border-white/5 flex items-center justify-between group-hover:text-white transition-colors">
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest group-hover:text-slate-300">Shop eligible items</span>
+                    <ArrowRight className="h-4 w-4 text-slate-600 group-hover:translate-x-2 transition-transform" />
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-slate-50">
+              <Tag className="h-10 w-10 text-slate-300 mx-auto mb-4" />
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No active promo codes right now</p>
+            </div>
+          )}
         </div>
 
         {/* Global Node Subscription HUD — hidden when admin disables subscription storefront */}

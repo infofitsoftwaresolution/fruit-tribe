@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, Trash2 } from 'lucide-react';
+import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, Trash2, ChevronRight, Info, FileText } from 'lucide-react';
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
+import { SwipeToPay } from '@/app/components/SwipeToPay';
 import {
   createOrder,
   createRazorpayOrder,
@@ -75,6 +76,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
+  const submitRef = useRef<HTMLButtonElement>(null);
   const [availableOffers, setAvailableOffers] = useState<AvailableOffer[]>([]);
   const [deliverySlot, setDeliverySlot] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -670,14 +672,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     setFormData({ ...formData, [name]: value });
   };
 
-  // Redirect to cart when empty (avoid setState during render)
+  // Redirect to cart when empty unless an order was just placed successfully
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !orderPlacedOptimistically) {
       navigate('/cart');
     }
-  }, [items.length, navigate]);
+  }, [items.length, navigate, orderPlacedOptimistically]);
 
-  if (items.length === 0) {
+  if (items.length === 0 && !orderPlacedOptimistically) {
     return null;
   }
 
@@ -1087,27 +1089,39 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     ))}
                   </div>
 
-                  <div className="space-y-4 pt-8 border-t-2 border-dotted border-slate-100">
-                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Base Subtotal</span>
-                      <span className="text-slate-900">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
-                    </div>
-                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Shipping ({deliveryDistance} km)</span>
-                      <span className="text-emerald-500">
-                        {shippingFeeForDistance === 0 ? 'Free' : `₹${shippingFeeForDistance}`}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                      <span>Tax</span>
-                      <span className="text-slate-900">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
-                    </div>
-                    {platformFee > 0 && (
-                      <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                        <span>Platform Fee</span>
-                        <span className="text-slate-900">₹{platformFee}</span>
+                  <div className="space-y-4 pt-6 border-t-2 border-dotted border-slate-100">
+                    <details className="group marker:content-['']">
+                      <summary className="flex items-center justify-between cursor-pointer list-none bg-slate-50 p-4 rounded-2xl border border-slate-100/60 hover:bg-slate-100 transition-colors">
+                         <div className="flex items-center gap-3">
+                           <FileText className="w-4 h-4 text-slate-400" />
+                           <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">View bill details</span>
+                         </div>
+                         <ChevronRight className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-90" />
+                      </summary>
+                      <div className="pt-6 px-2 space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
+                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <span>Base Subtotal</span>
+                          <span className="text-slate-900">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <span>Shipping ({deliveryDistance} km)</span>
+                          <span className="text-emerald-500">
+                            {shippingFeeForDistance === 0 ? 'Free' : `₹${shippingFeeForDistance}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <span>Tax</span>
+                          <span className="text-slate-900">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
+                        </div>
+                        {platformFee > 0 && (
+                          <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <span>Platform Fee</span>
+                            <span className="text-slate-900">₹{platformFee}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </details>
+
 
                     {(() => {
                         const threshold = Number(preferences.freeDeliveryThreshold) || 0;
@@ -1320,21 +1334,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     </div>
                   </div>
 
-                  <motion.button
-                    type="submit"
-                    disabled={submitting}
-                    transition={motionTapTransition}
-                    whileHover={{ scale: submitting ? 1 : 1.02 }}
-                    whileTap={{ scale: submitting ? 1 : 0.97 }}
-                    className={cn(
-                      'touch-manipulation w-full py-5 sm:py-6 mt-8 sm:mt-10 bg-slate-900 text-white font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] shadow-3xl hover:bg-black transition-[transform,opacity,background-color,box-shadow] duration-100 ease-out flex items-center justify-center gap-2 min-h-[48px]',
-                      submitting && 'opacity-70 cursor-wait',
-                      getRoundedClass(theme.buttonStyle),
-                    )}
-                  >
-                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-                    {submitting ? 'Placing order…' : 'Place order'}
-                  </motion.button>
+                  <button type="submit" ref={submitRef} className="hidden" aria-hidden="true" />
+                  
+                  <div className="mt-8 sm:mt-10">
+                      <SwipeToPay 
+                        onSuccess={() => submitRef.current?.click()} 
+                        submitting={submitting} 
+                        themeStyle={theme.buttonStyle} 
+                      />
+                  </div>
                 </motion.div>
 
                 <div className="p-6 bg-orange-50 rounded-[2rem] border border-orange-100 flex items-center gap-4">

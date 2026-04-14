@@ -273,7 +273,7 @@ export function Footer() {
             rel="noopener noreferrer"
             className="text-[10px] font-semibold text-slate-500 hover:text-emerald-400 transition-colors"
           >
-            Made with Infofit Software Solution
+            Made by Infofit Software Solution
           </a>
         </div>
       </div>

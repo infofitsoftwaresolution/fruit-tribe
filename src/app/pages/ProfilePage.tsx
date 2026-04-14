@@ -887,66 +887,73 @@ export function ProfilePage() {
 
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
                 {((trackingOrder.statusTimeline || []) as any[]).length > 0 ? (
-                  <div className="space-y-4">
-                    {/* Progress line */}
-                    <div className="relative flex items-center justify-between">
-                      {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number, arr: any[]) => {
-                        const currentIndex = arr.length - 1;
-                        const isCompleted = idx <= currentIndex && step.rawStatus !== 'CANCELLED';
-                        const isCurrent = idx === currentIndex;
-                        return (
-                          <div key={`${step.rawStatus}-${idx}`} className="flex-1 flex items-center">
-                            <div className="relative flex flex-col items-center">
-                              <div
-                                className={cn(
-                                  "h-5 w-5 rounded-full border-2 flex items-center justify-center text-[10px] font-black z-10",
-                                  isCompleted
-                                    ? "bg-emerald-500 border-emerald-500 text-white"
-                                    : "bg-white border-slate-300 text-slate-400"
-                                )}
-                              >
-                                {isCompleted ? <CheckCircle className="w-3 h-3" /> : idx + 1}
-                              </div>
-                              {isCurrent && (
-                                <span className="mt-2 h-1 w-6 rounded-full bg-emerald-400 animate-pulse" />
-                              )}
-                            </div>
-                            {idx < arr.length - 1 && (
-                              <div
-                                className={cn(
-                                  "h-1 flex-1 mx-1 rounded-full",
-                                  idx < currentIndex && step.rawStatus !== 'CANCELLED'
-                                    ? "bg-emerald-500"
-                                    : "bg-slate-200"
-                                )}
-                              />
+                  <div className="space-y-0 relative ml-2 md:ml-4 py-4">
+                    {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number, arr: any[]) => {
+                      const currentIndex = arr.length - 1;
+                      const isCompleted = idx < currentIndex && step.rawStatus !== 'CANCELLED';
+                      const isCurrent = idx === currentIndex && step.rawStatus !== 'CANCELLED';
+                      const isCancelled = step.rawStatus === 'CANCELLED';
+                      
+                      return (
+                        <div key={`${step.rawStatus}-${idx}`} className="relative pl-10 sm:pl-16 pb-10 last:pb-0">
+                          {/* Animated connecting line */}
+                          {idx !== arr.length - 1 && (
+                            <div className={cn(
+                               "absolute left-[13px] sm:left-[15px] top-8 bottom-[-8px] w-1 rounded-full",
+                               isCompleted ? "bg-emerald-500" : "bg-slate-100"
+                            )} />
+                          )}
+                          
+                          {/* Timeline Node */}
+                          <div className={cn(
+                            "absolute left-0 sm:left-0 top-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full border-[3px] shadow-sm flex items-center justify-center z-10",
+                            isCancelled ? "bg-red-50 text-red-500 border-red-100" :
+                            isCompleted ? "bg-emerald-500 text-white border-emerald-500" :
+                            isCurrent ? "bg-white border-emerald-500 text-emerald-500 scale-110 shadow-emerald-500/30" : "bg-slate-50 border-slate-200 text-slate-300"
+                          )}>
+                            {isCancelled ? (
+                               <X className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
+                            ) : isCompleted ? (
+                               <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
+                            ) : (
+                               <div className={cn("w-2 h-2 rounded-full", isCurrent ? "bg-emerald-500 animate-ping" : "bg-slate-300")} />
                             )}
                           </div>
-                        );
-                      })}
-                    </div>
-                    {/* Labels and who updated */}
-                    <div className="grid md:grid-cols-((trackingOrder.statusTimeline || []).length || 1) gap-4">
-                      {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number) => (
-                        <div key={`label-${step.rawStatus}-${idx}`} className="text-xs">
-                          <p className="font-black text-slate-900 uppercase tracking-tight">{step.label}</p>
-                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                            {step.at ? step.at.toLocaleString() : step.label}
-                          </p>
-                          {step.byRole && (
-                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                              Updated by{" "}
-                              {step.byName ||
-                                (step.byRole === 'ADMIN'
-                                  ? 'Admin'
-                                  : step.byRole === 'SELLER'
-                                  ? 'Seller'
-                                  : 'System')}
+                          
+                          {/* Content */}
+                          <div className={cn(
+                             "pt-0.5 transition-all duration-300",
+                             isCurrent ? "scale-100 opacity-100" : "scale-[0.98] opacity-70"
+                          )}>
+                            <h4 className={cn(
+                               "text-sm sm:text-base font-black uppercase tracking-tight",
+                               isCancelled ? "text-red-500" : isCompleted ? "text-slate-900" : isCurrent ? "text-emerald-600" : "text-slate-400"
+                            )}>
+                               {step.label}
+                            </h4>
+                            <p className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+                               {step.at ? new Date(step.at).toLocaleString() : 'Waiting for update...'}
                             </p>
-                          )}
+                            
+                            {/* Insight message on active state */}
+                            {isCurrent && (
+                               <div className="mt-3 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 inline-block shadow-sm">
+                                 <div className="flex items-center gap-2 mb-1">
+                                     <Activity className="w-4 h-4 text-emerald-500" />
+                                     <span className="text-[10px] text-emerald-700 font-black uppercase tracking-widest">Update</span>
+                                 </div>
+                                 <p className="text-xs text-slate-600 font-medium italic pr-4">Your order is officially {step.label.toLowerCase()}. Preparing next logistics.</p>
+                                 {step.byName && (
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-2 border-t border-slate-100 pt-2">
+                                        Handled by {step.byName}
+                                    </p>
+                                 )}
+                               </div>
+                            )}
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="p-6 rounded-3xl border-2 bg-slate-50 border-slate-100 text-slate-500 text-sm font-medium">

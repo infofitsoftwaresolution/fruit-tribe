@@ -142,42 +142,49 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
           )}
           {cartQty > 0 && !isOutOfStock ? (
             <div className="absolute bottom-2 right-2 h-9 px-1.5 rounded-xl bg-white border border-slate-200 shadow-lg flex items-center gap-1">
-              <button
+              <motion.button
+                whileTap={{ scale: 0.85 }}
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
                   if (cartQty <= 1) {
                     handleUpdateQuantity(id, -1);
                     return;
                   }
                   handleUpdateQuantity(id, -1);
                 }}
-                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center"
+                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center bg-slate-50 font-black"
               >
                 -
-              </button>
+              </motion.button>
               <span className="min-w-[1.25rem] text-center text-[11px] font-black text-slate-900">{cartQty}</span>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.85 }}
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
+                  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(50);
                   if (cartQty >= avail) {
                     toast.error(`Only ${avail} units available`);
                     return;
                   }
                   handleUpdateQuantity(id, 1);
                 }}
-                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center"
+                className="h-7 w-7 rounded-lg border border-emerald-500 bg-emerald-500 text-white flex items-center justify-center font-black"
               >
                 +
-              </button>
+              </motion.button>
             </div>
           ) : (
-            <button
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              whileHover={{ scale: 1.05 }}
               type="button"
               onClick={(e) => {
                 e.preventDefault();
                 if (isOutOfStock) return;
+                if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([30, 50, 30]);
                 const payload = product ?? id;
                 const safeQty = hasBulk ? effectiveQty : Math.max(1, quantity);
                 if (safeQty > avail) {
@@ -188,14 +195,14 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
               }}
               disabled={isOutOfStock}
               className={cn(
-                "absolute bottom-2 right-2 min-h-[36px] px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 shadow-lg",
+                "absolute bottom-2 right-2 min-h-[36px] px-4 rounded-xl text-[10px] font-black uppercase tracking-wider border-2 shadow-lg transition-colors",
                 isOutOfStock
                   ? "bg-slate-100 text-slate-400 border-slate-200"
-                  : "bg-white text-pink-600 border-pink-300"
+                  : "bg-emerald-50 text-emerald-600 border-emerald-200"
               )}
             >
               {isOutOfStock ? 'Sold out' : 'Add'}
-            </button>
+            </motion.button>
           )}
         </Link>
 
@@ -528,11 +535,12 @@ export const ProductCard = memo(({ id, name, price, stock, image, description, b
 
           <motion.button
             whileHover={{ scale: isOutOfStock ? 1 : 1.05, x: 5 }}
-            whileTap={{ scale: isOutOfStock ? 1 : 0.95 }}
+            whileTap={{ scale: isOutOfStock ? 1 : 0.90 }}
             disabled={isOutOfStock}
             onClick={(e) => {
               e.preventDefault();
               if (isOutOfStock) return;
+              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([30, 50, 30]);
               const payload = product ?? id;
               const finalQty = hasBulk ? effectiveQty : Math.max(1, quantity);
               const maxAllowed = product?.availableStock ?? stock;

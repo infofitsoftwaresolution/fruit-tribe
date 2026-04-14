@@ -344,7 +344,8 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
 
           {/* Filter Rail & View Toggle */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-            <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar py-2 -mx-3 sm:-mx-6 px-3 sm:px-6 md:p-0">
+            {/* Sticky Horizontal Categories */}
+            <div className="sticky top-[88px] sm:top-24 z-40 bg-white/90 backdrop-blur-xl py-4 -mx-3 sm:-mx-6 px-3 sm:px-6 shadow-[0_10px_30px_rgba(0,0,0,0.02)] flex items-center gap-2 sm:gap-3 overflow-x-auto no-scrollbar border-y border-slate-100/50">
               <div className="h-10 w-10 flex items-center justify-center bg-slate-900 rounded-xl text-white mr-2 shrink-0">
                 <Filter className="h-4 w-4" />
               </div>
@@ -353,7 +354,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                   key={cat.id || 'all'}
                   onClick={() => setSelectedCategoryId(cat.id)}
                   className={cn(
-                    "min-h-[44px] px-5 sm:px-8 py-3 rounded-2xl text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-[0.2em] transition-all whitespace-nowrap border-2",
+                    "min-h-[44px] px-5 sm:px-8 py-3 rounded-2xl text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-[0.2em] transition-all whitespace-nowrap border-2 shrink-0",
                     selectedCategoryId === cat.id
                       ? "bg-emerald-500 text-white border-emerald-500 shadow-xl shadow-emerald-500/20"
                       : "bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:text-slate-600 shadow-sm"
@@ -389,14 +390,40 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
         {/* Results Manifest Grid */}
         <AnimatePresence mode="wait">
           {loading && (
-            <div className="py-40 text-center text-slate-500 font-bold tracking-[0.08em] sm:tracking-widest">Loading products…</div>
+            <motion.div
+              layout
+              key="loading-skeleton"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={cn(
+                "grid gap-3 sm:gap-6 lg:gap-8 pt-8",
+                viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
+              )}
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-white rounded-[2rem] p-4 border border-slate-100/50 shadow-sm animate-pulse space-y-4">
+                  <div className="aspect-square bg-slate-100 rounded-3xl w-full" />
+                  <div className="space-y-3 px-2">
+                    <div className="h-3 bg-emerald-100 rounded w-1/4" />
+                    <div className="h-5 bg-slate-200 rounded w-3/4" />
+                    <div className="h-3 bg-slate-100 rounded w-full" />
+                  </div>
+                  <div className="pt-6 px-2 flex items-end justify-between">
+                    <div className="h-6 bg-slate-200 rounded-md w-1/3" />
+                    <div className="h-10 w-10 bg-slate-100 rounded-[1rem]" />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
           )}
           {error && (
-            <div className="py-40 text-center text-red-500 font-bold uppercase tracking-widest">{error}</div>
+            <motion.div key="error-msg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-40 text-center text-red-500 font-bold uppercase tracking-widest">{error}</motion.div>
           )}
           {!loading && !error && displayedProducts.length > 0 ? (
             <motion.div
               layout
+              key="products-grid"
               className={cn(
                 "grid gap-3 sm:gap-6 lg:gap-8",
                 viewMode === 'grid' ? "grid-cols-2 md:grid-cols-3" : "grid-cols-1"
@@ -431,8 +458,10 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
             </motion.div>
           ) : (
             <motion.div
+              key="empty-state"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="py-40 text-center space-y-8"
             >
               <div className="h-24 w-24 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-100 flex items-center justify-center mx-auto">
