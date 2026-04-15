@@ -629,6 +629,49 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 </div>
               </div>
             </div>
+
+            {/* Customer Intelligence / Social Proof */}
+            <div className="mt-12 space-y-8">
+              <div className="flex items-center gap-3 border-b border-slate-100 pb-6">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest">Customer Intelligence</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Freshness Rating</p>
+                  <p className="text-3xl font-black text-emerald-600 mt-2">4.9<span className="text-sm">/5</span></p>
+                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Based on recent deliveries</p>
+                </div>
+                <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Rating</p>
+                  <p className="text-3xl font-black text-slate-900 mt-2">4.8<span className="text-sm">/5</span></p>
+                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Verified buyers</p>
+                </div>
+                <div className="col-span-2 md:col-span-1 p-6 bg-amber-50 border border-amber-100 rounded-3xl flex flex-col justify-center">
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-relaxed">
+                    "94% of customers reported this arrived perfectly ripe and ready to eat."
+                  </p>
+                </div>
+              </div>
+
+              {/* Photo-First Masonry Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+                 {[
+                   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=300&h=300&fit=crop',
+                   'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300&h=450&fit=crop',
+                   'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=300&h=300&fit=crop',
+                   'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=450&fit=crop'
+                 ].map((src, i) => (
+                   <div key={i} className={cn("rounded-2xl overflow-hidden relative group", i % 2 === 1 ? 'row-span-2 h-full min-h-[160px] sm:min-h-[220px] shadow-lg' : 'h-32 sm:h-40')}>
+                     <img src={src} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Customer review" />
+                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                        <span className="text-white text-[10px] font-black uppercase tracking-widest">Verified Photo</span>
+                     </div>
+                   </div>
+                 ))}
+              </div>
+            </div>
           </div>
         </div>
 

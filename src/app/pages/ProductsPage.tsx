@@ -137,11 +137,23 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     }
 
     next.sort((a, b) => {
+      const stockA = a.availableStock ?? a.stock ?? 0;
+      const stockB = b.availableStock ?? b.stock ?? 0;
+      
       if (sortOption === 'price_low') return Number(a.price ?? 0) - Number(b.price ?? 0);
       if (sortOption === 'price_high') return Number(b.price ?? 0) - Number(a.price ?? 0);
       if (sortOption === 'name_az') return (a.name || '').localeCompare(b.name || '');
-      if (sortOption === 'stock_high') return Number(b.availableStock ?? b.stock ?? 0) - Number(a.availableStock ?? a.stock ?? 0);
-      // "newest" and "relevance" rely on backend ordering from useProducts
+      if (sortOption === 'stock_high') return stockB - stockA;
+      
+      // Default / relevance sorting: prioritize high stock & high freshness
+      if (sortOption === 'relevance' || sortOption === 'newest') {
+        if (stockA > 10 && stockB <= 10) return -1;
+        if (stockB > 10 && stockA <= 10) return 1;
+        
+        const freshA = (a as any).freshnessScore ?? 5;
+        const freshB = (b as any).freshnessScore ?? 5;
+        if (freshA !== freshB) return freshB - freshA;
+      }
       return 0;
     });
 
@@ -452,6 +464,11 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                     onAddToCart={onAddToCart}
                     product={product}
                     liveOfferHint={getOfferHintForProduct(product)}
+                    harvestDate={product.harvestDate}
+                    farmName={product.farmName}
+                    farmState={product.farmState}
+                    freshnessScore={product.freshnessScore}
+                    ripenessStage={product.ripenessStage}
                   />
                 </motion.div>
               ))}

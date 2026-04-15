@@ -125,6 +125,14 @@ model Product {
   createdAt           DateTime         @default(now()) @map("created_at")
   updatedAt           DateTime         @updatedAt @map("updated_at")
   allowCashOnDelivery Boolean          @default(true) @map("allow_cod")
+  /// 1–5 freshness score set by seller/admin (null = not rated)
+  freshnessScore      Int?             @map("freshness_score")
+  /// Ripeness stage: 'Unripe' | 'Ripening' | 'Ripe & Ready' | 'Peak Ripe' | 'Over-ripe'
+  ripenessStage       String?          @map("ripeness_stage")
+  /// Farm or supplier name, e.g. 'Fruit Tribe Farm'
+  farmName            String?          @map("farm_name")
+  /// State the farm is located in, e.g. 'Karnataka'
+  farmState           String?          @map("farm_state")
   cartItems           CartItem[]
   orderItems          OrderItem[]
   images              ProductImage[]

@@ -74,6 +74,10 @@ export function AdminProductsPage() {
         bulkDiscountQty: '',
         bulkDiscountPrice: '',
         allowCashOnDelivery: true,
+        freshnessScore: '' as string,
+        ripenessStage: '',
+        farmName: '',
+        farmState: '',
         variants: [] as { id?: string; name: string; price: string; stock: string; sku: string; lowStockThreshold?: string }[]
     });
 
@@ -252,6 +256,10 @@ export function AdminProductsPage() {
             bulkDiscountQty: product.bulkDiscountQty?.toString() || '',
             bulkDiscountPrice: product.bulkDiscountPrice?.toString() || '',
             allowCashOnDelivery: (product as any).allowCashOnDelivery !== false,
+            freshnessScore: product.freshnessScore != null ? String(product.freshnessScore) : '',
+            ripenessStage: product.ripenessStage || '',
+            farmName: product.farmName || '',
+            farmState: product.farmState || '',
             variants: product.variants?.map((v: any) => ({ 
                 id: v.id, 
                 name: v.name || v.attributeValue, 
@@ -364,6 +372,10 @@ export function AdminProductsPage() {
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
                     bulkDiscountPrice: formData.bulkDiscountPrice ? parseFloat(formData.bulkDiscountPrice) : undefined,
                     allowCashOnDelivery: formData.allowCashOnDelivery,
+                    freshnessScore: formData.freshnessScore ? parseInt(formData.freshnessScore) : undefined,
+                    ripenessStage: formData.ripenessStage || undefined,
+                    farmName: formData.farmName || undefined,
+                    farmState: formData.farmState || undefined,
                     isActive: editingProduct.status === 'Active',
                     images: imagesPayload,
                     variants: variantsPayload,
@@ -395,6 +407,10 @@ export function AdminProductsPage() {
                     bulkDiscountQty: formData.bulkDiscountQty ? parseInt(formData.bulkDiscountQty) : undefined,
                     bulkDiscountPrice: formData.bulkDiscountPrice ? parseFloat(formData.bulkDiscountPrice) : undefined,
                     allowCashOnDelivery: formData.allowCashOnDelivery,
+                    freshnessScore: formData.freshnessScore ? parseInt(formData.freshnessScore) : undefined,
+                    ripenessStage: formData.ripenessStage || undefined,
+                    farmName: formData.farmName || undefined,
+                    farmState: formData.farmState || undefined,
                     variants: variantsPayload.map(v => ({
                         sku: v.sku || `SKU-${Date.now()}`,
                         attributeValue: v.attributeValue,
@@ -445,7 +461,9 @@ export function AdminProductsPage() {
                                 sku: '', image: '', images: [''], description: '', unit: 'kg',
                                 nutritionalInfo: '', origin: '', flashSale: false, expiryDate: '',
                                 harvestDate: '', isOrganic: false, grade: 'A', isSeasonal: false,
-                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '', allowCashOnDelivery: true, 
+                                seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '',
+                                allowCashOnDelivery: true,
+                                freshnessScore: '', ripenessStage: '', farmName: '', farmState: '',
                                 variants: []
                             });
                             setIsModalOpen(true);
@@ -909,7 +927,84 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 4: Seasonal Dates */}
+                                    {/* Section 4: Freshness Intelligence */}
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                                            <Zap className="w-4 h-4" />
+                                            Freshness Intelligence
+                                        </h3>
+                                        <p className="text-[10px] text-slate-500 -mt-2">
+                                            These fields appear directly on the product card visible to customers. Fill them to build trust.
+                                        </p>
+                                        <div className="p-8 bg-emerald-50/30 border border-emerald-100 rounded-[2.5rem] space-y-6">
+                                            {/* Freshness Score */}
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Freshness Score (1 = stale · 5 = just harvested)
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                    {[1, 2, 3, 4, 5].map((score) => {
+                                                        const current = parseInt(formData.freshnessScore) || 0;
+                                                        return (
+                                                            <button
+                                                                key={score}
+                                                                type="button"
+                                                                onClick={() => setFormData({ ...formData, freshnessScore: String(score) })}
+                                                                className={cn(
+                                                                    "h-11 w-11 rounded-2xl border-2 text-sm font-black transition-all",
+                                                                    current === score
+                                                                        ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/25"
+                                                                        : "bg-white border-slate-200 text-slate-400 hover:border-emerald-300"
+                                                                )}
+                                                            >
+                                                                {score}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                    {formData.freshnessScore && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData({ ...formData, freshnessScore: '' })}
+                                                            className="text-[9px] font-black text-slate-300 hover:text-red-400 uppercase tracking-widest ml-2"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Ripeness Stage */}
+                                            <FormSelect
+                                                label="Ripeness Stage"
+                                                value={formData.ripenessStage}
+                                                onChange={(v: string) => setFormData({ ...formData, ripenessStage: v })}
+                                                options={[
+                                                    { label: 'Not set', value: '' },
+                                                    { label: 'Unripe', value: 'Unripe' },
+                                                    { label: 'Ripening', value: 'Ripening' },
+                                                    { label: 'Ripe & Ready', value: 'Ripe & Ready' },
+                                                    { label: 'Peak Ripe', value: 'Peak Ripe' },
+                                                    { label: 'Over-ripe', value: 'Over-ripe' },
+                                                ]}
+                                            />
+                                            {/* Farm Source */}
+                                            <div className="grid grid-cols-2 gap-6">
+                                                <FormInput
+                                                    label="Farm Name"
+                                                    value={formData.farmName}
+                                                    onChange={(v: string) => setFormData({ ...formData, farmName: v })}
+                                                    placeholder="e.g. Fruit Tribe Farm"
+                                                />
+                                                <FormInput
+                                                    label="Farm State"
+                                                    value={formData.farmState}
+                                                    onChange={(v: string) => setFormData({ ...formData, farmState: v })}
+                                                    placeholder="e.g. Karnataka"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Section 5: Seasonal Dates */}
                                     {formData.isSeasonal && (
                                         <div className="space-y-6">
                                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">

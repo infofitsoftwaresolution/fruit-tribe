@@ -57,7 +57,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[120]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[140]"
           />
 
           {/* Drawer / Sheet */}
@@ -71,8 +71,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className={cn(
-              "fixed bg-white shadow-2xl z-[130] flex flex-col focus:outline-none",
-              "bottom-0 left-0 right-0 h-[85vh] rounded-t-[2.5rem]", // Mobile default (Sheet)
+              "fixed bg-white shadow-2xl z-[150] flex flex-col focus:outline-none",
+              "bottom-0 left-0 right-0 h-[92dvh] rounded-t-[2.5rem]", // Mobile default (Sheet)
               "md:top-0 md:right-0 md:left-auto md:h-full md:w-full md:max-w-md md:rounded-l-[2rem] md:rounded-tr-none" // Desktop (Drawer)
             )}
           >
@@ -82,7 +82,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
+            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-gradient-to-r from-orange-600 to-amber-600 rounded-full flex items-center justify-center shadow-md">
                   <ShoppingBag className="w-5 h-5 text-white" />
@@ -103,7 +103,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
             </div>
 
             {/* Cart Items */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar min-h-0">
               {items.length === 0 ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -235,9 +235,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
             {/* Footer */}
             {items.length > 0 && (
-              <div className="border-t border-gray-200 p-4 sm:p-6 bg-gradient-to-r from-orange-50 to-amber-50">
+              <div className="border-t border-gray-200 p-3 sm:p-6 bg-gradient-to-r from-orange-50 to-amber-50 shrink-0 mt-auto">
                 {/* Summary */}
-                <div className="space-y-3 mb-6">
+                <div className="space-y-1.5 sm:space-y-3 mb-3 sm:mb-6">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
                     <span className="font-semibold text-gray-800">₹{subtotal.toFixed(2)}</span>
@@ -276,30 +276,29 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 </div>
 
                 {/* Action Buttons */}
-                <div className="space-y-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleViewCart}
-                    className={cn(
-                      "w-full min-h-[44px] py-3.5 sm:py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2",
-                      getRoundedClass(theme.buttonStyle)
-                    )}
-                  >
-                    View Cart
-                    <ArrowRight className="w-5 h-5" />
-                  </motion.button>
-
+                <div className="flex gap-2 sm:gap-3">
                   <motion.button
                     whileHover={{ scale: 1.02, y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={onClose}
                     className={cn(
-                      "w-full min-h-[44px] py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all",
+                      "flex-1 min-h-[44px] py-2 bg-white border border-gray-200 text-gray-700 text-xs sm:text-sm font-semibold hover:bg-gray-50 transition-all",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >
-                    Continue Shopping
+                    Close
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleViewCart}
+                    className={cn(
+                      "flex-[2] min-h-[44px] py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs sm:text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-2",
+                      getRoundedClass(theme.buttonStyle)
+                    )}
+                  >
+                    View Cart
+                    <ArrowRight className="w-4 h-4" />
                   </motion.button>
                 </div>
               </div>

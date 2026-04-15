@@ -1,14 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     CreditCard, Zap, Globe, Cpu, Activity,
     Lock, HardDrive, Fingerprint, Eye, EyeOff, Save,
-    Hexagon, BellRing, Terminal, Command, MapPin, Plus, Trash2
+    Hexagon, BellRing, Terminal, Command, MapPin, Plus, Trash2,
+    Search, Loader2, CheckCircle2
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { getServiceableAreas, updateServiceableAreas, getStoreSettings, updateStoreSettings, getEffectiveApiBase } from '@/lib/api';
+
+/**
+ * Fetch all 6-digit pincodes for an area name using the free postalpincode.in API.
+ * Supports city, district, or state-level lookups.
+ */
+async function fetchPincodesForArea(areaName: string): Promise<string[]> {
+    const name = areaName.trim();
+    if (!name) return [];
+    const url = `https://api.postalpincode.in/postoffice/${encodeURIComponent(name)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error(`Pincode API returned ${res.status}`);
+    const data = await res.json();
+    if (!Array.isArray(data)) return [];
+    const pincodes = new Set<string>();
+    for (const block of data) {
+        if (block?.Status !== 'Success' || !Array.isArray(block?.PostOffice)) continue;
+        for (const po of block.PostOffice) {
+            const pin = String(po?.Pincode ?? '').replace(/\D/g, '');
+            if (pin.length === 6) pincodes.add(pin);
+        }
+    }
+    return Array.from(pincodes);
+}
 
 async function saveRazorpayToBackend(razorpayKeyId: string, razorpayKeySecret: string): Promise<{ ok: boolean; message?: string }> {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
@@ -47,6 +71,12 @@ export function AdminSettingsPage() {
     const [newPincode, setNewPincode] = useState('');
     const [citiesLoading, setCitiesLoading] = useState(true);
     const [citiesSaving, setCitiesSaving] = useState(false);
+    // Auto-fetch pincodes state
+    const [autoFetchQuery, setAutoFetchQuery] = useState('');
+    const [autoFetchType, setAutoFetchType] = useState<'city' | 'district' | 'state'>('city');
+    const [autoFetching, setAutoFetching] = useState(false);
+    const [autoFetchPreview, setAutoFetchPreview] = useState<string[]>([]);
+    const [autoFetchDone, setAutoFetchDone] = useState(false);
     const [deliveryCharge, setDeliveryCharge] = useState<string>(String(preferences.deliveryCharge ?? 0));
     const [deliveryFeeMode, setDeliveryFeeMode] = useState<'SLAB' | 'PER_KM'>(preferences.deliveryFeeMode === 'PER_KM' ? 'PER_KM' : 'SLAB');
     const [deliveryPerKmRate, setDeliveryPerKmRate] = useState<string>(String(preferences.deliveryPerKmRate ?? 10));
@@ -162,6 +192,24 @@ export function AdminSettingsPage() {
         }
         setServiceableCities([...serviceableCities, city]);
         setNewCity('');
+        // Silently auto-fetch pincodes for this city in the background
+        fetchPincodesForArea(city)
+            .then((pins) => {
+                if (pins.length === 0) return;
+                setServiceablePincodes((prev) => {
+                    const merged = [...new Set([...prev, ...pins])];
+                    if (merged.length > prev.length) {
+                        toast.success(`Auto-added ${merged.length - prev.length} PIN codes for ${city}`, {
+                            description: 'Click "Save service areas" to apply.',
+                            duration: 5000,
+                        });
+                    }
+                    return merged;
+                });
+            })
+            .catch(() => {
+                // Silently fail — admin can use manual PIN entry
+            });
     };
 
     const handleRemoveCity = (index: number) => {
@@ -200,6 +248,41 @@ export function AdminSettingsPage() {
         }
         setCitiesSaving(false);
     };
+
+    const handleAutoFetchPincodes = useCallback(async () => {
+        const query = autoFetchQuery.trim();
+        if (!query) {
+            toast.error('Enter a city, district, or state name');
+            return;
+        }
+        setAutoFetching(true);
+        setAutoFetchPreview([]);
+        setAutoFetchDone(false);
+        try {
+            const pins = await fetchPincodesForArea(query);
+            if (pins.length === 0) {
+                toast.error(`No PIN codes found for "${query}". Try a different spelling or area name.`);
+                return;
+            }
+            const newPins = pins.filter((p) => !serviceablePincodes.includes(p));
+            setAutoFetchPreview(pins);
+            if (newPins.length === 0) {
+                toast.success(`All ${pins.length} PIN codes for "${query}" are already in your list.`);
+                setAutoFetchDone(true);
+                return;
+            }
+            setServiceablePincodes((prev) => [...new Set([...prev, ...pins])]);
+            setAutoFetchDone(true);
+            toast.success(`Added ${newPins.length} new PIN codes for "${query}"`, {
+                description: `${pins.length} total PINs found. Click "Save service areas" to apply.`,
+                duration: 6000,
+            });
+        } catch (e: any) {
+            toast.error('Could not reach PIN code lookup API. Check your connection and try again.');
+        } finally {
+            setAutoFetching(false);
+        }
+    }, [autoFetchQuery, serviceablePincodes]);
 
     const handleSaveRazorpay = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -567,6 +650,78 @@ export function AdminSettingsPage() {
                         </div>
 
                         <div className="mt-10 pt-8 border-t border-slate-100">
+                            {/* Auto-fetch pincodes by City / District / State */}
+                            <div className="mb-8 p-6 rounded-[2rem] bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border border-emerald-100/80 shadow-sm">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600">
+                                        <Search className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Auto-Fetch PIN Codes by Area</p>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Type a city, district, or state — all matching PIN codes are added automatically.</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-3 items-center">
+                                    <select
+                                        value={autoFetchType}
+                                        onChange={(e) => setAutoFetchType(e.target.value as 'city' | 'district' | 'state')}
+                                        className="h-11 px-3 rounded-xl border border-emerald-200 bg-white text-slate-700 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                                    >
+                                        <option value="city">City</option>
+                                        <option value="district">District</option>
+                                        <option value="state">State</option>
+                                    </select>
+                                    <div className="relative flex-1 min-w-[180px]">
+                                        <input
+                                            type="text"
+                                            value={autoFetchQuery}
+                                            onChange={(e) => { setAutoFetchQuery(e.target.value); setAutoFetchDone(false); setAutoFetchPreview([]); }}
+                                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void handleAutoFetchPincodes())}
+                                            placeholder={autoFetchType === 'city' ? 'e.g. Bangalore' : autoFetchType === 'district' ? 'e.g. Mysore' : 'e.g. Karnataka'}
+                                            className="h-11 w-full pl-4 pr-4 rounded-xl border border-emerald-200 bg-white text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm transition-all"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleAutoFetchPincodes()}
+                                        disabled={autoFetching}
+                                        className="h-11 px-5 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {autoFetching ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> Fetching…</>
+                                        ) : autoFetchDone ? (
+                                            <><CheckCircle2 className="h-4 w-4" /> Done</>  
+                                        ) : (
+                                            <><Search className="h-4 w-4" /> Fetch PINs</>
+                                        )}
+                                    </button>
+                                </div>
+                                <AnimatePresence>
+                                    {autoFetchPreview.length > 0 && (
+                                        <motion.div
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="mt-4 overflow-hidden"
+                                        >
+                                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2">
+                                                {autoFetchPreview.length} PIN codes found for &quot;{autoFetchQuery}&quot;
+                                            </p>
+                                            <div className="max-h-28 overflow-y-auto rounded-xl bg-white/60 border border-emerald-100 p-3">
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {autoFetchPreview.slice(0, 60).map((pin) => (
+                                                        <span key={pin} className="inline-block font-mono text-[10px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">{pin}</span>
+                                                    ))}
+                                                    {autoFetchPreview.length > 60 && (
+                                                        <span className="inline-block text-[10px] font-bold text-slate-400 px-2 py-1">+{autoFetchPreview.length - 60} more…</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                                 <div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviceable PIN codes (optional)</p>

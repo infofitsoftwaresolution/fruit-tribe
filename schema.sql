@@ -85,6 +85,11 @@ CREATE TABLE products (
     seasonal_end TIMESTAMP WITH TIME ZONE,
     bulk_discount_qty INT,
     bulk_discount_price DECIMAL(10, 2),
+    -- Freshness Intelligence fields
+    freshness_score SMALLINT CHECK (freshness_score BETWEEN 1 AND 5),
+    ripeness_stage VARCHAR(30),     -- 'Unripe' | 'Ripening' | 'Ripe & Ready' | 'Peak Ripe' | 'Over-ripe'
+    farm_name VARCHAR(255),         -- e.g. 'Jigani Farms'
+    farm_state VARCHAR(100),        -- e.g. 'Karnataka'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

@@ -173,6 +173,27 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     getAvailableOffers({ cartProductIds, cartCategoryNames }).then(setAvailableOffers).catch(() => setAvailableOffers([]));
   }, [items, products]);
 
+  // Auto-fill city/state from Indian pincode
+  useEffect(() => {
+    const pin = formData.zipCode.replace(/\D/g, '');
+    if (pin.length === 6 && !formData.city) {
+      fetch(`https://api.postalpincode.in/pincode/${pin}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data[0] && data[0].Status === 'Success') {
+            const postOffice = data[0].PostOffice[0];
+            setFormData(prev => ({
+              ...prev,
+              city: prev.city || postOffice.District,
+              state: prev.state || postOffice.State
+            }));
+            toast.success("Area detected", { description: `${postOffice.Name}, ${postOffice.District}` });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [formData.zipCode]);
+
   const updateDeliveryFromCoordinates = (lat: number, lng: number) => {
     setMapCenter({ lat, lng });
     const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
@@ -462,20 +483,37 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       navigate('/login', { state: { from: '/checkout' } });
       return;
     }
+    // ── Serviceability validation ─────────────────────────────────────────
+    // 1. City check (name-based)
     if (serviceableCities.length > 0 && formData.city?.trim() && !isCityServiceable(formData.city)) {
       toast.error('We don\'t deliver to this city yet.', {
         description: `We currently deliver only to: ${serviceableCities.join(', ')}. Please use an address in one of these cities.`,
       });
       return;
     }
+    // 2. Pincode check — REQUIRED when admin has configured serviceable pincodes
     if (serviceablePincodes.length > 0) {
       const pinDigits = formData.zipCode.replace(/\D/g, '');
+      if (pinDigits.length !== 6) {
+        toast.error('Enter a valid 6-digit PIN code for your delivery address.');
+        return;
+      }
       if (!isPincodeServiceable(formData.zipCode)) {
-        toast.error('We don\'t deliver to this PIN code yet.', {
-          description:
-            pinDigits.length === 6
-              ? `We currently serve ${serviceablePincodes.length} PIN code${serviceablePincodes.length === 1 ? '' : 's'}. Open the list below the ZIP field to see them.`
-              : 'Enter a valid 6-digit PIN code for delivery.',
+        toast.error('We don\'t deliver to this PIN code.', {
+          description: `PIN ${pinDigits} is outside our delivery area. Please use an address within our serviceable zones.`,
+        });
+        return;
+      }
+    }
+    // 3. Even without pincode list: if city is serviceable but the pincode prefix implies a different state, warn.
+    // (This is a soft-block: only fires when pincodes are NOT configured but city IS.)
+    if (serviceablePincodes.length === 0 && serviceableCities.length > 0) {
+      const pinDigits = formData.zipCode.replace(/\D/g, '');
+      if (pinDigits.length === 6 && formData.city?.trim() && isCityServiceable(formData.city)) {
+        // All good — city matches, no pincode list restriction.
+      } else if (pinDigits.length === 6 && formData.city?.trim() && !isCityServiceable(formData.city)) {
+        toast.error('We don\'t deliver to this city yet.', {
+          description: `We currently deliver only to: ${serviceableCities.join(', ')}.`,
         });
         return;
       }
@@ -701,95 +739,90 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 sm:mb-12 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6"
+          className="mb-6 grid grid-cols-3 gap-3"
         >
-          <div className="bg-white p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-4 sm:gap-6 min-h-[88px]">
-            <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600">
-              <Navigation className="w-6 h-6" />
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500 shrink-0">
+              <Navigation className="w-4 h-4" />
             </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delivery area</p>
-              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">{deliveryDistance} km</p>
-            </div>
-          </div>
-          <div className="bg-white p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] border border-slate-100 shadow-xl flex items-center gap-4 sm:gap-6 min-h-[88px]">
-            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-              <Activity className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">On-time rate</p>
-              <p className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter">{deliveryEfficiency}%</p>
+            <div className="min-w-0">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">Distance</p>
+              <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">{deliveryDistance} <span className="text-xs font-bold">km</span></p>
             </div>
           </div>
-          <div className="bg-slate-900 p-4 sm:p-6 rounded-3xl sm:rounded-[2.5rem] text-white shadow-2xl flex items-center gap-4 sm:gap-6 relative overflow-hidden group min-h-[88px]">
-            <div className="absolute right-0 top-0 p-4 opacity-10">
-              <Globe className="w-20 h-20" />
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500 shrink-0">
+              <Activity className="w-4 h-4" />
             </div>
-            <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400">
-              <Zap className="w-6 h-6" />
+            <div className="min-w-0">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">On-time</p>
+              <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">{deliveryEfficiency}<span className="text-xs font-bold">%</span></p>
             </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Est. delivery</p>
-              <p className="text-xl sm:text-2xl font-black text-white tracking-tighter">{etaLabel}</p>
-              <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                Based on {deliveryDistance} km from nearest warehouse
-              </p>
+          </div>
+          <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-lg flex items-center gap-3 relative overflow-hidden">
+            <div className="absolute right-0 top-0 opacity-10 p-2">
+              <Globe className="w-12 h-12" />
+            </div>
+            <div className="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400 shrink-0">
+              <Zap className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest truncate">ETA</p>
+              <p className="text-lg font-black text-white tracking-tighter leading-none">{etaLabel}</p>
             </div>
           </div>
         </motion.div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-12 gap-6 sm:gap-10 min-w-0">
+          <div className="grid lg:grid-cols-12 gap-6 min-w-0">
             {/* Left Column - Forms */}
             <div className="lg:col-span-8 space-y-10 min-w-0">
               {/* Shipping Information */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="w-full max-w-full bg-white rounded-2xl sm:rounded-[3.5rem] p-4 sm:p-10 border border-slate-100 shadow-2xl overflow-hidden"
+                className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl overflow-hidden"
               >
-                <div className="flex items-center gap-4 mb-10">
-                  <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center">
-                    <MapPin className="w-6 h-6 text-emerald-400" />
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
                 </div>
 
                 {user && savedAddresses.length > 0 && (
-                  <div className="space-y-2 mb-8">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">
-                      Use a saved address
-                    </label>
+                  <div className="space-y-1.5 mb-6">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Saved addresses</label>
                     <select
                       value={selectedSavedAddressId}
                       onChange={(e) => handleSavedAddressPick(e.target.value)}
-                      className="w-full px-4 sm:px-6 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold min-h-[44px] max-w-full text-ellipsis overflow-hidden"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold"
                     >
-                      <option value="">Enter a new address below</option>
+                      <option value="">+ Enter a new address</option>
                       {savedAddresses.map((a) => (
                         <option key={a.id} value={a.id}>
                           {(a.label ? `${a.label} · ` : '') + a.name} — {a.city}, {a.pincode}
-                          {a.isDefault ? ' (Default)' : ''}
+                          {a.isDefault ? ' ★' : ''}
                         </option>
                       ))}
                     </select>
                   </div>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">First Name</label>
+                <div className="grid md:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">First Name</label>
                     <input
                       type="text"
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
                       required
-                    className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
                       Last Name<span className="text-red-500 ml-0.5">*</span>
                     </label>
                     <input
@@ -798,11 +831,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       value={formData.lastName}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Phone number</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="you@email.com"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Phone number</label>
                     <input
                       type="tel"
                       name="phone"
@@ -810,11 +855,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="e.g. 9876543210"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Street address</label>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Street address</label>
                     <input
                       type="text"
                       name="address"
@@ -822,11 +867,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="Street address"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">City</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">City</label>
                     <input
                       type="text"
                       name="city"
@@ -835,24 +880,24 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       required
                       placeholder="e.g. Bangalore"
                       className={cn(
-                        "w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 bg-slate-50 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]",
+                        "w-full px-4 py-3 rounded-xl border-2 bg-slate-50 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400",
                         formData.city?.trim() && serviceableCities.length > 0 && !isCityServiceable(formData.city)
                           ? "border-amber-400 focus:border-amber-500"
-                          : "border-slate-200 focus:border-orange-500"
+                          : "border-slate-100 focus:border-orange-500"
                       )}
                     />
                     {serviceableCities.length > 0 && (
-                      <p className="text-[10px] font-bold text-slate-500 pl-4 flex items-center gap-1.5">
-                        <MapPin className="w-3 h-3 text-emerald-500" />
-                        We currently deliver to: {serviceableCities.join(', ')}
+                      <p className="text-[9px] font-bold text-slate-400 pl-2 flex items-center gap-1">
+                        <MapPin className="w-2.5 h-2.5 text-emerald-500" />
+                        Delivers to: {serviceableCities.join(', ')}
                       </p>
                     )}
                     {formData.city?.trim() && serviceableCities.length > 0 && !isCityServiceable(formData.city) && (
-                      <p className="text-xs text-amber-600 pl-4 font-bold">This city is not in our delivery area yet.</p>
+                      <p className="text-[10px] text-amber-600 pl-2 font-bold">⚠️ Not in our delivery area</p>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">State / UT</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">State / UT</label>
                     <input
                       type="text"
                       name="state"
@@ -860,38 +905,53 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       onChange={handleChange}
                       required
                       placeholder="e.g. Karnataka"
-                      className="w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 border-slate-200 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]"
+                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">ZIP / Postal code</label>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                      ZIP / Postal code
+                      {serviceablePincodes.length > 0 && <span className="text-red-500 ml-0.5">*</span>}
+                    </label>
                     <input
                       type="text"
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleChange}
-                      required
-                      placeholder="e.g. 560001"
+                      required={serviceablePincodes.length > 0}
+                      placeholder={serviceablePincodes.length > 0 ? 'Must be in our delivery area' : 'e.g. 560001'}
                       inputMode="numeric"
                       maxLength={8}
                       className={cn(
-                        'w-full px-4 sm:px-6 py-3.5 sm:py-4 rounded-2xl border-2 bg-slate-50 focus:bg-white transition-all text-slate-900 font-bold placeholder:text-slate-400 min-h-[44px]',
+                        'w-full px-4 py-3 rounded-xl border-2 bg-slate-50 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400',
                         serviceablePincodes.length > 0 &&
                           formData.zipCode.replace(/\D/g, '').length >= 6 &&
                           !isPincodeServiceable(formData.zipCode)
-                          ? 'border-amber-400 focus:border-amber-500'
-                          : 'border-slate-200 focus:border-orange-500'
+                          ? 'border-red-400 focus:border-red-500'
+                          : serviceablePincodes.length > 0 &&
+                            formData.zipCode.replace(/\D/g, '').length >= 6 &&
+                            isPincodeServiceable(formData.zipCode)
+                          ? 'border-emerald-400 focus:border-emerald-500'
+                          : 'border-slate-100 focus:border-orange-500'
                       )}
                     />
                     {serviceablePincodes.length > 0 && (
-                      <div className="pl-2 pr-1">
+                      <div className="pl-1">
                         <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
                       </div>
                     )}
                     {serviceablePincodes.length > 0 &&
                       formData.zipCode.replace(/\D/g, '').length >= 6 &&
                       !isPincodeServiceable(formData.zipCode) && (
-                        <p className="text-xs text-amber-600 pl-4 font-bold">This PIN is not in our service area.</p>
+                        <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2 py-1.5">
+                          <span className="text-sm">🚫</span>
+                          <p className="text-[9px] text-red-600 font-bold">Outside our delivery area.</p>
+                        </div>
+                      )}
+                    {serviceablePincodes.length > 0 &&
+                      formData.zipCode.replace(/\D/g, '').length >= 6 &&
+                      isPincodeServiceable(formData.zipCode) && (
+                        <p className="text-[9px] text-emerald-600 font-bold pl-1 flex items-center gap-1">✅ In delivery area</p>
                       )}
                   </div>
                 </div>
@@ -918,10 +978,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <button
                       type="button"
                       onClick={handleUseCurrentLocation}
-                      className="self-start sm:self-auto px-4 py-2 rounded-2xl border border-emerald-200 bg-emerald-50 text-[10px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2 hover:bg-emerald-100 transition-colors"
+                      className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg bg-emerald-50 text-[9px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1.5 hover:bg-emerald-100 border border-emerald-200/50 transition-colors"
                     >
-                      <Navigation className="w-3.5 h-3.5" />
-                      Use my current location
+                      <Navigation className="w-3 h-3" />
+                      Use current location
                     </button>
                   </div>
                   {geocodeLoading && (
@@ -954,11 +1014,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   )}
 
                   {/* Delivery slot selection */}
-                  <div className="pt-4 border-t border-slate-100 mt-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-4">
-                      Choose delivery slot
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="pt-4 border-t border-slate-100 mt-4">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">Choose delivery slot</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       {[
                         `Today · in ${etaLabel}`,
                         'Today · 6pm – 8pm',
@@ -969,10 +1027,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           type="button"
                           onClick={() => setDeliverySlot(slot)}
                         className={cn(
-                            "px-4 py-3.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] text-left transition-all min-h-[44px]",
+                            "px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest text-left transition-all",
                             deliverySlot === slot
-                              ? "bg-slate-900 text-white border-slate-900"
-                              : "bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-500 hover:bg-white"
+                              ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200"
+                              : "bg-slate-50 text-slate-500 border-slate-100 hover:border-emerald-500 hover:bg-white"
                           )}
                         >
                           {slot}
@@ -996,7 +1054,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="w-full max-w-full bg-white rounded-2xl sm:rounded-[3.5rem] p-4 md:p-10 border border-slate-100 shadow-2xl relative overflow-hidden"
+                  className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16" />
 
@@ -1005,83 +1063,52 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   <div className="space-y-8 mb-10 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {vendorSummaries.map((summary) => (
                       <div key={summary.vendor} className="space-y-4">
-                        <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
-                          <div className="px-2 py-0.5 bg-slate-900 text-emerald-400 text-[8px] font-black rounded uppercase">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="px-1.5 py-0.5 bg-slate-100 text-slate-500 text-[8px] font-black rounded border border-slate-200 uppercase tracking-tighter">
                             {summary.vendor}
                           </div>
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Order summary</span>
                         </div>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {summary.items.map((item: CartItem) => (
-                            <div key={item.id} className="flex gap-4">
-                              <div className="w-12 h-12 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100 p-1">
-                                <img src={item.image} className="w-full h-full object-cover rounded-lg" />
+                            <div key={item.id} className="flex items-center gap-3">
+                              {/* Product Image */}
+                              <div className="w-10 h-10 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100/50">
+                                <img src={item.image} className="w-full h-full object-cover" />
                               </div>
+
+                              {/* Info & Quantity Controls */}
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tight">{item.name}</p>
-                                <p className="text-[9px] font-bold text-slate-400 uppercase">{item.quantity} UNITS @ ₹{item.price}</p>
-                                <div className="mt-1.5 flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (item.quantity <= 1) {
-                                        handleRemoveItem(item.id);
-                                      } else {
-                                        handleUpdateQuantity(item.id, -1);
-                                      }
-                                    }}
-                                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50"
-                                  >
-                                    <Minus className="w-3.5 h-3.5" />
-                                  </button>
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={item.quantity}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      if (val === '') {
-                                        handleUpdateQuantity(item.id, -item.quantity);
-                                        return;
-                                      }
-                                      const num = parseInt(val, 10);
-                                      if (!Number.isNaN(num)) {
+                                <p className="text-[10px] font-black text-slate-900 truncate uppercase tracking-tight leading-none mb-1">{item.name}</p>
+                                <div className="flex items-center gap-2">
+                                  {/* Compact Qty Controls */}
+                                  <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200/50">
+                                    <button
+                                      type="button"
+                                      onClick={() => item.quantity <= 1 ? handleRemoveItem(item.id) : handleUpdateQuantity(item.id, -1)}
+                                      className="h-5 w-5 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-colors"
+                                    >
+                                      <Minus className="w-3 h-3" />
+                                    </button>
+                                    <span className="w-5 text-center text-[10px] font-black text-slate-900">{item.quantity}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
                                         const product = products.find((p: any) => String(p.id) === String(item.id));
-                                        const maxStock = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 999);
-                                        const target = Math.min(maxStock, Math.max(0, num));
-                                        handleUpdateQuantity(item.id, target - item.quantity);
-                                      }
-                                    }}
-                                    onBlur={() => {
-                                      if (item.quantity < 1) handleUpdateQuantity(item.id, 1 - item.quantity);
-                                    }}
-                                    className="w-10 h-7 rounded-lg border border-slate-200 text-center text-xs font-black text-slate-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const product = products.find((p: any) => String(p.id) === String(item.id));
-                                      const avail = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 0);
-                                      if (!product || item.quantity < avail) {
-                                        handleUpdateQuantity(item.id, 1);
-                                      } else {
-                                        toast.error(`Only ${avail} units available`);
-                                      }
-                                    }}
-                                    className="h-7 w-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveItem(item.id)}
-                                    className="ml-1 h-7 w-7 rounded-lg border border-red-200 text-red-500 flex items-center justify-center hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                        const avail = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 0);
+                                        if (!product || item.quantity < avail) handleUpdateQuantity(item.id, 1);
+                                        else toast.error(`Max stock: ${avail}`);
+                                      }}
+                                      className="h-5 w-5 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors"
+                                    >
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">× ₹{item.price}</span>
                                 </div>
                               </div>
-                              <p className="text-xs font-black text-slate-900">₹{item.price * item.quantity}</p>
+
+                              {/* Subtotal per item */}
+                              <p className="text-[11px] font-black text-slate-900 tabular-nums">₹{item.price * item.quantity}</p>
                             </div>
                           ))}
                         </div>
@@ -1091,32 +1118,39 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
                   <div className="space-y-4 pt-6 border-t-2 border-dotted border-slate-100">
                     <details className="group marker:content-['']">
-                      <summary className="flex items-center justify-between cursor-pointer list-none bg-slate-50 p-4 rounded-2xl border border-slate-100/60 hover:bg-slate-100 transition-colors">
-                         <div className="flex items-center gap-3">
-                           <FileText className="w-4 h-4 text-slate-400" />
-                           <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">View bill details</span>
+                      <summary className="flex items-center justify-between cursor-pointer list-none bg-slate-50/50 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors">
+                         <div className="flex items-center gap-2.5">
+                           <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center border border-slate-100 shadow-sm">
+                             <FileText className="w-3.5 h-3.5 text-slate-500" />
+                           </div>
+                           <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Bill Details</span>
                          </div>
-                         <ChevronRight className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-90" />
+                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-emerald-600 group-open:hidden">₹{grandTotal.toFixed(2)}</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:rotate-90" />
+                         </div>
                       </summary>
-                      <div className="pt-6 px-2 space-y-4 animate-in slide-in-from-top-2 fade-in duration-300">
-                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          <span>Base Subtotal</span>
-                          <span className="text-slate-900">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
+                      <div className="pt-5 px-1 space-y-3.5 animate-in slide-in-from-top-2 fade-in duration-300">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span>Items Total</span>
+                          <span className="text-slate-900 font-black">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
                         </div>
-                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          <span>Shipping ({deliveryDistance} km)</span>
-                          <span className="text-emerald-500">
-                            {shippingFeeForDistance === 0 ? 'Free' : `₹${shippingFeeForDistance}`}
-                          </span>
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span>Delivery Fee ({deliveryDistance} km)</span>
+                          {shippingFeeForDistance === 0 ? (
+                            <span className="text-emerald-500 font-black px-2 py-0.5 bg-emerald-50 rounded-md">FREE</span>
+                          ) : (
+                            <span className="text-slate-900 font-black">₹{shippingFeeForDistance}</span>
+                          )}
                         </div>
-                        <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                          <span>Tax</span>
-                          <span className="text-slate-900">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span>Tax & Charges</span>
+                          <span className="text-slate-900 font-black">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
                         </div>
                         {platformFee > 0 && (
-                          <div className="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             <span>Platform Fee</span>
-                            <span className="text-slate-900">₹{platformFee}</span>
+                            <span className="text-slate-900 font-black">₹{platformFee}</span>
                           </div>
                         )}
                       </div>
@@ -1154,14 +1188,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           value={promoCode}
                           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                           placeholder="e.g. SAVE10"
-                          className="flex-1 w-full min-w-0 h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium uppercase min-h-[44px]"
+                          className="flex-1 w-full min-w-0 h-10 px-3 rounded-lg border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-[11px] font-bold uppercase min-h-[40px]"
                         />
                         <button
                           type="button"
                           onClick={handleApplyPromo}
                           disabled={applyingPromo || !promoCode.trim() || !!appliedCoupon}
                           className={cn(
-                            "h-12 px-5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all disabled:cursor-not-allowed",
+                            "h-10 px-4 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all disabled:cursor-not-allowed",
                             appliedCoupon
                               ? "bg-emerald-600 text-white"
                               : "bg-slate-900 text-white hover:bg-black disabled:opacity-50"
@@ -1187,12 +1221,47 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       )}
                     </div>
 
-                    {/* Live offers list */}
+                    {/* Live offers list — Zepto-style */}
                     {availableOffers.length > 0 && (
                       <div className="pt-4 space-y-3">
                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
                           Available offers
                         </p>
+
+                        {/* "Add more to unlock" nudge — show the best offer user is closest to */}
+                        {(() => {
+                          const locked = availableOffers
+                            .filter((o) => !isOfferEligible(o, subtotalOnly) && o.minOrderValue != null && subtotalOnly < o.minOrderValue!)
+                            .sort((a, b) => (a.minOrderValue! - subtotalOnly) - (b.minOrderValue! - subtotalOnly));
+                          const closest = locked[0];
+                          if (!closest) return null;
+                          const gap = closest.minOrderValue! - subtotalOnly;
+                          const savings = closest.discountType === 'PERCENTAGE'
+                            ? closest.maxDiscount != null
+                              ? Math.min(closest.maxDiscount, (closest.minOrderValue! * closest.discountValue) / 100)
+                              : (closest.minOrderValue! * closest.discountValue) / 100
+                            : closest.discountValue;
+                          return (
+                            <motion.div
+                              key={`nudge-${closest.code}`}
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="relative overflow-hidden bg-gradient-to-r from-orange-50 via-amber-50 to-yellow-50 border border-orange-200 rounded-2xl px-4 py-3 flex items-center gap-3"
+                            >
+                              <span className="text-xl shrink-0">🛒</span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-black text-orange-700 uppercase tracking-widest leading-none">
+                                  Add <span className="text-orange-600">₹{Math.ceil(gap)}</span> more &amp; save <span className="text-emerald-600">₹{Math.ceil(savings)}</span>!
+                                </p>
+                                <p className="text-[9px] text-slate-500 font-semibold mt-0.5">
+                                  Use code <span className="font-black text-slate-700">{closest.code}</span> — {closest.discountType === 'PERCENTAGE' ? `${closest.discountValue}% off` : `₹${closest.discountValue} off`}
+                                </p>
+                              </div>
+                              <div className="absolute right-0 top-0 bottom-0 w-1 bg-gradient-to-b from-orange-400 to-amber-300 rounded-r-2xl" />
+                            </motion.div>
+                          );
+                        })()}
+
                         <div className="flex overflow-x-auto gap-3 pb-4 pt-1 snap-x snap-mandatory flex-nowrap custom-scrollbar">
                           {availableOffers.map((offer) => {
                             const eligible = isOfferEligible(offer, subtotalOnly);
@@ -1200,30 +1269,39 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                             const offerText = offer.discountType === 'PERCENTAGE'
                               ? `${offer.discountValue}% OFF${offer.maxDiscount != null ? ` up to ₹${offer.maxDiscount}` : ''}`
                               : `₹${offer.discountValue} OFF`;
+                            const gap = !eligible && offer.minOrderValue != null
+                              ? Math.ceil(offer.minOrderValue - subtotalOnly)
+                              : 0;
                             return (
-                              <div key={offer.code} className="border border-slate-200 rounded-2xl p-4 bg-slate-50 shrink-0 w-[280px] snap-center flex flex-col justify-between">
+                              <div key={offer.code} className={cn(
+                                "border rounded-2xl p-4 shrink-0 w-[280px] snap-center flex flex-col justify-between transition-all",
+                                isApplied
+                                  ? "border-emerald-300 bg-emerald-50 shadow-sm shadow-emerald-100"
+                                  : eligible
+                                  ? "border-orange-200 bg-orange-50/60"
+                                  : "border-slate-200 bg-slate-50 opacity-80"
+                              )}>
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{offer.code}</p>
-                                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{offerText}</p>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-sm">{isApplied ? '✅' : eligible ? '🏷️' : '🔒'}</span>
+                                      <p className="text-xs font-black text-slate-900 uppercase tracking-wider">{offer.code}</p>
+                                    </div>
+                                    <p className="text-[11px] font-black text-emerald-700 uppercase tracking-wider">{offerText}</p>
                                     {offer.minOrderValue != null ? (
-                                      <p className="text-[10px] text-slate-500 font-semibold">
+                                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
                                         Min order: ₹{offer.minOrderValue}
                                       </p>
                                     ) : null}
-                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                    <div className="mt-1.5 flex flex-wrap gap-1.5">
                                       {offer.scopeType === 'ALL' ? (
                                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">All products</span>
                                       ) : null}
                                       {offer.scopeType === 'CATEGORY' ? (
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                                          Category offer
-                                        </span>
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Category offer</span>
                                       ) : null}
                                       {offer.scopeType === 'PRODUCT' ? (
-                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                                          Product offer
-                                        </span>
+                                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">Product offer</span>
                                       ) : null}
                                       {offer.expiryDate ? (
                                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
@@ -1240,18 +1318,21 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                                     }}
                                     disabled={isApplied || !eligible || applyingPromo}
                                     className={cn(
-                                      "h-9 sm:h-10 shrink-0 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed min-h-[44px]",
+                                      "h-9 shrink-0 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest disabled:cursor-not-allowed min-h-[36px] transition-all",
                                       isApplied
                                         ? "bg-emerald-600 text-white"
-                                        : "bg-slate-900 text-white disabled:opacity-40"
+                                        : eligible
+                                        ? "bg-orange-500 text-white hover:bg-orange-600"
+                                        : "bg-slate-200 text-slate-400"
                                     )}
                                   >
-                                    {isApplied ? 'Applied' : 'Apply'}
+                                    {isApplied ? '✓ Applied' : eligible ? 'Apply' : 'Locked'}
                                   </button>
                                 </div>
-                                {!eligible && offer.minOrderValue != null && subtotalOnly < offer.minOrderValue ? (
-                                  <p className="mt-1 text-[10px] font-semibold text-amber-600">
-                                    Add ₹{(offer.minOrderValue - subtotalOnly).toFixed(2)} more to unlock this offer.
+                                {/* "Add X more to save" inside each locked card */}
+                                {!eligible && gap > 0 ? (
+                                  <p className="mt-2 text-[10px] font-bold text-orange-600 bg-orange-50 rounded-lg px-2 py-1">
+                                    🛒 Add ₹{gap} more to unlock
                                   </p>
                                 ) : null}
                               </div>
@@ -1261,19 +1342,47 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       </div>
                     )}
 
+
+                    {/* "You saved X" celebration banner (Zepto-style) */}
+                    {appliedCoupon && discountAmount > 0 && (
+                      <motion.div
+                        key="savings-banner"
+                        initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 py-3 flex items-center gap-3 shadow-md shadow-emerald-200"
+                      >
+                        <span className="text-2xl shrink-0">🎉</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-white leading-none">You saved ₹{discountAmount.toFixed(2)}!</p>
+                          <p className="text-[10px] text-emerald-100 font-semibold mt-0.5">via code {appliedCoupon.code}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemovePromo}
+                          className="shrink-0 text-white/70 hover:text-white text-[9px] font-black uppercase tracking-widest border border-white/20 rounded-lg px-2 py-1 hover:border-white/50 transition-colors"
+                        >
+                          Remove
+                        </button>
+                        <div className="absolute -right-4 -top-4 w-16 h-16 bg-white/10 rounded-full" />
+                        <div className="absolute -right-1 -bottom-2 w-10 h-10 bg-white/5 rounded-full" />
+                      </motion.div>
+                    )}
+
                     {discountAmount > 0 && (
                       <div className="flex justify-between text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                        <span>Discount</span>
+                        <span>Discount ({appliedCoupon?.code})</span>
                         <span>-₹{discountAmount.toFixed(2)}</span>
                       </div>
                     )}
 
-                    <div className="pt-6 mt-6 border-t border-slate-100">
+                    <div className="pt-5 mt-5 border-t border-slate-100">
                       <div className="flex justify-between items-end">
-                        <span className="text-xs font-black text-slate-900 uppercase tracking-[0.2em]">Total</span>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Grand Total</span>
+                          <span className="text-[8px] font-bold text-orange-500 uppercase px-1.5 py-0.5 bg-orange-50 rounded">Split Order</span>
+                        </div>
                         <div className="text-right">
-                          <p className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
-                          <p className="text-[8px] font-black text-orange-500 uppercase mt-1">Split across sellers</p>
+                          <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -1281,23 +1390,26 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     {/* Payment method */}
                     <div className="pt-6 mt-6 border-t border-slate-100 space-y-3">
                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment method</p>
-                      <div className={cn('grid gap-4', codAllowedForCart ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
+                      <div className={cn('grid gap-3', codAllowedForCart ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
                         <button
                           type="button"
                           onClick={() => setPaymentMethod('online')}
                           className={cn(
-                            'p-3 sm:p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                            'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
                             paymentMethod === 'online'
-                              ? 'border-emerald-500 bg-emerald-50 text-slate-900'
-                              : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                              ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                              : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'
                           )}
                         >
-                          <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-                            <CreditCard className="w-5 h-5" />
+                          <div className={cn(
+                            "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                            paymentMethod === 'online' ? "bg-slate-900 text-emerald-400" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200"
+                          )}>
+                            <CreditCard className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="font-black text-sm uppercase tracking-tight">Pay online</p>
-                            <p className="text-[10px] text-slate-500">Card, UPI, Net banking</p>
+                            <p className={cn("font-black text-[10px] uppercase tracking-tight", paymentMethod === 'online' ? "text-slate-900" : "text-slate-400")}>Pay online</p>
+                            <p className="text-[8px] font-bold text-slate-400 uppercase">UPI, Card, Net</p>
                           </div>
                         </button>
                         {codAllowedForCart ? (
@@ -1305,28 +1417,31 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                             type="button"
                             onClick={() => setPaymentMethod('cod')}
                             className={cn(
-                              'p-3 sm:p-4 rounded-2xl border-2 flex items-center gap-3 transition-all text-left',
+                              'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
                               paymentMethod === 'cod'
-                                ? 'border-emerald-500 bg-emerald-50 text-slate-900'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                                : 'border-slate-100 bg-white text-slate-400 hover:border-slate-200'
                             )}
                           >
-                            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-                              <Banknote className="w-5 h-5" />
+                            <div className={cn(
+                              "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                              paymentMethod === 'cod' ? "bg-slate-900 text-emerald-400" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200"
+                            )}>
+                              <Banknote className="w-4 h-4" />
                             </div>
                             <div>
-                              <p className="font-black text-sm uppercase tracking-tight">Cash on delivery</p>
-                              <p className="text-[10px] text-slate-500">Pay when you receive</p>
+                              <p className={cn("font-black text-[10px] uppercase tracking-tight", paymentMethod === 'cod' ? "text-slate-900" : "text-slate-400")}>Cash on delivery</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase">Pay at door</p>
                             </div>
                           </button>
                         ) : (
-                          <div className="p-3 sm:p-4 rounded-2xl border-2 border-slate-100 bg-slate-50 flex items-center gap-3 text-left opacity-80">
-                            <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center">
-                              <Banknote className="w-5 h-5" />
+                          <div className="p-3 rounded-xl border-2 border-slate-50 bg-slate-50/50 flex items-center gap-2.5 text-left opacity-60">
+                            <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-400 flex items-center justify-center">
+                              <Banknote className="w-4 h-4" />
                             </div>
                             <div>
-                              <p className="font-black text-sm uppercase tracking-tight text-slate-400">Cash on delivery</p>
-                              <p className="text-[10px] text-slate-400">Not available — some items in your cart do not allow COD</p>
+                              <p className="font-black text-[10px] uppercase tracking-tight text-slate-400">COD unavailable</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase">Cart restrictions</p>
                             </div>
                           </div>
                         )}

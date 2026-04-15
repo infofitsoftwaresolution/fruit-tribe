@@ -108,6 +108,27 @@ export class CreateProductDto {
     @IsBoolean()
     allowCashOnDelivery?: boolean;
 
+    @ApiProperty({ example: 4, description: 'Freshness score 1–5 (5 = just harvested)', required: false })
+    @IsOptional()
+    @IsNumber()
+    @Min(1)
+    freshnessScore?: number;
+
+    @ApiProperty({ example: 'Ripe & Ready', description: "Ripeness stage: Unripe | Ripening | Ripe & Ready | Peak Ripe | Over-ripe", required: false })
+    @IsOptional()
+    @IsString()
+    ripenessStage?: string;
+
+    @ApiProperty({ example: 'Fruit Tribe Farm', description: 'Farm or supplier name', required: false })
+    @IsOptional()
+    @IsString()
+    farmName?: string;
+
+    @ApiProperty({ example: 'Karnataka', description: 'State where the farm is located', required: false })
+    @IsOptional()
+    @IsString()
+    farmState?: string;
+
     @ApiProperty({ type: [ProductVariantDto], required: false })
     @IsOptional()
     @IsArray()

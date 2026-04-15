@@ -147,6 +147,11 @@ export class ProductService {
                     bulkDiscountQty: bulk.qty ?? undefined,
                     bulkDiscountPrice: bulk.price ?? undefined,
                     allowCashOnDelivery: dto.allowCashOnDelivery ?? true,
+                    // Freshness Intelligence
+                    freshnessScore: dto.freshnessScore ?? undefined,
+                    ripenessStage: dto.ripenessStage ?? undefined,
+                    farmName: dto.farmName ?? undefined,
+                    farmState: dto.farmState ?? undefined,
                     stock: dto.variants?.reduce((sum, v) => sum + (v.stockQuantity || 0), 0) || 0,
                 },
             });
@@ -217,6 +222,11 @@ export class ProductService {
                     bulkDiscountPrice: bulk.price,
                     ...(dto.allowCashOnDelivery !== undefined && { allowCashOnDelivery: dto.allowCashOnDelivery }),
                     ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+                    // Freshness Intelligence fields
+                    ...(dto.freshnessScore !== undefined && { freshnessScore: dto.freshnessScore }),
+                    ...(dto.ripenessStage !== undefined && { ripenessStage: dto.ripenessStage }),
+                    ...(dto.farmName !== undefined && { farmName: dto.farmName }),
+                    ...(dto.farmState !== undefined && { farmState: dto.farmState }),
                 },
             });
 

@@ -143,6 +143,14 @@ export interface ApiProduct {
   harvestDate?: string | null;
   expiryDate?: string | null;
   isOrganic?: boolean;
+  /** 1–5 freshness score set by admin/seller */
+  freshnessScore?: number | null;
+  /** e.g. 'Unripe', 'Ripening', 'Ripe & Ready', 'Peak Ripe', 'Over-ripe' */
+  ripenessStage?: string | null;
+  /** Farm / supplier name */
+  farmName?: string | null;
+  /** State the farm is in, e.g. 'Karnataka' */
+  farmState?: string | null;
   category?: { id: string; name: string; slug: string } | null;
   seller?: { id: string; storeName: string; rating?: number } | null;
   variants?: Array<{
@@ -188,6 +196,14 @@ export interface Product {
   isOrganic?: boolean;
   variants?: { id: string; name: string; price: number; stock: number; availableStock: number; reservedStock: number; sku: string }[];
   badge?: string;
+  /** 1–5 freshness intelligence score */
+  freshnessScore?: number;
+  /** Ripeness stage string, e.g. 'Ripe & Ready' */
+  ripenessStage?: string;
+  /** Farm origin name */
+  farmName?: string;
+  /** Farm origin state */
+  farmState?: string;
 }
 
 export function mapApiProductToProduct(p: ApiProduct): Product {
@@ -221,6 +237,10 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     harvestDate: p.harvestDate ?? undefined,
     expiryDate: p.expiryDate ?? undefined,
     isOrganic: p.isOrganic,
+    freshnessScore: p.freshnessScore ?? undefined,
+    ripenessStage: p.ripenessStage ?? undefined,
+    farmName: p.farmName ?? undefined,
+    farmState: p.farmState ?? undefined,
     variants: p.variants?.map((v) => ({
       id: v.id,
       name: v.attributeValue || v.sku,

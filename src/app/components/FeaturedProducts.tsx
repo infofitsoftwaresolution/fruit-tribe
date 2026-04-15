@@ -129,7 +129,7 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                             initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
-                            transition={{ duration: 0.8, delay: index * 0.15 }}
+                            transition={{ duration: 0.7, delay: index * 0.12 }}
                         >
                             <ProductCard
                                 id={product.id}
@@ -145,6 +145,11 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                                 onAddToCart={(payload: any, qty?: number) => onAddToCart(payload, qty)}
                                 product={product}
                                 bulkDealMode={productTab === 'bulk'}
+                                harvestDate={product.harvestDate}
+                                farmName={product.farmName}
+                                farmState={product.farmState}
+                                freshnessScore={product.freshnessScore}
+                                ripenessStage={product.ripenessStage}
                             />
                         </motion.div>
                     ))}
