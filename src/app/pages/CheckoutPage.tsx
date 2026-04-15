@@ -409,6 +409,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [orderPlacedOptimistically, setOrderPlacedOptimistically] = useState(false);
   const [optimisticOrderId, setOptimisticOrderId] = useState<string | null>(null);
   const [optimisticOrderNumber, setOptimisticOrderNumber] = useState<string | null>(null);
+  const [optimisticAmount, setOptimisticAmount] = useState(0);
 
   const applyPromoCode = async (rawCode: string) => {
     const code = rawCode.trim();
@@ -478,141 +479,146 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast.error('Please log in to place an order', { description: 'Your order will be saved to your account.' });
-      navigate('/login', { state: { from: '/checkout' } });
-      return;
-    }
-    // ── Serviceability validation ─────────────────────────────────────────
-    // 1. City check (name-based)
-    if (serviceableCities.length > 0 && formData.city?.trim() && !isCityServiceable(formData.city)) {
-      toast.error('We don\'t deliver to this city yet.', {
-        description: `We currently deliver only to: ${serviceableCities.join(', ')}. Please use an address in one of these cities.`,
-      });
-      return;
-    }
-    // 2. Pincode check — REQUIRED when admin has configured serviceable pincodes
-    if (serviceablePincodes.length > 0) {
-      const pinDigits = formData.zipCode.replace(/\D/g, '');
-      if (pinDigits.length !== 6) {
-        toast.error('Enter a valid 6-digit PIN code for your delivery address.');
+    setSubmitting(true);
+    
+    // Give fixed UI time to register 'submitting' state before sync validation might reset it
+    await new Promise(resolve => setTimeout(resolve, 20));
+
+    try {
+      if (!user) {
+        toast.error('Please log in to place an order', { description: 'Your order will be saved to your account.' });
+        setSubmitting(false);
+        navigate('/login', { state: { from: '/checkout' } });
         return;
       }
-      if (!isPincodeServiceable(formData.zipCode)) {
-        toast.error('We don\'t deliver to this PIN code.', {
-          description: `PIN ${pinDigits} is outside our delivery area. Please use an address within our serviceable zones.`,
-        });
-        return;
-      }
-    }
-    // 3. Even without pincode list: if city is serviceable but the pincode prefix implies a different state, warn.
-    // (This is a soft-block: only fires when pincodes are NOT configured but city IS.)
-    if (serviceablePincodes.length === 0 && serviceableCities.length > 0) {
-      const pinDigits = formData.zipCode.replace(/\D/g, '');
-      if (pinDigits.length === 6 && formData.city?.trim() && isCityServiceable(formData.city)) {
-        // All good — city matches, no pincode list restriction.
-      } else if (pinDigits.length === 6 && formData.city?.trim() && !isCityServiceable(formData.city)) {
+      // ── Serviceability validation ─────────────────────────────────────────
+      // 1. City check (name-based)
+      if (serviceableCities.length > 0 && formData.city?.trim() && !isCityServiceable(formData.city)) {
         toast.error('We don\'t deliver to this city yet.', {
-          description: `We currently deliver only to: ${serviceableCities.join(', ')}.`,
+          description: `We currently deliver only to: ${serviceableCities.join(', ')}. Please use an address in one of these cities.`,
         });
         return;
       }
-    }
-    if (!deliverySlot) {
-      toast.error('Please choose a delivery slot', {
-        description: 'Select a convenient time window for your delivery.',
-      });
-      return;
-    }
-
-    const orderItems: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }> = [];
-    const uuidLike = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
-    for (const item of items) {
-      const product = products.find((p: any) => p.id === item.id || String(p.id) === String(item.id));
-      if (!product) {
-        toast.error(`Product "${item.name}" is no longer available. Please update your cart.`);
-        return;
-      }
-      const requestedQty = Number(item.quantity) || 1;
-      const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
-      let pickedVariant = variants[0];
-      if (variants.length > 0) {
-        // Prefer a variant matching cart unit price and enough available quantity.
-        const priceMatched = variants.find((v: any) =>
-          Number(v.price) === Number(item.price) &&
-          Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
-        );
-        const firstAvailable = variants.find((v: any) =>
-          Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
-        );
-        pickedVariant = priceMatched || firstAvailable || variants[0];
-      }
-      const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
-      const sellerId = (product as any).sellerId != null ? String((product as any).sellerId) : '';
-      if (!variantId || !sellerId) {
-        toast.error(`Unable to place order: missing details for "${item.name}". Please refresh and try again.`);
-        return;
-      }
-      const productId = String(product.id);
-      if (!uuidLike(productId) || !uuidLike(variantId) || !uuidLike(sellerId)) {
-        toast.error('Product data is still loading or invalid. Please refresh the page and try again.');
-        return;
-      }
-      orderItems.push({
-        productId,
-        variantId,
-        sellerId,
-        quantity: requestedQty,
-        pricePerUnit: Number(item.price) ?? 0,
-      });
-    }
-
-    const shippingAddress = {
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      address: formData.address,
-      city: formData.city,
-      zipCode: formData.zipCode,
-      state: formData.state?.trim() || 'Karnataka',
-    };
-
-      // --- Truly Optimistic UI Start ---
-      setSubmitting(false); 
-      setOrderPlacedOptimistically(true); 
-      // Initially, we don't have orderId/orderNumber, but the overlay will show "Placing..."
-      
-      try {
-          const created = await createOrder({
-            items: orderItems,
-            shippingAddress,
-            billingAddress: shippingAddress,
-            couponCode: appliedCoupon?.code || undefined,
-            deliverySlot: deliverySlot || undefined,
-            distanceKm: deliveryStats.distanceKm,
-            paymentMethod: paymentMethod,
-            savedAddressId: selectedSavedAddressId || undefined,
+      // 2. Pincode check — REQUIRED when admin has configured serviceable pincodes
+      if (serviceablePincodes.length > 0) {
+        const pinDigits = formData.zipCode.replace(/\D/g, '');
+        if (pinDigits.length !== 6) {
+          toast.error('Enter a valid 6-digit PIN code for your delivery address.');
+          return;
+        }
+        if (!isPincodeServiceable(formData.zipCode)) {
+          toast.error('We don\'t deliver to this PIN code.', {
+            description: `PIN ${pinDigits} is outside our delivery area. Please use an address within our serviceable zones.`,
           });
-          const orderId = created.id as string;
-          const orderNumber = (created.orderNumber as string) || orderId;
-          const payableAmount = Number((created as any).payableAmount ?? grandTotal);
-          const amountInPaise = Math.round(payableAmount * 100);
+          return;
+        }
+      }
+      // 3. Even without pincode list: if city is serviceable but the pincode prefix implies a different state, warn.
+      // (This is a soft-block: only fires when pincodes are NOT configured but city IS.)
+      if (serviceablePincodes.length === 0 && serviceableCities.length > 0) {
+        const pinDigits = formData.zipCode.replace(/\D/g, '');
+        if (pinDigits.length === 6 && formData.city?.trim() && isCityServiceable(formData.city)) {
+          // All good — city matches, no pincode list restriction.
+        } else if (pinDigits.length === 6 && formData.city?.trim() && !isCityServiceable(formData.city)) {
+          toast.error('We don\'t deliver to this city yet.', {
+            description: `We currently deliver only to: ${serviceableCities.join(', ')}.`,
+          });
+          return;
+        }
+      }
+      if (!deliverySlot) {
+        toast.error('Please choose a delivery slot', {
+          description: 'Select a convenient time window for your delivery.',
+        });
+        return;
+      }
+  
+      const orderItems: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }> = [];
+      const uuidLike = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
+      for (const item of items) {
+        const product = products.find((p: any) => p.id === item.id || String(p.id) === String(item.id));
+        if (!product) {
+          toast.error(`Product "${item.name}" is no longer available. Please update your cart.`);
+          return;
+        }
+        const requestedQty = Number(item.quantity) || 1;
+        const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
+        let pickedVariant = variants[0];
+        if (variants.length > 0) {
+          // Prefer a variant matching cart unit price and enough available quantity.
+          const priceMatched = variants.find((v: any) =>
+            Number(v.price) === Number(item.price) &&
+            Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+          );
+          const firstAvailable = variants.find((v: any) =>
+            Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+          );
+          pickedVariant = priceMatched || firstAvailable || variants[0];
+        }
+        const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
+        const sellerId = (product as any).sellerId != null ? String((product as any).sellerId) : '';
+        if (!variantId || !sellerId) {
+          toast.error(`Unable to place order: missing details for "${item.name}". Please refresh and try again.`);
+          return;
+        }
+        const productId = String(product.id);
+        if (!uuidLike(productId) || !uuidLike(variantId) || !uuidLike(sellerId)) {
+          toast.error('Product data is still loading or invalid. Please refresh the page and try again.');
+          return;
+        }
+        orderItems.push({
+          productId,
+          variantId,
+          sellerId,
+          quantity: requestedQty,
+          pricePerUnit: Number(item.price) ?? 0,
+        });
+      }
+  
+      const shippingAddress = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        zipCode: formData.zipCode,
+        state: formData.state?.trim() || 'Karnataka',
+      };
+  
+      // --- Truly Optimistic UI Start ---
+      setSubmitting(false); // Stop swipe loader as success overlay takes over
+      setOptimisticAmount(grandTotal);
+      setOrderPlacedOptimistically(true); 
+      
+      const created = await createOrder({
+        items: orderItems,
+        shippingAddress,
+        billingAddress: shippingAddress,
+        couponCode: appliedCoupon?.code || undefined,
+        deliverySlot: deliverySlot || undefined,
+        distanceKm: deliveryStats.distanceKm,
+        paymentMethod: paymentMethod,
+        savedAddressId: selectedSavedAddressId || undefined,
+      });
+      const orderId = created.id as string;
+      const orderNumber = (created.orderNumber as string) || orderId;
+      const payableAmount = Number((created as any).payableAmount ?? optimisticAmount);
+      const amountInPaise = Math.round(payableAmount * 100);
 
-          setOptimisticOrderId(orderId);
-          setOptimisticOrderNumber(orderNumber);
-          clearCart(); 
+      setOptimisticOrderId(orderId);
+      setOptimisticOrderNumber(orderNumber);
+      setOptimisticAmount(payableAmount);
+      clearCart(); 
 
-          if (paymentMethod === 'cod') {
-            toast.success('Order placed. Pay when you receive.', {
-              description: `Order #${orderNumber} — Cash on Delivery`,
-              icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
-            });
-            return;
-          }
-          
-          // For online... continue with Razorpay in background of overlay
-
+      if (paymentMethod === 'cod') {
+        toast.success('Order placed. Pay when you receive.', {
+          description: `Order #${orderNumber} — Cash on Delivery`,
+          icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
+        });
+        return;
+      }
+      
       try {
         const [{ razorpayOrderId, keyId }] = await Promise.all([
           createRazorpayOrder(orderId, amountInPaise, 'INR'),
@@ -723,14 +729,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   return (
     <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white overflow-x-hidden">
-      {orderPlacedOptimistically && optimisticOrderId && (
+      {orderPlacedOptimistically && (
         <CheckoutSuccessOverlay
           orderId={optimisticOrderId}
           orderNumber={optimisticOrderNumber || optimisticOrderId}
-          subtotal={grandTotal}
+          subtotal={optimisticAmount}
           onDismiss={() => {
             setOrderPlacedOptimistically(false);
-            navigate('/orders');
+            navigate('/profile');
           }}
         />
       )}
@@ -1017,25 +1023,31 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   <div className="pt-4 border-t border-slate-100 mt-4">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">Choose delivery slot</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {[
-                        `Today · in ${etaLabel}`,
-                        'Today · 6pm – 8pm',
-                        'Tomorrow · 8am – 10am',
-                      ].map((slot) => (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => setDeliverySlot(slot)}
-                        className={cn(
-                            "px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest text-left transition-all",
-                            deliverySlot === slot
-                              ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200"
-                              : "bg-slate-50 text-slate-500 border-slate-100 hover:border-emerald-500 hover:bg-white"
-                          )}
-                        >
-                          {slot}
-                        </button>
-                      ))}
+                      {(() => {
+                        const slots = preferences.deliverySlots ?? [
+                          `Today · in ${etaLabel}`,
+                          'Today · 6pm – 8pm',
+                          'Tomorrow · 8am – 10am',
+                        ];
+                        if (slots.length === 0) {
+                          return <p className="text-[10px] text-slate-400 font-bold col-span-full py-2">No delivery slots available for today.</p>;
+                        }
+                        return slots.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => setDeliverySlot(slot)}
+                            className={cn(
+                              "px-4 py-3 rounded-xl border text-[9px] font-black uppercase tracking-widest text-left transition-all",
+                              deliverySlot === slot
+                                ? "bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200"
+                                : "bg-slate-50 text-slate-500 border-slate-100 hover:border-emerald-500 hover:bg-white"
+                            )}
+                          >
+                            {slot}
+                          </button>
+                        ));
+                      })()}
                     </div>
                     {!deliverySlot && (
                       <p className="mt-2 text-[10px] font-bold text-slate-400 pl-4">
@@ -1512,18 +1524,18 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
                 {isProcessing ? <Loader2 className="w-8 h-8 animate-spin" /> : <ShieldCheck className="w-10 h-10" />}
                 </motion.div>
                 
-                {!isProcessing && [...Array(6)].map((_, i) => (
+                {!isProcessing && [...Array(12)].map((_, i) => (
                     <motion.div
                         key={i}
-                        className="absolute w-2 h-2 rounded-full bg-emerald-400"
+                        className="absolute w-1.5 h-1.5 rounded-full bg-emerald-500"
                         initial={{ opacity: 0, scale: 0, x: 0, y: 0 }}
                         animate={{
                             opacity: [0, 1, 0],
-                            scale: [0, 1.5, 0],
-                            x: Math.cos(i * 60 * Math.PI / 180) * 80,
-                            y: Math.sin(i * 60 * Math.PI / 180) * 80,
+                            scale: [0, 1, 0.5],
+                            x: Math.cos(i * 30 * Math.PI / 180) * (60 + Math.random() * 40),
+                            y: Math.sin(i * 30 * Math.PI / 180) * (60 + Math.random() * 40),
                         }}
-                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
+                        transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 + (i * 0.02) }}
                     />
                 ))}
             </div>
@@ -1567,7 +1579,7 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
             {!isProcessing && (
                 <div className="space-y-3">
                     <button
-                        onClick={() => navigate('/orders')}
+                        onClick={() => navigate('/profile')}
                         className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-200"
                     >
                         Track order details

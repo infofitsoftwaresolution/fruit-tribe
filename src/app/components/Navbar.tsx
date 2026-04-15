@@ -228,7 +228,13 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
             >
               <div className="p-6 flex items-center justify-between border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-emerald-200">T</div>
+                  {theme.logoUrl ? (
+                    <img src={theme.logoUrl} alt={theme.storeName} className="h-9 w-auto object-contain" />
+                  ) : (
+                    <div className="h-9 w-9 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-black italic shadow-lg shadow-emerald-200">
+                      {theme.storeName.charAt(0)}
+                    </div>
+                  )}
                   <span className="text-xs font-black text-slate-900 tracking-widest uppercase">Navigation</span>
                 </div>
                 <button onClick={() => setIsMenuOpen(false)} className="h-10 w-10 bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 transition-all flex items-center justify-center">
@@ -258,7 +264,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 
                 {[
                     { label: 'My Account', icon: User, path: '/profile' },
-                    { label: 'Track Order', icon: Truck, path: '/orders' },
+                    { label: 'Track Order', icon: Truck, path: '/profile' },
                     { label: 'Support Center', icon: Globe, path: '/contact' }
                 ].map((item, idx) => (
                     <Link key={item.label} to={item.path} onClick={() => setIsMenuOpen(false)}>

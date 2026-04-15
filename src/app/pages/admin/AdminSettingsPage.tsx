@@ -3,7 +3,7 @@ import {
     CreditCard, Zap, Globe, Cpu, Activity,
     Lock, HardDrive, Fingerprint, Eye, EyeOff, Save,
     Hexagon, BellRing, Terminal, Command, MapPin, Plus, Trash2,
-    Search, Loader2, CheckCircle2
+    Search, Loader2, CheckCircle2, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -93,6 +93,8 @@ export function AdminSettingsPage() {
         ).map((r) => ({ upToKm: String(r.upToKm), fee: String(r.fee) }))
     );
     const [deliverySaving, setDeliverySaving] = useState(false);
+    const [deliverySlots, setDeliverySlots] = useState<string[]>(preferences.deliverySlots ?? []);
+    const [newSlot, setNewSlot] = useState('');
 
     useEffect(() => {
         let cancelled = false;
@@ -137,6 +139,10 @@ export function AdminSettingsPage() {
         }
     }, [preferences.deliveryFeeRules]);
 
+    useEffect(() => {
+        setDeliverySlots(preferences.deliverySlots ?? []);
+    }, [preferences.deliverySlots]);
+
     const handleSaveDeliveryCharge = async () => {
         const num = parseFloat(deliveryCharge);
         if (!Number.isFinite(num) || num < 0) {
@@ -161,12 +167,26 @@ export function AdminSettingsPage() {
                 return;
             }
             const thresholdNum = parseFloat(freeDeliveryThreshold);
+
+            // Automatically add any pending newSlot if user forgot to click Add
+            let finalSlots = [...deliverySlots];
+            const pendingSlot = newSlot.trim();
+            if (pendingSlot && !finalSlots.includes(pendingSlot)) {
+                finalSlots.push(pendingSlot);
+                setDeliverySlots(finalSlots);
+                setNewSlot('');
+            }
+
             await updateStoreSettings({
                 deliveryCharge: num,
                 deliveryFeeRules: normalizedRules,
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
                 freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
+                preferences: {
+                    ...preferences,
+                    deliverySlots: finalSlots,
+                }
             });
             updatePreferences({
                 deliveryCharge: num,
@@ -174,13 +194,29 @@ export function AdminSettingsPage() {
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
                 freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
+                deliverySlots: finalSlots,
             });
-            toast.success('Delivery charge updated. It will apply to new orders.');
+            toast.success('Delivery options saved successfully!');
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save');
         } finally {
             setDeliverySaving(false);
         }
+    };
+
+    const handleAddSlot = () => {
+        const slot = newSlot.trim();
+        if (!slot) return;
+        if (deliverySlots.some(s => s === slot)) {
+            toast.error('Slot already exists');
+            return;
+        }
+        setDeliverySlots([...deliverySlots, slot]);
+        setNewSlot('');
+    };
+
+    const handleRemoveSlot = (index: number) => {
+        setDeliverySlots(deliverySlots.filter((_, i) => i !== index));
     };
 
     const handleAddCity = () => {
@@ -787,6 +823,75 @@ export function AdminSettingsPage() {
                     </>
                 )}
             </motion.div>
+
+            {/* Delivery Slots — time windows for deliveries */}
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)]"
+            >
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="p-4 rounded-2xl bg-orange-50 text-orange-600">
+                        <Clock className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery Time Slots</h2>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                            Available slots shown at checkout. E.g. "Today · 6pm – 8pm"
+                        </p>
+                    </div>
+                </div>
+                <div className="flex flex-wrap gap-3 mb-6">
+                    {deliverySlots.length === 0 ? (
+                        <p className="text-sm text-slate-400 italic">No custom slots. Checkout will show default slots.</p>
+                    ) : (
+                        deliverySlots.map((slot, index) => (
+                            <span
+                                key={`${slot}-${index}`}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-black uppercase"
+                            >
+                                {slot}
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveSlot(index)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </span>
+                        ))
+                    )}
+                </div>
+                <div className="flex flex-wrap gap-3 items-center">
+                    <input
+                        type="text"
+                        value={newSlot}
+                        onChange={(e) => setNewSlot(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSlot())}
+                        placeholder="e.g. Tomorrow · 8am – 11am"
+                        className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium w-64"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleAddSlot}
+                        className="h-12 px-6 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add slot
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSaveDeliveryCharge}
+                        disabled={deliverySaving}
+                        className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
+                    >
+                        <Save className="h-4 w-4" />
+                        {deliverySaving ? 'Saving…' : 'Save all delivery options'}
+                    </button>
+                    <p className="text-[11px] text-slate-400 w-full italic">Note: "Save all delivery options" applies both Delivery Fee and Time Slots.</p>
+                </div>
+            </motion.div>
+
 
             {/* Settings Architecture */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

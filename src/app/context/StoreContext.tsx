@@ -243,6 +243,8 @@ export interface StorePreferences {
     freeDeliveryThreshold?: number;
     /** Standard platform/handling fee per order. */
     platformFee?: number;
+    /** Available delivery time slots for checkout selection (admin configurable). */
+    deliverySlots?: string[];
     /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
     subscriptionPage?: SubscriptionPageConfig;
 }
@@ -355,7 +357,7 @@ const INITIAL_THEME: ThemeSettings = {
     logoUrl: '/logo.png',
     heroTitle: 'Fresh From Our Fields',
     heroSubtitle: 'Hand-picked premium fruits delivered straight to your doorstep within 24 hours.',
-    heroImage: 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=2070&auto=format&fit=crop',
+    heroImage: '/images/hero.png',
     primaryColor: '#10b981', // emerald-500
     accentColor: '#f97316', // orange-500
     announcementBar: 'Free shipping on all orders over ₹500!',
