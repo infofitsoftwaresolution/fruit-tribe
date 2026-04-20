@@ -15,18 +15,22 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowRight, MapPin, Clock, Leaf, Zap, ShieldCheck, ChevronDown, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
-import { useDeliverySlot } from '@/lib/useDeliverySlot';
+import { useDeliverySlot } from '@/app/context/DeliveryContext';
 import { PincodeSheet } from '@/app/components/PincodeSheet';
 import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useProducts } from '@/app/hooks/useProducts';
 
 export function Hero() {
   const navigate = useNavigate();
-  const { theme } = useStore();
+  const { theme, orders } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const [pincodeSheetOpen, setPincodeSheetOpen] = useState(false);
 
-  const { pincode, slot, isLoading, isServiceable, setAndConfirmPincode } = useDeliverySlot();
+  const { pincode, slot, isLoading: slotLoading, isServiceable, setAndConfirmPincode } = useDeliverySlot();
+  const { products, loading: productsLoading } = useProducts({ limit: 100 });
+
+  const isLoading = slotLoading || productsLoading;
 
   const { scrollY } = useScroll();
   const heroParallax = useTransform(scrollY, [0, 500], [0, 140]);
@@ -188,7 +192,7 @@ export function Hero() {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-amber-400 text-sm">★★★★★</span>
-                  <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4.9 · 1,200+ orders</span>
+                  <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">4.9 · {orders.length} {orders.length === 1 ? 'order' : 'orders'}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <div className="h-7 w-7 bg-emerald-50 rounded-lg flex items-center justify-center">
@@ -212,7 +216,7 @@ export function Hero() {
                 className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-50 max-w-lg mx-auto lg:mx-0"
               >
                 {[
-                  { value: '100+', label: 'Varieties', sub: 'Active SKUs' },
+                  { value: `${products.length}${products.length > 10 ? '+' : ''}`, label: 'Varieties', sub: 'Active SKUs' },
                   { value: '6h',   label: 'Avg farm-to-door', sub: 'Fruit Tribe Farm' },
                   { value: '4.9★', label: 'Freshness score', sub: 'Verified reviews' },
                 ].map((s, i) => (

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, IsIn, Min } from 'class-validator';
+import { IsOptional, IsString, IsNumber, IsIn, Min, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -51,9 +51,13 @@ export class ProductFilterDto {
 
     @ApiProperty({ required: false, description: 'If true, include products that are out of season' })
     @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
     showOutOfSeason?: boolean;
 
     @ApiProperty({ required: false, description: 'If true, also include inactive/draft products (for admins)' })
     @IsOptional()
+    @Type(() => Boolean)
+    @IsBoolean()
     includeInactive?: boolean;
 }

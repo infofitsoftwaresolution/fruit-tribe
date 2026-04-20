@@ -156,6 +156,57 @@ export class SettingsService {
         await this.set(KEY_SERVICEABLE_PINCODES, JSON.stringify(normalized));
     }
 
+    /**
+     * Regional mapping of common Indian cities to their Pincode prefixes.
+     * Prevents cases where a user provides a Kolkata address but a Bangalore pincode.
+     */
+    private static readonly CITY_PINCODE_PREFIXES: Record<string, string[]> = {
+        'bangalore': ['56'],
+        'bengaluru': ['56'],
+        'kolkata': ['70'],
+        'mumbai': ['40'],
+        'delhi': ['11'],
+        'new delhi': ['11'],
+        'chennai': ['60'],
+        'hyderabad': ['50'],
+        'pune': ['41'],
+        'ahmedabad': ['38'],
+        'surat': ['39'],
+        'jaipur': ['30'],
+        'lucknow': ['22'],
+        'kanpur': ['20'],
+        'nagpur': ['44'],
+        'indore': ['45'],
+        'bhopal': ['46'],
+        'patna': ['80'],
+        'ranchi': ['83'],
+        'guwahati': ['78'],
+        'bhubaneswar': ['75'],
+        'kochi': ['68'],
+        'thiruvananthapuram': ['69'],
+    };
+
+    /**
+     * Validates if the given pincode belongs to the given city.
+     * returns { valid: boolean, expectedPrefix?: string }
+     */
+    validateCityPincode(city: string, pincode: string): { valid: boolean; message?: string } {
+        const normalizedCity = city.trim().toLowerCase();
+        const prefixes = SettingsService.CITY_PINCODE_PREFIXES[normalizedCity];
+        
+        if (!prefixes) return { valid: true }; // Skip validation for cities not in our mapping
+
+        const pinPrefix = pincode.substring(0, 2);
+        if (!prefixes.includes(pinPrefix)) {
+            return { 
+                valid: false, 
+                message: `The PIN code ${pincode} does not appear to belong to ${city}.` 
+            };
+        }
+
+        return { valid: true };
+    }
+
     /** Get store theme JSON (for storefront). Returns null if not set. */
     async getStoreTheme(): Promise<Record<string, unknown> | null> {
         const raw = await this.get(KEY_STORE_THEME);

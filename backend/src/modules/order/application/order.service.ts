@@ -152,7 +152,7 @@ export class OrderService {
             });
 
             return order;
-        });
+        }, { timeout: 15000 });
     }
 
     async create(userId: string, dto: CreateOrderDto) {
@@ -280,7 +280,39 @@ export class OrderService {
             }
         }
 
-        // Use a transaction to create the full order atomically
+        // Validate that city matches pincode (Cross-city prevention)
+        const areaValidation = this.settingsService.validateCityPincode(city, zipDigits);
+        if (!areaValidation.valid) {
+            throw new BadRequestException(areaValidation.message);
+        }
+
+        // Cross-check street address for mentioned city mismatches
+        const streetLower = String(addr.streetAddress ?? '').toLowerCase();
+        
+        const MAJOR_INDIAN_CITIES = [
+            'kolkata', 'mumbai', 'delhi', 'chennai', 'hyderabad', 'pune', 'ahmedabad', 'surat', 'jaipur', 'lucknow', 'kanpur', 'nagpur',
+            'indore', 'bhopal', 'patna', 'vadodara', 'ghaziabad', 'ludhiana', 'agra', 'nashik', 'faridabad', 'meerut', 'rajkot', 
+            'pimpri', 'chinchwad', 'varanasi', 'srinagar', 'aurangabad', 'dhanbad', 'amritsar', 'navi mumbai', 'allahabad', 'howrah', 
+            'ranchi', 'gwalior', 'jabalpur', 'coimbatore', 'vijayawada', 'jodhpur', 'madurai', 'raipur', 'kota', 'guwahati', 
+            'chandigarh', 'solapur', 'hubli', 'dharwad', 'bareilly', 'mysore', 'tiruchirappalli', 'gurgaon', 'aligarh', 'jalandhar', 
+            'bhubaneswar', 'salem', 'warangal', 'thiruvananthapuram', 'bhiwandi', 'saharanpur', 'guntur', 'amravati', 'bikaner', 
+            'noida', 'jamshedpur', 'bhilai', 'cuttack', 'firozabad', 'kochi', 'nellore', 'bhavnagar', 'dehradun', 'durgapur', 
+            'asansol', 'rourkela', 'nanded', 'kolhapur', 'ajmer', 'akola', 'gulbarga', 'jamnagar', 'ujjain', 'loni', 'siliguri', 
+            'jhansi', 'ulhasnagar', 'jammu', 'belgaum', 'mangaluru', 'ambattur', 'tirunelveli', 'malegaon', 'gaya', 'jalgaon', 
+            'udaipur', 'maheshtala'
+        ];
+
+        const citiesToCheck = Array.from(new Set([...serviceableCities.map(c => c.toLowerCase()), ...MAJOR_INDIAN_CITIES]));
+
+        for (const c of citiesToCheck) {
+            if (c !== city.toLowerCase() && streetLower.includes(c)) {
+                throw new BadRequestException(
+                    `Your street address mentions "${c}", but you have selected "${city}" as your city. Please ensure your address is consistent.`
+                );
+            }
+        }
+
+        // Use a transaction to create the full order atomically with an increased timeout
         return this.prisma.$transaction(async (tx) => {
             let linkedAddressId: string | undefined;
             if (dto.savedAddressId) {
@@ -295,29 +327,29 @@ export class OrderService {
 
             const orderNumber = `FT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-            // 1. Row-level Lock all variants and Validate Stock with Safety Buffer
-            // Precision logic: (Total - Reserved) - Safety Margin = Sellable
-            for (const item of dto.items) {
-                const [variant] = await tx.$queryRawUnsafe<any[]>(
-                    'SELECT sku, available_quantity as "availableQuantity", low_stock_threshold as "threshold" FROM product_variants WHERE id = $1::uuid FOR UPDATE',
-                    item.variantId
-                );
+            // 1. Batch Row-level Lock all variants and Validate Stock
+            const variantIds = dto.items.map(i => i.variantId);
+            const lockedVariants = await tx.$queryRawUnsafe<any[]>(
+                `SELECT id, sku, available_quantity as "availableQuantity", low_stock_threshold as "threshold" 
+                 FROM product_variants 
+                 WHERE id = ANY($1::uuid[]) 
+                 FOR UPDATE`,
+                variantIds
+            );
 
+            const variantMap = new Map(lockedVariants.map(v => [v.id, v]));
+
+            for (const item of dto.items) {
+                const variant = variantMap.get(item.variantId);
                 if (!variant) {
                     throw new BadRequestException(`Product variant ${item.variantId} not found`);
                 }
-
-                const safetyBuffer = Math.max(1, Math.floor((variant.availableQuantity || 0) * 0.05)); // 5% Safety Buffer or 1 unit
-                const sellableQuantity = variant.availableQuantity - safetyBuffer;
 
                 if (variant.availableQuantity < item.quantity) {
                     throw new BadRequestException(
                         `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
                     );
                 }
-                
-                // Optional: If we want to strictly respect safety buffer in high-load, we'd check sellableQuantity
-                // For now, we allow the sale but log the buffer hit if needed.
             }
 
             const initialOrderStatus = isCod ? 'CONFIRMED' : 'ON_HOLD';
@@ -422,7 +454,7 @@ export class OrderService {
 
             this.logger.log(`Order ${order.orderNumber} created for user ${userId}`);
             return order;
-        });
+        }, { timeout: 15000 });
     }
 
     /**
@@ -514,7 +546,7 @@ export class OrderService {
 
             this.logger.log(`Subscription order ${order.orderNumber} created for user ${userId}`);
             return order;
-        });
+        }, { timeout: 15000 });
     }
 
     async findByUser(userId: string) {
@@ -710,7 +742,7 @@ export class OrderService {
                 },
             });
             return o;
-        });
+        }, { timeout: 15000 });
 
         return this.prisma.order.findUnique({
             where: { id: orderId },
@@ -786,7 +818,7 @@ export class OrderService {
             }
 
             return updated;
-        });
+        }, { timeout: 15000 });
     }
 
     /** Auto-cancel unpaid ON_HOLD orders after hold window and release their reserved stock. */
@@ -851,7 +883,7 @@ export class OrderService {
                     },
                 });
                 cancelled += 1;
-            });
+            }, { timeout: 10000 });
         }
         return cancelled;
     }

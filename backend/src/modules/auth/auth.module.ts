@@ -7,6 +7,7 @@ import { AuthController } from './interface/auth.controller';
 import { JwtStrategy } from './interface/strategies/jwt.strategy';
 import { MailService } from '../../common/mail/mail.service';
 import { SmsService } from '../../common/sms/sms.service';
+import { WhatsappService } from '../../common/whatsapp/whatsapp.service';
 
 @Module({
     imports: [
@@ -20,7 +21,7 @@ import { SmsService } from '../../common/sms/sms.service';
             inject: [ConfigService],
         }),
     ],
-    providers: [AuthService, JwtStrategy, MailService, SmsService],
+    providers: [AuthService, JwtStrategy, MailService, SmsService, WhatsappService],
     controllers: [AuthController],
     exports: [JwtModule, PassportModule],
 })

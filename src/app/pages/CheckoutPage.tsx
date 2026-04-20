@@ -103,6 +103,67 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     () => (mapCenter ? buildOpenStreetMapEmbedSrc([{ lat: mapCenter.lat, lng: mapCenter.lng }]) : null),
     [mapCenter]
   );
+
+  const CITY_PINCODE_PREFIXES: Record<string, string[]> = {
+    'bangalore': ['56'],
+    'bengaluru': ['56'],
+    'kolkata': ['70'],
+    'mumbai': ['40'],
+    'delhi': ['11'],
+    'new delhi': ['11'],
+    'chennai': ['60'],
+    'hyderabad': ['50'],
+    'pune': ['41'],
+    'ahmedabad': ['38'],
+    'surat': ['39'],
+    'jaipur': ['30'],
+    'lucknow': ['22'],
+    'kanpur': ['20'],
+    'nagpur': ['44'],
+  };
+
+  const MAJOR_INDIAN_CITIES = [
+    'kolkata', 'mumbai', 'delhi', 'chennai', 'hyderabad', 'pune', 'ahmedabad', 'surat', 'jaipur', 'lucknow', 'kanpur', 'nagpur',
+    'indore', 'bhopal', 'patna', 'vadodara', 'ghaziabad', 'ludhiana', 'agra', 'nashik', 'faridabad', 'meerut', 'rajkot', 
+    'pimpri', 'chinchwad', 'varanasi', 'srinagar', 'aurangabad', 'dhanbad', 'amritsar', 'navi mumbai', 'allahabad', 'howrah', 
+    'ranchi', 'gwalior', 'jabalpur', 'coimbatore', 'vijayawada', 'jodhpur', 'madurai', 'raipur', 'kota', 'guwahati', 
+    'chandigarh', 'solapur', 'hubli', 'dharwad', 'bareilly', 'mysore', 'tiruchirappalli', 'gurgaon', 'aligarh', 'jalandhar', 
+    'bhubaneswar', 'salem', 'warangal', 'thiruvananthapuram', 'bhiwandi', 'saharanpur', 'guntur', 'amravati', 'bikaner', 
+    'noida', 'jamshedpur', 'bhilai', 'cuttack', 'firozabad', 'kochi', 'nellore', 'bhavnagar', 'dehradun', 'durgapur', 
+    'asansol', 'rourkela', 'nanded', 'kolhapur', 'ajmer', 'akola', 'gulbarga', 'jamnagar', 'ujjain', 'loni', 'siliguri', 
+    'jhansi', 'ulhasnagar', 'jammu', 'belgaum', 'mangaluru', 'ambattur', 'tirunelveli', 'malegaon', 'gaya', 'jalgaon', 
+    'udaipur', 'maheshtala'
+  ];
+
+  const addressMismatch = useMemo(() => {
+    const street = (formData.address || '').toLowerCase();
+    const city = (formData.city || '').toLowerCase();
+    const zip = formData.zipCode.replace(/\D/g, '');
+    
+    if (!city) return null;
+
+    // 1. Check if another city is mentioned in street address
+    // We check both the store's serviceable cities AND major Indian cities
+    const citiesToCheck = Array.from(new Set([...serviceableCities.map(c => c.toLowerCase()), ...MAJOR_INDIAN_CITIES]));
+    const mismatchedCityName = citiesToCheck.find(c => {
+      return c !== city && street.includes(c);
+    });
+    if (mismatchedCityName) {
+        const capitalized = mismatchedCityName.charAt(0).toUpperCase() + mismatchedCityName.slice(1);
+        return `Street address mentions ${capitalized}, but city is ${formData.city}`;
+    }
+
+    // 2. Check if PIN prefix matches city (Cross-city check)
+    if (zip.length >= 2) {
+      const prefixes = CITY_PINCODE_PREFIXES[city];
+      if (prefixes && !prefixes.includes(zip.substring(0, 2))) {
+        return `PIN prefix mismatch for ${formData.city}`;
+      }
+    }
+    
+    return null;
+  }, [formData.address, formData.city, formData.zipCode, serviceableCities]);
+
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -526,6 +587,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           return;
         }
       }
+
+      // 4. Address Consistency Check (Cross-city mismatch)
+      if (addressMismatch) {
+        toast.error('Address Inconsistency Detected', {
+          description: `${addressMismatch}. Please correct your address to proceed.`,
+          duration: 5000,
+        });
+        setSubmitting(false);
+        return;
+      }
+
       if (!deliverySlot) {
         toast.error('Please choose a delivery slot', {
           description: 'Select a convenient time window for your delivery.',
@@ -957,7 +1029,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     {serviceablePincodes.length > 0 &&
                       formData.zipCode.replace(/\D/g, '').length >= 6 &&
                       isPincodeServiceable(formData.zipCode) && (
-                        <p className="text-[9px] text-emerald-600 font-bold pl-1 flex items-center gap-1">✅ In delivery area</p>
+                        <div className="flex flex-col gap-1">
+                          <p className={cn(
+                            "text-[9px] font-bold pl-1 flex items-center gap-1",
+                            addressMismatch ? "text-amber-600" : "text-emerald-600"
+                          )}>
+                            {addressMismatch ? '⚠️ Potential area mismatch' : '✅ In delivery area'}
+                          </p>
+                          {addressMismatch && (
+                            <p className="text-[8px] text-amber-500 font-bold pl-1 leading-tight">
+                              {addressMismatch}.
+                            </p>
+                          )}
+                        </div>
                       )}
                   </div>
                 </div>
@@ -1467,6 +1551,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <SwipeToPay 
                         onSuccess={() => submitRef.current?.click()} 
                         submitting={submitting} 
+                        disabled={!!addressMismatch}
                         themeStyle={theme.buttonStyle} 
                       />
                   </div>

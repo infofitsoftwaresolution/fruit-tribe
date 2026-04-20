@@ -19,6 +19,8 @@ import {
     ResetPasswordDto,
     ChangePasswordDto,
     BulkCustomerAnnouncementDto,
+    SendWhatsappOtpDto,
+    VerifyWhatsappOtpDto,
 } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -99,5 +101,31 @@ export class AuthController {
     @Post('users/bulk-announcement')
     async bulkCustomerAnnouncement(@Body() dto: BulkCustomerAnnouncementDto) {
         return this.authService.bulkCustomerAnnouncement(dto);
+    }
+
+    @ApiOperation({ summary: 'Check if WhatsApp OTP login is enabled on the server' })
+    @Get('whatsapp/status')
+    async getWhatsappStatus() {
+        return { enabled: this.authService.isWhatsappEnabled() };
+    }
+
+    // ─── WhatsApp OTP Login ──────────────────────────────────────────────────
+
+    @ApiOperation({
+        summary: 'Step 1 – Send a 6-digit OTP to the given phone number via WhatsApp',
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('whatsapp/send-otp')
+    async whatsappSendOtp(@Body() dto: SendWhatsappOtpDto) {
+        return this.authService.sendWhatsappOtp(dto);
+    }
+
+    @ApiOperation({
+        summary: 'Step 2 – Verify WhatsApp OTP and receive JWT access + refresh tokens',
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('whatsapp/verify-otp')
+    async whatsappVerifyOtp(@Body() dto: VerifyWhatsappOtpDto) {
+        return this.authService.verifyWhatsappOtp(dto);
     }
 }

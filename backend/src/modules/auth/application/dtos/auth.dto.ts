@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsIn, IsBoolean } from 'class-validator';
+import { IsEmail, IsString, MinLength, MaxLength, IsOptional, IsIn, IsBoolean, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RegisterDto {
@@ -142,4 +142,33 @@ export class BulkCustomerAnnouncementDto {
     @IsOptional()
     @IsBoolean()
     sendEmail?: boolean;
+}
+
+export class SendWhatsappOtpDto {
+    @ApiProperty({
+        example: '9876543210',
+        description: 'Indian mobile number (10 digits, or with +91 prefix). OTP will be sent via WhatsApp.',
+    })
+    @IsString()
+    @MinLength(10)
+    @MaxLength(15)
+    phone: string;
+}
+
+export class VerifyWhatsappOtpDto {
+    @ApiProperty({
+        example: '9876543210',
+        description: 'Indian mobile number used in the send-otp step.',
+    })
+    @IsString()
+    @MinLength(10)
+    @MaxLength(15)
+    phone: string;
+
+    @ApiProperty({ example: '123456', description: '6-digit OTP sent via WhatsApp.' })
+    @IsString()
+    @MinLength(6)
+    @MaxLength(6)
+    @Matches(/^\d{6}$/, { message: 'OTP must be exactly 6 digits.' })
+    otp: string;
 }

@@ -6,11 +6,12 @@ import { cn } from '@/lib/utils';
 interface SwipeToPayProps {
   onSuccess: () => void;
   submitting?: boolean;
+  disabled?: boolean;
   className?: string;
   themeStyle?: string;
 }
 
-export function SwipeToPay({ onSuccess, submitting, className, themeStyle }: SwipeToPayProps) {
+export function SwipeToPay({ onSuccess, submitting, disabled, className, themeStyle }: SwipeToPayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
   const [complete, setComplete] = useState(false);
@@ -49,23 +50,26 @@ export function SwipeToPay({ onSuccess, submitting, className, themeStyle }: Swi
       className={cn(
         "relative w-full h-16 sm:h-20 bg-slate-900 overflow-hidden flex items-center justify-center p-2 shadow-2xl",
         themeStyle === 'round' ? 'rounded-full' : themeStyle === 'square' ? 'rounded-md' : 'rounded-2xl sm:rounded-[1.75rem]',
+        disabled && "bg-slate-400 opacity-50 cursor-not-allowed grayscale",
         className
       )}
     >
       <motion.div style={{ opacity: textOpacity }} className="absolute text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-white/50 z-10 pointer-events-none pr-8">
-        {submitting ? 'Placing Order...' : 'Swipe to Pay'}
+        {submitting ? 'Placing Order...' : disabled ? 'Fix Address to Pay' : 'Swipe to Pay'}
       </motion.div>
       
       {/* Expanding progress background */}
-      <motion.div
-        style={{ width: bgWidth }}
-        className="absolute left-0 top-0 bottom-0 bg-emerald-500 z-0 origin-left"
-        transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      />
+      {!disabled && (
+        <motion.div
+            style={{ width: bgWidth }}
+            className="absolute left-0 top-0 bottom-0 bg-emerald-500 z-0 origin-left"
+            transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
+        />
+      )}
       
       {/* Slider Thumb */}
       <motion.div
-        drag={!complete && !submitting ? "x" : false}
+        drag={!complete && !submitting && !disabled ? "x" : false}
         dragConstraints={dragConstraintsParams}
         dragSnapToOrigin={!complete}
         dragElastic={0.05}
@@ -73,7 +77,8 @@ export function SwipeToPay({ onSuccess, submitting, className, themeStyle }: Swi
         animate={complete ? { x: dragConstraintsParams.right } : {}}
         className={cn(
           "h-12 w-12 sm:h-16 sm:w-16 bg-white shadow-xl flex items-center justify-center z-20 absolute cursor-grab active:cursor-grabbing",
-          themeStyle === 'round' ? 'rounded-full' : themeStyle === 'square' ? 'rounded-sm' : 'rounded-[1.2rem]'
+          themeStyle === 'round' ? 'rounded-full' : themeStyle === 'square' ? 'rounded-sm' : 'rounded-[1.2rem]',
+          disabled && "cursor-not-allowed opacity-80"
         )}
         style={{ x: dragX, left: '8px' }}
       >

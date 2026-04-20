@@ -19,11 +19,14 @@ import {
     ResetPasswordDto,
     ChangePasswordDto,
     BulkCustomerAnnouncementDto,
+    SendWhatsappOtpDto,
+    VerifyWhatsappOtpDto,
 } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { MailService } from '../../../common/mail/mail.service';
 import { SmsService } from '../../../common/sms/sms.service';
+import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
 
 @Injectable()
 export class AuthService {
@@ -35,7 +38,12 @@ export class AuthService {
         private readonly config: ConfigService,
         private readonly mailService: MailService,
         private readonly smsService: SmsService,
+        private readonly whatsappService: WhatsappService,
     ) { }
+
+    isWhatsappEnabled(): boolean {
+        return this.whatsappService.isEnabled();
+    }
 
     /** Normalize to 10-digit Indian mobile for storage and uniqueness checks. */
     private normalizeIndianMobile(raw: string): string | null {
@@ -730,5 +738,148 @@ export class AuthService {
         });
 
         return { message: 'Password changed successfully.' };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  WhatsApp OTP Login
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Step 1 – Generate a 6-digit OTP and send it via WhatsApp. */
+    async sendWhatsappOtp(dto: SendWhatsappOtpDto) {
+        if (!this.whatsappService.isEnabled()) {
+            throw new ServiceUnavailableException(
+                'WhatsApp OTP login is not configured on this server. Please use email/password login.',
+            );
+        }
+
+        const normalizedPhone = this.normalizeIndianMobile(dto.phone);
+        if (!normalizedPhone) {
+            throw new BadRequestException('Please enter a valid 10-digit Indian mobile number.');
+        }
+
+        // Find existing active user by phone
+        const user = await this.prisma.user.findUnique({
+            where: { phone: normalizedPhone },
+            include: { role: true },
+        });
+
+        if (!user) {
+            // Do NOT leak whether the phone is registered
+            return {
+                message: 'If this number is registered, an OTP has been sent via WhatsApp.',
+            };
+        }
+
+        if (!user.isActive) {
+            throw new UnauthorizedException('This account is inactive. Please contact support.');
+        }
+
+        // Rate-limit: max 5 OTPs per 15 min
+        const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+        const recentCount = await this.prisma.otpLog.count({
+            where: { userId: user.id, createdAt: { gte: fifteenMinutesAgo } },
+        });
+        if (recentCount >= 5) {
+            throw new UnauthorizedException('Too many OTP requests. Please wait 15 minutes before trying again.');
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: user.id },
+                data: { otpCode: code, otpExpiry: expiry },
+            });
+            await tx.otpLog.create({
+                data: { userId: user.id, otp: code, expiresAt: expiry },
+            });
+        });
+
+        try {
+            await this.whatsappService.sendOtp(normalizedPhone, code);
+        } catch (err: any) {
+            this.logger.error(`WhatsApp OTP send failed (${normalizedPhone}): ${err?.message || err}`);
+            throw new ServiceUnavailableException(
+                'Could not send WhatsApp OTP. Please try again in a few minutes.',
+            );
+        }
+
+        return { message: 'If this number is registered, an OTP has been sent via WhatsApp.' };
+    }
+
+    /** Step 2 – Verify the OTP and return JWT tokens (same shape as password login). */
+    async verifyWhatsappOtp(dto: VerifyWhatsappOtpDto) {
+        const normalizedPhone = this.normalizeIndianMobile(dto.phone);
+        if (!normalizedPhone) {
+            throw new BadRequestException('Please enter a valid 10-digit Indian mobile number.');
+        }
+
+        const user = await this.prisma.user.findUnique({
+            where: { phone: normalizedPhone },
+            include: { role: true },
+        });
+
+        if (!user || !user.isActive) {
+            throw new UnauthorizedException('Invalid phone number or OTP.');
+        }
+
+        if (!user.otpCode || !user.otpExpiry) {
+            throw new UnauthorizedException('No OTP was requested. Please request a new one.');
+        }
+
+        if (user.otpCode !== dto.otp) {
+            throw new UnauthorizedException('Incorrect OTP. Please try again.');
+        }
+
+        if (user.otpExpiry < new Date()) {
+            throw new UnauthorizedException('OTP has expired. Please request a new one.');
+        }
+
+        // Clear OTP and mark OtpLog as verified
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: user.id },
+                data: { otpCode: null, otpExpiry: null, lastLogin: new Date(), failedLoginAttempts: 0 },
+            });
+            await tx.otpLog.updateMany({
+                where: { userId: user.id, otp: dto.otp, verified: false },
+                data: { verified: true },
+            });
+        });
+
+        const payload = { sub: user.id, email: user.email, role: user.role?.name };
+        const accessToken = this.jwtService.sign(payload);
+        const refreshToken = this.jwtService.sign(payload, {
+            secret: this.config.get('JWT_REFRESH_SECRET'),
+            expiresIn: '7d',
+        });
+        const refreshHash = createHash('sha256').update(refreshToken).digest('hex');
+
+        const [sellerProfile] = await Promise.all([
+            this.prisma.seller.findUnique({
+                where: { userId: user.id },
+                select: { id: true, storeName: true },
+            }),
+            this.prisma.user.update({
+                where: { id: user.id },
+                data: { refreshTokenHash: refreshHash },
+            }),
+        ]);
+
+        return {
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role?.name,
+                requirePasswordChange: user.requirePasswordChange,
+                seller: sellerProfile,
+            },
+        };
     }
 }

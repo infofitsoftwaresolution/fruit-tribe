@@ -33,7 +33,21 @@ export class ProductService {
             ...(search && {
                 OR: [
                     { name: { contains: search, mode: 'insensitive' } },
-                    { description: { contains: search, mode: 'insensitive' } },
+                    // Intelligent multi-word search with stemming (e.g. mangoes -> mango)
+                    ...search.split(' ').map(word => {
+                        const stem = word.toLowerCase().endsWith('es') 
+                            ? word.slice(0, -2) 
+                            : (word.toLowerCase().endsWith('s') ? word.slice(0, -1) : word);
+                        if (stem.length < 3) return null;
+                        return {
+                            OR: [
+                                { name: { contains: stem, mode: 'insensitive' } },
+                                { description: { contains: stem, mode: 'insensitive' } },
+                                { tags: { has: stem } },
+                                { category: { name: { contains: stem, mode: 'insensitive' } } }
+                            ]
+                        };
+                    }).filter(Boolean)
                 ],
             }),
             ...(categoryId && { categoryId }),
@@ -59,6 +73,10 @@ export class ProductService {
         };
 
         try {
+            const orderBy: any = {};
+            const sortField = ['name', 'basePrice', 'createdAt'].includes(sortBy || '') ? sortBy : 'createdAt';
+            orderBy[sortField as string] = sortOrder || 'desc';
+
             const [total, items] = await Promise.all([
                 this.prisma.product.count({ where }),
                 this.prisma.product.findMany({
@@ -76,7 +94,7 @@ export class ProductService {
                     },
                     skip,
                     take: limit,
-                    orderBy: { [sortBy || 'createdAt']: sortOrder || 'desc' },
+                    orderBy,
                 }),
             ]);
 
@@ -92,8 +110,8 @@ export class ProductService {
                 },
             };
         } catch (error) {
-            this.logger.error(`Failed to fetch products: ${error.message}`);
-            throw new BadRequestException('Could not fetch products');
+            this.logger.error(`Failed to fetch products: ${error.stack || error.message}`);
+            throw new BadRequestException(`Could not fetch products: ${error.message}`);
         }
     }
 

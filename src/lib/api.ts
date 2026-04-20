@@ -296,6 +296,13 @@ export function invalidateProductsListCache(): void {
   productListInflight.clear();
 }
 
+/** Synchronous check to see if a product list query is already in cache and fresh. */
+export function hasProductsCache(filters: ProductFilters = {}): boolean {
+  const key = productFiltersCacheKey(filters);
+  const hit = productListCache.get(key);
+  return !!(hit && Date.now() - hit.at < PRODUCT_LIST_TTL_MS);
+}
+
 /** Same as getProducts but dedupes in-flight requests and caches briefly (storefront performance). */
 export async function getProductsCached(filters: ProductFilters = {}): Promise<ProductsResponse> {
   const key = productFiltersCacheKey(filters);

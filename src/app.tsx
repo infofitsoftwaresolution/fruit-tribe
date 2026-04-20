@@ -13,6 +13,7 @@ import { ThemeWrapper } from '@/app/components/ThemeWrapper';
 import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { Toaster } from 'sonner';
 import { BottomCartBar } from '@/app/components/BottomCartBar';
+import { DeliveryProvider } from '@/app/context/DeliveryContext';
 
 // Lazy-load pages for smaller initial bundle and faster first paint
 const HomePage = lazy(() => import('@/app/pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -187,14 +188,16 @@ export default function App() {
   return (
     <StoreProvider>
       <CartPricingSync />
-      <ThemeWrapper>
-        <AuthProvider>
-          <Router>
-            <AppRoutes />
-            <Toaster position="top-right" richColors closeButton />
-          </Router>
-        </AuthProvider>
-      </ThemeWrapper>
+      <DeliveryProvider>
+        <ThemeWrapper>
+          <AuthProvider>
+            <Router>
+              <AppRoutes />
+              <Toaster position="top-right" richColors closeButton />
+            </Router>
+          </AuthProvider>
+        </ThemeWrapper>
+      </DeliveryProvider>
     </StoreProvider>
   );
 }

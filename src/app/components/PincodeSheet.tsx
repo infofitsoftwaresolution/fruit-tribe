@@ -12,7 +12,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, X, Loader2, CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useDeliverySlot } from '@/lib/useDeliverySlot';
+import { useDeliverySlot } from '@/app/context/DeliveryContext';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 
 interface PincodeSheetProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
   const [slotPreview, setSlotPreview] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { setAndConfirmPincode } = useDeliverySlot();
+  const { pincodes: serviceablePincodes, cities: serviceableCities } = useServiceableAreas();
 
   // Focus input when sheet opens
   useEffect(() => {
@@ -213,21 +215,27 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
               </motion.button>
 
               {/* Suggestion chips */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                <p className="w-full text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Bangalore pincodes</p>
-                {['560105', '560068', '560076', '560102', '560078', '560083'].map((pin) => (
-                  <button
-                    key={pin}
-                    onClick={() => {
-                      setInput(pin);
-                      handleCheck(pin);
-                    }}
-                    className="px-3 py-1.5 text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors tracking-wider"
-                  >
-                    {pin}
-                  </button>
-                ))}
-              </div>
+              {serviceablePincodes.length > 0 && (
+                <div className="mt-4">
+                  <p className="w-full text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2 px-1">
+                    {serviceableCities[0] ? `${serviceableCities[0]} Pincodes` : 'Serviceable Pincodes'}
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-[120px] overflow-y-auto pr-1 py-1 custom-scrollbar">
+                    {serviceablePincodes.map((pin) => (
+                      <button
+                        key={pin}
+                        onClick={() => {
+                          setInput(pin);
+                          handleCheck(pin);
+                        }}
+                        className="px-3 py-1.5 text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors tracking-wider"
+                      >
+                        {pin}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </>
