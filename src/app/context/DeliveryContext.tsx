@@ -225,24 +225,10 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
   );
 }
 
-if (typeof window !== 'undefined') {
-  (window as any).__DELIVERY_CONTEXT_CREATED__ = ((window as any).__DELIVERY_CONTEXT_CREATED__ || 0) + 1;
-  console.log(`[DeliveryContext] Context instance #${(window as any).__DELIVERY_CONTEXT_CREATED__} created`);
-}
-
 export function useDeliverySlot() {
   const context = useContext(DeliveryContext);
   if (!context) {
-    console.warn('[DeliveryContext] useDeliverySlot called outside Provider or Context mismatch detected.');
-    // Return a dummy object to stop the hard crash so we can see the UI
-    return {
-      pincode: null,
-      slot: null,
-      isLoading: false,
-      isServiceable: null,
-      setAndConfirmPincode: async () => false,
-      clearPincode: () => {},
-    } as DeliveryContextType;
+    throw new Error('useDeliverySlot must be used within a DeliveryProvider');
   }
   return context;
 }

@@ -198,6 +198,11 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
     return <AdminDataContext.Provider value={value}>{children}</AdminDataContext.Provider>;
 }
 
+if (typeof window !== 'undefined') {
+    (window as any).__ADMIN_CONTEXT_CREATED__ = ((window as any).__ADMIN_CONTEXT_CREATED__ || 0) + 1;
+    console.log(`[AdminDataContext] Context instance #${(window as any).__ADMIN_CONTEXT_CREATED__} created`);
+}
+
 export function useAdminData(): AdminDataContextValue {
     const ctx = useContext(AdminDataContext);
     if (!ctx) {
