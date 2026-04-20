@@ -31,6 +31,8 @@ interface AuthContextType {
   updateUser: (userData: Partial<User>) => void;
   /** Merge role, seller, and profile fields from GET /auth/me (no toast). */
   refreshSessionFromServer: () => Promise<void>;
+  /** Update both storage and state immediately (e.g. for OTP login success). */
+  loginWithTokenAndUser: (token: string, userData: User, requirePasswordChange?: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -248,6 +250,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateUser,
         refreshSessionFromServer,
+        loginWithTokenAndUser: (token: string, userData: User, rpc: boolean = false) => {
+          localStorage.setItem('token', token);
+          localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('requirePasswordChange', String(rpc));
+          setUser(userData);
+          setRequirePasswordChange(rpc);
+        }
       }}
     >
       {children}

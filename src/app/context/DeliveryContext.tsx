@@ -1,9 +1,8 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode, useMemo } from 'react';
 import { getServiceableAreas } from '@/lib/api';
+import { useStore } from '@/app/context/StoreContext';
 
 const PINCODE_KEY = 'ft_delivery_pincode';
-const SERVICEABLE_KEY = 'ft_serviceable_pincodes';
-const SERVICEABLE_TTL_MS = 5 * 60 * 1000;
 
 export interface DeliverySlot {
   etaLabel: string;
@@ -31,33 +30,99 @@ interface SlotWindow {
   etaLabel: string;
   cutoffHour: number;
   cutoffMin: number;
-  slotEndHour: number;
 }
 
-const TODAY_SLOTS: SlotWindow[] = [
-  { label: '10 AM–12 PM', etaLabel: 'Today by 12:00 PM', cutoffHour: 9,  cutoffMin: 0,  slotEndHour: 12 },
-  { label: '12–2 PM',     etaLabel: 'Today by 2:00 PM',  cutoffHour: 11, cutoffMin: 0,  slotEndHour: 14 },
-  { label: '2–4 PM',      etaLabel: 'Today by 4:00 PM',  cutoffHour: 13, cutoffMin: 0,  slotEndHour: 16 },
-  { label: '4–6 PM',      etaLabel: 'Today by 6:00 PM',  cutoffHour: 15, cutoffMin: 0,  slotEndHour: 18 },
-  { label: '6–8 PM',      etaLabel: 'Today by 8:00 PM',  cutoffHour: 17, cutoffMin: 0,  slotEndHour: 20 },
-];
+function parseTime(timeStr: string): { h: number; m: number } | null {
+  const match = timeStr.trim().match(/(\d+)(?::(\d+))?\s*(am|pm)?/i);
+  if (!match) return null;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2] || '0', 10);
+  const ampm = match[3]?.toLowerCase();
+  
+  if (ampm === 'pm' && h < 12) h += 12;
+  if (ampm === 'am' && h === 12) h = 0;
+  return { h, m };
+}
 
-const TOMORROW_SLOT = { label: '8–10 AM', etaLabel: 'Tomorrow by 10:00 AM' };
+function parseSlotToWindow(slot: string): SlotWindow[] {
+  // Typical formats: "8am - 10am", "10:00 AM - 12:00 PM", "Today · 4pm - 6pm"
+  const clean = slot.split('·').pop() || slot;
+  const parts = clean.split(/[–-]/);
+  if (parts.length < 2) return [];
 
-function resolveSlot(now: Date) {
+  const start = parseTime(parts[0]);
+  const end = parseTime(parts[1]);
+  if (!start || !end) return [];
+
+  // Cutoff logic:
+  // For narrow slots (e.g. 2h window), cutoff is start - 1h.
+  // For wide slots (e.g. > 4h window), cutoff is end - 2h.
+  const duration = (end.h * 60 + end.m) - (start.h * 60 + start.m);
+  let cutoffH, cutoffM;
+  
+  if (duration > 240) { // > 4 hours
+    cutoffH = end.h - 2;
+    cutoffM = end.m;
+  } else {
+    cutoffH = start.h - 1;
+    cutoffM = start.m;
+  }
+  
+  if (cutoffH < 0) { cutoffH = 23; cutoffM = 0; }
+
+  const isToday = slot.toLowerCase().includes('today') || !slot.toLowerCase().includes('tomorrow');
+  
+  return [{
+    label: clean.trim(),
+    etaLabel: `${isToday ? 'Today' : 'Tomorrow'} by ${parts[1].trim()}`,
+    cutoffHour: cutoffH,
+    cutoffMin: cutoffM,
+  }];
+}
+
+function resolveSlot(now: Date, customSlots: string[]) {
   const h = now.getHours();
   const m = now.getMinutes();
-  for (const slot of TODAY_SLOTS) {
-    if (h < slot.cutoffHour || (h === slot.cutoffHour && m < slot.cutoffMin)) {
+
+  const windows: SlotWindow[] = [];
+  if (customSlots.length > 0) {
+    customSlots.forEach(s => {
+      // Only process "Today" slots for immediate delivery logic
+      if (s.toLowerCase().includes('tomorrow')) return;
+      windows.push(...parseSlotToWindow(s));
+    });
+  }
+
+  // Sort windows by cutoff
+  windows.sort((a, b) => (a.cutoffHour * 60 + a.cutoffMin) - (b.cutoffHour * 60 + b.cutoffMin));
+
+  for (const win of windows) {
+    if (h < win.cutoffHour || (h === win.cutoffHour && m < win.cutoffMin)) {
       const cutoff = new Date(now);
-      cutoff.setHours(slot.cutoffHour, slot.cutoffMin, 0, 0);
-      return { etaLabel: slot.etaLabel, slotLabel: `Today, ${slot.label}`, cutoffAt: cutoff };
+      cutoff.setHours(win.cutoffHour, win.cutoffMin, 0, 0);
+      return { etaLabel: win.etaLabel, slotLabel: win.label, cutoffAt: cutoff };
     }
   }
-  const midnight = new Date(now);
-  midnight.setDate(midnight.getDate() + 1);
-  midnight.setHours(0, 0, 0, 0);
-  return { etaLabel: TOMORROW_SLOT.etaLabel, slotLabel: `Tomorrow, ${TOMORROW_SLOT.label}`, cutoffAt: midnight };
+
+  // Fallback to "Tomorrow" if all today slots passed or none defined
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  
+  let tomorrowLabel = 'Tomorrow, 8–10 AM';
+  const firstTomorrow = customSlots.find(s => s.toLowerCase().includes('tomorrow'));
+  if (firstTomorrow) {
+    tomorrowLabel = firstTomorrow;
+  } else if (customSlots.length > 0) {
+    // If no explicit tomorrow slot, use the first today slot as tomorrow's label
+    tomorrowLabel = `Tomorrow, ${customSlots[0].split('·').pop() || customSlots[0]}`;
+  }
+
+  return { 
+    etaLabel: tomorrowLabel.includes('by') ? tomorrowLabel : `Tomorrow by morning`, 
+    slotLabel: tomorrowLabel, 
+    cutoffAt: tomorrow 
+  };
 }
 
 function secsToDisplay(s: number): string {
@@ -69,16 +134,22 @@ function secsToDisplay(s: number): string {
 
 // --- Provider ---
 export function DeliveryProvider({ children }: { children: ReactNode }) {
-  const [pincode, setPincode] = useState<string | null>(() => localStorage.getItem(PINCODE_KEY));
+  const { preferences } = useStore();
+  const [pincode, setPincode] = useState<string | null>(() => {
+     if (typeof window !== 'undefined') return localStorage.getItem(PINCODE_KEY);
+     return null;
+  });
   const [isServiceable, setIsServiceable] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [slot, setSlot] = useState<DeliverySlot | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const customSlots = useMemo(() => preferences.deliverySlots ?? [], [preferences.deliverySlots]);
+
   const recomputeSlot = useCallback((serviceable: boolean) => {
     if (!serviceable) { setSlot(null); return; }
     const now = new Date();
-    const resolved = resolveSlot(now);
+    const resolved = resolveSlot(now, customSlots);
     const secsLeft = Math.max(0, Math.floor((resolved.cutoffAt.getTime() - now.getTime()) / 1000));
     setSlot({
       etaLabel: resolved.etaLabel,
@@ -88,7 +159,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       cutoffDisplay: secsToDisplay(secsLeft),
       isServiceable: true,
     });
-  }, []);
+  }, [customSlots]);
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -109,6 +180,7 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         const ok = pins.length === 0 || pins.includes(saved);
         setIsServiceable(ok);
       } catch {
+        // Soft fail
         setIsServiceable(true);
       } finally {
         setIsLoading(false);

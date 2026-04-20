@@ -169,7 +169,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    // Hydrate last-used address from this device
+    // Hydrate last-used address from this device (only if not logged in or as initial fallback)
     try {
       const saved = localStorage.getItem('saved_checkout_address');
       if (saved) {
@@ -179,45 +179,42 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           ...parsed,
           state: parsed.state ?? prev.state ?? 'Karnataka',
         }));
-        setSelectedSavedAddressId('');
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }, []);
 
+  // Fetch and auto-fill saved addresses from account
   useEffect(() => {
     if (!user?.id) {
       setSavedAddresses([]);
       return;
     }
     let cancelled = false;
-    (async () => {
+    const fetchAddresses = async () => {
       try {
         const list = await getUserAddresses();
         if (cancelled) return;
         setSavedAddresses(list);
-        let skipAutoFill = false;
-        try {
-          skipAutoFill = !!localStorage.getItem('saved_checkout_address');
-        } catch {
-          /* ignore */
+        
+        if (list.length > 0) {
+          // If we have saved addresses, prioritize the default one for auto-fill 
+          // (if no local override was set in the very current session)
+          const preferred = list.find((a) => a.isDefault) || list[0];
+          if (preferred) {
+             setFormData((prev) => ({
+              ...prev,
+              ...savedAddressToCheckoutForm(preferred, user.email || prev.email || ''),
+            }));
+            setSelectedSavedAddressId(preferred.id);
+          }
         }
-        if (skipAutoFill || list.length === 0) return;
-        const preferred = list.find((a) => a.isDefault) || list[0];
-        if (!preferred) return;
-        setFormData((prev) => ({
-          ...prev,
-          ...savedAddressToCheckoutForm(preferred, user.email || prev.email || ''),
-        }));
-        setSelectedSavedAddressId(preferred.id);
-      } catch {
+      } catch (err) {
+        console.error('Failed to fetch addresses:', err);
         if (!cancelled) setSavedAddresses([]);
       }
-    })();
-    return () => {
-      cancelled = true;
     };
+    fetchAddresses();
+    return () => { cancelled = true; };
   }, [user?.id, user?.email]);
 
   useEffect(() => {
@@ -468,6 +465,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const grandTotal = Math.max(0, vendorSummaries.reduce((sum, s) => sum + s.total, 0) + platformFee - discountAmount);
 
   const [orderPlacedOptimistically, setOrderPlacedOptimistically] = useState(false);
+  const [paymentAwaiting, setPaymentAwaiting] = useState(false);
   const [optimisticOrderId, setOptimisticOrderId] = useState<string | null>(null);
   const [optimisticOrderNumber, setOptimisticOrderNumber] = useState<string | null>(null);
   const [optimisticAmount, setOptimisticAmount] = useState(0);
@@ -659,9 +657,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       };
   
       // --- Truly Optimistic UI Start ---
-      setSubmitting(false); // Stop swipe loader as success overlay takes over
+      // --- Order Creation Step ---
+      setSubmitting(true);
       setOptimisticAmount(grandTotal);
-      setOrderPlacedOptimistically(true); 
       
       const created = await createOrder({
         items: orderItems,
@@ -673,6 +671,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         paymentMethod: paymentMethod,
         savedAddressId: selectedSavedAddressId || undefined,
       });
+      
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const payableAmount = Number((created as any).payableAmount ?? optimisticAmount);
@@ -681,15 +680,24 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setOptimisticOrderId(orderId);
       setOptimisticOrderNumber(orderNumber);
       setOptimisticAmount(payableAmount);
-      clearCart(); 
+      setOrderPlacedOptimistically(true); 
+      
+      // Clear cart immediately: the items are now successfully converted into a pending/confirmed order record.
+      clearCart();
 
       if (paymentMethod === 'cod') {
+        setSubmitting(false);
         toast.success('Order placed. Pay when you receive.', {
           description: `Order #${orderNumber} — Cash on Delivery`,
           icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
         });
         return;
       }
+
+      // --- Payment Step ---
+      setPaymentAwaiting(true);
+      setSubmitting(false); 
+
       
       try {
         const [{ razorpayOrderId, keyId }] = await Promise.all([
@@ -702,7 +710,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             description: `Order #${orderNumber}`,
             icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
           });
-          clearCart();
           navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
           return;
         }
@@ -719,19 +726,21 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 razorpayPaymentId: response.razorpay_payment_id,
                 signature: response.razorpay_signature,
               });
-              clearCart();
+              setPaymentAwaiting(false);
               toast.success('Order placed and payment successful.', {
                 description: `Order #${orderNumber}`,
                 icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
               });
               navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
             } catch (err: any) {
+              setPaymentAwaiting(false);
               toast.error(err?.message || 'Payment verification failed. Order is placed; contact support with your order number.');
               navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
             }
           },
           modal: {
             ondismiss: () => {
+              setPaymentAwaiting(false);
               // Fallback: Razorpay SDK may log "Refused to get unsafe header x-rtb-fingerprint-id" and
               // in some environments the success handler might not run. Check backend for payment status.
               const PAYMENT_POLL_DELAY_MS = 2500;
@@ -740,7 +749,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   const orders = await getOrders();
                   const order = orders.find((o: { id: string; paymentStatus?: string }) => String(o.id) === String(orderId));
                   if (order?.paymentStatus === 'PAID') {
-                    clearCart();
                     toast.success('Order placed and payment successful.', {
                       description: `Order #${orderNumber}`,
                       icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
@@ -751,8 +759,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 } catch {
                   /* ignore */
                 }
-                toast.info('Payment cancelled. Order placed; you can pay from My Orders.', {
-                  description: `Order #${orderNumber}`,
+                toast.info('Payment step not completed.', {
+                  description: `Order #${orderNumber} is pending payment.`,
                 });
                 navigate('/profile', { state: { highlightOrders: true } });
               }, PAYMENT_POLL_DELAY_MS);
@@ -801,17 +809,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   return (
     <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white overflow-x-hidden">
-      {orderPlacedOptimistically && (
-        <CheckoutSuccessOverlay
-          orderId={optimisticOrderId}
-          orderNumber={optimisticOrderNumber || optimisticOrderId}
-          subtotal={optimisticAmount}
-          onDismiss={() => {
-            setOrderPlacedOptimistically(false);
-            navigate('/profile');
-          }}
-        />
-      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Delivery info */}
         <motion.div
@@ -1574,13 +1571,30 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           </div>
         </form>
       </div>
+
+      {orderPlacedOptimistically && (
+        <CheckoutSuccessOverlay 
+          orderId={optimisticOrderId} 
+          orderNumber={optimisticOrderNumber} 
+          subtotal={optimisticAmount} 
+          isAwaitingPayment={paymentAwaiting}
+          onDismiss={() => setOrderPlacedOptimistically(false)} 
+        />
+      )}
     </div>
   );
 }
 
-function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: { orderId: string | null, orderNumber: string | null, subtotal: number, onDismiss: () => void }) {
+function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, isAwaitingPayment, onDismiss }: { 
+  orderId: string | null, 
+  orderNumber: string | null, 
+  subtotal: number, 
+  isAwaitingPayment?: boolean,
+  onDismiss: () => void 
+}) {
   const navigate = useNavigate();
   const isProcessing = !orderId;
+  const showPaymentPending = isAwaitingPayment && orderId;
 
   return (
     <motion.div
@@ -1594,22 +1608,31 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
         className="bg-white rounded-[3rem] p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl overflow-hidden relative"
       >
          {/* Success Background Animation Pattern */}
-        <div className={cn("absolute top-0 left-0 w-full h-32 -mt-16 rounded-full blur-3xl opacity-20 transition-colors duration-500", isProcessing ? "bg-orange-500" : "bg-emerald-500")} />
+        <div className={cn(
+          "absolute top-0 left-0 w-full h-32 -mt-16 rounded-full blur-3xl opacity-20 transition-colors duration-500", 
+          isProcessing || showPaymentPending ? "bg-orange-500" : "bg-emerald-500"
+        )} />
 
         <div className="relative z-10 w-full">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 relative">
-                <div className={cn("absolute inset-0 rounded-full transition-colors duration-500", isProcessing ? "bg-orange-100" : "bg-emerald-100")} />
+                <div className={cn(
+                  "absolute inset-0 rounded-full transition-colors duration-500", 
+                  isProcessing || showPaymentPending ? "bg-orange-100" : "bg-emerald-100"
+                )} />
                 <motion.div
-                key={isProcessing ? 'processing' : 'success'}
+                key={isProcessing || showPaymentPending ? 'processing' : 'success'}
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", damping: 12, stiffness: 200 }}
-                className={cn("w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl", isProcessing ? "bg-orange-500 shadow-orange-200" : "bg-emerald-500 shadow-emerald-200")}
+                className={cn(
+                  "w-16 h-16 rounded-full flex items-center justify-center text-white shadow-xl", 
+                  isProcessing || showPaymentPending ? "bg-orange-500 shadow-orange-200" : "bg-emerald-500 shadow-emerald-200"
+                )}
                 >
-                {isProcessing ? <Loader2 className="w-8 h-8 animate-spin" /> : <ShieldCheck className="w-10 h-10" />}
+                {isProcessing || showPaymentPending ? <Loader2 className="w-8 h-8 animate-spin" /> : <ShieldCheck className="w-10 h-10" />}
                 </motion.div>
                 
-                {!isProcessing && [...Array(12)].map((_, i) => (
+                {(!isProcessing && !showPaymentPending) && [...Array(12)].map((_, i) => (
                     <motion.div
                         key={i}
                         className="absolute w-1.5 h-1.5 rounded-full bg-emerald-500"
@@ -1625,8 +1648,8 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
                 ))}
             </div>
 
-            <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight uppercase">
-                {isProcessing ? 'Placing Order...' : 'Order Placed!'}
+            <h2 className="text-[28px] leading-tight font-black text-slate-900 mb-2 tracking-tight uppercase">
+                {isProcessing ? 'Placing Order...' : showPaymentPending ? 'Awaiting Payment' : 'Order Placed!'}
             </h2>
             <p className="text-slate-500 font-bold text-sm uppercase tracking-widest mb-8">
                 {isProcessing ? 'Verifying items & delivery' : `Order #${orderNumber}`}
@@ -1637,7 +1660,7 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Payable</span>
                     <span className="text-xl font-black text-slate-900 tracking-tight">₹{subtotal.toFixed(2)}</span>
                 </div>
-                {!isProcessing && (
+                {(!isProcessing && !showPaymentPending) && (
                     <div className="flex items-center gap-3 text-left">
                         <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
                             <Truck className="w-5 h-5 text-orange-600" />
@@ -1648,20 +1671,22 @@ function CheckoutSuccessOverlay({ orderId, orderNumber, subtotal, onDismiss }: {
                         </div>
                     </div>
                 )}
-                {isProcessing && (
+                {(isProcessing || showPaymentPending) && (
                     <div className="flex items-center gap-3 text-left">
                         <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center shrink-0 animate-pulse">
                             <Activity className="w-5 h-5 text-slate-400" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Assigning Partner</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">
+                                {isProcessing ? 'Assigning Partner' : 'Waiting for payment'}
+                            </p>
                             <p className="text-xs font-bold text-slate-400 italic">Please wait...</p>
                         </div>
                     </div>
                 )}
             </div>
 
-            {!isProcessing && (
+            {(!isProcessing && !showPaymentPending) && (
                 <div className="space-y-3">
                     <button
                         onClick={() => navigate('/profile')}

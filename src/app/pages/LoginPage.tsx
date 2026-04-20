@@ -24,7 +24,7 @@ interface LoginPageProps {
 export function LoginPage({ embedded = false }: LoginPageProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, loginWithTokenAndUser } = useAuth();
   const { theme } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
@@ -170,9 +170,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
         sellerId: seller?.id,
         sellerStoreName: seller?.storeName,
       };
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('requirePasswordChange', String(!!u.requirePasswordChange));
+      loginWithTokenAndUser(token, userData, !!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}! 🎉`);
       redirectAfterLogin();
     } catch (err: any) {
@@ -292,8 +290,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
           </AnimatePresence>
 
           <AnimatePresence mode="wait">
-            {/* ── Password login ── */}
-            {activeTab === 'password' && (
+            {activeTab === 'password' ? (
               <motion.form
                 key="password-form"
                 initial={{ opacity: 0, x: -12 }}
@@ -365,10 +362,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" /> Sign in</>}
                 </button>
               </motion.form>
-            )}
-
-            {/* ── WhatsApp OTP ── */}
-            {activeTab === 'whatsapp' && (
+            ) : (
               <motion.div
                 key="whatsapp-flow"
                 initial={{ opacity: 0, x: 12 }}
@@ -410,7 +404,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
                 </div>
 
                 <AnimatePresence mode="wait">
-                  {waStep === 'phone' && (
+                  {waStep === 'phone' ? (
                     <motion.form
                       key="wa-phone-step"
                       initial={{ opacity: 0, y: 8 }}
@@ -461,9 +455,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
                         )}
                       </button>
                     </motion.form>
-                  )}
-
-                  {waStep === 'otp' && (
+                  ) : (
                     <motion.form
                       key="wa-otp-step"
                       initial={{ opacity: 0, y: 8 }}

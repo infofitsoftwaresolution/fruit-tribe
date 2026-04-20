@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class OrderService {
     private readonly logger = new Logger(OrderService.name);
-    private static readonly ONLINE_HOLD_MINUTES = 10;
+    private static readonly ONLINE_HOLD_MINUTES = 30;
 
     constructor(
         private readonly prisma: PrismaService,
@@ -841,9 +841,18 @@ export class OrderService {
             await this.prisma.$transaction(async (tx) => {
                 const current = await tx.order.findUnique({
                     where: { id: order.id },
-                    select: { id: true, status: true, paymentStatus: true },
+                    include: { items: { include: { product: { select: { allowCashOnDelivery: true } } } } },
                 });
+
                 if (!current || !['ON_HOLD', 'CREATED'].includes(String(current.status)) || current.paymentStatus !== 'PENDING') return;
+
+                // Even more lenient for COD-eligible orders.
+                // If every item in the order allows COD, we give them 120 minutes total before auto-canceling.
+                const allowsCod = current.items.every(it => it.product.allowCashOnDelivery);
+                const codGraceThreshold = new Date(Date.now() - 120 * 60000); // 2 hours
+                if (allowsCod && current.createdAt > codGraceThreshold) {
+                    return; // Skip for now, give more time
+                }
 
                 const reservations = await tx.stockReservation.findMany({
                     where: { orderId: order.id, status: 'PENDING' },

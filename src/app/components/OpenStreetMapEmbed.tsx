@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils';
+
 export type OsmPoint = { lat: number; lng: number };
 
 /**
@@ -35,7 +37,17 @@ export function buildOpenStreetMapEmbedSrc(
   }
   const bbox = `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}`;
   const bboxParam = encodeURIComponent(bbox);
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bboxParam}&layer=mapnik`;
+  
+  let url = `https://www.openstreetmap.org/export/embed.html?bbox=${bboxParam}&layer=mapnik`;
+  
+  // If there's only one point, show a marker there.
+  // If there are multiple, show a marker on the last one (usually the active user location)
+  if (valid.length > 0) {
+    const marker = valid[valid.length - 1];
+    url += `&marker=${marker.lat}%2C${marker.lng}`;
+  }
+  
+  return url;
 }
 
 type OpenStreetMapEmbedProps = {
@@ -46,12 +58,14 @@ type OpenStreetMapEmbedProps = {
 
 export function OpenStreetMapEmbed({ title, src, className }: OpenStreetMapEmbedProps) {
   return (
-    <iframe
-      title={title}
-      src={src}
-      className={className ?? 'w-full h-52 border-0'}
-      loading="lazy"
-      referrerPolicy="no-referrer"
-    />
+    <div className={cn("overflow-hidden rounded-2xl shadow-inner border border-slate-200", className)}>
+      <iframe
+        title={title}
+        src={src}
+        className="w-full h-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
+    </div>
   );
 }
