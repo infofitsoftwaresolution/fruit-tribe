@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AdminSidebar } from '@/app/components/admin/AdminSidebar';
 import { AdminHeader } from '@/app/components/admin/AdminHeader';
 import { Toaster } from 'sonner';
@@ -10,35 +11,57 @@ export function AdminLayout() {
 
     return (
         <AdminDataProvider>
-        <div className="flex h-screen bg-slate-50 relative overflow-hidden">
-            {/* Subtle background artifacts for premium feel */}
-            <div className="absolute top-0 right-0 h-[500px] w-[1000px] bg-emerald-500/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-0 left-0 h-[500px] w-[1000px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none" />
+        <div className="flex h-screen bg-slate-50 relative overflow-hidden font-sans">
+            {/* Rich Background Effects */}
+            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-[10%] -right-[10%] h-[60%] w-[60%] bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute top-[20%] -left-[10%] h-[50%] w-[50%] bg-blue-500/5 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+                <div className="absolute -bottom-[10%] left-[20%] h-[40%] w-[40%] bg-purple-500/5 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: '4s' }} />
+                
+                {/* Subtle Grid Pattern */}
+                <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+            </div>
 
-            <div className="hidden md:flex flex-col h-full shrink-0">
+            <div className="hidden md:flex flex-col h-full shrink-0 relative z-20">
                 <AdminSidebar />
             </div>
 
-            <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden">
+            <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden relative z-10">
                 <AdminHeader onOpenSidebar={() => setMobileNavOpen(true)} />
-                <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-6 md:px-12 py-10 max-w-[1600px] mx-auto w-full relative z-10 scroll-smooth custom-scrollbar">
+                <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8 py-6 md:py-8 max-w-[1400px] mx-auto w-full relative z-10 scroll-smooth custom-scrollbar">
                     <Outlet />
                 </main>
             </div>
 
-            {/* Mobile sidebar drawer */}
-            {mobileNavOpen && (
-                <div className="fixed inset-0 z-[120] flex md:hidden">
-                    <div className="w-72 max-w-full bg-slate-900 shadow-2xl h-full">
-                        <AdminSidebar />
-                    </div>
-                    <button
-                        type="button"
-                        className="flex-1 bg-slate-900/40 backdrop-blur-sm"
-                        onClick={() => setMobileNavOpen(false)}
-                    />
-                </div>
-            )}
+            {/* Mobile sidebar drawer with premium glass effect */}
+            <AnimatePresence>
+                {mobileNavOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[120] flex md:hidden"
+                    >
+                        <motion.div 
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="w-72 max-w-[80%] bg-slate-900 shadow-2xl h-full relative z-[130]"
+                        >
+                            <AdminSidebar />
+                        </motion.div>
+                        <motion.button
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            type="button"
+                            className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-[125]"
+                            onClick={() => setMobileNavOpen(false)}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <Toaster position="top-right" closeButton richColors theme="light" />
         </div>

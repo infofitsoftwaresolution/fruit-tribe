@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface CartItem {
   id: string | number;

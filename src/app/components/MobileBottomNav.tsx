@@ -13,11 +13,11 @@ export function MobileBottomNav({ cartCount, onCartClick }: MobileBottomNavProps
   const navigate = useNavigate();
 
   const items = [
-    { key: 'home', label: 'Home', icon: Home, path: '/' },
-    { key: 'search', label: 'Search', icon: Search, path: '/products' },
-    { key: 'categories', label: 'Browse', icon: Grid3X3, path: '/products' },
+    { key: 'home', label: 'Home', icon: Home, path: '/', isCart: false },
+    { key: 'search', label: 'Search', icon: Search, path: '/products', isCart: false },
+    { key: 'categories', label: 'Browse', icon: Grid3X3, path: '/products', isCart: false },
     { key: 'cart', label: 'Cart', icon: ShoppingCart, path: '/cart', isCart: true },
-    { key: 'account', label: 'Account', icon: User, path: '/profile' },
+    { key: 'account', label: 'Account', icon: User, path: '/profile', isCart: false },
   ] as const;
 
   const handleClick = (item: (typeof items)[number]) => {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
-import { getEffectiveApiBase, getAuthProfile, registerUser, updateAuthProfile } from '@/lib/api';
+import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
 
 export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -23,13 +23,12 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  isSessionChecked: boolean;
   requirePasswordChange: boolean;
   /** `emailOrPhone` is sent as the `email` field in the login API for backward compatibility. */
-  login: (emailOrPhone: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (emailOrPhone: string, password: string) => Promise<void>;
   signup: (name: string, email: string, phone: string, password: string, role?: UserRole) => Promise<void>;
   logout: () => void;
-  updateUser: (userData: Partial<User>) => Promise<void>;
+  updateUser: (userData: Partial<User>) => void;
   /** Merge role, seller, and profile fields from GET /auth/me (no toast). */
   refreshSessionFromServer: () => Promise<void>;
   /** Update both storage and state immediately (e.g. for OTP login success). */
@@ -38,16 +37,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function safeParseJson<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-export function mapBackendRoleToFrontend(role: string | undefined): UserRole {
+function mapBackendRoleToFrontend(role: string | undefined): UserRole {
   if (!role) return 'customer';
   const r = role.toUpperCase();
   if (r === 'ADMIN') return 'admin';
@@ -58,55 +48,34 @@ export function mapBackendRoleToFrontend(role: string | undefined): UserRole {
   return 'customer';
 }
 
-function readStoredToken(): string | null {
-  return localStorage.getItem('token')
-    || localStorage.getItem('accessToken')
-    || sessionStorage.getItem('token')
-    || sessionStorage.getItem('accessToken');
-}
-
-function readStoredUser(): User | null {
-  const local = safeParseJson<User | null>(localStorage.getItem('user'), null);
-  if (local && typeof local === 'object') return local;
-  const session = safeParseJson<User | null>(sessionStorage.getItem('user'), null);
-  if (session && typeof session === 'object') return session;
-  return null;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const parsedUser = readStoredUser();
-    if (!parsedUser) {
-      localStorage.removeItem('user');
-      sessionStorage.removeItem('user');
-      return null;
+    // Check for stored user in localStorage
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      // PATCH: Migration for legacy users without role — default to 'customer' (NOT admin)
+      if (!parsedUser.role) {
+        parsedUser.role = 'customer';
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
+      const rawRole = parsedUser.role as string | undefined;
+      if (rawRole && ['super_admin', 'SUPER_ADMIN'].includes(String(rawRole))) {
+        parsedUser.role = 'admin';
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
+      return parsedUser;
     }
-    // Migration for legacy users without role
-    if (!parsedUser.role) {
-      parsedUser.role = 'customer';
-      localStorage.setItem('user', JSON.stringify(parsedUser));
-      sessionStorage.setItem('user', JSON.stringify(parsedUser));
-    }
-    const rawRole = parsedUser.role as string | undefined;
-    if (rawRole && ['super_admin', 'SUPER_ADMIN'].includes(String(rawRole))) {
-      parsedUser.role = 'admin';
-      localStorage.setItem('user', JSON.stringify(parsedUser));
-      sessionStorage.setItem('user', JSON.stringify(parsedUser));
-    }
-    return parsedUser;
+    return null;
   });
   const [requirePasswordChange, setRequirePasswordChange] = useState<boolean>(() => {
     const stored = localStorage.getItem('requirePasswordChange');
     return stored === 'true';
   });
-  const [isSessionChecked, setIsSessionChecked] = useState(false);
 
   const refreshSessionFromServer = useCallback(async () => {
-    const token = readStoredToken();
-    if (!token) {
-      setIsSessionChecked(true);
-      return;
-    }
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    if (!token) return;
     try {
       const p = await getAuthProfile();
       setUser((prev) => {
@@ -139,22 +108,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch {
       /* offline or expired token */
-    } finally {
-      setIsSessionChecked(true);
     }
   }, []);
 
   useEffect(() => {
-    const token = readStoredToken();
-    const stored = localStorage.getItem('user') || sessionStorage.getItem('user');
-    if (!token || !stored) {
-      setIsSessionChecked(true);
-      return;
-    }
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    const stored = localStorage.getItem('user');
+    if (!token || !stored) return;
     void refreshSessionFromServer();
   }, [refreshSessionFromServer]);
 
-  const login = async (emailOrPhone: string, password: string, rememberMe: boolean = true) => {
+  const login = async (emailOrPhone: string, password: string) => {
     try {
       const res = await fetch(`${getEffectiveApiBase()}/auth/login`, {
         method: 'POST',
@@ -219,13 +183,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sellerStoreName: seller?.storeName,
       };
 
-      const storage = rememberMe ? localStorage : sessionStorage;
-      const otherStorage = rememberMe ? sessionStorage : localStorage;
-      storage.setItem('token', token);
-      storage.setItem('user', JSON.stringify(userData));
-      otherStorage.removeItem('token');
-      otherStorage.removeItem('accessToken');
-      otherStorage.removeItem('user');
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('requirePasswordChange', String(!!u.requirePasswordChange));
       setUser(userData);
       setRequirePasswordChange(!!u.requirePasswordChange);
@@ -266,50 +225,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('requirePasswordChange');
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('user');
     toast.info('Logged out successfully');
   };
 
-  const updateUser = async (userData: Partial<User>) => {
-    if (!user) {
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      toast.success('Profile updated successfully!');
+    } else {
       toast.error('Failed to update profile. User not found.');
-      return;
-    }
-
-    const updatedUser = { ...user, ...userData };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    sessionStorage.setItem('user', JSON.stringify(updatedUser));
-
-    const shouldSyncProfile =
-      Object.prototype.hasOwnProperty.call(userData, 'name') ||
-      Object.prototype.hasOwnProperty.call(userData, 'phone') ||
-      Object.prototype.hasOwnProperty.call(userData, 'address');
-    if (!shouldSyncProfile) {
-      toast.success('Profile updated successfully!');
-      return;
-    }
-
-    const nameParts = String(updatedUser.name || '').trim().split(/\s+/).filter(Boolean);
-    const firstName = nameParts[0];
-    const lastName = nameParts.slice(1).join(' ');
-
-    try {
-      await updateAuthProfile({
-        firstName,
-        lastName: lastName || undefined,
-        phone: updatedUser.phone || undefined,
-        address: updatedUser.address || undefined,
-      });
-      toast.success('Profile updated successfully!');
-    } catch (error: any) {
-      setUser(user);
-      localStorage.setItem('user', JSON.stringify(user));
-      sessionStorage.setItem('user', JSON.stringify(user));
-      toast.error(error?.message || 'Could not save profile to server.');
-      throw error;
     }
   };
 
@@ -318,7 +244,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isAuthenticated: !!user,
-        isSessionChecked,
         requirePasswordChange,
         login,
         signup,
@@ -328,9 +253,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginWithTokenAndUser: (token: string, userData: User, rpc: boolean = false) => {
           localStorage.setItem('token', token);
           localStorage.setItem('user', JSON.stringify(userData));
-          sessionStorage.removeItem('token');
-          sessionStorage.removeItem('accessToken');
-          sessionStorage.removeItem('user');
           localStorage.setItem('requirePasswordChange', String(rpc));
           setUser(userData);
           setRequirePasswordChange(rpc);

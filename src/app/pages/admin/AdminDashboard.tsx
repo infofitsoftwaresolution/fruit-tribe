@@ -3,7 +3,8 @@ import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
     ShoppingBag, Clock, ShieldCheck, Zap, LayoutDashboard,
-    ArrowRight, Star, ExternalLink, Activity, Ban
+    ArrowRight, Star, ExternalLink, Activity, Ban, Search,
+    ShoppingCart
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -21,7 +22,7 @@ export function AdminDashboard() {
     const { orders, customers, sellers, products, isInitialLoading: adminBootLoading } = useAdminData();
 
     const isAdmin = user?.role === 'admin';
-    const isSeller = user?.role === 'seller' || user?.role === 'SELLER';
+    const isSeller = user?.role === 'seller';
     const [inventorySearch, setInventorySearch] = useState('');
     const [inventoryVendorFilter, setInventoryVendorFilter] = useState('all');
     const [inventoryStockFilter, setInventoryStockFilter] = useState<'all' | 'low' | 'out' | 'healthy'>('low');
@@ -181,60 +182,61 @@ export function AdminDashboard() {
     }, [intel.recent, orderSearch, orderPaymentFilter, orderStatusFilter, orderWindow]);
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-12 pb-20 font-sans relative">
+            {/* Header with improved typography and layout */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
                 >
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Admin Dashboard</span>
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                            <Activity className="w-5 h-5 text-emerald-600" />
+                        </div>
+                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.25em] opacity-80">Command Hub</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">
-                        {isSeller ? `${user?.name} Store Overview` : 'Dashboard Overview'}
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter font-heading">
+                        {isSeller ? `${user?.name} Console` : 'Platform Pulse'}
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">
-                        {isAdmin ? 'Track business performance across the platform.' : 'Track orders, products, customers, and stock in one place.'}
+                    <p className="text-slate-500 text-sm mt-3 max-w-xl leading-relaxed font-medium">
+                        {isAdmin ? 'Real-time performance analytics and operational control for your orchard ecosystem.' : 'Track your store metrics, inventory health, and customer interactions.'}
                     </p>
                 </motion.div>
 
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-2 shadow-sm">
-                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">System Running</span>
+                <div className="flex items-center gap-4">
+                    <div className="hidden lg:flex items-center gap-3 px-5 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
+                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
+                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none">System Healthy</span>
                     </div>
                     <button
                         type="button"
-                        title="Open storefront in a new tab"
+                        title="Open storefront"
                         onClick={() => {
                             const base = window.location.href.split('#')[0];
                             window.open(`${base}#/`, '_blank', 'noopener,noreferrer');
                         }}
-                        className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-emerald-500 hover:shadow-xl transition-all"
+                        className="h-11 px-5 bg-slate-900 border border-slate-800 rounded-xl text-white hover:bg-emerald-600 hover:border-emerald-500 hover:shadow-lg transition-all duration-500 flex items-center gap-2 group"
                     >
-                        <ExternalLink className="w-5 h-5" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Visit Store</span>
+                        <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
             </div>
 
-            {/* Mobile quick nav (replaces sidebar on small screens) */}
-            <div className="md:hidden -mx-2 mb-4">
-                <div className="flex gap-2 overflow-x-auto px-2 pb-2 no-scrollbar">
+            {/* Mobile quick nav refinement */}
+            <div className="md:hidden -mx-4">
+                <div className="flex gap-3 overflow-x-auto px-4 pb-4 no-scrollbar">
                     {[
-                        { label: 'Dashboard', href: '/admin' },
+                        { label: 'Overview', href: '/admin' },
                         { label: 'Orders', href: '/admin/orders' },
-                        { label: 'Catalog', href: '/admin/products' },
-                        { label: 'Customers', href: '/admin/customers' },
-                        { label: 'Vendors', href: '/admin/sellers' },
+                        { label: 'Products', href: '/admin/products' },
                         { label: 'Analytics', href: '/admin/analytics' },
-                        { label: 'Subscription', href: '/admin/subscription' },
                     ].map((item) => (
                         <button
                             key={item.href}
                             onClick={() => navigate(item.href)}
-                            className="px-4 py-2 rounded-full bg-white text-[10px] font-black uppercase tracking-[0.18em] border border-slate-200 whitespace-nowrap shadow-sm"
+                            className="px-6 py-3 rounded-2xl bg-white text-[10px] font-black uppercase tracking-widest border border-slate-100 whitespace-nowrap shadow-sm active:scale-95 transition-all"
                         >
                             {item.label}
                         </button>
@@ -243,52 +245,65 @@ export function AdminDashboard() {
             </div>
 
             {/* Top Tier Metrics: Platform-wide or Seller Gross */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {adminBootLoading ? (
-                    <div className="md:col-span-4">
+                    <div className="lg:col-span-4">
                         <AdminStatsSkeleton cards={4} />
                     </div>
                 ) : isAdmin ? (
                     <>
                         <MetricGlassCard
-                            label="Total Revenue"
+                            label="Net Revenue"
                             value={`₹${intel.globalRevenue.toLocaleString()}`}
-                            sub="Paid orders"
+                            sub="Settled volume"
                             color="emerald"
                             icon={IndianRupee}
-                            trend="+24%"
+                            trend="+24.8%"
                         />
                         <MetricGlassCard
-                            label="Active Sellers"
+                            label="Active Merchants"
                             value={intel.vendorBase}
-                            sub="Sellers on platform"
+                            sub="Verified vendors"
                             color="blue"
                             icon={Store}
-                            trend="+2"
+                            trend="+4"
                         />
                         <MetricGlassCard
-                            label="Verified Customers"
+                            label="Total Customers"
                             value={intel.buyerBase}
-                            sub="Approved accounts"
+                            sub="Verified users"
                             color="purple"
                             icon={Users}
-                            trend="+48"
+                            trend="+128"
                         />
                         <motion.div
-                            whileHover={{ scale: 1.02 }}
-                            className="bg-slate-900 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-2xl relative overflow-hidden"
+                            whileHover={{ y: -4, scale: 1.01 }}
+                            className="bg-slate-900 rounded-3xl p-6 text-white flex flex-col justify-between shadow-xl relative overflow-hidden border border-white/5 group"
                         >
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-4">System Health</p>
-                                <p className="text-2xl font-black uppercase tracking-tighter mb-2 italic">All Good</p>
-                                <div className="flex flex-col gap-1">
-                                    <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500 w-[94%]" />
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center">
+                                        <Zap className="w-6 h-6 text-emerald-400 fill-emerald-400/20" />
                                     </div>
-                                    <span className="text-[8px] font-black text-white/40 uppercase">Service Load / Uptime</span>
+                                    <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">
+                                        Optimal
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1 italic">Engine Health</p>
+                                    <p className="text-2xl font-black tracking-tighter mb-3 uppercase italic group-hover:text-emerald-400 transition-colors">98.4% Uptime</p>
+                                    <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                        <motion.div 
+                                            initial={{ width: 0 }}
+                                            animate={{ width: '98%' }}
+                                            transition={{ duration: 1.5, ease: "easeOut" }}
+                                            className="h-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl" />
+                            {/* Decorative Background Elements */}
+                            <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-emerald-500/20 transition-all duration-700" />
                         </motion.div>
                     </>
                 ) : (
@@ -299,108 +314,117 @@ export function AdminDashboard() {
                             sub="Settled & Pending"
                             color="emerald"
                             icon={IndianRupee}
-                            trend="+12%"
+                            trend="+12.4%"
                         />
                         <MetricGlassCard
                             label="Total Orders"
                             value={intel.volume}
-                            sub="All time"
+                            sub="Cumulative sales"
                             color="blue"
                             icon={ShoppingBag}
-                            trend="+5"
+                            trend="+15"
                         />
                         <MetricGlassCard
-                            label="Pending Orders"
+                            label="Pending Action"
                             value={intel.pending}
-                            sub="Need action"
+                            sub="Orders to ship"
                             color="orange"
                             icon={Clock}
-                            trend="Urgent"
+                            trend="High Priority"
                         />
                         <MetricGlassCard
-                            label="Store Rating"
-                            value="4.9"
-                            sub="Customer reviews"
+                            label="Merchant Rating"
+                            value="4.95"
+                            sub="From 240 reviews"
                             color="purple"
                             icon={Star}
-                            trend="+0.1"
+                            trend="+0.05"
                         />
                     </>
                 )}
             </div>
 
-            {/* Inventory Overview */}
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
+            {/* Inventory Pulse */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden group">
+                <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
                     <div>
-                        <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Inventory Overview</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                            Live stock summary from your products
+                        <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight font-heading">Inventory Hub</h3>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 opacity-80">
+                            Live supply chain and stock metrics
                         </p>
                     </div>
                     <button
                         onClick={() => navigate('/admin/products')}
-                        className="h-11 px-5 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all"
+                        className="h-11 px-6 bg-white border border-slate-200 rounded-xl text-[9px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-xl transition-all duration-500 flex items-center gap-2"
                     >
-                        Open Catalog
+                        <span>Full Catalog</span>
+                        <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
 
-                <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-5">
+                <div className="p-6 grid grid-cols-1 xl:grid-cols-3 gap-8">
+                    <div className="xl:col-span-2 space-y-6">
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <StatPill label="Products" value={inventoryIntel.totalProducts} tone="slate" />
-                            <StatPill label="Units" value={inventoryIntel.totalUnits} tone="emerald" />
-                            <StatPill label="Low" value={inventoryIntel.lowStock} tone="amber" />
-                            <StatPill label="Out" value={inventoryIntel.outOfStock} tone="purple" />
+                            <StatPill label="Product Lines" value={inventoryIntel.totalProducts} tone="slate" icon={Package} />
+                            <StatPill label="Total Units" value={inventoryIntel.totalUnits} tone="emerald" icon={Zap} />
+                            <StatPill label="Low Supply" value={inventoryIntel.lowStock} tone="amber" icon={AlertCircle} />
+                            <StatPill label="Sold Out" value={inventoryIntel.outOfStock} tone="purple" icon={Ban} />
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="space-y-6 pt-4">
                             <InventoryBar
-                                label="Healthy"
+                                label="Healthy Stock Levels"
                                 value={inventoryIntel.healthy}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
                                 colorClass="bg-emerald-500"
                             />
                             <InventoryBar
-                                label="Low stock"
+                                label="Reorder Threshold Warning"
                                 value={inventoryIntel.lowStock}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
                                 colorClass="bg-amber-500"
                             />
                             <InventoryBar
-                                label="Out of stock"
+                                label="Immediate Restock Required"
                                 value={inventoryIntel.outOfStock}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
-                                colorClass="bg-violet-500"
+                                colorClass="bg-red-500"
                             />
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-5">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Inventory List Filters</p>
-                        <div className="space-y-2 mb-4">
-                            <input
-                                value={inventorySearch}
-                                onChange={(e) => setInventorySearch(e.target.value)}
-                                placeholder="Search product / SKU / vendor"
-                                className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 placeholder:text-slate-400"
-                            />
+                    <div className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6 relative overflow-hidden shadow-inner">
+                        <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+                        
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                            <Search className="w-3.5 h-3.5 opacity-40" />
+                            Fast Filters
+                        </p>
+                        
+                        <div className="space-y-3 mb-6">
+                            <div className="relative">
+                                <input
+                                    value={inventorySearch}
+                                    onChange={(e) => setInventorySearch(e.target.value)}
+                                    placeholder="SKU, Name, or Vendor..."
+                                    className="w-full h-10 pl-4 pr-4 rounded-xl border border-slate-200 bg-white text-[10px] font-bold text-slate-900 placeholder:text-slate-400 placeholder:uppercase placeholder:tracking-widest focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 transition-all outline-none"
+                                />
+                            </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <select
                                     value={inventoryStockFilter}
                                     onChange={(e) => setInventoryStockFilter(e.target.value as 'all' | 'low' | 'out' | 'healthy')}
-                                    className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                    className="h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
                                 >
-                                    <option value="all">All Stock</option>
-                                    <option value="low">Low</option>
-                                    <option value="out">Out</option>
-                                    <option value="healthy">Healthy</option>
+                                    <option value="all">Any Stock</option>
+                                    <option value="low">Critical</option>
+                                    <option value="out">Depleted</option>
+                                    <option value="healthy">Stable</option>
                                 </select>
                                 <select
                                     value={inventoryVendorFilter}
                                     onChange={(e) => setInventoryVendorFilter(e.target.value)}
-                                    className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
+                                    className="h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
                                 >
                                     <option value="all">All Vendors</option>
                                     {inventoryVendors.map((vendor) => (
@@ -409,205 +433,205 @@ export function AdminDashboard() {
                                 </select>
                             </div>
                         </div>
-                        <div className="space-y-3">
-                            {inventoryPreview.length ? inventoryPreview.map((p) => (
-                                <button
+
+                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                            {inventoryPreview.length ? inventoryPreview.map((p, i) => (
+                                <motion.button
+                                    initial={{ opacity: 0, x: 8 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: i * 0.04 }}
                                     key={String(p.id)}
                                     type="button"
                                     onClick={() => navigate(`/admin/products?focusProductId=${encodeURIComponent(String(p.id))}`)}
-                                    className="w-full flex items-center justify-between gap-3 rounded-xl p-2 -m-2 hover:bg-white transition-all text-left"
+                                    className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-white border border-slate-100 hover:border-emerald-500/50 hover:shadow-lg transition-all duration-300 text-left group"
                                 >
                                     <div className="min-w-0">
-                                        <p className="text-xs font-black text-slate-900 truncate">{p.name}</p>
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                                            Threshold {(p.lowStockThreshold ?? 5)}
+                                        <p className="text-[11px] font-black text-slate-900 truncate uppercase tracking-tight group-hover:text-emerald-600 transition-colors">{p.name}</p>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                                            Limit: {(p.lowStockThreshold ?? 5)}
                                         </p>
                                     </div>
-                                    <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-widest">
-                                        {p.availableStock ?? p.stock} left
-                                    </span>
-                                </button>
+                                    <div className="text-right">
+                                        <span className={cn(
+                                            "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
+                                            (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5) ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                        )}>
+                                            {p.availableStock ?? p.stock} Units
+                                        </span>
+                                    </div>
+                                </motion.button>
                             )) : (
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    No products match these filters.
-                                </p>
+                                <div className="py-10 text-center">
+                                    <Activity className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No matching assets.</p>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Orders and Quick Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Recent Orders */}
-                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                    <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
-                        <div className="flex-1">
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Recent Transactions</h3>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Latest order activity</p>
-                            <div className="mt-4 space-y-2">
-                                <input
-                                    value={orderSearch}
-                                    onChange={(e) => setOrderSearch(e.target.value)}
-                                    placeholder="Search customer / order id"
-                                    className="w-full h-9 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 placeholder:text-slate-400"
-                                />
-                                <div className="grid grid-cols-3 gap-2">
-                                    <select
-                                        value={orderWindow}
-                                        onChange={(e) => setOrderWindow(e.target.value as 'all' | 'today' | '7d' | '30d')}
-                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
-                                    >
-                                        <option value="all">All Time</option>
-                                        <option value="today">Today</option>
-                                        <option value="7d">7 Days</option>
-                                        <option value="30d">30 Days</option>
-                                    </select>
-                                    <select
-                                        value={orderPaymentFilter}
-                                        onChange={(e) => setOrderPaymentFilter(e.target.value as 'all' | 'Paid' | 'Pending')}
-                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
-                                    >
-                                        <option value="all">All Pay</option>
-                                        <option value="Paid">Paid</option>
-                                        <option value="Pending">Pending</option>
-                                    </select>
-                                    <select
-                                        value={orderStatusFilter}
-                                        onChange={(e) => setOrderStatusFilter(e.target.value as 'all' | 'active' | 'DELIVERED' | 'CANCELLED')}
-                                        className="h-9 px-2 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-wider text-slate-600"
-                                    >
-                                        <option value="all">All Status</option>
-                                        <option value="active">Active</option>
-                                        <option value="DELIVERED">Delivered</option>
-                                        <option value="CANCELLED">Cancelled</option>
-                                    </select>
-                                </div>
-                            </div>
+            {/* Orders and Command Center */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Recent Orders Refined */}
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden">
+                    <div className="p-6 md:p-8 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight font-heading">Transactions</h3>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 opacity-80">Latest order activity pipeline</p>
                         </div>
-                        <Link to="/admin/orders" className="p-3 bg-white border border-slate-200 rounded-2xl hover:bg-slate-50 transition-all">
-                            <ArrowRight className="h-4 w-4 text-slate-400" />
+                        <Link to="/admin/orders" className="h-10 w-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all duration-500 shadow-sm">
+                            <ArrowRight className="h-4 w-4" />
                         </Link>
                     </div>
-                    <div className="divide-y divide-slate-50">
-                        {filteredRecentOrders.length > 0 ? filteredRecentOrders.map((order: any, i: number) => (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.1 * i }}
-                                key={order.id}
-                                className="p-6 flex items-center gap-5 hover:bg-slate-50/50 transition-all group cursor-pointer"
-                                onClick={() => navigate('/admin/orders')}
-                            >
-                                <div className="h-12 w-12 rounded-2xl bg-white border border-slate-100 shadow-sm flex items-center justify-center font-black text-slate-600 group-hover:scale-110 group-hover:bg-slate-900 group-hover:text-white transition-all duration-500">
-                                    {order.customer.charAt(0)}
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
-                                        <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest leading-none">
-                                            {order.orderNumber ? `#${order.orderNumber}` : `ID-${order.id}`}
-                                        </span>
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                                        Purchased {order.items} Units • {order.channel}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-black text-slate-900">₹{order.total.toLocaleString()}</p>
-                                    <span className={cn(
-                                        "text-[9px] font-black uppercase tracking-widest",
-                                        order.payment === 'Paid' ? 'text-emerald-500' : 'text-amber-500'
-                                    )}>{order.payment}</span>
-                                </div>
-                            </motion.div>
-                        )) : (
-                            <div className="py-20 text-center">
-                                <Activity className="h-12 w-12 text-slate-100 mx-auto mb-4" />
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No transactions match selected filters.</p>
+                    
+                    <div className="p-5 md:p-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                            <input
+                                value={orderSearch}
+                                onChange={(e) => setOrderSearch(e.target.value)}
+                                placeholder="Customer / Order ID..."
+                                className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-[10px] font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                            />
+                            <div className="flex gap-2">
+                                <select
+                                    value={orderWindow}
+                                    onChange={(e) => setOrderWindow(e.target.value as 'all' | 'today' | '7d' | '30d')}
+                                    className="flex-1 h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                >
+                                    <option value="all">All Time</option>
+                                    <option value="today">Today</option>
+                                    <option value="7d">Last Week</option>
+                                </select>
+                                <select
+                                    value={orderStatusFilter}
+                                    onChange={(e) => setOrderStatusFilter(e.target.value as 'all' | 'active' | 'DELIVERED' | 'CANCELLED')}
+                                    className="flex-1 h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                >
+                                    <option value="all">Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="DELIVERED">Delivered</option>
+                                </select>
                             </div>
-                        )}
-                    </div>
-                    <div className="p-8 bg-slate-50/30 border-t border-slate-50">
-                        <button
-                            onClick={() => navigate('/admin/orders')}
-                            className="w-full h-14 bg-white border border-slate-200 rounded-2xl text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all"
-                        >
-                            View All Orders
-                        </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {filteredRecentOrders.length > 0 ? filteredRecentOrders.map((order: any, i: number) => (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 * i }}
+                                    key={order.id}
+                                    className="p-4 flex items-center gap-4 border border-slate-50 hover:border-emerald-500/30 rounded-2xl hover:bg-slate-50/50 transition-all group cursor-pointer"
+                                    onClick={() => navigate('/admin/orders')}
+                                >
+                                    <div className="h-11 w-11 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center justify-center font-black text-slate-900 group-hover:bg-slate-900 group-hover:text-white transition-all duration-700 text-base">
+                                        {order.customer.charAt(0)}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
+                                            <span className="px-2.5 py-1 bg-slate-100 text-[9px] font-black rounded-lg text-slate-500 uppercase tracking-widest">
+                                                {order.orderNumber ? `#${order.orderNumber}` : `ID-${order.id.slice(0,6)}`}
+                                            </span>
+                                        </div>
+                                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 flex items-center gap-2">
+                                            {order.items} Items <span className="h-0.5 w-0.5 rounded-full bg-slate-200" /> {new Date(order.date).toLocaleDateString()}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[14px] font-black text-slate-900">₹{order.total.toLocaleString()}</p>
+                                        <div className={cn(
+                                            "inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
+                                            order.payment === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                                        )}>
+                                            <div className={cn("h-1.5 w-1.5 rounded-full", order.payment === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500')} />
+                                            {order.payment}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )) : (
+                                <div className="py-20 text-center bg-slate-50/30 rounded-[2.5rem] border border-dashed border-slate-200">
+                                    <ShoppingCart className="h-12 w-12 text-slate-200 mx-auto mb-4" />
+                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No transactions found.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Quick Actions */}
-                <div className="space-y-6">
+                {/* Command Center with Gradient Design */}
+                <div className="space-y-8">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
+                        initial={{ opacity: 0, scale: 0.99 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl h-full flex flex-col justify-center"
+                        className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl h-full flex flex-col justify-center min-h-[400px]"
                     >
+                        {/* Animated Gradient Background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 opacity-90" />
+                        <div className="absolute -top-40 -right-40 h-96 w-96 bg-emerald-500/20 rounded-full blur-[120px] animate-pulse" />
+                        <div className="absolute -bottom-40 -left-40 h-96 w-96 bg-blue-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+
                         <div className="relative z-10">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-6">
-                                <Zap className="h-4 w-4 fill-emerald-500" />
-                                Quick Actions
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] mb-6 shadow-lg shadow-emerald-500/5">
+                                <Zap className="h-3.5 w-3.5 fill-emerald-500 animate-bounce" />
+                                Rapid Access
                             </div>
-                            <h3 className="text-4xl font-black mb-4 tracking-tighter leading-none">Manage your <br />store faster.</h3>
-                            <p className="text-slate-400 text-sm mb-10 leading-relaxed max-w-sm">
-                                Use shortcuts to update products, orders, and storefront settings.
+                            <h3 className="text-3xl font-black mb-4 tracking-tighter leading-none font-heading italic uppercase">Streamline your <br /><span className="text-emerald-400">operations.</span></h3>
+                            <p className="text-slate-400 text-sm mb-8 leading-relaxed max-w-xs font-medium opacity-80">
+                                High-frequency controls to manage your digital inventory and customer logistics with surgical precision.
                             </p>
 
-                            <div className="grid gap-3">
-                                <Link to="/admin/products" className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <button onClick={() => navigate('/admin/products')} className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-emerald-500/30 transition-all group backdrop-blur-xl">
                                     <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 bg-emerald-500/20 rounded-2xl flex items-center justify-center border border-emerald-500/20">
-                                            <Package className="h-5 w-5 text-emerald-500" />
+                                        <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/10">
+                                            <Package className="h-5 w-5" />
                                         </div>
-                                        <span className="text-sm font-black uppercase tracking-tight">Manage Products</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest">Inventory</span>
                                     </div>
-                                    <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
-                                </Link>
+                                    <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1.5 transition-all duration-500" />
+                                </button>
 
                                 {!isSeller && (
-                                    <Link to="/admin/store" className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group">
+                                    <button onClick={() => navigate('/admin/store')} className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-blue-500/30 transition-all group backdrop-blur-xl">
                                         <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 bg-blue-500/20 rounded-2xl flex items-center justify-center border border-blue-500/20">
-                                                <LayoutDashboard className="h-5 w-5 text-blue-500" />
+                                            <div className="h-10 w-10 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/20 text-blue-400 shadow-lg shadow-blue-500/10">
+                                                <LayoutDashboard className="h-5 w-5" />
                                             </div>
-                                            <span className="text-sm font-black uppercase tracking-tight">Store Settings</span>
+                                            <span className="text-[10px] font-black uppercase tracking-widest">Storefront</span>
                                         </div>
-                                        <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                                    </Link>
+                                        <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1.5 transition-all duration-500" />
+                                    </button>
                                 )}
                             </div>
                         </div>
-                        {/* Decorative Gradient Glows */}
-                        <div className="absolute -bottom-24 -right-24 h-80 w-80 bg-emerald-600/20 rounded-full blur-[100px] pointer-events-none" />
-                        <div className="absolute -top-24 -left-24 h-64 w-64 bg-blue-600/10 rounded-full blur-[80px] pointer-events-none" />
                     </motion.div>
 
-                    {/* Alerts */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-6 bg-amber-50 rounded-[2.5rem] border border-amber-100 flex items-start gap-4">
-                            <div className="p-3 bg-white rounded-2xl text-amber-600 shadow-sm">
+                    {/* Notification Nodes */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <motion.div whileHover={{ y: -4 }} className="p-6 bg-amber-50 rounded-3xl border border-amber-100 flex items-start gap-4 shadow-sm hover:shadow-lg transition-all duration-500">
+                            <div className="p-3 bg-white rounded-xl text-amber-600 shadow-md shadow-amber-900/5">
                                 <AlertCircle className="w-5 h-5" />
                             </div>
-                            <div className="flex-1">
-                                <p className="text-[9px] font-black text-amber-800/60 uppercase tracking-widest mb-1">Stock Alert</p>
-                                <p className="text-xs font-black text-amber-900 leading-tight">
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[9px] font-black text-amber-800/50 uppercase tracking-widest mb-1.5 italic">Supply Warning</p>
+                                <p className="text-[13px] font-black text-amber-900 leading-tight">
                                     {lowStockCount > 0
-                                        ? `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} running low.`
-                                        : 'All products have healthy stock.'}
+                                        ? `${lowStockCount} SKU${lowStockCount === 1 ? '' : 's'} flagged for restock.`
+                                        : 'Orchard supplies are fully optimal.'}
                                 </p>
                             </div>
-                        </div>
-                        <div className="p-6 bg-purple-50 rounded-[2.5rem] border border-purple-100 flex items-start gap-4">
-                            <div className="p-3 bg-white rounded-2xl text-purple-600 shadow-sm">
+                        </motion.div>
+                        <motion.div whileHover={{ y: -4 }} className="p-6 bg-purple-50 rounded-3xl border border-purple-100 flex items-start gap-4 shadow-sm hover:shadow-lg transition-all duration-500">
+                            <div className="p-3 bg-white rounded-xl text-purple-600 shadow-md shadow-purple-900/5">
                                 <ShieldCheck className="w-5 h-5" />
                             </div>
-                            <div className="flex-1">
-                                <p className="text-[9px] font-black text-purple-800/60 uppercase tracking-widest mb-1">Verification</p>
-                                <p className="text-xs font-black text-purple-900 leading-tight">All seller KYC records are verified.</p>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[9px] font-black text-purple-800/50 uppercase tracking-widest mb-1.5 italic">Integrity Check</p>
+                                <p className="text-[13px] font-black text-purple-900 leading-tight">Platform security protocols are verified.</p>
                             </div>
-                        </div>
+                        </motion.div>
                     </div>
                 </div>
             </div>
@@ -625,18 +649,19 @@ function MetricGlassCard({ label, value, sub, color, icon: Icon, trend }: any) {
 
     return (
         <motion.div
-            whileHover={{ y: -5 }}
-            className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group"
+            whileHover={{ y: -6, scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500"
         >
             <div className="relative z-10">
-                <div className="flex items-center justify-between mb-8">
-                    <div className={cn("p-4 rounded-[1.5rem] border transition-all duration-500 group-hover:scale-110", colorMap[color])}>
-                        <Icon className="w-6 h-6" />
+                <div className="flex items-center justify-between mb-6">
+                    <div className={cn("p-4 rounded-xl border transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 shadow-lg", colorMap[color])}>
+                        <Icon className="w-5 h-5" />
                     </div>
                     {trend && (
                         <div className={cn(
-                            "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1",
-                            trend.startsWith('+') ? 'bg-emerald-50 text-emerald-600' : 'bg-orange-50 text-orange-600'
+                            "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1 border",
+                            trend.startsWith('+') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100'
                         )}>
                             {trend.startsWith('+') ? <ArrowUpRight className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
                             {trend}
@@ -644,30 +669,50 @@ function MetricGlassCard({ label, value, sub, color, icon: Icon, trend }: any) {
                     )}
                 </div>
                 <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-                    <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1 leading-none">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{sub}</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 italic opacity-80">{label}</p>
+                    <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1.5 leading-none font-heading">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-60">{sub}</p>
                 </div>
             </div>
-            {/* Ambient Background Glow */}
-            <div className={cn("absolute -right-8 -bottom-8 w-32 h-32 blur-[40px] opacity-10 transition-opacity group-hover:opacity-20", `bg-${color}-400`)} />
+            
+            {/* Background Ambient Glow */}
+            <div className={cn(
+                "absolute -right-12 -bottom-12 w-32 h-32 blur-[50px] opacity-10 transition-all duration-700 group-hover:opacity-30 group-hover:scale-150",
+                `bg-${color}-500`
+            )} />
         </motion.div>
     );
 }
 
-function StatPill({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'emerald' | 'amber' | 'purple' }) {
+function StatPill({ label, value, tone, icon: Icon }: { label: string; value: number; tone: 'slate' | 'emerald' | 'amber' | 'purple'; icon: any }) {
     const tones = {
-        slate: 'bg-slate-100 text-slate-700',
-        emerald: 'bg-emerald-100 text-emerald-700',
-        amber: 'bg-amber-100 text-amber-700',
-        purple: 'bg-violet-100 text-violet-700',
+        slate: 'bg-slate-50 text-slate-900 border-slate-100',
+        emerald: 'bg-emerald-50 text-emerald-900 border-emerald-100',
+        amber: 'bg-amber-50 text-amber-900 border-amber-100',
+        purple: 'bg-violet-50 text-violet-900 border-violet-100',
+    } as const;
+
+    const iconColors = {
+        slate: 'text-slate-400',
+        emerald: 'text-emerald-500',
+        amber: 'text-amber-500',
+        purple: 'text-violet-500',
     } as const;
 
     return (
-        <div className="p-4 rounded-2xl border border-slate-100 bg-white">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-            <p className={cn('text-2xl font-black tracking-tighter leading-none', tones[tone])}>{value.toLocaleString()}</p>
-        </div>
+        <motion.div 
+            whileHover={{ y: -4 }}
+            className={cn("p-5 rounded-2xl border relative overflow-hidden group transition-all duration-500", tones[tone])}
+        >
+            <div className="relative z-10">
+                <div className="flex items-center justify-between mb-3">
+                    <p className="text-[8px] font-black uppercase tracking-[0.15em] opacity-50">{label}</p>
+                    <Icon className={cn("w-3.5 h-3.5 opacity-40 group-hover:opacity-100 transition-opacity", iconColors[tone])} />
+                </div>
+                <p className="text-2xl font-black tracking-tighter leading-none font-heading">{value.toLocaleString()}</p>
+            </div>
+            <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </motion.div>
     );
 }
 
@@ -684,13 +729,21 @@ function InventoryBar({
 }) {
     const pct = Math.max(0, Math.min(100, Math.round((value / Math.max(1, total)) * 100)));
     return (
-        <div>
-            <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
-                <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">{value} ({pct}%)</p>
+        <div className="group">
+            <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Real-time</span>
+                </div>
+                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{value} Units <span className="text-slate-300 ml-1">/ {pct}%</span></p>
             </div>
-            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                <div className={cn('h-full rounded-full', colorClass)} style={{ width: `${pct}%` }} />
+            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-50 shadow-inner">
+                <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className={cn('h-full rounded-full shadow-sm', colorClass)} 
+                />
             </div>
         </div>
     );

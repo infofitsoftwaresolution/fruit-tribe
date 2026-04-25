@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { mapBackendRoleToFrontend, useAuth } from '@/app/context/AuthContext';
+import { useAuth, UserRole, User } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import {
   LogIn, Eye, EyeOff, Shield, Loader2, UserCircle,
@@ -36,14 +36,12 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
   // ── Password login state ──────────────────────────────────────────────
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
 
   // ── WhatsApp OTP state ────────────────────────────────────────────────
   const [waPhone, setWaPhone] = useState('');
   const [waOtp, setWaOtp] = useState('');
   const [waStep, setWaStep] = useState<WhatsappStep>('phone');
   const [waResendTimer, setWaResendTimer] = useState(0);
-  const waResendIntervalRef = useRef<number | null>(null);
 
   // ── Shared state ──────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<LoginTab>('password');
@@ -53,41 +51,20 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
   const resolvedAuthBg =
     (theme?.authBackgroundImage && theme.authBackgroundImage.trim()) || AUTH_BG_IMAGE;
 
-  const sanitizeInternalRedirect = (target: string | undefined): string | null => {
-    if (!target) return null;
-    const trimmed = target.trim();
-    if (!trimmed.startsWith('/')) return null;
-    if (trimmed.startsWith('//')) return null;
-    if (trimmed.includes('://')) return null;
-    if (trimmed.toLowerCase().startsWith('/login')) return null;
-    return trimmed;
-  };
-
-  const safeReadStoredUserRole = (): string | null => {
-    try {
-      const raw = localStorage.getItem('user');
-      if (!raw) return null;
-      const parsed = JSON.parse(raw) as { role?: string };
-      return typeof parsed?.role === 'string' ? parsed.role : null;
-    } catch {
-      localStorage.removeItem('user');
-      return null;
-    }
-  };
-
   // ── Redirect helper ───────────────────────────────────────────────────
   const redirectAfterLogin = () => {
     const redirectFromState = (location.state as { from?: string } | null)?.from;
     const redirectFromQuery = new URLSearchParams(location.search).get('next') || undefined;
-    const redirectTarget = sanitizeInternalRedirect(redirectFromState || redirectFromQuery);
-    if (redirectTarget) {
+    const redirectTarget = redirectFromState || redirectFromQuery;
+    if (redirectTarget && redirectTarget !== '/login') {
       navigate(redirectTarget, { replace: true });
       return;
     }
-    const role = safeReadStoredUserRole();
-    if (role) {
-      if (['admin', 'seller'].includes(role)) navigate('/admin');
-      else if (role === 'delivery_partner') navigate('/delivery');
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      if (['admin', 'seller'].includes(user.role)) navigate('/admin');
+      else if (user.role === 'delivery_partner') navigate('/delivery');
       else navigate('/');
     } else {
       navigate('/');
@@ -100,7 +77,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
     setError('');
     setIsLoading(true);
     try {
-      await login(formData.email, formData.password, rememberMe);
+      await login(formData.email, formData.password);
       redirectAfterLogin();
     } catch (err: any) {
       const msg = String(err?.message || '');
@@ -136,18 +113,9 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       setWaStep('otp');
       // 60-second resend cooldown
       setWaResendTimer(60);
-      if (waResendIntervalRef.current) {
-        window.clearInterval(waResendIntervalRef.current);
-      }
-      waResendIntervalRef.current = window.setInterval(() => {
+      const interval = setInterval(() => {
         setWaResendTimer((t) => {
-          if (t <= 1) {
-            if (waResendIntervalRef.current) {
-              window.clearInterval(waResendIntervalRef.current);
-              waResendIntervalRef.current = null;
-            }
-            return 0;
-          }
+          if (t <= 1) { clearInterval(interval); return 0; }
           return t - 1;
         });
       }, 1000);
@@ -182,12 +150,20 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       // Reuse AuthContext helper shape
       const nameParts = [u.firstName, u.lastName].filter(Boolean).join(' ');
       const name = nameParts || waPhone.slice(-4);
+      const mapRole = (r: string | undefined): UserRole => {
+        if (!r) return 'customer';
+        const up = r.toUpperCase();
+        if (up === 'ADMIN' || up === 'SUPER_ADMIN') return 'admin';
+        if (up === 'SELLER') return 'seller';
+        if (up === 'DELIVERY_PARTNER') return 'delivery_partner';
+        return 'customer';
+      };
       const seller = u.seller as { id?: string; storeName?: string } | undefined;
-      const userData = {
-        id: u.id,
+      const userData: User = {
+        id: String(u.id),
         name: name.charAt(0).toUpperCase() + name.slice(1),
         email: u.email,
-        role: mapBackendRoleToFrontend(u.role),
+        role: mapRole(u.role),
         phone: typeof u.phone === 'string' ? u.phone : waPhone,
         address: '',
         memberSince: new Date().getFullYear().toString(),
@@ -214,12 +190,6 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       .then(data => setIsWaEnabled(!!data.enabled))
       .catch(() => setIsWaEnabled(false))
       .finally(() => setWaLoading(false));
-    return () => {
-      if (waResendIntervalRef.current) {
-        window.clearInterval(waResendIntervalRef.current);
-        waResendIntervalRef.current = null;
-      }
-    };
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -238,7 +208,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       ref={containerRef}
       className={cn(
         'relative min-h-screen w-full flex items-center justify-center overflow-auto bg-slate-100',
-        embedded ? 'pt-16 pb-8' : 'pt-28 pb-12',
+        embedded ? 'pt-16 pb-8' : 'pt-20 pb-12',
       )}
     >
       {/* Parallax background */}
@@ -373,12 +343,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
 
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                    />
+                    <input type="checkbox" className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
                     <span className="text-sm text-slate-600">Remember me</span>
                   </label>
                   <Link to="/forgot-password" className="text-sm font-medium text-emerald-600 hover:text-emerald-700">
@@ -578,3 +543,4 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
     </div>
   );
 }
+

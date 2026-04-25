@@ -17,7 +17,7 @@ import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import {
   User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf, Plus, Trash2,
   Package, Truck, CheckCircle, Clock, ChevronRight, Box,
-  Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
+  Star, Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -47,7 +47,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
       imageUrl: getImageDisplayUrl(imageUrl),
       quantity: i.quantity ?? 0,
       pricePerUnit: Number(i.pricePerUnit ?? 0),
-      subtotal: Number(i.subtotal ?? i.pricePerUnit * i.quantity ?? 0),
+      subtotal: Number(i.subtotal ?? (i.pricePerUnit * i.quantity)),
     };
   });
   const total = Number(api.payableAmount ?? api.totalAmount ?? 0);
@@ -137,7 +137,6 @@ export function ProfilePage() {
     makeDefault: false,
   });
   const [savingAddr, setSavingAddr] = useState(false);
-  const [pendingDeleteAddressId, setPendingDeleteAddressId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -151,7 +150,7 @@ export function ProfilePage() {
       return;
     }
     const data = await getOrders();
-    const userName = [user.name, user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || 'You';
+    const userName = user.name || user.email || 'You';
     setApiOrders((data || []).map((api: any) => mapApiOrderToProfileOrder(api, userName)));
   }, [user]);
 
@@ -333,13 +332,10 @@ export function ProfilePage() {
     return null;
   }
 
-  const handleSave = async () => {
-    try {
-      await updateUser(formData);
-      setIsEditing(false);
-    } catch {
-      // Toast is handled in AuthContext.updateUser
-    }
+  const handleSave = () => {
+    updateUser(formData);
+    setIsEditing(false);
+    toast.success("Profile updated.");
   };
 
   const handleCancel = () => {
@@ -362,28 +358,28 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="pt-28 pb-32 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
+    <div className="pt-20 pb-20 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Dashboard Header HUD */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-emerald-600 fill-emerald-600" />
-              <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.3em]">Your account</span>
+              <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-[0.3em]">Your account</span>
             </div>
-            <h1 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase leading-[0.85]">
-              {(user?.name ?? '').split(' ')[0] || 'My'}<span className="text-emerald-500">'s</span> <br /> Profile
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+              {(user?.name ?? 'My').split(' ')[0] || 'My'}<span className="text-emerald-500">'s</span> <br /> Profile
             </h1>
           </div>
           <div className="flex items-center gap-4">
             {typeof user.loyaltyPoints === 'number' && (
-              <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl flex items-center gap-4">
+              <div className="p-6 bg-white rounded-xl border border-slate-100 shadow-xl flex items-center gap-4">
                 <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
                   <Leaf className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rewards points</p>
-                  <p className="text-xl font-black text-slate-900 tracking-tighter">{user.loyaltyPoints}</p>
+                  <p className="text-xs font-medium text-slate-500">Rewards points</p>
+                  <p className="text-xl font-semibold text-slate-900 tracking-tighter">{user.loyaltyPoints}</p>
                 </div>
               </div>
             )}
@@ -392,10 +388,10 @@ export function ProfilePage() {
               onClick={handleLogout}
               title="Log out"
               aria-label="Log out"
-              className="h-20 w-24 shrink-0 bg-slate-900 text-white rounded-[2rem] flex flex-col items-center justify-center gap-1.5 hover:bg-red-600 transition-all shadow-2xl px-2"
+              className="h-20 w-24 shrink-0 bg-slate-900 text-white rounded-xl flex flex-col items-center justify-center gap-1.5 hover:bg-red-600 transition-all shadow-2xl px-2"
             >
               <LogOut className="w-6 h-6 shrink-0" aria-hidden />
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] leading-tight text-center">Log out</span>
+              <span className="text-[8px] font-semibold text-sm leading-tight text-center">Log out</span>
             </button>
           </div>
         </div>
@@ -408,7 +404,7 @@ export function ProfilePage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-600 rounded-[3.5rem] p-10 text-white shadow-3xl relative overflow-hidden group"
+                className="bg-emerald-600 rounded-2xl p-10 text-white shadow-3xl relative overflow-hidden group"
               >
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
                   <Zap className="w-32 h-32" />
@@ -416,24 +412,24 @@ export function ProfilePage() {
                 <div className="relative z-10">
                   <div className="flex items-center gap-2 mb-6">
                     <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100">Active subscription</span>
+                    <span className="text-[9px] font-medium text-xs text-slate-500 text-emerald-100">Active subscription</span>
                   </div>
-                  <h3 className="text-3xl font-black tracking-tighter mb-1 uppercase">{subscription.planName}</h3>
+                  <h3 className="text-3xl font-semibold tracking-tighter mb-1 uppercase">{subscription.planName}</h3>
                   <p className="text-emerald-100 text-xs font-bold mb-8">Next delivery: {subscription.nextDelivery}</p>
 
                   <div className="grid grid-cols-2 gap-3 mb-8">
                     <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
-                      <p className="text-[8px] font-black text-emerald-200 uppercase mb-1">Frequency</p>
-                      <p className="text-sm font-black uppercase tracking-tighter">{subscription.frequency}</p>
+                      <p className="text-[8px] font-semibold text-emerald-200 uppercase mb-1">Frequency</p>
+                      <p className="text-sm font-semibold tracking-tight">{subscription.frequency}</p>
                     </div>
                     <div className="p-4 bg-white/10 rounded-2xl border border-white/10">
-                      <p className="text-[8px] font-black text-emerald-200 uppercase mb-1">Items</p>
-                      <p className="text-sm font-black uppercase tracking-tighter">{subscription.items.length} varieties</p>
+                      <p className="text-[8px] font-semibold text-emerald-200 uppercase mb-1">Items</p>
+                      <p className="text-sm font-semibold tracking-tight">{subscription.items.length} varieties</p>
                     </div>
                   </div>
 
                   {subscriptionPageEnabled ? (
-                    <button type="button" onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
+                    <button type="button" onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
                       Manage Subscription
                     </button>
                   ) : (
@@ -444,22 +440,22 @@ export function ProfilePage() {
                 </div>
               </motion.div>
             ) : subscriptionPageEnabled ? (
-              <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl text-center">
-                <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
+              <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl text-center">
+                <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-6">
                   <Leaf className="w-10 h-10 text-slate-300" />
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-2 uppercase tracking-tight">Try a subscription?</h3>
+                <h3 className="text-2xl font-semibold text-slate-900 mb-2 uppercase tracking-tight">Try a subscription?</h3>
                 <p className="text-slate-500 text-sm font-medium mb-8">Get scheduled deliveries and save up to 45%.</p>
-                <button type="button" onClick={() => navigate('/subscription')} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all">
+                <button type="button" onClick={() => navigate('/subscription')} className="w-full py-5 bg-slate-900 text-white rounded-xl font-semibold text-[10px] uppercase tracking-widest hover:bg-black transition-all">
                   View subscription plans
                 </button>
               </div>
             ) : null}
 
             {/* Profile card */}
-            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl">
+            <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-10">
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Profile</h3>
+                <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Profile</h3>
                 <button onClick={() => setIsEditing(!isEditing)} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all">
                   <Edit2 className="w-4 h-4 text-slate-400" />
                 </button>
@@ -475,7 +471,7 @@ export function ProfilePage() {
                   <div key={field.name} className="space-y-2">
                     <div className="flex items-center gap-2 pl-2">
                       <field.icon className="w-3 h-3 text-slate-300" />
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{field.label}</label>
+                      <label className="text-xs font-medium text-slate-500">{field.label}</label>
                     </div>
                     {isEditing ? (
                       <input
@@ -486,7 +482,7 @@ export function ProfilePage() {
                         className="w-full px-5 py-3 rounded-xl border-2 border-slate-50 bg-slate-50/50 focus:bg-white focus:border-emerald-500 transition-all font-bold text-sm text-slate-900"
                       />
                     ) : (
-                      <p className="text-sm font-black text-slate-900 pl-2">{field.value || 'Not set'}</p>
+                      <p className="text-sm font-semibold text-slate-900 pl-2">{field.value || 'Not set'}</p>
                     )}
                   </div>
                 ))}
@@ -494,16 +490,16 @@ export function ProfilePage() {
 
               {isEditing && (
                 <div className="grid grid-cols-2 gap-4 mt-10">
-                  <button onClick={handleSave} className="py-4 bg-emerald-600 text-white rounded-2xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-600/20">Save</button>
-                  <button onClick={handleCancel} className="py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[9px] uppercase tracking-widest">Cancel</button>
+                  <button onClick={handleSave} className="py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[9px] uppercase tracking-widest shadow-lg shadow-emerald-600/20">Save</button>
+                  <button onClick={handleCancel} className="py-4 bg-slate-100 text-slate-500 rounded-2xl font-semibold text-[9px] uppercase tracking-widest">Cancel</button>
                 </div>
               )}
             </div>
 
             {/* Saved delivery addresses */}
-            <div className="bg-white rounded-[3.5rem] p-10 border border-slate-100 shadow-2xl">
+            <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Saved addresses</h3>
+                <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Saved addresses</h3>
                 <MapPin className="w-5 h-5 text-emerald-500" />
               </div>
               <p className="text-xs text-slate-500 font-medium mb-6">
@@ -521,7 +517,7 @@ export function ProfilePage() {
                       className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-2xl border border-slate-100 bg-slate-50/80"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-black text-slate-900 text-sm truncate">
+                        <p className="font-semibold text-slate-900 text-sm truncate">
                           {a.label ? `${a.label} · ` : ''}
                           {a.name}
                           {a.isDefault && (
@@ -547,7 +543,7 @@ export function ProfilePage() {
                                 toast.error(e instanceof Error ? e.message : 'Could not update');
                               }
                             }}
-                            className="px-3 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest"
+                            className="px-3 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-medium text-xs text-slate-500"
                           >
                             Set default
                           </button>
@@ -555,9 +551,16 @@ export function ProfilePage() {
                         <button
                           type="button"
                           onClick={async () => {
-                            setPendingDeleteAddressId(a.id);
+                            if (!confirm('Remove this address?')) return;
+                            try {
+                              await deleteUserAddress(a.id);
+                              toast.success('Address removed');
+                              await loadSavedAddresses();
+                            } catch (e: unknown) {
+                              toast.error(e instanceof Error ? e.message : 'Could not remove');
+                            }
                           }}
-                          className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-widest flex items-center gap-1"
+                          className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-[9px] font-medium text-xs text-slate-500 flex items-center gap-1"
                         >
                           <Trash2 className="w-3 h-3" />
                           Delete
@@ -568,7 +571,7 @@ export function ProfilePage() {
                 </ul>
               )}
 
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Add address</p>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Add address</p>
               <div className="grid gap-3">
                 <input
                   placeholder="Label (optional)"
@@ -663,7 +666,7 @@ export function ProfilePage() {
                       setSavingAddr(false);
                     }
                   }}
-                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   {savingAddr ? 'Saving…' : 'Save address'}
@@ -677,8 +680,8 @@ export function ProfilePage() {
             {/* Orders */}
             <div className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-10">
-                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">Order history</h2>
-                <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <h2 className="text-3xl font-semibold text-slate-900 uppercase tracking-tighter">Order history</h2>
+                <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
                   {ordersLoading ? '…' : `${userOrders.length} orders`}
                 </div>
               </div>
@@ -692,7 +695,7 @@ export function ProfilePage() {
                 <div className="py-20 text-center">
                   <Package className="w-16 h-16 text-slate-200 mx-auto mb-6" />
                   <p className="text-slate-400 font-bold uppercase tracking-widest text-sm italic">No orders yet.</p>
-                  <button onClick={() => navigate('/products')} className="mt-8 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-600/20">Browse products</button>
+                  <button onClick={() => navigate('/products')} className="mt-8 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-600/20">Browse products</button>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -712,17 +715,17 @@ export function ProfilePage() {
                       <div className="flex flex-col gap-6 relative z-10">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order #{order.id}</p>
-                            <h4 className="text-2xl font-black text-slate-900 tracking-tighter">{order.date}</h4>
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Order #{order.id}</p>
+                            <h4 className="text-2xl font-semibold text-slate-900 tracking-tighter">{order.date}</h4>
                             <p className="text-xs text-slate-500 mt-1">{order.items} item{order.items !== 1 ? 's' : ''}</p>
                           </div>
                           <div className="flex flex-col sm:items-end gap-2">
                             <div>
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total</p>
-                              <p className="text-2xl font-black text-slate-900 tracking-tighter">₹{order.total}</p>
+                              <p className="text-xs font-medium text-slate-500">Total</p>
+                              <p className="text-2xl font-semibold text-slate-900 tracking-tighter">₹{order.total}</p>
                             </div>
                             <div className={cn(
-                              "px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border",
+                              "px-4 py-1.5 rounded-xl text-[9px] font-medium text-xs text-slate-500 border",
                               order.status === 'Delivered'
                                 ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                                 : order.status === 'On hold'
@@ -738,7 +741,7 @@ export function ProfilePage() {
                                   e.stopPropagation();
                                   void handlePayNow(order);
                                 }}
-                                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-black transition-all"
+                                className="px-4 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-medium text-xs text-slate-500 hover:bg-black transition-all"
                               >
                                 Pay now
                               </button>
@@ -748,7 +751,7 @@ export function ProfilePage() {
 
                         {/* Product details list (like Amazon order history) */}
                         <div className="border-t border-slate-200/80 pt-6 space-y-4">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Items</p>
+                          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Items</p>
                           {(order.orderItems || []).map((item: { productId: string; productName: string; imageUrl: string; quantity: number; pricePerUnit: number; subtotal: number }) => (
                             <div key={item.productId} className="flex gap-4 items-center bg-white rounded-2xl p-4 border border-slate-100">
                               <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
@@ -763,7 +766,7 @@ export function ProfilePage() {
                                 <p className="text-xs text-slate-500 mt-0.5">Qty: {item.quantity} × ₹{item.pricePerUnit}</p>
                               </div>
                               <div className="text-right shrink-0">
-                                <p className="font-black text-slate-900">₹{item.subtotal}</p>
+                                <p className="font-semibold text-slate-900">₹{item.subtotal}</p>
                               </div>
                             </div>
                           ))}
@@ -781,75 +784,21 @@ export function ProfilePage() {
                 <Heart className="w-64 h-64 text-emerald-500 fill-emerald-500" />
               </div>
               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-                <div className="max-w-lg">
-                  <h3 className="text-3xl font-black mb-4 uppercase tracking-tighter">Reviews coming soon</h3>
-                  <p className="text-slate-300 font-medium text-sm leading-relaxed">
-                    Product-level review experience is being upgraded. Meanwhile, your order history and support options remain available.
-                  </p>
+                <div className="max-w-md">
+                  <h3 className="text-3xl font-semibold mb-4 uppercase tracking-tighter">Leave a review</h3>
+                  <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8 italic">Rate the quality and freshness of your recent order to earn bonus points.</p>
+                  <div className="flex gap-4">
+                    {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-6 h-6 text-emerald-500 fill-emerald-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer" />)}
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/products')}
-                  className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-2xl"
-                >
-                  Browse products
+                <button className="px-10 py-5 bg-white text-slate-900 rounded-xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-2xl">
+                  Submit review
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      <AnimatePresence>
-        {pendingDeleteAddressId && (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
-              onClick={() => setPendingDeleteAddressId(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              className="relative w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-2xl p-6"
-            >
-              <h3 className="text-lg font-black text-slate-900 tracking-tight">Remove this address?</h3>
-              <p className="text-sm text-slate-500 mt-2">You can add it again later if needed.</p>
-              <div className="mt-6 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPendingDeleteAddressId(null)}
-                  className="h-11 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const id = pendingDeleteAddressId;
-                    if (!id) return;
-                    try {
-                      await deleteUserAddress(id);
-                      toast.success('Address removed');
-                      await loadSavedAddresses();
-                    } catch (e: unknown) {
-                      toast.error(e instanceof Error ? e.message : 'Could not remove');
-                    } finally {
-                      setPendingDeleteAddressId(null);
-                    }
-                  }}
-                  className="h-11 px-4 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest"
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       {/* Tracking modal */}
       <AnimatePresence>
@@ -866,25 +815,25 @@ export function ProfilePage() {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-emerald-500" />
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Tracking</span>
+                    <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest">Tracking</span>
                   </div>
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Order #{trackingOrder.id}</h2>
+                  <h2 className="text-4xl font-semibold text-slate-900 tracking-tighter uppercase">Order #{trackingOrder.id}</h2>
                           <p className="text-slate-500 mt-2 font-medium">
                             Placed on {trackingOrder.date} · Total ₹{trackingOrder.total}
                           </p>
                           {typeof trackingOrder.platformFee === 'number' && trackingOrder.platformFee > 0 && (
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                              Platform fee charged: ₹{trackingOrder.platformFee.toFixed(2)}
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
+                              Platform fee (2%): ₹{trackingOrder.platformFee.toFixed(2)}
                             </p>
                           )}
                 </div>
-                <button onClick={() => setTrackingOrder(null)} className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-black">✕</button>
+                <button onClick={() => setTrackingOrder(null)} className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-semibold">âœ•</button>
               </div>
 
               {/* Items in this order */}
               {(trackingOrder.orderItems?.length ?? 0) > 0 && (
                 <div className="mb-12">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Items in this order</p>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Items in this order</p>
                   <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
                     {(trackingOrder.orderItems || []).map((item: { productId: string; productName: string; imageUrl: string; quantity: number; pricePerUnit: number; subtotal: number }) => (
                       <div key={item.productId} className="flex gap-4 items-center bg-slate-50 rounded-2xl p-4 border border-slate-100">
@@ -900,7 +849,7 @@ export function ProfilePage() {
                           <p className="text-xs text-slate-500 mt-0.5">Qty: {item.quantity} × ₹{item.pricePerUnit}</p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="font-black text-slate-900">₹{item.subtotal}</p>
+                          <p className="font-semibold text-slate-900">₹{item.subtotal}</p>
                         </div>
                       </div>
                     ))}
@@ -909,7 +858,7 @@ export function ProfilePage() {
               )}
 
               <div className="mb-12">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Delivery map</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Delivery map</p>
                 {trackingMapLoading && (
                   <div className="h-48 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center gap-2 mb-6">
                     <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
@@ -936,7 +885,7 @@ export function ProfilePage() {
                   </div>
                 )}
 
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
                 {((trackingOrder.statusTimeline || []) as any[]).length > 0 ? (
                   <div className="space-y-0 relative ml-2 md:ml-4 py-4">
                     {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number, arr: any[]) => {
@@ -977,7 +926,7 @@ export function ProfilePage() {
                              isCurrent ? "scale-100 opacity-100" : "scale-[0.98] opacity-70"
                           )}>
                             <h4 className={cn(
-                               "text-sm sm:text-base font-black uppercase tracking-tight",
+                               "text-sm sm:text-base font-semibold uppercase tracking-tight",
                                isCancelled ? "text-red-500" : isCompleted ? "text-slate-900" : isCurrent ? "text-emerald-600" : "text-slate-400"
                             )}>
                                {step.label}
@@ -991,7 +940,7 @@ export function ProfilePage() {
                                <div className="mt-3 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 inline-block shadow-sm">
                                  <div className="flex items-center gap-2 mb-1">
                                      <Activity className="w-4 h-4 text-emerald-500" />
-                                     <span className="text-[10px] text-emerald-700 font-black uppercase tracking-widest">Update</span>
+                                     <span className="text-[10px] text-emerald-700 font-medium text-xs text-slate-500">Update</span>
                                  </div>
                                  <p className="text-xs text-slate-600 font-medium italic pr-4">Your order is officially {step.label.toLowerCase()}. Preparing next logistics.</p>
                                  {step.byName && (
@@ -1019,8 +968,8 @@ export function ProfilePage() {
                     <Navigation className="w-8 h-8" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Courier</p>
-                    <p className="text-base sm:text-lg font-black tracking-tight">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Courier</p>
+                    <p className="text-base sm:text-lg font-semibold tracking-tight">
                       Driver: {trackingOrder.courierName || 'Assigning soon'}
                     </p>
                     <p className="text-[11px] sm:text-xs text-emerald-400 font-bold mt-1">
@@ -1032,12 +981,12 @@ export function ProfilePage() {
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
+                  <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
                     <Phone className="w-4 h-4" />
                     Call driver
                   </button>
                   <button
-                    className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
+                    className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
                     onClick={() => {
                       toast.info('Your latest order status is shown above.', {
                         description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
@@ -1056,3 +1005,4 @@ export function ProfilePage() {
     </div>
   );
 }
+

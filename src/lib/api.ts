@@ -197,6 +197,8 @@ export interface ApiProduct {
   farmName?: string | null;
   /** State the farm is in, e.g. 'Karnataka' */
   farmState?: string | null;
+  origin?: string | null;
+  nutritionalInfo?: string | null;
   category?: { id: string; name: string; slug: string } | null;
   seller?: { id: string; storeName: string; rating?: number } | null;
   variants?: Array<{
@@ -250,6 +252,8 @@ export interface Product {
   farmName?: string;
   /** Farm origin state */
   farmState?: string;
+  origin?: string;
+  nutritionalInfo?: string;
 }
 
 export function mapApiProductToProduct(p: ApiProduct): Product {
@@ -287,6 +291,8 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     ripenessStage: p.ripenessStage ?? undefined,
     farmName: p.farmName ?? undefined,
     farmState: p.farmState ?? undefined,
+    origin: p.origin ?? undefined,
+    nutritionalInfo: p.nutritionalInfo ?? undefined,
     variants: p.variants?.map((v) => ({
       id: v.id,
       name: v.attributeValue || v.sku,
@@ -789,6 +795,12 @@ export async function createProduct(body: {
   variants?: Array<{ sku: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity: number }>;
   images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
   lowStockThreshold?: number;
+  freshnessScore?: number;
+  ripenessStage?: string;
+  farmName?: string;
+  farmState?: string;
+  origin?: string;
+  nutritionalInfo?: string;
 }): Promise<ApiProduct> {
   const res = await fetch(`${getEffectiveApiBase()}/products`, {
     method: 'POST',
@@ -822,6 +834,12 @@ export async function updateProduct(
     images: Array<{ imageUrl: string; isPrimary?: boolean }>;
     variants?: Array<{ id?: string; sku?: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity?: number; lowStockThreshold?: number }>;
     lowStockThreshold?: number;
+    freshnessScore?: number;
+    ripenessStage?: string;
+    farmName?: string;
+    farmState?: string;
+    origin?: string;
+    nutritionalInfo?: string;
   }>
 ): Promise<ApiProduct> {
   const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+﻿import { useState, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
@@ -131,7 +131,7 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
       ref={containerRef}
       className={cn(
         'relative min-h-screen w-full flex items-center justify-center overflow-auto bg-slate-100',
-        embedded ? 'pt-16 pb-8' : 'pt-28 pb-12',
+        embedded ? 'pt-16 pb-8' : 'pt-20 pb-12',
       )}
     >
       {/* Parallax background image */}
@@ -309,3 +309,4 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
     </div>
   );
 }
+

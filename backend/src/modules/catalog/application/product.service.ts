@@ -23,12 +23,12 @@ export class ProductService {
     /** Persist admin bulk qty / unit price as entered (positive numbers only). No auto-clear vs base price. */
     private parseBulkTier(
         qty: number | null | undefined,
-        price: Prisma.Decimal | number | string | null | undefined,
-    ): { qty: number | null; price: Prisma.Decimal | null } {
+        price: any | number | string | null | undefined,
+    ): { qty: number | null; price: any | null } {
         const q = qty != null ? Number(qty) : NaN;
         const bu = price != null ? Number(price) : NaN;
         if (Number.isFinite(q) && q > 0 && Number.isFinite(bu) && bu > 0) {
-            return { qty: Math.floor(q), price: price as Prisma.Decimal };
+            return { qty: Math.floor(q), price: price as any };
         }
         return { qty: null, price: null };
     }

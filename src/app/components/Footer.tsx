@@ -1,27 +1,23 @@
 import { motion } from 'framer-motion';
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Leaf, ShieldCheck, Zap, Globe, ArrowUpRight } from 'lucide-react';
+import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Zap, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
-import { getCategories, subscribeNewsletter } from '@/lib/api';
-import { cn } from '@/lib/utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useProducts } from '@/app/hooks/useProducts';
+import { useMemo, useState } from 'react';
 
 export function Footer() {
-  const { theme } = useStore();
+  const { theme, products: localProducts } = useStore();
+  const { products: apiProducts } = useProducts({ limit: 200, showOutOfSeason: true });
+  const products = apiProducts.length > 0 ? apiProducts : localProducts;
   const { cities: deliveryCities } = useServiceableAreas();
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterError, setNewsletterError] = useState('');
-  const [newsletterSuccess, setNewsletterSuccess] = useState('');
-  const [newsletterBusy, setNewsletterBusy] = useState(false);
-  const [categoryNames, setCategoryNames] = useState<string[]>([]);
 
   const socialLinks = [
     { icon: Facebook, href: theme.socialFacebook || '#', label: 'Facebook' },
     { icon: Instagram, href: theme.socialInstagram || '#', label: 'Instagram' },
     { icon: Twitter, href: theme.socialTwitter || '#', label: 'Twitter' },
-  ].filter((link) => link.href && link.href !== '#');
+  ];
 
   const quickLinks = [
     { name: 'Home', path: '/' },
@@ -31,101 +27,74 @@ export function Footer() {
   ];
 
   const categories = useMemo(() => {
-    const names = categoryNames
-      .map((name) => name.trim())
+    const names = products
+      .map((p) => (p.category || '').trim())
       .filter((name): name is string => Boolean(name))
       .filter((name, idx, arr) => arr.findIndex((v) => v.toLowerCase() === name.toLowerCase()) === idx)
       .sort((a, b) => a.localeCompare(b));
     return names.slice(0, 8);
-  }, [categoryNames]);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCategories()
-      .then((data) => {
-        if (cancelled) return;
-        const names = (data || []).map((c) => c.name).filter(Boolean);
-        setCategoryNames(names);
-      })
-      .catch(() => {
-        if (!cancelled) setCategoryNames([]);
-      });
-    return () => { cancelled = true; };
-  }, []);
+  }, [products]);
 
   const { address: footerAddress, phone: footerPhone, email: footerEmail } = STORE_PUBLIC_CONTACT;
   const footerPhoneHref = storePhoneTelHref(footerPhone);
 
   return (
-    <footer className="bg-slate-950 text-white relative overflow-hidden border-t border-white/5">
-      {/* Cinematic Static & Noise */}
+    <footer className="bg-slate-900 text-white relative overflow-hidden">
       <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12 mb-12">
 
           {/* Brand */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="lg:col-span-4 space-y-10"
-          >
-            <Link to="/" className="flex items-center gap-4 group">
+          <div className="lg:col-span-4 space-y-6">
+            <Link to="/" className="inline-flex items-center gap-3">
               {theme.logoUrl ? (
-                <img src={theme.logoUrl} alt={theme.storeName} className="h-12 w-auto object-contain" />
+                <img src={theme.logoUrl} alt={theme.storeName} className="h-10 w-auto object-contain" />
               ) : (
-                <div className="h-12 w-12 bg-emerald-500 rounded-2xl flex items-center justify-center font-black text-white shadow-2xl transition-all rotate-3 group-hover:rotate-0">
+                <div className="h-10 w-10 bg-emerald-600 rounded-xl flex items-center justify-center font-bold text-white shadow-md">
                   {theme.storeName.charAt(0)}
                 </div>
               )}
-              <div className="flex flex-col">
-                <span className="font-black text-xl tracking-tight uppercase leading-none">{theme.storeName}</span>
-                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.4em] mt-1">Fresh fruits delivered</span>
-              </div>
+              <span className="font-bold text-xl tracking-tight">{theme.storeName}</span>
             </Link>
 
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed italic max-w-sm">
+            <p className="text-sm text-slate-400 leading-relaxed max-w-sm">
               {theme.footerAboutText || 'Fresh fruit from trusted growers, delivered with care. Quality and convenience you can count on.'}
             </p>
+            
             {deliveryCities.length > 0 && (
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-                We deliver to: {deliveryCities.join(', ')}
-              </p>
+               <p className="text-sm text-slate-400 flex items-start gap-2">
+                 <MapPin className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                 <span>We deliver to: <span className="font-medium text-slate-300">{deliveryCities.join(', ')}</span></span>
+               </p>
             )}
-            <div className="flex gap-4">
-              {socialLinks.map((social, index) => (
+
+            <div className="flex gap-3 pt-2">
+              {socialLinks.filter(s => s.href !== '#').map((social, index) => (
                 <motion.a
                   key={index}
                   href={social.href}
-                  whileHover={{ y: -5, scale: 1.1 }}
-                  className="h-12 px-4 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center gap-3 text-[8px] font-black uppercase tracking-widest text-slate-400 hover:text-emerald-400 hover:bg-white/10 transition-all"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ y: -2 }}
+                  className="h-9 px-3.5 bg-slate-800 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-emerald-600 transition-colors shadow-sm"
                 >
                   <social.icon className="w-3.5 h-3.5" />
                   {social.label}
                 </motion.a>
               ))}
             </div>
-          </motion.div>
+          </div>
 
           {/* Quick links */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="flex items-center gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Quick links</h3>
-            </div>
-            <ul className="space-y-4">
+          <div className="lg:col-span-2 space-y-5">
+            <h3 className="text-sm font-semibold text-slate-100">Quick links</h3>
+            <ul className="space-y-3">
               {quickLinks.map((link, index) => (
                 <li key={index}>
-                  <Link to={link.path}>
-                    <motion.div
-                      whileHover={{ x: 5 }}
-                      className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-3 transition-colors"
-                    >
-                      <ArrowUpRight className="w-3 h-3 text-emerald-500/40" />
-                      {link.name}
-                    </motion.div>
+                  <Link to={link.path} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors inline-flex items-center gap-1 group">
+                    <ArrowUpRight className="w-3 h-3 opacity-0 -ml-4 group-hover:opacity-100 group-hover:ml-0 transition-all text-emerald-400" />
+                    {link.name}
                   </Link>
                 </li>
               ))}
@@ -133,165 +102,75 @@ export function Footer() {
           </div>
 
           {/* Categories */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="flex items-center gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Categories</h3>
-            </div>
-            <ul className="space-y-4">
+          <div className="lg:col-span-2 space-y-5">
+            <h3 className="text-sm font-semibold text-slate-100">Categories</h3>
+            <ul className="space-y-3">
               {categories.map((category, index) => (
                 <li key={index}>
-                  <Link to={`/products?categoryName=${encodeURIComponent(category)}`}>
-                    <motion.div
-                    whileHover={{ x: 5 }}
-                    className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest flex items-center gap-3 cursor-pointer transition-colors"
-                  >
-                    <div className="w-1 h-1 bg-slate-800 rounded-full" />
+                  <Link to={`/products?categoryName=${encodeURIComponent(category)}`} className="text-sm text-slate-400 hover:text-emerald-400 transition-colors">
                     {category}
-                    </motion.div>
                   </Link>
                 </li>
               ))}
               {categories.length === 0 && (
                 <li>
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                    No categories yet
-                  </span>
+                  <span className="text-sm text-slate-500">No categories</span>
                 </li>
               )}
             </ul>
           </div>
 
           {/* Contact */}
-          <div className="lg:col-span-4 space-y-8">
-            <div className="flex items-center gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Contact</h3>
-            </div>
+          <div className="lg:col-span-4 space-y-5">
+            <h3 className="text-sm font-semibold text-slate-100">Contact</h3>
+            <ul className="space-y-4">
+              <li>
+                <a href={footerPhoneHref} className="flex items-start gap-3 text-sm text-slate-400 hover:text-emerald-400 transition-colors">
+                  <Phone className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden />
+                  <span className="leading-relaxed">{footerPhone}</span>
+                </a>
+              </li>
+              <li>
+                <div className="flex items-start gap-3 text-sm text-slate-400">
+                  <MapPin className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden />
+                  <span className="leading-relaxed">{footerAddress}</span>
+                </div>
+              </li>
+              <li>
+                <a href={`mailto:${footerEmail}`} className="flex items-start gap-3 text-sm text-slate-400 hover:text-emerald-400 transition-colors">
+                  <Mail className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden />
+                  <span className="leading-relaxed">{footerEmail}</span>
+                </a>
+              </li>
+            </ul>
 
-            <div className="space-y-6">
-              <motion.div
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
-              >
-                <MapPin className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" aria-hidden />
-                <span className="leading-relaxed normal-case font-bold text-slate-300">{footerAddress}</span>
-              </motion.div>
-              <motion.a
-                href={footerPhoneHref}
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
-              >
-                <Phone className="w-4 h-4 text-emerald-500 flex-shrink-0" aria-hidden />
-                <span className="leading-relaxed">{footerPhone}</span>
-              </motion.a>
-              <motion.a
-                href={`mailto:${footerEmail}`}
-                whileHover={{ x: 5 }}
-                className="flex items-start gap-4 text-[10px] font-black text-slate-400 hover:text-emerald-400 transition-colors uppercase tracking-widest"
-              >
-                <Mail className="w-4 h-4 text-emerald-500 flex-shrink-0" aria-hidden />
-                <span className="leading-relaxed normal-case">{footerEmail}</span>
-              </motion.a>
-            </div>
-
-            {/* Newsletter */}
-            <div className="pt-6">
-              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-2">Subscribe to our newsletter</p>
-              {newsletterError && (
-                <p className="text-[8px] font-black text-red-400 uppercase tracking-widest mb-1">{newsletterError}</p>
-              )}
-              {newsletterSuccess && !newsletterError && (
-                <p className="text-[8px] font-black text-emerald-400 uppercase tracking-widest mb-1">{newsletterSuccess}</p>
-              )}
-              <div className="flex gap-2">
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={newsletterEmail}
-                  onChange={(e) => {
-                    setNewsletterEmail(e.target.value);
-                    setNewsletterError('');
-                    setNewsletterSuccess('');
-                  }}
-                  className="flex-1 h-14 px-6 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all shadow-inner"
-                />
-                <motion.button
-                  type="button"
-                  disabled={newsletterBusy}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="h-14 w-14 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                  onClick={async () => {
-                    const value = newsletterEmail.trim();
-                    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!pattern.test(value)) {
-                      setNewsletterError('Please enter a valid email address.');
-                      setNewsletterSuccess('');
-                      return;
-                    }
-                    setNewsletterBusy(true);
-                    try {
-                      await subscribeNewsletter(value);
-                      setNewsletterError('');
-                      setNewsletterSuccess('Subscribed successfully. Check your inbox soon!');
-                      setNewsletterEmail('');
-                    } catch (error: any) {
-                      setNewsletterError(error?.message || 'Could not subscribe right now. Please try again later.');
-                      setNewsletterSuccess('');
-                    } finally {
-                      setNewsletterBusy(false);
-                    }
-                  }}
-                >
-                  <Zap className="w-5 h-5" />
-                </motion.button>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Footer bottom */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8"
-        >
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em]">
-              © 2026 The Fruit Tribe. All rights reserved.
-            </p>
-            <div className="flex items-center gap-4 px-4 py-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Secure</span>
-            </div>
-          </div>
-
-          <div className="flex gap-10">
+        <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-slate-500">
+            © {new Date().getFullYear()} {theme.storeName || 'The Fruit Tribe'}. All rights reserved.
+          </p>
+          <div className="flex flex-wrap gap-4 md:gap-6 justify-center">
             {[
               { label: 'Privacy', path: '/privacy' },
-              { label: 'Terms of service', path: '/terms' },
+              { label: 'Terms', path: '/terms' },
               { label: 'Cookies', path: '/cookies' },
             ].map((item) => (
-              <Link key={item.path} to={item.path}>
-                <motion.span
-                  whileHover={{ y: -2, textDecoration: 'underline' }}
-                  className="text-[9px] font-black text-slate-600 hover:text-white uppercase tracking-widest transition-colors"
-                >
-                  {item.label}
-                </motion.span>
+              <Link key={item.path} to={item.path} className="text-sm text-slate-500 hover:text-slate-300 transition-colors">
+                {item.label}
               </Link>
             ))}
           </div>
-        </motion.div>
+        </div>
 
         <div className="mt-6 text-center">
           <a
             href="https://infofitsoftware.com/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[10px] font-semibold text-slate-500 hover:text-emerald-400 transition-colors"
+            className="text-xs text-slate-500 hover:text-emerald-400 transition-colors"
           >
             Made by Infofit Software Solution
           </a>
