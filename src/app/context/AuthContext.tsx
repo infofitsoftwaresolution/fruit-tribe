@@ -54,10 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
-      // PATCH: Migration for legacy users without role
+      // PATCH: Migration for legacy users without role — default to 'customer' (NOT admin)
       if (!parsedUser.role) {
-        parsedUser.role = 'admin'; // Default to admin for existing dev sessions
-        localStorage.setItem('user', JSON.stringify(parsedUser)); // Update storage
+        parsedUser.role = 'customer';
+        localStorage.setItem('user', JSON.stringify(parsedUser));
       }
       const rawRole = parsedUser.role as string | undefined;
       if (rawRole && ['super_admin', 'SUPER_ADMIN'].includes(String(rawRole))) {

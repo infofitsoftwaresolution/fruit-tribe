@@ -57,7 +57,6 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
     const v = e.target.value.replace(/\D/g, '').slice(0, 6);
     setInput(v);
     setStatus('idle');
-    setSlotPreview(null);
     if (v.length === 6) handleCheck(v);
   };
 

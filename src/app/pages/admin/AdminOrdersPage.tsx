@@ -51,7 +51,7 @@ export function AdminOrdersPage() {
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const deliveryPartners = useMemo(() => {
-        if (user?.role !== 'admin' && user?.role !== 'ADMIN') return [];
+        if (user?.role !== 'admin') return [];
         return (dpRows || []).map((p) => ({ id: p.id, name: p.name }));
     }, [dpRows, user?.role]);
 
@@ -120,7 +120,7 @@ export function AdminOrdersPage() {
 
     const displayedOrders = useMemo(() => {
         let filtered = orders;
-        if (user?.role === 'seller' || user?.role === 'SELLER') {
+        if (user?.role === 'seller') {
             filtered = orders.filter((order) => {
                 return order.itemsDetails?.some((item) => {
                     const product = products.find(
@@ -461,78 +461,99 @@ export function AdminOrdersPage() {
     };
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Ultra-Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Global Order Stream</span>
+        <div className="space-y-12 pb-20">
+            {/* Ultra-Premium Header: Logistics Command Hub */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
+                <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-4 group cursor-default">
+                        <div className="h-2 w-12 bg-emerald-500 rounded-full group-hover:w-16 transition-all duration-700" />
+                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Logistics Command Hub</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Fulfillment Command</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Real-time logistics and transactional telemetry.</p>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase font-heading">
+                        Fulfillment <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500">Pipeline</span>
+                    </h1>
+                    <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-4 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-emerald-500" />
+                        Real-time Transactional Telemetry & Flow Control
+                    </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4 relative z-10">
                     <button
                         type="button"
                         onClick={handleExportLedger}
-                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm"
+                        className="h-11 px-6 rounded-xl bg-white border border-slate-100 text-[9px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all duration-500 flex items-center gap-2 group"
                     >
-                        <Download className="w-4 h-4" />
+                        <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
                         Export Ledger
                     </button>
                     <button
                         onClick={handleOpenModal}
-                        className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
+                        className="h-11 px-8 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all duration-700 shadow-xl shadow-slate-900/20 active:scale-95 flex items-center gap-2 group"
                     >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 transition-transform group-hover:rotate-90 duration-500" />
                         Fresh Entry
                     </button>
                 </div>
             </div>
 
-            {/* Order summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Performance Matrix: High-Contrast Discovery Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[
-                    { label: 'Active Orders', value: stats.total, icon: ShoppingBag, color: 'emerald', trend: 'Live' },
-                    { label: 'Staging Area', value: stats.pending, icon: Clock, color: 'orange', trend: 'Critical path' },
-                    { label: 'Total Revenue', value: `₹${(stats.revenue / 1000).toFixed(1)}K`, icon: Zap, color: 'blue', trend: 'Verified' },
-                    { label: 'Unit Volume', value: stats.vols, icon: Box, color: 'purple', trend: 'Daily throughput' }
+                    { label: 'Pipeline Load', value: stats.total, icon: ShoppingBag, color: 'emerald', trend: 'Active Nodes', sub: 'In-flight orders' },
+                    { label: 'Staging Area', value: stats.pending, icon: Clock, color: 'orange', trend: 'Critical Path', sub: 'Awaiting fulfillment' },
+                    { label: 'Net Revenue', value: `₹${(stats.revenue / 1000).toFixed(1)}K`, icon: Zap, color: 'blue', trend: 'Verified Flow', sub: 'Settled transactions' },
+                    { label: 'Unit Throughput', value: stats.vols, icon: Box, color: 'purple', trend: 'Operational', sub: 'Total units moved' }
                 ].map((stat, i) => (
                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
                         key={stat.label}
-                        className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:ring-2 ring-transparent hover:ring-emerald-500/10 transition-all"
+                        className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-700"
                     >
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[4rem] group-hover:bg-emerald-50 transition-colors duration-700" />
                         <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className={cn("p-4 rounded-3xl", `bg-${stat.color}-50 text-${stat.color}-600`)}>
+                            <div className="flex items-start justify-between mb-8">
+                                <div className={cn(
+                                    "h-12 w-12 rounded-xl flex items-center justify-center transition-all duration-700 shadow-lg",
+                                    stat.color === 'emerald' ? "bg-emerald-500 text-white shadow-emerald-500/20" :
+                                    stat.color === 'orange' ? "bg-orange-500 text-white shadow-orange-500/20" :
+                                    stat.color === 'blue' ? "bg-blue-600 text-white shadow-blue-600/20" :
+                                    "bg-purple-600 text-white shadow-purple-600/20"
+                                )}>
                                     <stat.icon className="w-5 h-5" />
                                 </div>
-                                <span className="text-[10px] font-black text-slate-400 border border-slate-100 px-3 py-1 rounded-full">{stat.trend}</span>
+                                <div className="text-right">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{stat.trend}</span>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
+                                    </div>
+                                </div>
                             </div>
-                            <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1">{stat.value}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-1.5 font-heading">{stat.value}</h3>
+                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
+                            <p className="text-[10px] font-bold text-slate-300 italic">{stat.sub}</p>
                         </div>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Order list */}
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
-                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
+            {/* Fulfillment Pipeline: Interactive Data Table */}
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden relative">
+                <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/30">
+                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
                         {['All', 'Unfulfilled', 'Unpaid', 'Open', 'Closed'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                    "px-6 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-500 whitespace-nowrap",
                                     activeTab === tab
-                                        ? "bg-slate-900 text-white shadow-lg"
-                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                        ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-105"
+                                        : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
                                 )}
                             >
                                 {tab}
@@ -541,198 +562,212 @@ export function AdminOrdersPage() {
                     </div>
 
                     <div className="relative group flex-1 max-w-2xl">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-emerald-500 transition-all duration-500 group-focus-within:scale-110" />
                         <input
                             type="text"
-                            placeholder="Search by order ID or customer..."
-                            className="w-full h-14 pl-14 pr-6 bg-white border border-slate-100 rounded-2xl text-sm font-medium focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                            placeholder="Search by order ID, customer or merchant..."
+                            className="w-full h-11 pl-14 pr-6 bg-white border border-slate-100 rounded-xl text-[11px] font-bold text-slate-900 focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 outline-none transition-all duration-500 shadow-inner"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[500px]">
-                    <table className="w-full text-left">
+                <div className="overflow-x-auto min-h-[600px] custom-scrollbar">
+                    <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Transaction ID</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Customer</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Vendor</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Payment Status</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Order Status</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Distance</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Amount</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Actions</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Flow Node</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Entity</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Merchant Nodes</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Fiscal State</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Logistic Phase</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valuation</th>
+                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Action Console</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {ordersLoading ? (
-                                <AdminTableSkeletonRows rows={10} cols={8} />
+                                <AdminTableSkeletonRows rows={10} cols={7} />
                             ) : (
-                            <AnimatePresence mode='popLayout'>
-                                {displayedOrders.map((order, idx) => {
-                                    const variant = getStatusVariant(order.status);
-                                    const displayId = (order as any).orderNumber || order.id;
-                                    return (
-                                        <motion.tr
-                                            key={order.id}
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            exit={{ opacity: 0 }}
-                                            transition={{ delay: idx * 0.05 }}
-                                            className="group hover:bg-slate-50/50 transition-all cursor-pointer"
-                                            onClick={() => handleViewDetails(order)}
-                                        >
-                                            <td className="px-10 py-10">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{displayId}</span>
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{order.date}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-12 w-12 rounded-[1.25rem] bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-xl shadow-slate-900/10 group-hover:rotate-6 transition-transform">
-                                                        {order.customer.charAt(0)}
-                                                    </div>
+                                <AnimatePresence mode='popLayout'>
+                                    {displayedOrders.map((order, idx) => {
+                                        const variant = getStatusVariant(order.status);
+                                        const displayId = (order as any).orderNumber || order.id;
+                                        return (
+                                            <motion.tr
+                                                key={order.id}
+                                                initial={{ opacity: 0, x: -10 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: 10 }}
+                                                transition={{ duration: 0.5, delay: idx * 0.03, ease: [0.23, 1, 0.32, 1] }}
+                                                className="group hover:bg-slate-50/50 transition-all duration-500 cursor-pointer relative"
+                                                onClick={() => handleViewDetails(order)}
+                                            >
+                                                <td className="px-12 py-10">
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
-                                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1 mt-1">
-                                                            <ExternalLink className="h-2.5 w-2.5" />
-                                                            {order.channel}
-                                                        </span>
+                                                        <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{displayId}</span>
+                                                        <div className="flex items-center gap-2 mt-2">
+                                                            <Clock className="w-3 h-3 text-slate-300" />
+                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{order.date}</span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                {((order as any).vendorNames || []).length > 0 ? (
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {(((order as any).vendorNames || []) as string[]).slice(0, 2).map((vendorName) => (
-                                                            <span
-                                                                key={vendorName}
-                                                                className="inline-flex items-center px-3 py-1 rounded-xl bg-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-700"
-                                                            >
-                                                                {vendorName}
-                                                            </span>
-                                                        ))}
-                                                        {(((order as any).vendorNames || []) as string[]).length > 2 && (
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-xl bg-slate-50 text-[9px] font-black uppercase tracking-widest text-slate-500">
-                                                                +{(((order as any).vendorNames || []) as string[]).length - 2}
+                                                </td>
+                                                <td className="px-12 py-10">
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="h-14 w-14 rounded-[1.5rem] bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-2xl shadow-slate-900/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 font-heading">
+                                                            {order.customer.charAt(0)}
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
+                                                            <div className="flex items-center gap-2 mt-2">
+                                                                <div className="h-4 w-4 rounded-md bg-emerald-50 flex items-center justify-center">
+                                                                    <ExternalLink className="h-2 w-2 text-emerald-600" />
+                                                                </div>
+                                                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
+                                                                    {order.channel}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-12 py-10">
+                                                    {((order as any).vendorNames || []).length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2 max-w-[150px]">
+                                                            {(((order as any).vendorNames || []) as string[]).slice(0, 2).map((vendorName) => (
+                                                                <span
+                                                                    key={vendorName}
+                                                                    className="inline-flex items-center px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600 group-hover:bg-white group-hover:border-slate-200 transition-all duration-500"
+                                                                >
+                                                                    {vendorName}
+                                                                </span>
+                                                            ))}
+                                                            {(((order as any).vendorNames || []) as string[]).length > 2 && (
+                                                                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-900 text-[9px] font-black uppercase tracking-widest text-white shadow-lg">
+                                                                    +{(((order as any).vendorNames || []) as string[]).length - 2}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">—</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-12 py-10">
+                                                    <div className="flex items-center gap-4 group/select" onClick={e => e.stopPropagation()}>
+                                                        <div className={cn(
+                                                            "h-4 w-4 rounded-full border-4 border-white shadow-2xl transition-all duration-500", 
+                                                            order.payment === 'Paid' ? 'bg-emerald-500 shadow-emerald-500/40 scale-110' :
+                                                            order.payment === 'Pending' ? 'bg-amber-500 shadow-amber-500/40' : 'bg-red-500 shadow-red-500/40'
+                                                        )} />
+                                                        <select
+                                                            value={order.payment}
+                                                            onChange={(e) => handlePaymentStatusChange(order.id, e.target.value as any)}
+                                                            className="bg-white text-[10px] font-black uppercase tracking-[0.15em] text-slate-900 outline-none cursor-pointer px-4 py-2 rounded-xl transition-all border border-slate-100 hover:border-slate-300 hover:shadow-lg focus:ring-4 focus:ring-emerald-500/5"
+                                                        >
+                                                            {['Pending', 'Paid', 'Refunded'].map(p => (
+                                                                <option key={p} value={p}>{p}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td className="px-12 py-10">
+                                                    <div className="flex items-center gap-4 group/select" onClick={e => e.stopPropagation()}>
+                                                        <div className={cn(
+                                                            "h-4 w-4 rounded-full border-4 border-white shadow-2xl transition-all duration-500", 
+                                                            `bg-${variant.color}-500 shadow-${variant.color}-500/40`,
+                                                            order.status === 'Delivered' ? 'scale-110' : ''
+                                                        )} />
+                                                        <select
+                                                            value={order.status}
+                                                            onChange={(e) => handleStatusChange(order.id, e.target.value as any)}
+                                                            className="bg-white text-[10px] font-black uppercase tracking-[0.15em] text-slate-900 outline-none cursor-pointer px-4 py-2 rounded-xl transition-all border border-slate-100 hover:border-slate-300 hover:shadow-lg focus:ring-4 focus:ring-emerald-500/5"
+                                                        >
+                                                            {['Created', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
+                                                                <option key={s} value={s}>{getStatusVariant(s).label}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </td>
+                                                <td className="px-12 py-10 text-right">
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-xl font-black text-slate-900 tracking-tighter leading-none font-heading">₹{order.total.toLocaleString()}</span>
+                                                        {typeof (order as any).distanceKm === 'number' && (
+                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-1">
+                                                                <Truck className="h-2.5 w-2.5" />
+                                                                {(order as any).distanceKm.toFixed(1)} km
                                                             </span>
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                                                    <div className={cn("h-3 w-3 rounded-full border border-white shadow-sm", 
-                                                        order.payment === 'Paid' ? 'bg-emerald-500' :
-                                                        order.payment === 'Pending' ? 'bg-amber-500' : 'bg-red-500'
-                                                    )} />
-                                                    <select
-                                                        value={order.payment}
-                                                        onChange={(e) => handlePaymentStatusChange(order.id, e.target.value as any)}
-                                                        className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-900 outline-none cursor-pointer hover:bg-slate-100 p-2 rounded-xl transition-all border border-transparent hover:border-slate-100"
-                                                    >
-                                                        {['Pending', 'Paid', 'Refunded'].map(p => (
-                                                            <option key={p} value={p}>{p}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                                                    <div className={cn("h-3 w-3 rounded-full border border-white shadow-sm", `bg-${variant.color}-500`)} />
-                                                    <select
-                                                        value={order.status}
-                                                        onChange={(e) => handleStatusChange(order.id, e.target.value as any)}
-                                                        className="bg-transparent text-[10px] font-black uppercase tracking-widest text-slate-900 outline-none cursor-pointer hover:bg-slate-100 p-2 rounded-xl transition-all border border-transparent hover:border-slate-100"
-                                                    >
-                                                        {['Created', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
-                                                            <option key={s} value={s}>{getStatusVariant(s).label}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                {typeof (order as any).distanceKm === 'number' ? (
-                                                    <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-100 text-[10px] font-black uppercase tracking-widest">
-                                                        {(order as any).distanceKm.toFixed(2)} km
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-10 py-10 text-right">
-                                                <span className="text-lg font-black text-slate-900 tracking-tighter leading-none">₹{order.total.toLocaleString()}</span>
-                                            </td>
-                                            <td className="px-10 py-10">
-                                                <div className="flex flex-col items-center gap-3" onClick={e => e.stopPropagation()}>
-                                                    <div className="flex items-center justify-center gap-3">
-                                                        <button
-                                                            onClick={() => handleViewDetails(order)}
-                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-emerald-600 hover:shadow-xl transition-all"
-                                                        >
-                                                            <Eye className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleGeneratePaymentLink(order);
-                                                            }}
-                                                            title="Generate Payment Link"
-                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-orange-600 hover:shadow-xl transition-all"
-                                                        >
-                                                            <CreditCard className="w-5 h-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => toast.info('Printing order slip...')}
-                                                            className="p-3 bg-white border border-slate-100 rounded-2xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all"
-                                                        >
-                                                            <Printer className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                    {deliveryPartners.length > 0 && (user?.role === 'admin' || user?.role === 'ADMIN') && (
-                                                        <div className="mt-2">
-                                                            <select
-                                                                defaultValue=""
-                                                                onChange={(e) => {
-                                                                    const partnerId = e.target.value;
-                                                                    if (!partnerId) return;
-                                                                    handleAssignDelivery(order.id, partnerId);
-                                                                }}
-                                                                className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.18em] px-4 py-2 rounded-full border border-slate-800 shadow-lg cursor-pointer"
+                                                </td>
+                                                <td className="px-12 py-10">
+                                                    <div className="flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
+                                                        <div className="flex items-center justify-center gap-3">
+                                                            <button
+                                                                onClick={() => handleViewDetails(order)}
+                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 group/btn"
                                                             >
-                                                                <option value="">Assign rider…</option>
-                                                                {deliveryPartners.map((p) => (
-                                                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                                                ))}
-                                                            </select>
+                                                                <Eye className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleGeneratePaymentLink(order);
+                                                                }}
+                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-2xl transition-all duration-500 group/btn"
+                                                            >
+                                                                <CreditCard className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => toast.info('Initializing output stream...')}
+                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-2xl transition-all duration-500 group/btn"
+                                                            >
+                                                                <Printer className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                            </button>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </motion.tr>
-                                    );
-                                })}
-                            </AnimatePresence>
+                                                        {deliveryPartners.length > 0 && user?.role === 'admin' && (
+                                                            <div className="relative group/rider w-full">
+                                                                <select
+                                                                    defaultValue=""
+                                                                    onChange={(e) => {
+                                                                        const partnerId = e.target.value;
+                                                                        if (!partnerId) return;
+                                                                        handleAssignDelivery(order.id, partnerId);
+                                                                    }}
+                                                                    className="w-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] px-6 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                >
+                                                                    <option value="">Deploy Rider</option>
+                                                                    {deliveryPartners.map((p) => (
+                                                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </motion.tr>
+                                        );
+                                    })}
+                                </AnimatePresence>
                             )}
                         </tbody>
                     </table>
 
                     {displayedOrders.length === 0 && !ordersLoading && (
-                        <div className="py-32 text-center">
-                            <Box className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Orders Found</h3>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No transactional nodes found matching current parameters.</p>
-                        </div>
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="py-40 text-center"
+                        >
+                            <div className="h-24 w-24 rounded-[3rem] bg-slate-50 flex items-center justify-center mx-auto mb-8 border border-dashed border-slate-200">
+                                <Box className="w-10 h-10 text-slate-200" />
+                            </div>
+                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter font-heading">Pipeline is empty.</h3>
+                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-4 max-w-xs mx-auto opacity-60">Adjust your telemetry parameters <br />to capture transactional data.</p>
+                        </motion.div>
                     )}
                 </div>
             </div>
-
-            {/* Order details side sheet */}
+            {/* Order details side sheet: Payload Analysis */}
             {isDetailOpen && selectedOrder && createPortal(
                 <AnimatePresence>
                     <div className="fixed inset-0 z-[120] flex justify-end">
@@ -740,93 +775,94 @@ export function AdminOrdersPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl"
                             onClick={() => setIsDetailOpen(false)}
                         />
                         <motion.div
                             initial={{ x: '100%', opacity: 0 }}
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
-                            transition={{ type: 'spring', damping: 30, stiffness: 200 }}
-                            className="relative h-full w-full max-w-3xl bg-white shadow-2xl flex flex-col overflow-hidden"
+                            transition={{ type: 'spring', damping: 35, stiffness: 300, mass: 1 }}
+                            className="relative h-full w-full max-w-3xl bg-white/95 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden border-l border-white/20"
                         >
-                            {/* Sheet Header - sticky so content is never hidden under it */}
-                            <div className="flex-shrink-0 sticky top-0 z-10 p-10 bg-white border-b border-slate-100 flex items-center justify-between shadow-sm">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
-                                            <FileText className="w-5 h-5 text-emerald-400" />
+                            {/* Sheet Header: Static Control Node */}
+                            <div className="flex-shrink-0 sticky top-0 z-20 p-12 bg-white/50 backdrop-blur-md border-b border-slate-100 flex items-center justify-between">
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-4">
+                                        <div className="h-14 w-14 bg-slate-900 rounded-[1.75rem] flex items-center justify-center shadow-2xl shadow-slate-900/20 rotate-3">
+                                            <FileText className="w-6 h-6 text-emerald-400" />
                                         </div>
-                                            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            Payload Inspection #{(selectedOrder as any).orderNumber || selectedOrder.id}
-                                        </h2>
+                                        <div>
+                                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter font-heading">
+                                                Flow Node <span className="text-emerald-600">#{(selectedOrder as any).orderNumber || selectedOrder.id}</span>
+                                            </h2>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Payload Analysis & Flow Control v4.5</p>
+                                        </div>
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Secure Ledger Analysis v4.2</p>
                                 </div>
-                                <div className="flex gap-3">
+                                <div className="flex gap-4">
                                     <button 
                                         onClick={() => handleGeneratePaymentLink(selectedOrder)} 
-                                        title="Generate Payment Link"
-                                        className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-400 hover:text-orange-600 hover:shadow-xl transition-all"
+                                        className="h-14 w-14 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-orange-500 hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 flex items-center justify-center group"
                                     >
-                                        <CreditCard className="h-6 w-6" />
+                                        <CreditCard className="h-6 w-6 transition-transform group-hover:scale-110" />
                                     </button>
-                                    <button onClick={() => toast.info('Exporting PDF...')} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-400 hover:text-blue-600 hover:shadow-xl transition-all">
-                                        <Download className="h-6 w-6" />
-                                    </button>
-                                    <button onClick={() => setIsDetailOpen(false)} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-300 hover:text-red-500 hover:shadow-xl transition-all">
-                                        <X className="h-6 w-6" />
+                                    <button onClick={() => setIsDetailOpen(false)} className="h-14 w-14 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group">
+                                        <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-0 overflow-y-auto p-12 pt-10 space-y-12 custom-scrollbar bg-white">
-                                {/* Order Status Grid */}
-                                <div className="grid grid-cols-4 gap-4">
-                                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-emerald-200 transition-colors">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Fulfillment</p>
-                                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{selectedOrder.fulfillment}</p>
-                                    </div>
-                                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-emerald-200 transition-colors">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Fiscal State</p>
-                                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{selectedOrder.payment}</p>
-                                    </div>
-                                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 hover:border-emerald-200 transition-colors">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Channels</p>
-                                        <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{selectedOrder.channel}</p>
-                                    </div>
-                                    <div className="p-6 bg-emerald-900 rounded-[2rem] text-white shadow-xl shadow-emerald-900/10">
-                                        <p className="text-[9px] font-black text-emerald-400/60 uppercase tracking-widest mb-2">Total Value</p>
-                                        <p className="text-sm font-black tracking-tight">₹{selectedOrder.total.toLocaleString()}</p>
-                                    </div>
+                            <div className="flex-1 min-h-0 overflow-y-auto p-12 space-y-16 custom-scrollbar">
+                                {/* Telemetry Matrix: Quick Stats */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {[
+                                        { label: 'Logistic Phase', value: selectedOrder.status, color: 'blue' },
+                                        { label: 'Fiscal State', value: selectedOrder.payment, color: 'emerald' },
+                                        { label: 'Origin Point', value: selectedOrder.channel, color: 'purple' },
+                                        { label: 'Net Asset Value', value: `₹${selectedOrder.total.toLocaleString()}`, color: 'slate', highlight: true }
+                                    ].map((item, i) => (
+                                        <div key={i} className={cn(
+                                            "p-6 rounded-[2rem] border transition-all duration-500",
+                                            item.highlight ? "bg-slate-900 border-slate-800 text-white shadow-2xl shadow-slate-900/20" : "bg-slate-50 border-slate-100 hover:border-slate-300"
+                                        )}>
+                                            <p className={cn("text-[9px] font-black uppercase tracking-widest mb-3", item.highlight ? "text-slate-500" : "text-slate-400")}>{item.label}</p>
+                                            <p className={cn("text-[13px] font-black uppercase tracking-tight font-heading", item.highlight ? "text-emerald-400" : "text-slate-900")}>{item.value}</p>
+                                        </div>
+                                    ))}
                                 </div>
 
-                                {/* Items Visualization */}
-                                <div className="space-y-6">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Box className="w-4 h-4" />
-                                        Cart Contents
-                                    </h3>
+                                {/* Payload Composition: Items List */}
+                                <div className="space-y-8">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                            <div className="h-1.5 w-8 bg-emerald-500 rounded-full" />
+                                            Payload Composition
+                                        </h3>
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
+                                            {selectedOrder.itemsDetails?.length} Distinct Entities
+                                        </span>
+                                    </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         {selectedOrder.itemsDetails?.map((item, idx) => {
-                                            const product = products.find(p => p.id === item.productId);
+                                            const product = products.find(p => String(p.id) === String(item.productId));
                                             return (
-                                                <div key={idx} className="flex items-center gap-6 p-6 rounded-[2.5rem] bg-white border border-slate-100 hover:shadow-xl hover:shadow-slate-200/20 transition-all group cursor-pointer">
-                                                    <div className="h-20 w-20 rounded-[1.75rem] bg-slate-900 overflow-hidden shadow-xl shadow-slate-900/10 group-hover:scale-110 transition-transform duration-500">
-                                                        <img src={product?.image} className="w-full h-full object-cover group-hover:rotate-3" />
+                                                <div key={idx} className="flex items-center gap-8 p-8 rounded-[3rem] bg-white border border-slate-100 hover:border-emerald-200 hover:shadow-[0_30px_60px_rgba(0,0,0,0.05)] transition-all duration-700 group">
+                                                    <div className="h-24 w-24 rounded-[2.5rem] bg-slate-50 overflow-hidden shadow-2xl shadow-slate-900/5 group-hover:scale-105 group-hover:rotate-2 transition-all duration-700 border border-slate-100">
+                                                        <img src={product?.image} className="w-full h-full object-cover" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <p className="text-lg font-black text-slate-900 uppercase tracking-tight truncate">{product?.name}</p>
-                                                            <p className="text-sm font-black text-slate-900">₹{((product?.discountPrice || product?.price || 0) * item.quantity).toLocaleString()}</p>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <p className="text-xl font-black text-slate-900 uppercase tracking-tighter truncate font-heading">{product?.name}</p>
+                                                            <p className="text-lg font-black text-slate-900 tracking-tighter font-heading">₹{((product?.discountPrice || product?.price || 0) * item.quantity).toLocaleString()}</p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
-                                                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1.5">
-                                                                <Zap className="h-2.5 w-2.5" />
-                                                                {product?.vendor}
-                                                            </span>
-                                                            <div className="h-4 w-[1px] bg-slate-100" />
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Qty: {item.quantity} {product?.unit || 'kg'}</span>
+                                                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                                                                <Zap className="h-3 w-3 text-emerald-600" />
+                                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{product?.vendor}</span>
+                                                            </div>
+                                                            <div className="h-5 w-[1px] bg-slate-100" />
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantum: {item.quantity} {product?.unit || 'kg'}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -835,97 +871,102 @@ export function AdminOrdersPage() {
                                     </div>
                                 </div>
 
-                                {/* Logistics Metadata */}
-                                <div className="grid grid-cols-2 gap-10">
-                                    <div className="space-y-6">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <ShieldCheck className="w-4 h-4" />
-                                            Receiver Identity
-                                        </h3>
-                                        <div className="space-y-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-14 w-14 rounded-[1.5rem] bg-slate-900 text-white flex items-center justify-center font-black text-xl">
-                                                    {selectedOrder.customer.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{selectedOrder.customer}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 italic">Verified Customer</p>
-                                                </div>
+                                {/* Identity & Logistics Nodes */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Identity Node */}
+                                    <div className="p-10 rounded-[3.5rem] bg-slate-50 border border-slate-100 space-y-10 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-bl-[4rem] pointer-events-none transition-all duration-700 group-hover:bg-emerald-500/5" />
+                                        <div className="relative z-10 flex items-center gap-5">
+                                            <div className="h-16 w-16 rounded-[2rem] bg-slate-900 text-white flex items-center justify-center font-black text-2xl shadow-2xl shadow-slate-900/20 font-heading">
+                                                {selectedOrder.customer.charAt(0)}
                                             </div>
-                                            <div className="space-y-4 pl-2">
-                                                <div className="flex items-center gap-4 text-slate-600">
-                                                    <div className="h-8 w-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-                                                        <Mail className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="text-xs font-black uppercase tracking-tight">{selectedOrder.customer.toLowerCase().replace(' ', '.')}@gmail.com</span>
+                                            <div>
+                                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Receiver Entity</p>
+                                                <p className="text-xl font-black text-slate-900 uppercase tracking-tight font-heading">{selectedOrder.customer}</p>
+                                            </div>
+                                        </div>
+                                        <div className="relative z-10 space-y-5">
+                                            <div className="flex items-center gap-5 text-slate-600 group/item cursor-default">
+                                                <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-emerald-500 group-hover/item:border-emerald-500 transition-all duration-500">
+                                                    <Mail className="w-5 h-5" />
                                                 </div>
-                                                <div className="flex items-center gap-4 text-slate-600">
-                                                    <div className="h-8 w-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
-                                                        <Phone className="w-4 h-4" />
-                                                    </div>
-                                                    <span className="text-xs font-black uppercase tracking-tight">+91 98765 00012</span>
+                                                <span className="text-xs font-black uppercase tracking-tight">{selectedOrder.customer.toLowerCase().replace(/\s+/g, '.')}@gmail.com</span>
+                                            </div>
+                                            <div className="flex items-center gap-5 text-slate-600 group/item cursor-default">
+                                                <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-blue-500 group-hover/item:border-blue-500 transition-all duration-500">
+                                                    <Phone className="w-5 h-5" />
                                                 </div>
+                                                <span className="text-xs font-black uppercase tracking-tight">+91 98765 00012</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-6">
-                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <MapPin className="w-4 h-4" />
-                                            Shipping Details
-                                        </h3>
-                                        <div className="p-8 bg-slate-900 rounded-[2.5rem] border border-slate-800 relative overflow-hidden group">
-                                            <div className="relative z-10 space-y-4">
-                                                <p className="text-[11px] md:text-xs font-black text-white uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-500 break-words">
-                                                    {(() => {
-                                                        const addr = (selectedOrder as any).shippingAddress || {};
-                                                        const parts = [
-                                                            addr.addressLine1 || addr.address || '',
-                                                            addr.addressLine2 || '',
-                                                            addr.city || '',
-                                                            addr.state || '',
-                                                            addr.pincode || addr.zipCode || '',
-                                                        ].filter((v: string) => v && String(v).trim());
-                                                        return parts.length ? parts.join(', ') : 'Shipping address not available';
-                                                    })()}
-                                                </p>
-                                                <div className="mt-4 flex items-center gap-3">
-                                                    <div className="h-8 w-8 bg-white/10 rounded-xl flex items-center justify-center text-emerald-400">
-                                                        <Truck className="w-4 h-4" />
+
+                                    {/* Logistic Node */}
+                                    <div className="p-10 rounded-[3.5rem] bg-slate-900 border border-slate-800 space-y-8 relative overflow-hidden group text-white">
+                                        <div className="relative z-10">
+                                            <div className="flex items-center gap-4 mb-8">
+                                                <div className="h-10 w-10 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10">
+                                                    <MapPin className="w-5 h-5" />
+                                                </div>
+                                                <span className="text-[11px] font-black uppercase tracking-[0.2em]">Shipping Terminal</span>
+                                            </div>
+                                            <p className="text-[13px] font-black uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-700 min-h-[80px]">
+                                                {(() => {
+                                                    const addr = (selectedOrder as any).shippingAddress || {};
+                                                    const parts = [
+                                                        addr.addressLine1 || addr.address || '',
+                                                        addr.addressLine2 || '',
+                                                        addr.city || '',
+                                                        addr.state || '',
+                                                        addr.pincode || addr.zipCode || '',
+                                                    ].filter((v: string) => v && String(v).trim());
+                                                    return parts.length ? parts.join(', ') : 'Terminal location undefined';
+                                                })()}
+                                            </p>
+                                            <div className="pt-8 border-t border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
+                                                        <Truck className="w-5 h-5" />
                                                     </div>
-                                                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">
-                                                        {(selectedOrder as any).courierName || 'Delivery partner not assigned yet'}
-                                                    </span>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Carrier Unit</p>
+                                                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                                            {(selectedOrder as any).courierName || 'Standby for deployment'}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none group-hover:bg-emerald-500/20 transition-all duration-700" />
                                         </div>
+                                        <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] group-hover:bg-emerald-500/20 transition-all duration-1000" />
                                     </div>
                                 </div>
 
-                                {/* Flow Visualization */}
-                                <div className="space-y-10">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Clock className="w-4 h-4" />
-                                        Order Progress
-                                    </h3>
-                                    <div className="relative pl-12 space-y-12">
-                                        <div className="absolute left-[23px] top-0 bottom-0 w-[1px] bg-slate-100" />
+                                {/* Temporal Flow: Order Lifecycle */}
+                                <div className="space-y-12 pb-12">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                            <div className="h-1.5 w-8 bg-blue-500 rounded-full" />
+                                            Temporal Lifecycle
+                                        </h3>
+                                    </div>
+                                    <div className="relative pl-14 space-y-14">
+                                        <div className="absolute left-[27px] top-4 bottom-4 w-[2px] bg-slate-100" />
                                         {[
-                                            { status: 'Final Delivery', date: 'Oct 23, 2023 at 04:15 PM', active: selectedOrder.status === 'Delivered', icon: CheckCircle2 },
-                                            { status: 'Out for Delivery', date: 'Oct 23, 2023 at 11:30 AM', active: ['Shipped', 'Delivered'].includes(selectedOrder.status), icon: Truck },
-                                            { status: 'Packaging Sealed', date: 'Oct 22, 2023 at 08:30 PM', active: ['Packed', 'Shipped', 'Delivered'].includes(selectedOrder.status), icon: Package },
-                                            { status: 'System Entry', date: `${selectedOrder.date} at 02:45 PM`, active: true, icon: ShoppingBag },
+                                            { status: 'Final Delivery', date: 'Oct 23, 2023 | 16:15 IST', active: selectedOrder.status === 'Delivered', icon: CheckCircle2, color: 'emerald' },
+                                            { status: 'Logistic Transit', date: 'Oct 23, 2023 | 11:30 IST', active: ['Shipped', 'Delivered'].includes(selectedOrder.status), icon: Truck, color: 'blue' },
+                                            { status: 'Node Preparation', date: 'Oct 22, 2023 | 20:30 IST', active: ['Packed', 'Shipped', 'Delivered'].includes(selectedOrder.status), icon: Package, color: 'orange' },
+                                            { status: 'System Ingestion', date: `${selectedOrder.date} | 14:45 IST`, active: true, icon: ShoppingBag, color: 'slate' },
                                         ].map((step, idx) => (
-                                            <div key={idx} className={cn("flex flex-col relative z-10 transition-all duration-700", step.active ? "opacity-100" : "opacity-20")}>
+                                            <div key={idx} className={cn("flex flex-col relative z-10 transition-all duration-1000", step.active ? "opacity-100 translate-x-0" : "opacity-20 translate-x-4")}>
                                                 <div className={cn(
-                                                    "absolute -left-[45px] top-0 h-11 w-11 rounded-3xl border-4 border-white shadow-xl flex items-center justify-center",
-                                                    step.active ? "bg-slate-900 border-emerald-50 text-white" : "bg-white border-slate-50 text-slate-300"
+                                                    "absolute -left-[54px] top-0 h-14 w-14 rounded-[1.75rem] border-4 border-white shadow-2xl flex items-center justify-center transition-all duration-700",
+                                                    step.active ? "bg-slate-900 text-white scale-110 shadow-slate-900/20" : "bg-white text-slate-200"
                                                 )}>
-                                                    <step.icon className="h-5 w-5" />
+                                                    <step.icon className={cn("h-6 w-6", step.active && step.color === 'emerald' ? "text-emerald-400" : "")} />
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{step.status}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{step.date}</p>
+                                                <div className="space-y-2">
+                                                    <p className="text-base font-black text-slate-900 uppercase tracking-tight font-heading">{step.status}</p>
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] italic">{step.date}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -933,19 +974,19 @@ export function AdminOrdersPage() {
                                 </div>
                             </div>
 
-                            {/* Sheet Actions */}
-                            <div className="flex-shrink-0 p-10 bg-slate-50 border-t border-slate-100 flex gap-6">
+                            {/* Control Actions: Fixed Footer */}
+                            <div className="flex-shrink-0 p-12 bg-slate-50/50 backdrop-blur-md border-t border-slate-100 flex gap-6">
                                 <button
                                     onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')}
-                                    className="flex-1 h-16 bg-white border border-red-100 text-red-600 rounded-[2rem] hover:bg-red-50 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+                                    className="flex-1 h-18 bg-white border border-slate-200 text-slate-400 rounded-3xl hover:bg-red-50 hover:text-red-500 hover:border-red-200 font-black text-[11px] uppercase tracking-widest transition-all duration-500 hover:shadow-2xl shadow-sm"
                                 >
-                                    Abort Entry
+                                    Abort Session
                                 </button>
                                 <button
-                                    className="flex-[2] h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-3"
+                                    className="flex-[2] h-18 bg-slate-900 text-white rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
                                 >
-                                    <Zap className="w-5 h-5 text-emerald-400" />
-                                    Mark as Shipped
+                                    <Zap className="w-5 h-5 text-emerald-400 transition-transform group-hover:scale-110" />
+                                    Initiate Fulfillment Flow
                                 </button>
                             </div>
                         </motion.div>
@@ -953,240 +994,239 @@ export function AdminOrdersPage() {
                 </AnimatePresence>,
                 document.body
             )}
-
-            {/* Create order modal */}
+            {/* Direct Entry Node: Manual Order Generation */}
             {isModalOpen && createPortal(
                 <AnimatePresence>
-                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-6">
+                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 md:p-12">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                            className="absolute inset-0 bg-slate-900/70 backdrop-blur-2xl"
                             onClick={() => setIsModalOpen(false)}
                         />
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 30 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 30 }}
-                            className="relative bg-white rounded-[4rem] shadow-2xl w-full max-w-2xl overflow-hidden"
+                            initial={{ opacity: 0, scale: 0.9, y: 50, rotateX: 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 50, rotateX: 10 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="relative bg-white/95 backdrop-blur-3xl rounded-[4rem] shadow-[0_40px_120px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
                         >
-                            <div className="p-12 border-b border-slate-50 bg-slate-50/20">
-                                <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Direct Entry</h2>
-                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 italic">Manual entry for high-tier commercial orders.</p>
+                            {/* Modal Header */}
+                            <div className="flex-shrink-0 p-12 border-b border-slate-100 bg-white/50 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase font-heading">Direct <span className="text-emerald-600">Entry</span></h2>
+                                    <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
+                                        <Activity className="w-3 h-3 text-emerald-500" />
+                                        High-Tier Commercial Order Generation
+                                    </p>
+                                </div>
+                                <button 
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="h-14 w-14 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group"
+                                >
+                                    <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
+                                </button>
                             </div>
 
-                            <form onSubmit={handleSubmitOrder} className="p-12 space-y-10 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receiver name</label>
-                                        <input
-                                            required
-                                            placeholder="Customer / receiver name"
-                                            value={formData.customer}
-                                            onChange={e => setFormData({ ...formData, customer: e.target.value })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Email</label>
-                                        <input
-                                            required
-                                            type="email"
-                                            placeholder="customer@example.com"
-                                            value={formData.email}
-                                            onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3 md:col-span-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Phone</label>
-                                        <input
-                                            required
-                                            placeholder="+91 9876543210"
-                                            value={formData.phone}
-                                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3 md:col-span-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Shipping Address (Line 1)</label>
-                                        <input
-                                            required
-                                            placeholder="House No, Street, Area"
-                                            value={(formData as any).addressLine1 || ''}
-                                            onChange={e => setFormData({ ...formData, addressLine1: e.target.value } as any)}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3 md:col-span-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Shipping Address (Line 2)</label>
-                                        <input
-                                            placeholder="Landmark, Apartment (Optional)"
-                                            value={(formData as any).addressLine2 || ''}
-                                            onChange={e => setFormData({ ...formData, addressLine2: e.target.value } as any)}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
-                                        <input
-                                            required
-                                            placeholder="City"
-                                            value={(formData as any).city || ''}
-                                            onChange={e => setFormData({ ...formData, city: e.target.value } as any)}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">State</label>
-                                        <input
-                                            required
-                                            placeholder="State"
-                                            value={(formData as any).state || ''}
-                                            onChange={e => setFormData({ ...formData, state: e.target.value } as any)}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pincode</label>
-                                        <input
-                                            required
-                                            placeholder="6-digit PIN"
-                                            value={(formData as any).pincode || ''}
-                                            onChange={e => setFormData({ ...formData, pincode: e.target.value } as any)}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Order status</label>
-                                        <select
-                                            value={formData.status}
-                                            onChange={e => setFormData({ ...formData, status: e.target.value as any })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-[10px] font-black uppercase tracking-widest text-slate-700 focus:bg-white outline-none appearance-none transition-all"
-                                        >
-                                            <option value="Created">Created</option>
-                                            <option value="Confirmed">Confirmed</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payment</label>
-                                        <select
-                                            value={formData.payment}
-                                            onChange={e => setFormData({ ...formData, payment: e.target.value as Order['payment'] })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-[10px] font-black uppercase tracking-widest text-slate-700 focus:bg-white outline-none appearance-none transition-all"
-                                        >
-                                            <option value="Pending">Pending</option>
-                                            <option value="Paid">Paid</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-3 md:col-span-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fulfillment</label>
-                                        <select
-                                            value={formData.fulfillment}
-                                            onChange={e => setFormData({ ...formData, fulfillment: e.target.value as Order['fulfillment'] })}
-                                            className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-[10px] font-black uppercase tracking-widest text-slate-700 focus:bg-white outline-none appearance-none transition-all"
-                                        >
-                                            <option value="Unfulfilled">Unfulfilled</option>
-                                            <option value="Fulfilled">Fulfilled</option>
-                                        </select>
+                            <form onSubmit={handleSubmitOrder} className="flex-1 overflow-y-auto p-12 space-y-12 custom-scrollbar">
+                                {/* Customer Identity Module */}
+                                <div className="space-y-8">
+                                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <div className="h-1.5 w-8 bg-blue-500 rounded-full" />
+                                        Identity Parameters
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receiver Moniker</label>
+                                            <input
+                                                required
+                                                placeholder="Full Name / Entity Name"
+                                                value={formData.customer}
+                                                onChange={e => setFormData({ ...formData, customer: e.target.value })}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Communication Channel</label>
+                                            <input
+                                                required
+                                                type="email"
+                                                placeholder="entity@domain.com"
+                                                value={formData.email}
+                                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-3 md:col-span-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telemetry Contact</label>
+                                            <input
+                                                required
+                                                placeholder="+91 XXXXX XXXXX"
+                                                value={formData.phone}
+                                                onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Products &amp; quantity</label>
-                                    <p className="text-xs text-slate-500 -mt-2 mb-2">Tap a product to add it, then set quantity in the summary below (or use +/−).</p>
-                                    <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                                {/* Logistics Module */}
+                                <div className="space-y-8">
+                                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                        <div className="h-1.5 w-8 bg-orange-500 rounded-full" />
+                                        Logistics Coordinates
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="space-y-3 md:col-span-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Terminal Address (Primary)</label>
+                                            <input
+                                                required
+                                                placeholder="Street, Hub, Sector"
+                                                value={(formData as any).addressLine1 || ''}
+                                                onChange={e => setFormData({ ...formData, addressLine1: e.target.value } as any)}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City Hub</label>
+                                            <input
+                                                required
+                                                placeholder="Metro / City"
+                                                value={(formData as any).city || ''}
+                                                onChange={e => setFormData({ ...formData, city: e.target.value } as any)}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regional Code</label>
+                                            <input
+                                                required
+                                                placeholder="6-Digit PIN"
+                                                value={(formData as any).pincode || ''}
+                                                onChange={e => setFormData({ ...formData, pincode: e.target.value } as any)}
+                                                className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Asset Selection Module */}
+                                <div className="space-y-8">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
+                                            <div className="h-1.5 w-8 bg-emerald-500 rounded-full" />
+                                            Asset Allocation
+                                        </h3>
+                                    </div>
+                                    <div className="relative group">
+                                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-emerald-500 transition-all duration-500" />
                                         <input
                                             type="text"
-                                            placeholder="Search catalog by name, vendor, SKU…"
+                                            placeholder="Search inventory matrix by name, merchant or SKU..."
                                             value={freshEntryProductSearch}
                                             onChange={(e) => setFreshEntryProductSearch(e.target.value)}
-                                            className="w-full h-12 pl-11 pr-4 rounded-2xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
+                                            className="w-full h-16 pl-16 pr-8 rounded-[1.25rem] border border-slate-100 bg-slate-50 text-[13px] font-bold text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 outline-none transition-all duration-500"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
-                                        {catalogForFreshEntry.length === 0 ? (
-                                            <p className="col-span-full text-sm text-slate-400 py-6 text-center">No products match your search.</p>
-                                        ) : (
-                                            catalogForFreshEntry.map((product) => {
-                                                const stock = Number(product.availableStock ?? product.stock ?? 0);
-                                                const disabled = stock <= 0;
-                                                return (
-                                                    <button
-                                                        key={product.id}
-                                                        type="button"
-                                                        disabled={disabled}
-                                                        onClick={() => handleAddProduct(product.id)}
-                                                        title={disabled ? 'Out of stock' : 'Add to order'}
-                                                        className={cn(
-                                                            'flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border text-left transition-all',
-                                                            disabled
-                                                                ? 'border-slate-100 opacity-50 cursor-not-allowed'
-                                                                : 'border-slate-100 hover:border-emerald-500 hover:shadow-lg',
-                                                        )}
-                                                    >
-                                                        <div className="h-12 w-12 rounded-xl bg-slate-50 overflow-hidden flex items-center justify-center">
-                                                            <img
-                                                                src={getImageDisplayUrl(product.image || '')}
-                                                                alt=""
-                                                                className="w-full h-full object-contain"
-                                                            />
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                                        {catalogForFreshEntry.map((product) => {
+                                            const stock = Number(product.availableStock ?? product.stock ?? 0);
+                                            const disabled = stock <= 0;
+                                            return (
+                                                <button
+                                                    key={product.id}
+                                                    type="button"
+                                                    disabled={disabled}
+                                                    onClick={() => handleAddProduct(product.id)}
+                                                    className={cn(
+                                                        'flex flex-col items-center gap-3 p-6 rounded-3xl bg-white border text-center transition-all duration-500 group relative',
+                                                        disabled
+                                                            ? 'border-slate-50 opacity-40 grayscale cursor-not-allowed'
+                                                            : 'border-slate-100 hover:border-emerald-500 hover:shadow-2xl hover:-translate-y-1',
+                                                    )}
+                                                >
+                                                    <div className="h-16 w-16 rounded-2xl bg-slate-50 overflow-hidden flex items-center justify-center mb-1 group-hover:scale-110 transition-all duration-700">
+                                                        <img
+                                                            src={getImageDisplayUrl(product.image || '')}
+                                                            alt=""
+                                                            className="w-full h-full object-contain"
+                                                        />
+                                                    </div>
+                                                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight line-clamp-1 w-full">{product.name}</p>
+                                                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{stock > 0 ? `Stock: ${stock}` : 'Depleted'}</span>
+                                                    {!disabled && (
+                                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <div className="h-6 w-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                                                <Plus className="h-3 w-3 text-white" />
+                                                            </div>
                                                         </div>
-                                                        <p className="text-[9px] font-black text-slate-900 uppercase tracking-tight line-clamp-2 text-center w-full">{product.name}</p>
-                                                        <span className="text-[8px] font-bold text-slate-400">{stock > 0 ? `Stock ${stock}` : 'Out of stock'}</span>
-                                                    </button>
-                                                );
-                                            })
-                                        )}
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 
+                                {/* Summary Module */}
                                 {formData.selectedProducts.length > 0 && (
-                                    <div className="rounded-[3rem] bg-slate-900 p-10 space-y-8 text-white shadow-2xl shadow-slate-900/20 relative overflow-hidden">
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="rounded-[3.5rem] bg-slate-900 p-12 space-y-10 text-white shadow-[0_40px_100px_rgba(0,0,0,0.2)] relative overflow-hidden group"
+                                    >
                                         <div className="relative z-10 flex items-center justify-between">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Live Order Data</p>
-                                            <span className="text-[10px] font-black uppercase tracking-widest opacity-40 italic">Token Generated</span>
+                                            <div className="flex items-center gap-3">
+                                                <div className="h-1.5 w-12 bg-emerald-500 rounded-full" />
+                                                <p className="text-[11px] font-black uppercase tracking-[0.3em] text-emerald-400">Payload Manifest</p>
+                                            </div>
+                                            <Activity className="w-8 h-8 text-emerald-500 opacity-20 animate-pulse" />
                                         </div>
-                                        <div className="relative z-10 space-y-4">
+                                        <div className="relative z-10 space-y-5">
                                             {formData.selectedProducts.map(item => {
-                                                const product = products.find(p => p.id === item.productId);
+                                                const product = products.find(p => String(p.id) === String(item.productId));
                                                 const maxQ = maxQtyForProduct(item.productId);
                                                 return (
-                                                    <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 bg-white/5 rounded-[2rem] border border-white/5 hover:bg-white/10 transition-colors">
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            <span className="text-sm font-black truncate">{product?.name}</span>
-                                                            <span className="text-[9px] font-bold text-white/40 shrink-0">{product?.unit || 'kg'}</span>
+                                                    <div key={item.productId} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 bg-white/5 rounded-[2.5rem] border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-500">
+                                                        <div className="flex items-center gap-5 flex-1 min-w-0">
+                                                            <div className="h-12 w-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0">
+                                                                <Box className="w-6 h-6 text-white/20" />
+                                                            </div>
+                                                            <div className="truncate">
+                                                                <span className="text-[13px] font-black uppercase tracking-tight block truncate">{product?.name}</span>
+                                                                <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">{product?.unit || 'kg'} Unit</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleBumpQuantity(item.productId, -1)}
-                                                                disabled={item.quantity <= 1}
-                                                                className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
-                                                                aria-label="Decrease quantity"
+                                                        <div className="flex items-center gap-4 shrink-0">
+                                                            <div className="flex items-center bg-black/40 rounded-2xl p-1.5 border border-white/5">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleBumpQuantity(item.productId, -1)}
+                                                                    disabled={item.quantity <= 1}
+                                                                    className="h-10 w-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-all disabled:opacity-20"
+                                                                >
+                                                                    <Minus className="w-4 h-4" />
+                                                                </button>
+                                                                <input
+                                                                    type="number"
+                                                                    value={item.quantity}
+                                                                    onChange={(e) => handleSetLineQuantity(item.productId, Number(e.target.value))}
+                                                                    className="w-16 bg-transparent text-center text-sm font-black text-white outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                                />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleBumpQuantity(item.productId, 1)}
+                                                                    disabled={maxQ < 9999 && item.quantity >= maxQ}
+                                                                    className="h-10 w-10 rounded-xl flex items-center justify-center text-white hover:bg-white/10 transition-all disabled:opacity-20"
+                                                                >
+                                                                    <Plus className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => handleRemoveProduct(item.productId)}
+                                                                className="h-12 w-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-400 hover:bg-red-500 hover:text-white transition-all duration-500"
                                                             >
-                                                                <Minus className="w-4 h-4" />
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min={1}
-                                                                max={maxQ < 9999 ? maxQ : undefined}
-                                                                value={item.quantity}
-                                                                onChange={(e) => handleSetLineQuantity(item.productId, Number(e.target.value))}
-                                                                className="w-16 h-10 rounded-xl bg-white/10 border border-white/10 text-center text-sm font-black text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleBumpQuantity(item.productId, 1)}
-                                                                disabled={maxQ < 9999 && item.quantity >= maxQ}
-                                                                className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 disabled:opacity-30"
-                                                                aria-label="Increase quantity"
-                                                            >
-                                                                <Plus className="w-4 h-4" />
-                                                            </button>
-                                                            <button type="button" onClick={() => handleRemoveProduct(item.productId)} className="p-2 text-white/30 hover:text-red-400 transition-colors ml-1">
                                                                 <Trash2 className="w-5 h-5" />
                                                             </button>
                                                         </div>
@@ -1194,33 +1234,39 @@ export function AdminOrdersPage() {
                                                 );
                                             })}
                                         </div>
-                                        <div className="relative z-10 pt-8 border-t border-white/10 flex justify-between items-end">
+                                        <div className="relative z-10 pt-10 border-t border-white/5 flex justify-between items-end">
                                             <div>
-                                                <p className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-1">Total Amount</p>
-                                                <p className="text-5xl font-black text-emerald-400 tracking-tighter">₹{currentTotal.toLocaleString()}</p>
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-2">Aggregate Valuation</p>
+                                                <p className="text-6xl font-black text-emerald-400 tracking-tighter font-heading leading-none">₹{currentTotal.toLocaleString()}</p>
                                             </div>
-                                            <Activity className="w-12 h-12 text-emerald-400 opacity-20 animate-pulse" />
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-2">Session Token</p>
+                                                <p className="text-xs font-black text-white/60 tracking-widest">A7-X92-FLUX</p>
+                                            </div>
                                         </div>
-                                        <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]" />
-                                    </div>
+                                        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px] group-hover:bg-emerald-500/20 transition-all duration-1000" />
+                                    </motion.div>
                                 )}
-
-                                <div className="pt-10 flex gap-6">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 h-16 border border-slate-100 text-slate-900 rounded-[2rem] hover:bg-slate-50 font-black text-[10px] uppercase tracking-widest"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-[2] h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black font-black text-[10px] uppercase tracking-widest shadow-xl shadow-slate-900/10"
-                                    >
-                                        Create Order
-                                    </button>
-                                </div>
                             </form>
+
+                            {/* Modal Footer Actions */}
+                            <div className="flex-shrink-0 p-12 bg-white border-t border-slate-100 flex gap-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="flex-1 h-18 bg-white border border-slate-200 text-slate-400 rounded-3xl hover:bg-slate-50 hover:text-slate-900 font-black text-[11px] uppercase tracking-widest transition-all duration-500"
+                                >
+                                    Abort Entry
+                                </button>
+                                <button
+                                    onClick={handleSubmitOrder}
+                                    type="submit"
+                                    className="flex-[2.5] h-18 bg-slate-900 text-white rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
+                                >
+                                    <Zap className="w-5 h-5 text-emerald-400 transition-transform group-hover:scale-110" />
+                                    Generate Flow Node
+                                </button>
+                            </div>
                         </motion.div>
                     </div>
                 </AnimatePresence>,

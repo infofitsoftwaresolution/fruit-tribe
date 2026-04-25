@@ -808,7 +808,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }
 
   return (
-    <div className="pt-24 sm:pt-28 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white overflow-x-hidden">
+    <div className="pt-20 pb-12 sm:pb-16 min-h-screen bg-slate-50 selection:bg-orange-500 selection:text-white overflow-x-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Delivery info */}
         <motion.div

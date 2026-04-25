@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, MessageSquare, Clock } from 'lucide-react';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
-import { useStore } from '@/app/context/StoreContext';
-import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export function ContactPage() {
-  const { theme } = useStore();
   const [searchParams] = useSearchParams();
   const subjectFromUrl = searchParams.get('subject')?.trim() ?? '';
   const [formData, setFormData] = useState({
@@ -33,197 +30,213 @@ export function ContactPage() {
     e.preventDefault();
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(formData.email.trim())) {
-      toast.error('Please enter a valid email address.', {
-        description: 'Use a proper email so we can reply to you.',
-      });
+      toast.error('Please enter a valid email address.');
       return;
     }
     if (!formData.message.trim()) {
       toast.error('Please enter a message.');
       return;
     }
-    toast.success('Thank you for your message!', {
-      description: 'We will get back to you soon.',
-    });
+    toast.success('Thank you for your message! We\'ll get back to you soon.');
     setFormData({ name: '', email: '', subject: '', message: '' });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const contactInfo = [
+    {
+      icon: Mail,
+      label: 'Email us',
+      value: STORE_PUBLIC_CONTACT.email,
+      href: `mailto:${STORE_PUBLIC_CONTACT.email}`,
+      sub: 'We reply within 24 hours',
+    },
+    {
+      icon: Phone,
+      label: 'Call us',
+      value: STORE_PUBLIC_CONTACT.phone,
+      href: storePhoneTelHref(STORE_PUBLIC_CONTACT.phone),
+      sub: 'Mon–Sat, 9 AM – 6 PM IST',
+    },
+    {
+      icon: MapPin,
+      label: 'Our address',
+      value: STORE_PUBLIC_CONTACT.address,
+      href: undefined,
+      sub: 'Visit us anytime',
+    },
+  ];
+
   return (
-    <div className="pt-28 pb-12 min-h-screen bg-gradient-to-b from-white to-orange-50/50">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
+    <div className="min-h-screen bg-white pt-20 pb-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Page header */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          transition={{ duration: 0.5 }}
+          className="mb-12"
         >
-          <h1 className="text-3xl md:text-4xl font-bold mb-3">
-            <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-              Get in touch
-            </span>
+          <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
+            Get in touch
+          </p>
+          <h1 className="text-4xl md:text-5xl font-bold text-slate-900 tracking-tight">
+            We'd love to hear from you
           </h1>
-          <p className="text-base text-gray-600 max-w-xl mx-auto">
-            Have a question or feedback? We'd love to hear from you!
+          <p className="mt-4 text-base text-slate-500 max-w-xl leading-relaxed">
+            Have a question, feedback, or bulk inquiry? Send us a message and we'll respond promptly.
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Contact Info */}
+        <div className="grid lg:grid-cols-5 gap-10">
+
+          {/* Contact information sidebar */}
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: -16 }}
             animate={{ opacity: 1, x: 0 }}
-            className="space-y-4"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="lg:col-span-2 space-y-4"
           >
-            <div>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Contact Information</h2>
-              <p className="text-sm text-gray-600 mb-4">
-                Reach out through any of these channels. We're here to help!
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <motion.div
-                whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
+            {contactInfo.map((item) => (
+              <div
+                key={item.label}
+                className="flex items-start gap-4 p-5 rounded-2xl bg-slate-50 border border-slate-100"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Mail className="w-5 h-5 text-white" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Email</h3>
-                  <a
-                    href={`mailto:${STORE_PUBLIC_CONTACT.email}`}
-                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors"
-                  >
-                    {STORE_PUBLIC_CONTACT.email}
-                  </a>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                    {item.label}
+                  </p>
+                  {item.href ? (
+                    <a
+                      href={item.href}
+                      className="text-sm font-semibold text-slate-900 hover:text-emerald-600 transition-colors block truncate"
+                    >
+                      {item.value}
+                    </a>
+                  ) : (
+                    <p className="text-sm font-semibold text-slate-900">{item.value}</p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-0.5">{item.sub}</p>
                 </div>
-              </motion.div>
+              </div>
+            ))}
 
-              <motion.div
-                whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
-              >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Phone className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Phone</h3>
-                  <a
-                    href={storePhoneTelHref(STORE_PUBLIC_CONTACT.phone)}
-                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors block"
-                  >
-                    {STORE_PUBLIC_CONTACT.phone}
-                  </a>
-                  <p className="text-gray-600 text-sm mt-1">Mon–Sat: 9AM – 6PM IST</p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
-              >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Address</h3>
-                  <p className="text-gray-600 text-sm">{STORE_PUBLIC_CONTACT.address}</p>
-                </div>
-              </motion.div>
+            {/* Business hours card */}
+            <div className="flex items-start gap-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-100">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-1">
+                  Business hours
+                </p>
+                <p className="text-sm font-semibold text-emerald-900">Mon – Sat</p>
+                <p className="text-xs text-emerald-700 mt-0.5">9:00 AM – 6:00 PM IST</p>
+              </div>
             </div>
           </motion.div>
 
-          {/* Contact Form */}
+          {/* Contact form */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="lg:col-span-3"
           >
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-white" />
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center">
+                  <MessageSquare className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900">Send us a message</h2>
+                  <p className="text-xs text-slate-400">Fill out the form and we'll respond within 24 hours.</p>
+                </div>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Send us a message</h2>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="name" className="block text-xs font-semibold text-slate-700 mb-2">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      placeholder="Your name"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-2">
+                      Email address
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="you@example.com"
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="subject" className="block text-xs font-semibold text-slate-700 mb-2">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    id="subject"
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                    placeholder="What's this about?"
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="message" className="block text-xs font-semibold text-slate-700 mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    rows={5}
+                    placeholder="Tell us what's on your mind..."
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none"
+                  />
+                </div>
+
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className="w-full h-12 bg-emerald-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  Send message
+                </motion.button>
+              </form>
             </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
-                  placeholder="Your name"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
-                  placeholder="your.email@example.com"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
-                <input
-                  type="text"
-                  id="subject"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
-                  placeholder="What's this about?"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Message</label>
-                <textarea
-                  id="message"
-                  name="message"
-                  value={formData.message}
-                  onChange={handleChange}
-                  required
-                  rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors resize-none text-sm"
-                  placeholder="Tell us what's on your mind..."
-                />
-              </div>
-
-              <motion.button
-                type="submit"
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.98 }}
-                className={cn(
-                  "w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 rounded-lg",
-                  getRoundedClass(theme.buttonStyle)
-                )}
-              >
-                <Send className="w-4 h-4" />
-                Send message
-              </motion.button>
-            </form>
           </motion.div>
         </div>
       </div>

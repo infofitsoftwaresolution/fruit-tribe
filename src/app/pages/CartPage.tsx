@@ -49,7 +49,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
 
   if (items.length === 0) {
     return (
-      <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
+      <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -79,7 +79,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
   }
 
   return (
-    <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
+    <div className="pt-20 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h1 className="text-2xl md:text-3xl font-bold mb-6">
           <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">

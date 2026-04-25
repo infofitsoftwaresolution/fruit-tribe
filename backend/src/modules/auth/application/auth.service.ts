@@ -558,7 +558,7 @@ export class AuthService {
     /** Admin: in-app notification for all matching customers; optional email batch (SMTP). */
     async bulkCustomerAnnouncement(dto: BulkCustomerAnnouncementDto) {
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const where: Prisma.UserWhereInput = {
+        const where: any = {
             role: { name: 'CUSTOMER' },
         };
         if (dto.audience === 'verified') {

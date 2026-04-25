@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ProductCard } from '@/app/components/ProductCard';
-import { Sparkles, ArrowRight, Zap, Leaf } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useProducts } from '@/app/hooks/useProducts';
@@ -14,15 +14,9 @@ interface FeaturedProductsProps {
 }
 
 export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
-    const { theme, isEditing, updateTheme } = useStore();
-    const { products, loading, error } = useProducts({ limit: 6 });
+    const { theme } = useStore();
+    const { products, loading, error } = useProducts({ limit: 8 });
     const [productTab, setProductTab] = useState<'all' | 'bulk' | 'seasonal'>('all');
-
-    const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
-        if (!isEditing) return;
-        const newText = e.currentTarget.innerText;
-        updateTheme({ [field]: newText });
-    };
 
     const featuredProducts = useMemo(() => {
         let next = products.filter(p => p.status === 'Active' && p.availableStock > 0);
@@ -31,84 +25,51 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
         } else if (productTab === 'seasonal') {
             next = next.filter((p) => Boolean(p.isSeasonal));
         }
-        return next.slice(0, 6);
+        return next.slice(0, 8);
     }, [products, productTab]);
 
     return (
-        <section className="relative py-32 overflow-hidden bg-white">
-            {/* Background Manifold */}
-            <div className="absolute inset-0 z-0 opacity-40">
-                <div className="absolute top-0 right-0 h-[600px] w-[600px] bg-emerald-500/5 rounded-full blur-[120px]" />
-                <div className="absolute bottom-0 left-0 h-[600px] w-[600px] bg-amber-500/5 rounded-full blur-[120px]" />
-            </div>
+        <section className="py-16 md:py-24 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-            <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12">
-                {/* Cinematic Header Orchestration */}
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 mb-24">
-                    <motion.div
-                        initial={{ opacity: 0, x: -30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        className="max-w-2xl space-y-6"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="h-[1px] w-12 bg-emerald-500" />
-                            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Featured</span>
-                        </div>
-
-                        <h2 className="text-5xl md:text-7xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                            <span
-                                contentEditable={isEditing}
-                                suppressContentEditableWarning
-                                onBlur={handleTextChange('featuredProductsTitle')}
-                                className="outline-none"
-                            >
-                                {theme.featuredProductsTitle || 'Popular picks'}
-                            </span>
+                {/* Section header */}
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10">
+                    <div>
+                        <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
+                            Featured
+                        </p>
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                            {theme.featuredProductsTitle || 'Popular picks'}
                         </h2>
-
-                        <p
-                            contentEditable={isEditing}
-                            suppressContentEditableWarning
-                            onBlur={handleTextChange('featuredProductsSubtitle')}
-                            className="text-lg md:text-xl text-slate-400 font-bold uppercase tracking-tight italic outline-none"
-                        >
+                        <p className="mt-2 text-sm text-slate-500">
                             {theme.featuredProductsSubtitle || 'Handpicked favorites our customers love.'}
                         </p>
-                    </motion.div>
+                    </div>
 
-                    <motion.div
-                        initial={{ opacity: 0, x: 30 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
+                    <Link
+                        to="/products"
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-emerald-600 transition-colors shrink-0 group"
                     >
-                        <Link to="/products" className="group flex items-center gap-6">
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">View all products</span>
-                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Full catalog</span>
-                            </div>
-                            <div className="h-16 w-16 bg-slate-900 rounded-3xl flex items-center justify-center text-white transition-all group-hover:bg-emerald-500 group-hover:rotate-12 group-hover:scale-110 shadow-2xl">
-                                <ArrowRight className="h-6 w-6" />
-                            </div>
-                        </Link>
-                    </motion.div>
+                        View all products
+                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </Link>
                 </div>
 
-                {/* High-Performance Products Grid */}
-                <div className="mb-8 flex flex-wrap items-center gap-2">
+                {/* Filter tabs */}
+                <div className="flex items-center gap-2 mb-8">
                     {[
                         { key: 'all', label: 'All' },
-                        { key: 'bulk', label: 'Bulk' },
-                        { key: 'seasonal', label: 'Seasons' },
+                        { key: 'bulk', label: 'Bulk deals' },
+                        { key: 'seasonal', label: 'Seasonal' },
                     ].map((tab) => (
                         <button
                             key={tab.key}
                             onClick={() => setProductTab(tab.key as 'all' | 'bulk' | 'seasonal')}
                             className={cn(
-                                "h-10 px-5 rounded-xl border text-sm font-semibold transition-colors",
+                                'h-9 px-4 rounded-full text-sm font-medium transition-all border',
                                 productTab === tab.key
-                                    ? "bg-emerald-500 text-white border-emerald-500"
-                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:text-slate-900'
                             )}
                         >
                             {tab.label}
@@ -116,68 +77,76 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                    {loading && (
-                        <div className="col-span-full py-20 text-center text-slate-500 font-bold uppercase tracking-widest">Loading products…</div>
-                    )}
-                    {error && (
-                        <div className="col-span-full py-20 text-center text-red-500 font-bold uppercase tracking-widest">{error}</div>
-                    )}
-                    {!loading && !error && featuredProducts.map((product, index) => (
-                        <motion.div
-                            key={product.id}
-                            initial={{ opacity: 0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 0.7, delay: index * 0.12 }}
-                        >
-                            <ProductCard
-                                id={product.id}
-                                name={product.name}
-                                price={product.price}
-                                stock={product.stock}
-                                image={product.image}
-                                description={product.description}
-                                badge={product.badge}
-                                isSeasonal={product.isSeasonal}
-                                bulkDiscountQty={product.bulkDiscountQty}
-                                bulkDiscountPrice={product.bulkDiscountPrice}
-                                onAddToCart={(payload: any, qty?: number) => onAddToCart(payload, qty)}
-                                product={product}
-                                bulkDealMode={productTab === 'bulk'}
-                                harvestDate={product.harvestDate}
-                                farmName={product.farmName}
-                                farmState={product.farmState}
-                                freshnessScore={product.freshnessScore}
-                                ripenessStage={product.ripenessStage}
-                            />
-                        </motion.div>
-                    ))}
-                </div>
-
-                {/* Tactical Interaction HUD */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    className="mt-32 p-10 bg-slate-900 rounded-[3.5rem] flex flex-col md:flex-row items-center justify-between gap-10 border border-white/10 shadow-3xl"
-                >
-                    <div className="flex items-center gap-6">
-                        <div className="h-20 w-20 bg-emerald-500/10 rounded-[2.5rem] border border-emerald-500/20 flex items-center justify-center">
-                            <Zap className="h-8 w-8 text-emerald-500" />
-                        </div>
-                        <div>
-                            <h4 className="text-xl font-black text-white uppercase tracking-tighter mb-1">Fast delivery</h4>
-                            <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest leading-relaxed italic max-w-sm">We ship quickly so your fruit stays fresh.</p>
-                        </div>
+                {/* Products grid */}
+                {loading && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                        {[...Array(8)].map((_, i) => (
+                            <div key={i} className="aspect-[3/4] rounded-3xl bg-slate-100 animate-pulse" />
+                        ))}
                     </div>
-                    <Link
-                        to="/about"
-                        className="h-16 px-12 bg-white text-slate-900 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl active:scale-95 inline-flex items-center justify-center"
-                    >
-                        Learn more
-                    </Link>
-                </motion.div>
+                )}
+
+                {error && (
+                    <div className="py-16 text-center">
+                        <p className="text-sm text-slate-400 font-medium">{error}</p>
+                    </div>
+                )}
+
+                {!loading && !error && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                        {featuredProducts.length === 0 ? (
+                            <div className="col-span-full py-16 text-center">
+                                <p className="text-sm text-slate-400 font-medium">
+                                    No products in this category yet.
+                                </p>
+                            </div>
+                        ) : (
+                            featuredProducts.map((product, index) => (
+                                <motion.div
+                                    key={product.id}
+                                    initial={{ opacity: 0, y: 24 }}
+                                    whileInView={{ opacity: 1, y: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 0.4, delay: index * 0.06 }}
+                                >
+                                    <ProductCard
+                                        id={product.id}
+                                        name={product.name}
+                                        price={product.price}
+                                        stock={product.stock}
+                                        image={product.image}
+                                        description={product.description}
+                                        badge={product.badge}
+                                        isSeasonal={product.isSeasonal}
+                                        bulkDiscountQty={product.bulkDiscountQty}
+                                        bulkDiscountPrice={product.bulkDiscountPrice}
+                                        onAddToCart={(payload: any, qty?: number) => onAddToCart(payload, qty)}
+                                        product={product}
+                                        bulkDealMode={productTab === 'bulk'}
+                                        harvestDate={product.harvestDate}
+                                        farmName={product.farmName}
+                                        farmState={product.farmState}
+                                        freshnessScore={product.freshnessScore}
+                                        ripenessStage={product.ripenessStage}
+                                    />
+                                </motion.div>
+                            ))
+                        )}
+                    </div>
+                )}
+
+                {/* Bottom CTA */}
+                {!loading && featuredProducts.length > 0 && (
+                    <div className="mt-12 text-center">
+                        <Link
+                            to="/products"
+                            className="inline-flex items-center gap-2 h-11 px-8 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-emerald-600 transition-colors shadow-sm"
+                        >
+                            Browse all products
+                            <ArrowRight className="w-4 h-4" />
+                        </Link>
+                    </div>
+                )}
             </div>
         </section>
     );

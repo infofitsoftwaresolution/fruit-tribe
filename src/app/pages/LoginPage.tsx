@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/app/context/AuthContext';
+import { useAuth, UserRole, User } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import {
   LogIn, Eye, EyeOff, Shield, Loader2, UserCircle,
@@ -150,7 +150,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       // Reuse AuthContext helper shape
       const nameParts = [u.firstName, u.lastName].filter(Boolean).join(' ');
       const name = nameParts || waPhone.slice(-4);
-      const mapRole = (r: string | undefined) => {
+      const mapRole = (r: string | undefined): UserRole => {
         if (!r) return 'customer';
         const up = r.toUpperCase();
         if (up === 'ADMIN' || up === 'SUPER_ADMIN') return 'admin';
@@ -159,8 +159,8 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
         return 'customer';
       };
       const seller = u.seller as { id?: string; storeName?: string } | undefined;
-      const userData = {
-        id: u.id,
+      const userData: User = {
+        id: String(u.id),
         name: name.charAt(0).toUpperCase() + name.slice(1),
         email: u.email,
         role: mapRole(u.role),
@@ -208,7 +208,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       ref={containerRef}
       className={cn(
         'relative min-h-screen w-full flex items-center justify-center overflow-auto bg-slate-100',
-        embedded ? 'pt-16 pb-8' : 'pt-28 pb-12',
+        embedded ? 'pt-16 pb-8' : 'pt-20 pb-12',
       )}
     >
       {/* Parallax background */}
@@ -543,3 +543,4 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
     </div>
   );
 }
+

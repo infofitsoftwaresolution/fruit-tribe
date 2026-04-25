@@ -112,6 +112,7 @@ export interface ThemeSettings {
     // About Page
     aboutHeroTitle?: string;
     aboutHeroSubtitle?: string;
+    aboutStoryTitle?: string;
     aboutStoryText?: string;
     aboutPageImage?: string;
 
