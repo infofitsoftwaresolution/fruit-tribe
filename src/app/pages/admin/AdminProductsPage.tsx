@@ -26,6 +26,44 @@ import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleto
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
 
+const PDP_META_PREFIX = '[PDP_META]';
+type PdpMeta = {
+    details?: string;
+    storageInfo?: string;
+    originStory?: string;
+    faqInfo?: string;
+};
+
+function parseDescriptionWithMeta(raw?: string | null): { details: string; meta: PdpMeta } {
+    if (!raw) return { details: '', meta: {} };
+    const text = String(raw);
+    if (!text.startsWith(PDP_META_PREFIX)) return { details: text, meta: {} };
+    const payload = text.slice(PDP_META_PREFIX.length);
+    try {
+        const parsed = JSON.parse(payload) as { details?: string; storageInfo?: string; originStory?: string; faqInfo?: string };
+        return {
+            details: parsed.details || '',
+            meta: {
+                storageInfo: parsed.storageInfo || '',
+                originStory: parsed.originStory || '',
+                faqInfo: parsed.faqInfo || '',
+            },
+        };
+    } catch {
+        return { details: text, meta: {} };
+    }
+}
+
+function composeDescriptionWithMeta(details: string, meta: PdpMeta): string {
+    const payload = {
+        details: (details || '').trim(),
+        storageInfo: (meta.storageInfo || '').trim(),
+        originStory: (meta.originStory || '').trim(),
+        faqInfo: (meta.faqInfo || '').trim(),
+    };
+    return `${PDP_META_PREFIX}${JSON.stringify(payload)}`;
+}
+
 function toDateInputValue(value?: string | null): string {
     if (!value) return '';
     // Browser date inputs require yyyy-MM-dd only.
@@ -60,6 +98,9 @@ export function AdminProductsPage() {
         image: '',
         images: [''],
         description: '',
+        storageInfo: '',
+        originStory: '',
+        faqInfo: '',
         unit: 'kg',
         nutritionalInfo: '',
         origin: '',
@@ -221,6 +262,7 @@ export function AdminProductsPage() {
 
     const handleOpenEditModal = (product: Product) => {
         setEditingProduct(product);
+        const parsedDescription = parseDescriptionWithMeta(product.description || '');
         const categoryId = categories.find(c => c.name === product.category)?.id ?? '';
         const sellerId =
             product.sellerId ??
@@ -241,7 +283,10 @@ export function AdminProductsPage() {
             sku: product.sku,
             image: product.image || '',
             images: product.images && product.images.length > 0 ? product.images : [''],
-            description: product.description || '',
+            description: parsedDescription.details || '',
+            storageInfo: parsedDescription.meta.storageInfo || '',
+            originStory: parsedDescription.meta.originStory || '',
+            faqInfo: parsedDescription.meta.faqInfo || '',
             unit: product.unit || 'kg',
             nutritionalInfo: '',
             origin: '',
@@ -325,6 +370,12 @@ export function AdminProductsPage() {
                 }))
                 .filter(v => v.sku || v.attributeValue);
 
+            const composedDescription = composeDescriptionWithMeta(formData.description || '', {
+                storageInfo: formData.storageInfo || '',
+                originStory: formData.originStory || '',
+                faqInfo: formData.faqInfo || '',
+            });
+
             // Keep stock truly wired to what backend persists (variants).
             // - No variants: create one default variant from stock field.
             // - Single variant: stock field controls that variant's stock.
@@ -360,7 +411,7 @@ export function AdminProductsPage() {
             if (editingProduct) {
                 const updated = await updateProductApi(String(editingProduct.id), {
                     name: formData.name,
-                    description: formData.description || undefined,
+                    description: composedDescription,
                     basePrice: parseFloat(formData.price),
                     categoryId,
                     ...(isSeller ? {} : { sellerId: sellerId as string }),
@@ -395,7 +446,7 @@ export function AdminProductsPage() {
             } else {
                 await createProductApi({
                     name: formData.name,
-                    description: formData.description || undefined,
+                    description: composedDescription,
                     basePrice: parseFloat(formData.price),
                     sellerId: sellerId as string,
                     categoryId,
@@ -470,7 +521,7 @@ export function AdminProductsPage() {
                             setFormData({
                                 name: '', price: '', discountPrice: '', stock: '', category: 'Fruits',
                                 categoryId: '', sellerId: '',
-                                sku: '', image: '', images: [''], description: '', unit: 'kg',
+                                sku: '', image: '', images: [''], description: '', storageInfo: '', originStory: '', faqInfo: '', unit: 'kg',
                                 nutritionalInfo: '', origin: '', flashSale: false, expiryDate: '',
                                 harvestDate: '', isOrganic: false, grade: 'A', isSeasonal: false,
                                 seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '',
@@ -976,7 +1027,43 @@ export function AdminProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Section 4: Freshness Intelligence */}
+                                    {/* Section 4: Product Page Content */}
+                                    <div className="space-y-8">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
+                                                <AlertCircle className="w-4 h-4 text-emerald-500" />
+                                            </div>
+                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Product Page Content</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-8">
+                                            <FormTextarea
+                                                label="Product Details"
+                                                value={formData.description}
+                                                onChange={(v: string) => setFormData({ ...formData, description: v })}
+                                                placeholder="Main product details shown in Product Details tab."
+                                            />
+                                            <FormTextarea
+                                                label="Storage & Usage"
+                                                value={formData.storageInfo}
+                                                onChange={(v: string) => setFormData({ ...formData, storageInfo: v })}
+                                                placeholder="How customers should store and use this product."
+                                            />
+                                            <FormTextarea
+                                                label="Origin Story"
+                                                value={formData.originStory}
+                                                onChange={(v: string) => setFormData({ ...formData, originStory: v })}
+                                                placeholder="Farm origin story and sourcing details."
+                                            />
+                                            <FormTextarea
+                                                label="FAQ"
+                                                value={formData.faqInfo}
+                                                onChange={(v: string) => setFormData({ ...formData, faqInfo: v })}
+                                                placeholder="FAQs for this product (you can write Q/A text)."
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Section 5: Freshness Intelligence */}
                                     <div className="space-y-8">
                                         <div className="flex items-center gap-4">
                                             <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
@@ -1240,6 +1327,24 @@ function FormSelect({ label, value, onChange, options }: any) {
                 <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
                     <ChevronRight className="h-4 w-4 rotate-90" />
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function FormTextarea({ label, value, onChange, placeholder }: any) {
+    return (
+        <div className="space-y-3 group/field">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within/field:text-emerald-500 transition-colors">
+                {label}
+            </label>
+            <div className="relative">
+                <textarea
+                    value={value}
+                    onChange={e => onChange(e.target.value)}
+                    className="w-full min-h-[130px] px-8 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] text-[13px] font-semibold text-slate-900 placeholder:text-slate-300 focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 focus:bg-white outline-none transition-all duration-500 shadow-inner resize-y"
+                    placeholder={placeholder}
+                />
             </div>
         </div>
     );
