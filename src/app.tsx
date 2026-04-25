@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useCallback, memo } from 'react';
+import React, { lazy, Suspense, useMemo, useCallback, memo, useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
@@ -16,6 +16,7 @@ import { Toaster } from 'sonner';
 import { BottomCartBar } from '@/app/components/BottomCartBar';
 import { DeliveryProvider } from '@/app/context/DeliveryContext';
 import { useLocation } from 'react-router-dom';
+import { getOrdersCached, getProductsCached } from '@/lib/api';
 
 // Lazy-load pages for smaller initial bundle and faster first paint
 const HomePage = lazy(() => import('@/app/pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -252,6 +253,7 @@ function AppRoutes() {
 
   return (
     <>
+      <AdminPerformanceWarmup />
       <ScrollToTop />
       <Suspense fallback={<PageFallback />}>
         <Routes>
@@ -315,4 +317,39 @@ function AppRoutes() {
       </Suspense>
     </>
   );
+}
+
+function AdminPerformanceWarmup() {
+  const { user, isSessionChecked } = useAuth();
+  const warmed = useRef(false);
+
+  useEffect(() => {
+    if (!isSessionChecked || !user) return;
+    if (warmed.current) return;
+    if (user.role !== 'admin' && user.role !== 'seller') return;
+    warmed.current = true;
+
+    const warm = () => {
+      // Prefetch route chunks used most in admin operations.
+      void import('@/app/layouts/AdminLayout');
+      void import('@/app/pages/admin/AdminDashboard');
+      void import('@/app/pages/admin/AdminOrdersPage');
+      void import('@/app/pages/admin/AdminProductsPage');
+      void import('@/app/pages/admin/AdminCustomersPage');
+      void import('@/app/pages/admin/AdminSellersPage');
+      void import('@/app/pages/admin/AdminSettingsPage');
+      void import('@/app/pages/seller/SellerDashboard');
+      // Warm critical data for instant first paint on admin/profile surfaces.
+      void getOrdersCached().catch(() => undefined);
+      void getProductsCached({ limit: 200, page: 1, showOutOfSeason: true, includeInactive: true }).catch(() => undefined);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(warm, { timeout: 1200 });
+    } else {
+      window.setTimeout(warm, 250);
+    }
+  }, [isSessionChecked, user]);
+
+  return null;
 }

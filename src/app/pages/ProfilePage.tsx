@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import {
   getOrders,
+  getOrdersCached,
+  getOrdersCachedSnapshot,
   getImageDisplayUrl,
   getUserAddresses,
   createUserAddress,
@@ -137,6 +139,8 @@ export function ProfilePage() {
     makeDefault: false,
   });
   const [savingAddr, setSavingAddr] = useState(false);
+  const [visibleOrderCount, setVisibleOrderCount] = useState(12);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -149,7 +153,7 @@ export function ProfilePage() {
       setApiOrders([]);
       return;
     }
-    const data = await getOrders();
+    const data = await getOrdersCached();
     const userName = user.name || user.email || 'You';
     setApiOrders((data || []).map((api: any) => mapApiOrderToProfileOrder(api, userName)));
   }, [user]);
@@ -158,6 +162,12 @@ export function ProfilePage() {
     if (!user) {
       setOrdersLoading(false);
       return;
+    }
+    const userName = user.name || user.email || 'You';
+    const snapshot = getOrdersCachedSnapshot();
+    if (snapshot && snapshot.length) {
+      setApiOrders(snapshot.map((api: any) => mapApiOrderToProfileOrder(api, userName)));
+      setOrdersLoading(false);
     }
     let cancelled = false;
     loadOrders()
@@ -173,17 +183,22 @@ export function ProfilePage() {
     if (!trackingOrder) return;
     const run = async () => {
       try {
-        await loadOrders();
+        const fresh = await getOrders();
+        if (cancelled) return;
+        const userName = user?.name || user?.email || 'You';
+        setApiOrders((fresh || []).map((api: any) => mapApiOrderToProfileOrder(api, userName)));
       } catch {
         // keep existing snapshot on intermittent network failures
       }
     };
+    let cancelled = false;
     run();
     const intervalId = window.setInterval(run, 8000);
     return () => {
+      cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [trackingOrder?.orderId, loadOrders]);
+  }, [trackingOrder?.orderId, user?.name, user?.email]);
 
   useEffect(() => {
     if (!trackingOrder) return;
@@ -243,6 +258,32 @@ export function ProfilePage() {
       return db - da;
     });
   }, [user, ordersLoading, apiOrders]);
+
+  useEffect(() => {
+    setVisibleOrderCount(12);
+  }, [userOrders.length]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) return;
+    if (visibleOrderCount >= userOrders.length) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first?.isIntersecting) {
+          setVisibleOrderCount((prev) => Math.min(prev + 8, userOrders.length));
+        }
+      },
+      { rootMargin: '240px 0px' }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [visibleOrderCount, userOrders.length]);
+
+  const displayedOrders = useMemo(
+    () => userOrders.slice(0, visibleOrderCount),
+    [userOrders, visibleOrderCount]
+  );
 
   const handlePayNow = useCallback(async (order: any) => {
     try {
@@ -699,12 +740,12 @@ export function ProfilePage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {userOrders.map((order, idx) => (
+                  {displayedOrders.map((order, idx) => (
                     <motion.div
                       key={order.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: idx * 0.1 }}
+                      transition={{ delay: Math.min(idx, 4) * 0.03, duration: 0.22 }}
                       className="p-8 bg-slate-50 rounded-[3rem] border border-slate-100 group hover:border-emerald-200 transition-all cursor-pointer relative overflow-hidden"
                       onClick={() => setTrackingOrder(order)}
                     >
@@ -774,6 +815,14 @@ export function ProfilePage() {
                       </div>
                     </motion.div>
                   ))}
+                  {displayedOrders.length < userOrders.length && (
+                    <div
+                      ref={loadMoreRef}
+                      className="h-16 rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center text-[10px] font-semibold text-slate-400 uppercase tracking-widest"
+                    >
+                      Loading more orders...
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -24,6 +24,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   requirePasswordChange: boolean;
+  isSessionChecked: boolean;
   /** `emailOrPhone` is sent as the `email` field in the login API for backward compatibility. */
   login: (emailOrPhone: string, password: string) => Promise<void>;
   signup: (name: string, email: string, phone: string, password: string, role?: UserRole) => Promise<void>;
@@ -72,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('requirePasswordChange');
     return stored === 'true';
   });
+  const [isSessionChecked, setIsSessionChecked] = useState(false);
 
   const refreshSessionFromServer = useCallback(async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
@@ -114,8 +116,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     const stored = localStorage.getItem('user');
-    if (!token || !stored) return;
-    void refreshSessionFromServer();
+
+    if (!token || !stored) {
+      setIsSessionChecked(true);
+      return;
+    }
+
+    void (async () => {
+      try {
+        await refreshSessionFromServer();
+      } finally {
+        setIsSessionChecked(true);
+      }
+    })();
   }, [refreshSessionFromServer]);
 
   const login = async (emailOrPhone: string, password: string) => {
@@ -245,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         requirePasswordChange,
+        isSessionChecked,
         login,
         signup,
         logout,

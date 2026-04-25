@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Facebook, Instagram, Twitter, Mail, Phone, MapPin, Zap, ArrowUpRight } from 'lucide-react';
+import { Facebook, Instagram, Mail, Phone, MapPin, Zap, ArrowUpRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
@@ -14,9 +14,8 @@ export function Footer() {
   const { cities: deliveryCities } = useServiceableAreas();
 
   const socialLinks = [
-    { icon: Facebook, href: theme.socialFacebook || '#', label: 'Facebook' },
-    { icon: Instagram, href: theme.socialInstagram || '#', label: 'Instagram' },
-    { icon: Twitter, href: theme.socialTwitter || '#', label: 'Twitter' },
+    { icon: Facebook, href: theme.socialFacebook || 'https://www.facebook.com/profile.php?id=61572059034902', label: 'Facebook' },
+    { icon: Instagram, href: theme.socialInstagram || 'https://www.instagram.com/thefruittribe?igsh=bWpmNGltZzN1anB6', label: 'Instagram' },
   ];
 
   const quickLinks = [

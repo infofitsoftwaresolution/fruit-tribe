@@ -72,6 +72,58 @@ export function AdminSidebar() {
         item.roles.includes(userRole)
     );
 
+    const prefetchRouteModule = (href: string) => {
+        switch (href) {
+            case '/admin':
+                void import('@/app/pages/admin/AdminDashboard');
+                break;
+            case '/admin/seller-dashboard':
+                void import('@/app/pages/seller/SellerDashboard');
+                break;
+            case '/admin/orders':
+                void import('@/app/pages/admin/AdminOrdersPage');
+                break;
+            case '/admin/products':
+                void import('@/app/pages/admin/AdminProductsPage');
+                break;
+            case '/admin/customers':
+                void import('@/app/pages/admin/AdminCustomersPage');
+                break;
+            case '/admin/sellers':
+                void import('@/app/pages/admin/AdminSellersPage');
+                break;
+            case '/admin/logistics':
+                void import('@/app/pages/admin/AdminLogisticsPage');
+                break;
+            case '/admin/payouts':
+                void import('@/app/pages/admin/AdminPayoutsPage');
+                break;
+            case '/admin/analytics':
+                void import('@/app/pages/admin/AdminAnalyticsPage');
+                break;
+            case '/admin/taxes':
+                void import('@/app/pages/admin/AdminTaxPage');
+                break;
+            case '/admin/subscription':
+                void import('@/app/pages/admin/AdminSubscriptionPage');
+                break;
+            case '/admin/discounts':
+                void import('@/app/pages/admin/AdminDiscountsPage');
+                break;
+            case '/admin/store':
+                void import('@/app/pages/admin/store/AdminStorePage');
+                break;
+            case '/admin/themes':
+                void import('@/app/pages/admin/store/AdminThemeEditor');
+                break;
+            case '/admin/settings':
+                void import('@/app/pages/admin/AdminSettingsPage');
+                break;
+            default:
+                break;
+        }
+    };
+
     return (
         <div className="flex h-screen w-64 flex-col bg-slate-900 text-slate-400 border-r border-white/5 shadow-2xl relative z-50 overflow-hidden">
             {/* Ambient Background Glows inside sidebar */}
@@ -105,6 +157,8 @@ export function AdminSidebar() {
                                 <Link
                                     key={item.href}
                                     to={item.href}
+                                    onMouseEnter={() => prefetchRouteModule(item.href)}
+                                    onFocus={() => prefetchRouteModule(item.href)}
                                     className={cn(
                                         "group relative flex items-center justify-between rounded-xl px-3 py-2.5 transition-all duration-500",
                                         isActive
@@ -158,6 +212,8 @@ export function AdminSidebar() {
                                     <Link
                                         key={item.href}
                                         to={item.href}
+                                        onMouseEnter={() => prefetchRouteModule(item.href)}
+                                        onFocus={() => prefetchRouteModule(item.href)}
                                         className={cn(
                                             "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-500",
                                             isActive ? "bg-white/5 text-white border border-white/5" : "hover:bg-white/[0.03] text-slate-400 hover:text-slate-200"

@@ -11,7 +11,7 @@ import {
     getCategories,
     getCustomers,
     getDeliveryPartners,
-    getOrders,
+    getOrdersCached,
     getProducts,
     getSellers,
     invalidateProductsListCache,
@@ -68,7 +68,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
             }
         };
         const [o, c, s, cat, pr, dp] = await Promise.all([
-            safe(getOrders(), []),
+            safe(getOrdersCached(), []),
             safe(getCustomers(), []),
             safe(getSellers(), []),
             safe(getCategories(), []),
@@ -101,7 +101,7 @@ export function AdminDataProvider({ children }: { children: ReactNode }) {
 
     const refreshOrders = useCallback(async () => {
         try {
-            const o = await getOrders();
+            const o = await getOrdersCached({ forceRefresh: true });
             setOrders(Array.isArray(o) ? o : []);
         } catch {
             /* keep cached snapshot on 403/network errors */

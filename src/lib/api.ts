@@ -448,6 +448,45 @@ export async function getOrders(): Promise<any[]> {
   return res.json();
 }
 
+const ORDERS_CACHE_TTL_MS = 20_000;
+let ordersCache: { at: number; data: any[] } | null = null;
+let ordersInflight: Promise<any[]> | null = null;
+
+/** Cached orders for fast dashboard/profile loads (stale-while-revalidate friendly). */
+export async function getOrdersCached(options?: { forceRefresh?: boolean }): Promise<any[]> {
+  const forceRefresh = options?.forceRefresh === true;
+  if (!forceRefresh && ordersCache && Date.now() - ordersCache.at < ORDERS_CACHE_TTL_MS) {
+    return ordersCache.data;
+  }
+  if (!forceRefresh && ordersInflight) {
+    return ordersInflight;
+  }
+  ordersInflight = getOrders()
+    .then((data) => {
+      const safe = Array.isArray(data) ? data : [];
+      ordersCache = { at: Date.now(), data: safe };
+      ordersInflight = null;
+      return safe;
+    })
+    .catch((err) => {
+      ordersInflight = null;
+      throw err;
+    });
+  return ordersInflight;
+}
+
+/** Returns current cached orders snapshot without network call. */
+export function getOrdersCachedSnapshot(): any[] | null {
+  if (!ordersCache) return null;
+  return ordersCache.data;
+}
+
+/** Invalidate orders cache after mutations. */
+export function invalidateOrdersCache(): void {
+  ordersCache = null;
+  ordersInflight = null;
+}
+
 /** Create order (auth required). Persists to database. */
 export async function createOrder(body: {
   items: Array<{ productId: string; variantId: string; quantity: number }>;

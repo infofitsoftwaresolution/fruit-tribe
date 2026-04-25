@@ -66,22 +66,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       lowStockThreshold: apiProduct.lowStockThreshold || 10,
       sku: variantData ? variantData.sku : apiProduct.sku,
       fullDescription: apiProduct.description || `Fresh ${apiProduct.name} from our partners. Sourced with care by ${apiProduct.vendor}.`,
-      rating: 4.9,
-      reviews: 512,
       origin: apiProduct.origin || 'Trusted orchard',
       highlights: [
-        'Organic when available',
-        'Direct from source',
-        'Pesticide-free growing',
-        'Harvested at peak season'
-      ],
-      nutrition: {
-        calories: 64,
-        carbs: '14.2g',
-        fiber: '2.4g',
-        vitaminC: '22%',
-        bioDensity: 'High'
-      }
+        apiProduct.isOrganic ? 'Organic' : null,
+        apiProduct.origin ? `Origin: ${apiProduct.origin}` : null,
+        apiProduct.isSeasonal ? 'Seasonal produce' : null,
+        apiProduct.allowCashOnDelivery !== false ? 'Cash on delivery available' : null,
+        apiProduct.harvestDate ? `Harvest date: ${new Date(apiProduct.harvestDate).toLocaleDateString('en-IN')}` : null,
+      ].filter(Boolean),
     };
   }, [apiProduct, activeVariant]);
 
@@ -151,16 +143,16 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   ].filter(Boolean) as string[];
 
   return (
-    <div className="pt-24 sm:pt-32 pb-16 sm:pb-32 min-h-screen bg-white selection:bg-emerald-500 selection:text-white">
+    <div className="pt-20 sm:pt-24 pb-28 sm:pb-16 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
       {/* Background Architectural Manifold */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-30">
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-15">
         <div className="absolute top-0 right-0 h-[1000px] w-[1000px] bg-emerald-500/5 rounded-full blur-[200px]" />
         <div className="absolute bottom-0 left-0 h-[1000px] w-[1000px] bg-slate-900/5 rounded-full blur-[200px]" />
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Breadcrumb HUD */}
-        <nav className="flex flex-wrap items-center gap-2 sm:gap-4 text-[9px] sm:text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-slate-400 mb-8 sm:mb-12">
+        <nav className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-semibold text-slate-500 mb-6 sm:mb-8">
           <Link to="/" className="hover:text-emerald-600 transition-colors flex items-center gap-2">
             Home <ChevronRight className="w-3 h-3" />
           </Link>
@@ -170,12 +162,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           <span className="text-slate-900 truncate">{product.name}</span>
         </nav>
 
-        <div className="grid lg:grid-cols-12 gap-8 sm:gap-16 relative">
+        <div className="grid lg:grid-cols-12 gap-6 sm:gap-10 relative">
           {/* Visual Asset Manifold */}
-          <div className="lg:col-span-12 xl:col-span-7 space-y-6">
-            <div className="flex flex-col xl:flex-row gap-6">
+          <div className="lg:col-span-12 xl:col-span-7 space-y-4 xl:sticky xl:top-24 self-start">
+            <div className="flex flex-col xl:flex-row gap-4">
               {/* Image Thumbnails Rail */}
-              <div className="flex xl:flex-col gap-4 overflow-x-auto xl:overflow-y-auto no-scrollbar max-h-[700px] pb-4 xl:pb-0">
+              <div className="flex xl:flex-col gap-3 overflow-x-auto xl:overflow-y-auto no-scrollbar max-h-[640px] pb-3 xl:pb-0">
                 {images.map((img, idx) => (
                   <motion.button
                     key={idx}
@@ -183,7 +175,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setActiveImage(img)}
                     className={cn(
-                      "relative w-24 h-24 rounded-3xl overflow-hidden border-2 transition-all p-2 bg-white shrink-0",
+                      "relative w-20 h-20 rounded-2xl overflow-hidden border transition-all p-1.5 bg-white shrink-0",
                       activeImage === img ? "border-emerald-500 shadow-xl" : "border-slate-100 hover:border-slate-300"
                     )}
                   >
@@ -193,7 +185,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               </div>
 
               {/* Primary Visual Feed — image fills whole card */}
-              <div className="flex-1 relative aspect-square xl:aspect-auto xl:h-[700px] rounded-3xl sm:rounded-[4rem] overflow-hidden bg-slate-100 border border-slate-100 group shadow-2xl">
+              <div className="flex-1 relative aspect-square xl:aspect-auto xl:h-[640px] rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-100 border border-slate-200 group shadow-sm">
                 <AnimatePresence mode="wait">
                   <motion.img
                     key={activeImage}
@@ -208,28 +200,28 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 </AnimatePresence>
 
                 {/* Status Overlays */}
-                <div className="absolute top-10 left-10 flex flex-col gap-3">
+                <div className="absolute top-4 left-4 flex flex-col gap-2">
                   {product.badge && (
-                    <div className="px-6 py-2.5 bg-slate-900 text-white text-[9px] font-black rounded-2xl uppercase tracking-[0.3em] shadow-2xl border border-white/10 flex items-center gap-2">
+                    <div className="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-semibold rounded-xl border border-white/10 flex items-center gap-1.5">
                       <Zap className="w-3 h-3 text-emerald-500" />
                       {product.badge}
                     </div>
                   )}
                   {product.isSeasonal && (
-                    <div className="px-6 py-2.5 bg-blue-600 text-white text-[9px] font-black rounded-2xl uppercase tracking-[0.3em] shadow-2xl border border-white/10 flex items-center gap-2">
+                    <div className="px-3 py-1.5 bg-blue-600 text-white text-[10px] font-semibold rounded-xl border border-white/10 flex items-center gap-1.5">
                       <Clock className="w-3 h-3" />
                       Seasonal pick
                     </div>
                   )}
                 </div>
 
-                <div className="absolute bottom-10 right-10 flex gap-4">
+                <div className="absolute bottom-4 right-4 flex gap-2.5">
                   <motion.button
                     whileHover={{ scale: 1.1, rotate: -12 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => handleAction(() => setIsLiked(!isLiked))}
                     className={cn(
-                      "p-5 rounded-[1.5rem] shadow-2xl backdrop-blur-xl border border-white/20 transition-all",
+                      "p-3.5 rounded-2xl shadow-lg backdrop-blur-xl border border-white/20 transition-all",
                       isLiked ? "bg-red-500 text-white" : "bg-white/80 text-slate-400 hover:text-red-500"
                     )}
                   >
@@ -237,7 +229,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.1, rotate: 12 }}
-                    className="p-5 bg-white/80 backdrop-blur-xl rounded-[1.5rem] shadow-2xl border border-white/20 text-slate-400 hover:text-blue-500 transition-all"
+                    className="p-3.5 bg-white/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 text-slate-400 hover:text-blue-500 transition-all"
                   >
                     <Share2 className="w-6 h-6" />
                   </motion.button>
@@ -247,31 +239,31 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           </div>
 
           {/* Asset Intelligence Content */}
-          <div className="lg:col-span-12 xl:col-span-5 flex flex-col gap-10">
+          <div className="lg:col-span-12 xl:col-span-5 flex flex-col gap-7">
             {/* Product header */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="px-4 py-1.5 bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest rounded-xl border border-emerald-100">
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-semibold rounded-lg border border-emerald-100">
                     {product.category}
                   </span>
-                  <div className="px-3 py-1.5 bg-slate-900 border border-white/10 rounded-xl text-[9px] font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="px-3 py-1 bg-slate-900 border border-white/10 rounded-lg text-[10px] font-semibold text-emerald-300 flex items-center gap-1.5">
                     <ShieldCheck className="w-3 h-3" />
                     Verified seller
                   </div>
                   {product.isOrganic && (
-                    <span className="px-4 py-1.5 bg-sky-50 text-sky-600 text-[10px] font-black uppercase tracking-widest rounded-xl border border-sky-100">
+                    <span className="px-3 py-1 bg-sky-50 text-sky-600 text-[10px] font-semibold rounded-lg border border-sky-100">
                       Organic
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-[9px] font-black text-slate-300 uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-400">
                   <Binary className="w-4 h-4" />
                   SKU: {product.sku}
                 </div>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-slate-900 leading-none tracking-tighter uppercase">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight tracking-tight">
                 {product.name}
               </h1>
 
@@ -292,7 +284,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                     >
                       Default
                     </button>
-                    {product.variants.map((variant: any) => (
+                    {product.variants
+                      .filter((variant: any) => String(variant.name || '').trim().toLowerCase() !== 'default')
+                      .map((variant: any) => (
                       <button
                         key={variant.sku}
                         onClick={() => setActiveVariant(variant.sku)}
@@ -310,14 +304,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
               <div className="flex items-center flex-wrap gap-6 pt-2">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center bg-amber-400 text-white px-3 py-1.5 rounded-xl text-sm font-black shadow-lg shadow-amber-400/20">
-                    {product.rating} <Star className="w-4 h-4 fill-white ml-2" />
-                  </div>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {product.reviews} Reviews
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
                   <p className="text-[10px] text-slate-300 font-black uppercase tracking-widest">Provider:</p>
                   <p className="text-[10px] text-emerald-600 font-black uppercase tracking-[0.25em] bg-emerald-50 px-3 py-1 rounded-lg">{product.vendor}</p>
                 </div>
@@ -325,7 +311,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             </div>
 
             {/* Pricing and stock */}
-            <div className="bg-slate-900 rounded-3xl sm:rounded-[3rem] p-5 sm:p-10 border border-white/10 shadow-3xl space-y-8 sm:space-y-10 relative overflow-hidden group">
+            <div className="bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-7 border border-white/10 shadow-xl space-y-6 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-10">
                 <Activity className="h-20 w-20 text-emerald-500" />
               </div>
@@ -333,7 +319,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter">{formatInr(product.sellPrice)}</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white tracking-tight">{formatInr(product.sellPrice)}</span>
                     <span className="text-emerald-500/60 font-black uppercase text-xs tracking-[0.2em] italic">/ {product.unit || 'kg'}</span>
                   </div>
                   {product.discountPrice && (
@@ -408,15 +394,22 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 </div>
               )}
 
-              <div className="relative z-10 space-y-6 pt-4 border-t border-white/5">
+              <div className="relative z-10 space-y-4 pt-3 border-t border-white/5">
+                <Link
+                  to={`/contact?topic=bulk-order&product=${encodeURIComponent(product.name)}`}
+                  className="inline-flex items-center text-xs font-semibold text-emerald-300 hover:text-emerald-200 transition-colors"
+                >
+                  Need more quantity? Contact us
+                </Link>
+
                 {hasBulk && (
-                  <div className="space-y-2">
+                    <div className="space-y-1.5">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Select pack</span>
                     <select
                       value={packKind}
                       onChange={(e) => setPackKind(e.target.value as 'retail' | 'bulk')}
                       disabled={product.stock <= 0}
-                      className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                      className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                     >
                       <option value="retail" className="text-slate-900">
                         1 {product.unit || 'unit'} · {formatInr(product.sellPrice)} each
@@ -433,14 +426,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 <div className="flex flex-col md:flex-row gap-3 sm:gap-4">
                   {!hasBulk ? (
                   <div className={cn(
-                    "flex-1 flex items-center justify-between gap-3 sm:gap-4 rounded-[1.75rem] p-3 h-16 bg-white/5 border border-white/10",
+                    "flex-1 flex items-center justify-between gap-3 sm:gap-4 rounded-2xl p-2.5 h-14 bg-white/5 border border-white/10",
                     product.stock <= 0 && "opacity-30 pointer-events-none"
                   )}>
                     <motion.button
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="w-11 h-11 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl"
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl"
                     >
                       <Minus className="w-3 h-3" />
                     </motion.button>
@@ -462,7 +455,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                       onBlur={() => {
                         if (quantity < 1) setQuantity(1);
                       }}
-                      className="w-12 text-center bg-transparent border-none text-xl font-black text-white focus:outline-none focus:ring-0"
+                      className="w-10 text-center bg-transparent border-none text-lg font-black text-white focus:outline-none focus:ring-0"
                       disabled={product.stock <= 0}
                     />
                     <motion.button
@@ -470,13 +463,13 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                       disabled={quantity >= product.stock}
-                      className="w-11 h-11 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl disabled:opacity-30"
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-white text-slate-900 font-black shadow-xl disabled:opacity-30"
                     >
                       <Plus className="w-3 h-3" />
                     </motion.button>
                   </div>
                   ) : (
-                    <div className="flex-1 rounded-[1.75rem] p-4 bg-white/5 border border-white/10 text-center">
+                    <div className="flex-1 rounded-2xl p-3.5 bg-white/5 border border-white/10 text-center">
                       <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pack quantity</p>
                       <p className="text-2xl font-black text-white">{effectiveQty}</p>
                     </div>
@@ -488,7 +481,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                     onClick={product.stock <= 0 ? undefined : handleAddToCart}
                     disabled={product.stock <= 0}
                     className={cn(
-                      "flex-[2] min-h-[48px] h-16 rounded-[1.75rem] font-black text-[10px] uppercase tracking-[0.25em] sm:tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 sm:gap-4 transition-all",
+                      "flex-[2] min-h-[48px] h-14 rounded-2xl font-bold text-[11px] tracking-[0.08em] shadow-xl flex items-center justify-center gap-2.5 sm:gap-3 transition-all",
                       product.stock <= 0
                         ? "bg-white/5 text-slate-500 cursor-not-allowed border border-white/5"
                         : "bg-emerald-500 text-slate-900 hover:bg-white hover:text-slate-950"
@@ -501,53 +494,34 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               </div>
             </div>
 
-            {hasBulk && (
-              <BulkInquiryForm productName={product.name} theme={theme} className="mt-6" />
-            )}
-
-            {/* Freshness score */}
-            <div className="p-8 bg-emerald-50 border border-emerald-100 rounded-[2.5rem] relative overflow-hidden group">
-              <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:rotate-12 transition-transform duration-1000">
-                <Zap className="w-32 h-32 text-emerald-900" />
-              </div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <Binary className="w-4 h-4 text-emerald-600" />
-                    <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Freshness</span>
-                  </div>
-                  <div className="px-3 py-1 bg-white rounded-lg text-[9px] font-black text-emerald-700 uppercase tracking-widest border border-emerald-100">AI Predicted</div>
-                </div>
-
-                <div className="flex items-end gap-6 mb-8">
-                  <div>
-                    <p className="text-5xl font-black text-emerald-900 tracking-tighter">98%</p>
-                    <p className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest">Freshness Score</p>
-                  </div>
-                  <div className="flex-1 pb-2">
-                    <div className="h-1.5 w-full bg-emerald-200/50 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: '98%' }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                        className="h-full bg-emerald-500"
-                      />
+            {typeof product.freshnessScore === 'number' && (
+              <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl relative overflow-hidden">
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Binary className="w-4 h-4 text-emerald-600" />
+                      <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Freshness score</span>
+                    </div>
+                    <div className="px-2.5 py-1 bg-white rounded-lg text-[10px] font-semibold text-emerald-700 border border-emerald-100">
+                      {product.freshnessScore}/5
                     </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-emerald-600/40 uppercase tracking-widest">Time to peak</p>
-                    <p className="text-xs font-black text-emerald-900 uppercase">24.5 Hours</p>
+                  <div className="h-1.5 w-full bg-emerald-200/50 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Math.max(0, (product.freshnessScore / 5) * 100))}%` }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                      className="h-full bg-emerald-500"
+                    />
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-[8px] font-black text-emerald-600/40 uppercase tracking-widest">Quality</p>
-                    <p className="text-xs font-black text-emerald-900 uppercase">Excellent</p>
-                  </div>
+                  {product.ripenessStage && (
+                    <p className="mt-3 text-xs font-semibold text-emerald-800">
+                      Ripeness: {product.ripenessStage}
+                    </p>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Product details */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -577,106 +551,74 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               </div>
             </div>
 
-            {/* Detailed Integrity Blocks */}
-            <div className="space-y-8">
-              <div className="flex border-b border-slate-100">
-                {['Nutrition', 'Quality', 'About'].map((tab) => (
-                  <button
-                    key={tab}
-                    className={cn(
-                      "pb-6 px-4 text-[10px] font-black uppercase tracking-[0.2em] transition-all relative",
-                      tab === 'Nutrition' ? "text-slate-900" : "text-slate-300 hover:text-slate-600"
-                    )}
-                  >
-                    {tab}
-                    {tab === 'Nutrition' && (
-                      <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500 rounded-full" />
-                    )}
-                  </button>
-                ))}
-              </div>
+            {/* Product details */}
+            <div className="space-y-6">
+              <p className="text-slate-600 text-sm leading-relaxed">
+                {product.fullDescription}
+              </p>
 
-              <div className="space-y-8">
-                <p className="text-slate-500 text-sm leading-relaxed font-bold italic uppercase tracking-tight">
-                  {product.fullDescription}
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {product.highlights?.map((highlight, idx) => (
-                    <div key={idx} className="flex items-center gap-4 p-5 bg-white border border-slate-100 rounded-3xl shadow-sm">
-                      <div className="h-8 w-8 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+              {Array.isArray(product.highlights) && product.highlights.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {product.highlights.map((highlight: string, idx: number) => (
+                    <div key={idx} className="flex items-center gap-3 p-4 bg-white border border-slate-100 rounded-2xl">
+                      <div className="h-7 w-7 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
                         <Shield className="w-4 h-4" />
                       </div>
-                      <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest leading-none">{highlight}</span>
+                      <span className="text-xs font-semibold text-slate-800">{highlight}</span>
                     </div>
                   ))}
                 </div>
+              )}
 
-                {/* Nutrition details */}
-                <div className="p-10 bg-slate-50 rounded-[3rem] border border-slate-100 space-y-8">
-                  <div className="flex items-center gap-3">
+              {product.nutritionalInfo && (
+                <div className="p-6 bg-white rounded-2xl border border-slate-200 space-y-3">
+                  <div className="flex items-center gap-2">
                     <Activity className="h-4 w-4 text-emerald-500" />
-                    <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Nutrition Facts</h4>
+                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Nutritional info</h4>
                   </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-                    {Object.entries(product.nutrition).map(([key, val], i) => (
-                      <div key={i} className="space-y-1">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{key}</p>
-                        <p className="text-lg font-black text-slate-900 uppercase tracking-tighter">{val as string}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">{product.nutritionalInfo}</p>
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Customer Intelligence / Social Proof */}
-            <div className="mt-12 space-y-8">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-6">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest">Customer Intelligence</h3>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Freshness Rating</p>
-                  <p className="text-3xl font-black text-emerald-600 mt-2">4.9<span className="text-sm">/5</span></p>
-                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Based on recent deliveries</p>
-                </div>
-                <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Overall Rating</p>
-                  <p className="text-3xl font-black text-slate-900 mt-2">4.8<span className="text-sm">/5</span></p>
-                  <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">Verified buyers</p>
-                </div>
-                <div className="col-span-2 md:col-span-1 p-6 bg-amber-50 border border-amber-100 rounded-3xl flex flex-col justify-center">
-                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest leading-relaxed">
-                    "94% of customers reported this arrived perfectly ripe and ready to eat."
-                  </p>
-                </div>
-              </div>
+            
+          </div>
+        </div>
 
-              {/* Photo-First Masonry Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
-                 {[
-                   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=300&h=300&fit=crop',
-                   'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300&h=450&fit=crop',
-                   'https://images.unsplash.com/photo-1528825871115-3581a5387919?w=300&h=300&fit=crop',
-                   'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=300&h=450&fit=crop'
-                 ].map((src, i) => (
-                   <div key={i} className={cn("rounded-2xl overflow-hidden relative group", i % 2 === 1 ? 'row-span-2 h-full min-h-[160px] sm:min-h-[220px] shadow-lg' : 'h-32 sm:h-40')}>
-                     <img src={src} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Customer review" />
-                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                        <span className="text-white text-[10px] font-black uppercase tracking-widest">Verified Photo</span>
-                     </div>
-                   </div>
-                 ))}
-              </div>
+        {hasBulk && (
+          <div className="mt-8">
+            <BulkInquiryForm productName={product.name} theme={theme} className="max-w-3xl mx-auto" />
+          </div>
+        )}
+
+        <div className="fixed bottom-0 inset-x-0 z-[90] md:hidden border-t border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 px-4 py-3">
+          <div className="max-w-7xl mx-auto flex items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-slate-500">
+                {hasBulk && packKind === 'bulk' && bulkQty ? `${bulkQty} ${product.unit || 'unit'} pack` : `1 ${product.unit || 'unit'}`}
+              </p>
+              <p className="text-base font-bold text-slate-900 leading-tight">
+                {formatInr(hasBulk && packKind === 'bulk' && bulkPriceVal != null ? Number(bulkPriceVal) : product.sellPrice)}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={product.stock <= 0 ? undefined : handleAddToCart}
+              disabled={product.stock <= 0}
+              className={cn(
+                "ml-auto h-11 px-5 rounded-xl text-sm font-semibold transition-colors",
+                product.stock <= 0
+                  ? "bg-slate-100 text-slate-400"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
+              )}
+            >
+              {product.stock <= 0 ? 'Out of stock' : 'Add to cart'}
+            </button>
           </div>
         </div>
 
         {/* Global Recommendations Feed */}
-        <div className="mt-20 sm:mt-40 pt-14 sm:pt-24 border-t border-slate-50">
+        <div className="mt-14 sm:mt-20 pt-10 sm:pt-14 border-t border-slate-100">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-12 mb-20">
             <div className="space-y-4">
               <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.5em]">Recommended For You</span>

@@ -277,11 +277,10 @@ export const ProductCard = memo(({
       </Link>
 
       {/* Info panel */}
-      <div className="p-4 flex flex-col flex-1">
+      <div className="p-3 flex flex-col flex-1">
 
         {/* Tags row */}
-        <div className="flex flex-wrap gap-1.5 mb-2.5 min-h-[20px]">
-          {effectiveHarvestDate && <HarvestAge harvestDate={effectiveHarvestDate} />}
+        <div className="flex flex-wrap gap-1.5 mb-2 min-h-[18px]">
           {effectiveRipenessStage && (
             <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
               {effectiveRipenessStage}
@@ -292,15 +291,16 @@ export const ProductCard = memo(({
               Organic
             </span>
           )}
+          {effectiveHarvestDate && <HarvestAge harvestDate={effectiveHarvestDate} />}
         </div>
 
         {/* Product name */}
         <Link to={`/product/${id}`} className="flex-1">
-          <h3 className="text-base font-semibold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-1">
+          <h3 className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5">
             {name}
           </h3>
           {description && (
-            <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">
+            <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-1">
               {description}
             </p>
           )}
@@ -308,7 +308,7 @@ export const ProductCard = memo(({
 
         {/* Farm source */}
         {effectiveFarmName && (
-          <div className="flex items-center gap-1 mt-2 text-xs text-slate-400">
+          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-slate-400">
             <MapPin className="h-3 w-3 text-emerald-500 shrink-0" />
             <span className="truncate">{effectiveFarmName}{effectiveFarmState ? `, ${effectiveFarmState}` : ''}</span>
           </div>
@@ -316,12 +316,12 @@ export const ProductCard = memo(({
 
         {/* Pack selector if bulk */}
         {!isOutOfStock && hasBulk && (
-          <div className="mt-3">
+          <div className="mt-2">
             <select
               value={bulkDealMode ? 'bulk' : packKind}
               onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value as 'retail' | 'bulk'); }}
               disabled={!!bulkDealMode}
-              className="w-full h-9 px-3 text-xs text-slate-900 border border-slate-200 rounded-xl bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              className="w-full h-8 px-2.5 text-[11px] text-slate-900 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
             >
               {!bulkDealMode && <option value="retail">1 {unitLabel} · {formatInr(retailRef)}</option>}
               {bulkQty != null && bulkPriceVal != null && (
@@ -333,15 +333,15 @@ export const ProductCard = memo(({
 
         {/* Quantity selector (retail) */}
         {!isOutOfStock && !hasBulk && (
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-xs text-slate-400 font-medium">Qty</span>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[11px] text-slate-400 font-medium">Qty</span>
             <div className="flex items-center gap-2">
               <button type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="h-7 w-7 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center">
+                className="h-6 w-6 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center">
                 −
               </button>
-              <span className="w-6 text-center text-sm font-semibold text-slate-900">{quantity}</span>
+              <span className="w-5 text-center text-sm font-semibold text-slate-900">{quantity}</span>
               <button type="button"
                 onClick={() => setQuantity((q) => {
                   const next = q + 1;
@@ -349,7 +349,7 @@ export const ProductCard = memo(({
                   if (max && next > max) { toast.error(`Only ${max} units available`); return max; }
                   return next;
                 })}
-                className="h-7 w-7 rounded-lg border border-slate-200 bg-slate-900 text-white text-sm font-semibold hover:bg-emerald-600 hover:border-emerald-600 transition-colors flex items-center justify-center">
+                className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-900 text-white text-sm font-semibold hover:bg-emerald-600 hover:border-emerald-600 transition-colors flex items-center justify-center">
                 +
               </button>
             </div>
@@ -358,18 +358,26 @@ export const ProductCard = memo(({
 
         {/* Offer hint */}
         {liveOfferHint && !isOutOfStock && (
-          <div className="flex items-center gap-1.5 mt-2.5 px-2.5 py-1.5 bg-emerald-50 border border-emerald-100 rounded-lg">
+          <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-lg">
             <Tag className="h-3 w-3 text-emerald-600 shrink-0" />
-            <span className="text-[11px] font-medium text-emerald-700">{liveOfferHint}</span>
+            <span className="text-[10px] font-medium text-emerald-700 line-clamp-1">{liveOfferHint}</span>
           </div>
         )}
 
+        {/* Bulk quantity help */}
+        <Link
+          to={`/contact?topic=bulk-order&product=${encodeURIComponent(name)}`}
+          className="mt-3 inline-flex items-center text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 transition-colors"
+        >
+          Need more quantity? Contact us
+        </Link>
+
         {/* Price + Add to cart */}
-        <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100">
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className={cn(
-                'text-lg font-bold transition-colors',
+                'text-base font-bold transition-colors',
                 isOutOfStock ? 'text-slate-300' : 'text-slate-900'
               )}>
                 {formatInr(displayUnitPrice)}
@@ -378,21 +386,21 @@ export const ProductCard = memo(({
                 <span className="text-xs text-slate-400 line-through">{formatInr(retailRef)}</span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[10px] text-slate-400 mt-0">
               {hasBulk && packKind === 'bulk' && bulkQty ? `for ${bulkQty} ${unitLabel}` : `per ${unitLabel}`}
             </p>
           </div>
 
           {/* Stock count in cart or add button */}
           {cartQty > 0 && !isOutOfStock ? (
-            <div className="flex items-center gap-1 h-9 px-1.5 rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-1 h-8 px-1 rounded-lg border border-slate-200 bg-white shadow-sm">
               <motion.button whileTap={{ scale: 0.85 }} type="button"
                 onClick={() => handleUpdateQuantity(id, -1)}
-                className="h-7 w-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">−</motion.button>
-              <span className="min-w-[1.5rem] text-center text-sm font-bold text-slate-900">{cartQty}</span>
+                className="h-6 w-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">−</motion.button>
+              <span className="min-w-[1.25rem] text-center text-sm font-bold text-slate-900">{cartQty}</span>
               <motion.button whileTap={{ scale: 0.85 }} type="button"
                 onClick={() => { if (cartQty >= avail) { toast.error(`Only ${avail} units available`); return; } handleUpdateQuantity(id, 1); }}
-                className="h-7 w-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">+</motion.button>
+                className="h-6 w-6 rounded-md bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">+</motion.button>
             </div>
           ) : (
             <motion.button
@@ -400,13 +408,13 @@ export const ProductCard = memo(({
               disabled={isOutOfStock}
               onClick={handleAddToCart}
               className={cn(
-                'flex items-center gap-2 h-9 px-4 rounded-xl text-sm font-semibold transition-colors shrink-0',
+                'flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0',
                 isOutOfStock
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
               )}
             >
-              <ShoppingCart className="h-4 w-4" />
+              <ShoppingCart className="h-3.5 w-3.5" />
               {isOutOfStock ? 'Sold out' : 'Add'}
             </motion.button>
           )}
