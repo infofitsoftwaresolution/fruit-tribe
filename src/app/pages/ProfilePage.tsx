@@ -17,7 +17,7 @@ import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import {
   User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf, Plus, Trash2,
   Package, Truck, CheckCircle, Clock, ChevronRight, Box,
-  Star, Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
+  Zap, Calendar, Heart, ShieldCheck, Activity, Navigation, ExternalLink, Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -137,6 +137,7 @@ export function ProfilePage() {
     makeDefault: false,
   });
   const [savingAddr, setSavingAddr] = useState(false);
+  const [pendingDeleteAddressId, setPendingDeleteAddressId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -332,10 +333,13 @@ export function ProfilePage() {
     return null;
   }
 
-  const handleSave = () => {
-    updateUser(formData);
-    setIsEditing(false);
-    toast.success("Profile updated.");
+  const handleSave = async () => {
+    try {
+      await updateUser(formData);
+      setIsEditing(false);
+    } catch {
+      // Toast is handled in AuthContext.updateUser
+    }
   };
 
   const handleCancel = () => {
@@ -551,14 +555,7 @@ export function ProfilePage() {
                         <button
                           type="button"
                           onClick={async () => {
-                            if (!confirm('Remove this address?')) return;
-                            try {
-                              await deleteUserAddress(a.id);
-                              toast.success('Address removed');
-                              await loadSavedAddresses();
-                            } catch (e: unknown) {
-                              toast.error(e instanceof Error ? e.message : 'Could not remove');
-                            }
+                            setPendingDeleteAddressId(a.id);
                           }}
                           className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-[9px] font-black uppercase tracking-widest flex items-center gap-1"
                         >
@@ -784,21 +781,75 @@ export function ProfilePage() {
                 <Heart className="w-64 h-64 text-emerald-500 fill-emerald-500" />
               </div>
               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
-                <div className="max-w-md">
-                  <h3 className="text-3xl font-black mb-4 uppercase tracking-tighter">Leave a review</h3>
-                  <p className="text-slate-400 font-medium text-sm leading-relaxed mb-8 italic">Rate the quality and freshness of your recent order to earn bonus points.</p>
-                  <div className="flex gap-4">
-                    {[1, 2, 3, 4, 5].map(i => <Star key={i} className="w-6 h-6 text-emerald-500 fill-emerald-500 opacity-30 hover:opacity-100 transition-opacity cursor-pointer" />)}
-                  </div>
+                <div className="max-w-lg">
+                  <h3 className="text-3xl font-black mb-4 uppercase tracking-tighter">Reviews coming soon</h3>
+                  <p className="text-slate-300 font-medium text-sm leading-relaxed">
+                    Product-level review experience is being upgraded. Meanwhile, your order history and support options remain available.
+                  </p>
                 </div>
-                <button className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-2xl">
-                  Submit review
+                <button
+                  type="button"
+                  onClick={() => navigate('/products')}
+                  className="px-10 py-5 bg-white text-slate-900 rounded-[2rem] font-black text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-2xl"
+                >
+                  Browse products
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {pendingDeleteAddressId && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm"
+              onClick={() => setPendingDeleteAddressId(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              className="relative w-full max-w-md bg-white rounded-3xl border border-slate-100 shadow-2xl p-6"
+            >
+              <h3 className="text-lg font-black text-slate-900 tracking-tight">Remove this address?</h3>
+              <p className="text-sm text-slate-500 mt-2">You can add it again later if needed.</p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteAddressId(null)}
+                  className="h-11 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-black uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const id = pendingDeleteAddressId;
+                    if (!id) return;
+                    try {
+                      await deleteUserAddress(id);
+                      toast.success('Address removed');
+                      await loadSavedAddresses();
+                    } catch (e: unknown) {
+                      toast.error(e instanceof Error ? e.message : 'Could not remove');
+                    } finally {
+                      setPendingDeleteAddressId(null);
+                    }
+                  }}
+                  className="h-11 px-4 rounded-xl bg-red-600 text-white text-xs font-black uppercase tracking-widest"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Tracking modal */}
       <AnimatePresence>
@@ -823,7 +874,7 @@ export function ProfilePage() {
                           </p>
                           {typeof trackingOrder.platformFee === 'number' && trackingOrder.platformFee > 0 && (
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                              Platform fee (2%): ₹{trackingOrder.platformFee.toFixed(2)}
+                              Platform fee charged: ₹{trackingOrder.platformFee.toFixed(2)}
                             </p>
                           )}
                 </div>

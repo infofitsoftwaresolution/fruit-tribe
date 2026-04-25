@@ -70,6 +70,23 @@ export class PaymentService {
             };
 
             const razorpayOrder = await instance.orders.create(options as any);
+            const existingMetadata =
+                order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                    ? (order.metadata as Record<string, unknown>)
+                    : {};
+            await this.prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    metadata: {
+                        ...existingMetadata,
+                        paymentContext: {
+                            razorpayOrderId: razorpayOrder.id,
+                            amountInPaise: Math.round(amountInPaise),
+                            currency,
+                        },
+                    },
+                },
+            });
             this.logger.log(`Razorpay order created for order ${order.orderNumber}: ${razorpayOrder.id}`);
             return {
                 razorpayOrderId: razorpayOrder.id,
@@ -107,6 +124,28 @@ export class PaymentService {
         if (!order) throw new BadRequestException('Order not found');
         if (String(order.status).toUpperCase() === 'CANCELLED') {
             throw new BadRequestException('This order was cancelled and cannot be paid.');
+        }
+
+        const paymentContext =
+            order.metadata &&
+            typeof order.metadata === 'object' &&
+            !Array.isArray(order.metadata) &&
+            (order.metadata as any).paymentContext &&
+            typeof (order.metadata as any).paymentContext === 'object'
+                ? (order.metadata as any).paymentContext
+                : null;
+        if (!paymentContext?.razorpayOrderId || !paymentContext?.amountInPaise || !paymentContext?.currency) {
+            throw new BadRequestException('Missing payment context. Please create a new payment session.');
+        }
+        if (String(paymentContext.razorpayOrderId) !== String(razorpayOrderId)) {
+            throw new BadRequestException('Payment session does not match this order.');
+        }
+        const expectedAmountInPaise = Math.round(Number(order.payableAmount) * 100);
+        if (Number(paymentContext.amountInPaise) !== expectedAmountInPaise) {
+            throw new BadRequestException('Payment amount mismatch for this order.');
+        }
+        if (String(paymentContext.currency).toUpperCase() !== 'INR') {
+            throw new BadRequestException('Unsupported payment currency for this order.');
         }
 
         const body = `${razorpayOrderId}|${razorpayPaymentId}`;
@@ -200,8 +239,8 @@ export class PaymentService {
                 throw new BadRequestException('Razorpay is not configured.');
             }
 
-            const order = await this.prisma.order.findUnique({
-                where: { id: orderId },
+            const order = await this.prisma.order.findFirst({
+                where: { id: orderId, userId },
             });
             if (!order) throw new BadRequestException('Order not found');
 

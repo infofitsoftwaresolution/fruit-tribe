@@ -2,6 +2,8 @@ import { Bell, Search, ExternalLink, Truck, Activity, Menu } from 'lucide-react'
 import { useAuth } from '@/app/context/AuthContext';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useCallback, useEffect, useState } from 'react';
+import { getMyNotifications, markAllNotificationsRead, type UserNotification } from '@/lib/api';
 
 interface DeliveryHeaderProps {
     onOpenSidebar?: () => void;
@@ -9,11 +11,56 @@ interface DeliveryHeaderProps {
 
 export function DeliveryHeader({ onOpenSidebar }: DeliveryHeaderProps) {
     const { user } = useAuth();
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [latestNotifications, setLatestNotifications] = useState<UserNotification[]>([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-    const showNotifications = () => {
-        toast.info('Notifications', {
-            description: 'No new notifications right now.',
+    const loadNotifications = useCallback(async () => {
+        if (!user) return;
+        setLoadingNotifications(true);
+        try {
+            const res = await getMyNotifications({ limit: 5 });
+            setLatestNotifications(res.items || []);
+            setUnreadCount(res.unreadCount || 0);
+        } catch {
+            // Keep the UI responsive even if polling fails.
+        } finally {
+            setLoadingNotifications(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        void loadNotifications();
+        const timer = window.setInterval(() => {
+            void loadNotifications();
+        }, 20000);
+        return () => window.clearInterval(timer);
+    }, [loadNotifications]);
+
+    const showNotifications = async () => {
+        if (loadingNotifications) return;
+        if (latestNotifications.length === 0) {
+            toast.info('Notifications', {
+                description: 'No new notifications right now.',
+            });
+            return;
+        }
+
+        latestNotifications.slice(0, 3).forEach((n) => {
+            toast.info(n.title, {
+                description: n.message,
+            });
         });
+
+        if (unreadCount > 0) {
+            setUnreadCount(0);
+            setLatestNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+            try {
+                await markAllNotificationsRead();
+            } catch {
+                void loadNotifications();
+            }
+        }
     };
 
     return (
@@ -59,8 +106,14 @@ export function DeliveryHeader({ onOpenSidebar }: DeliveryHeaderProps) {
                 <button
                     onClick={showNotifications}
                     className="relative h-11 w-11 flex items-center justify-center bg-slate-50 border border-slate-100 rounded-xl text-slate-500 hover:bg-slate-900 hover:text-white hover:shadow-xl transition-all group"
+                    aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
                 >
                     <Bell className="h-5 w-5 transition-transform group-hover:rotate-12" />
+                    {unreadCount > 0 && (
+                        <span className="absolute top-0 right-0 min-w-[0.95rem] h-[0.95rem] px-1 rounded-full bg-red-500 border-2 border-white shadow-sm text-[8px] font-black text-white flex items-center justify-center">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                    )}
                 </button>
 
                 <div className="h-8 w-[1px] bg-slate-100 hidden sm:block" />

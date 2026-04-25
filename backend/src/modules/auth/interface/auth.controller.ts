@@ -2,11 +2,14 @@ import {
     Controller,
     Post,
     Get,
+    Patch,
     Body,
     UseGuards,
     Request,
     HttpCode,
     HttpStatus,
+    Res,
+    Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
@@ -21,15 +24,35 @@ import {
     BulkCustomerAnnouncementDto,
     SendWhatsappOtpDto,
     VerifyWhatsappOtpDto,
+    UpdateProfileDto,
 } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { Roles } from './decorators/roles.decorator';
+import type { Response } from 'express';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
     constructor(private readonly authService: AuthService) { }
+
+    private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        res.cookie('ft_access_token', accessToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+            maxAge: 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+        res.cookie('ft_refresh_token', refreshToken, {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+            path: '/',
+        });
+    }
 
     @ApiOperation({ summary: 'Register a new user' })
     @Post('register')
@@ -40,8 +63,10 @@ export class AuthController {
     @ApiOperation({ summary: 'Login with email and password' })
     @HttpCode(HttpStatus.OK)
     @Post('login')
-    async login(@Body() dto: LoginDto) {
-        return this.authService.login(dto);
+    async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+        const result = await this.authService.login(dto);
+        this.setAuthCookies(res, result.accessToken, result.refreshToken);
+        return result;
     }
 
     @ApiOperation({ summary: 'Verify account with OTP code (email or phone)' })
@@ -85,6 +110,14 @@ export class AuthController {
     }
 
     @ApiBearerAuth()
+    @ApiOperation({ summary: 'Update current user profile' })
+    @UseGuards(JwtAuthGuard)
+    @Patch('profile')
+    async updateProfile(@Request() req: any, @Body() dto: UpdateProfileDto) {
+        return this.authService.updateProfile(req.user.id, dto);
+    }
+
+    @ApiBearerAuth()
     @ApiOperation({ summary: 'List customers (Admin only)' })
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')
@@ -101,6 +134,30 @@ export class AuthController {
     @Post('users/bulk-announcement')
     async bulkCustomerAnnouncement(@Body() dto: BulkCustomerAnnouncementDto) {
         return this.authService.bulkCustomerAnnouncement(dto);
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get current user notifications (latest first)' })
+    @UseGuards(JwtAuthGuard)
+    @Get('notifications')
+    async getMyNotifications(
+        @Request() req: any,
+        @Query('limit') limit?: string,
+        @Query('unreadOnly') unreadOnly?: string,
+    ) {
+        return this.authService.getMyNotifications(
+            req.user.id,
+            limit ? Number(limit) : 20,
+            String(unreadOnly).toLowerCase() === 'true',
+        );
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Mark all current user notifications as read' })
+    @UseGuards(JwtAuthGuard)
+    @Patch('notifications/read-all')
+    async markAllNotificationsRead(@Request() req: any) {
+        return this.authService.markAllNotificationsRead(req.user.id);
     }
 
     @ApiOperation({ summary: 'Check if WhatsApp OTP login is enabled on the server' })
@@ -125,7 +182,29 @@ export class AuthController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('whatsapp/verify-otp')
-    async whatsappVerifyOtp(@Body() dto: VerifyWhatsappOtpDto) {
-        return this.authService.verifyWhatsappOtp(dto);
+    async whatsappVerifyOtp(@Body() dto: VerifyWhatsappOtpDto, @Res({ passthrough: true }) res: Response) {
+        const result = await this.authService.verifyWhatsappOtp(dto);
+        this.setAuthCookies(res, result.accessToken, result.refreshToken);
+        return result;
+    }
+
+    @ApiOperation({ summary: 'Clear auth cookies for current session' })
+    @HttpCode(HttpStatus.OK)
+    @Post('logout')
+    async logout(@Res({ passthrough: true }) res: Response) {
+        const isProduction = process.env.NODE_ENV === 'production';
+        res.clearCookie('ft_access_token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+            path: '/',
+        });
+        res.clearCookie('ft_refresh_token', {
+            httpOnly: true,
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'lax',
+            path: '/',
+        });
+        return { message: 'Logged out' };
     }
 }

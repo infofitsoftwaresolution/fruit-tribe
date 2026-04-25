@@ -300,52 +300,7 @@ interface StoreContextType {
 // --- Initial Data: products come from API (database), not hardcoded ---
 const INITIAL_PRODUCTS: Product[] = [];
 
-const INITIAL_ORDERS: Order[] = [
-    {
-        id: '1001',
-        customer: 'John Doe',
-        items: 3,
-        date: new Date().toLocaleDateString(),
-        total: 2500,
-        payment: 'Paid',
-        fulfillment: 'Unfulfilled',
-        status: 'Created',
-        channel: 'Online Store',
-        itemsDetails: [
-            { productId: 1, quantity: 2 },
-            { productId: 2, quantity: 1 }
-        ]
-    },
-    {
-        id: '1002',
-        customer: 'Jane Smith',
-        items: 1,
-        date: 'Yesterday',
-        total: 499,
-        payment: 'Paid',
-        fulfillment: 'Fulfilled',
-        status: 'Delivered',
-        channel: 'Online Store',
-        itemsDetails: [
-            { productId: 1, quantity: 1 }
-        ]
-    },
-    // Add a past order for John Doe for testing history
-    {
-        id: '1003',
-        customer: 'John Doe',
-        items: 2,
-        date: '2023-10-15',
-        total: 898,
-        payment: 'Paid',
-        fulfillment: 'Fulfilled',
-        status: 'Delivered',
-        channel: 'Online Store',
-        itemsDetails: [
-            { productId: 4, quantity: 2 }
-        ]
-    },
-];
+const INITIAL_ORDERS: Order[] = [];
 
 const INITIAL_CUSTOMERS: Customer[] = [
     { id: 1, name: 'John Doe', email: 'john@example.com', orders: 12, spent: 45000, joined: 'Jan 12, 2023', status: 'Active' },
@@ -402,7 +357,6 @@ const INITIAL_TAX_RATES: Record<string, number> = {
 const INITIAL_PREFERENCES: StorePreferences = {
     homepageTitle: 'The Fruit Tribe | Fresh Tropical Fruits Delivered',
     homepageMetaDescription: 'Order fresh, organic, and hand-picked tropical fruits directly from the farm. Same-day delivery available.',
-    googleAnalyticsId: 'UA-12345678-1',
     deliveryFeeRules: [
         { upToKm: 3, fee: 20 },
         { upToKm: 8, fee: 40 },
@@ -464,6 +418,15 @@ const INITIAL_PAGES: Page[] = [
 
 export const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
+function safeParseJson<T>(raw: string | null, fallback: T): T {
+    if (!raw) return fallback;
+    try {
+        return JSON.parse(raw) as T;
+    } catch {
+        return fallback;
+    }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
     // Initialize state from LocalStorage or default
     const [products, setProducts] = useState<Product[]>(() => {
@@ -479,38 +442,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const [orders, setOrders] = useState<Order[]>(() => {
         const saved = localStorage.getItem('store_orders');
-        return saved ? JSON.parse(saved) : INITIAL_ORDERS;
+        return safeParseJson<Order[]>(saved, INITIAL_ORDERS);
     });
 
     const [customers, setCustomers] = useState<Customer[]>(() => {
         const saved = localStorage.getItem('store_customers');
-        return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
+        return safeParseJson<Customer[]>(saved, INITIAL_CUSTOMERS);
     });
 
     const [theme, setTheme] = useState<ThemeSettings>(() => {
         const saved = localStorage.getItem('store_theme');
         if (!saved) return INITIAL_THEME;
-        const parsed = JSON.parse(saved);
+        const parsed = safeParseJson<Partial<ThemeSettings>>(saved, {});
         return {
             ...INITIAL_THEME,
             ...parsed,
-            seasonal: { ...INITIAL_THEME.seasonal, ...parsed.seasonal }
+            seasonal: { ...INITIAL_THEME.seasonal, ...(parsed.seasonal ?? {}) }
         };
     });
 
     const [taxRates, setTaxRates] = useState<Record<string, number>>(() => {
         const saved = localStorage.getItem('store_tax_rates');
-        return saved ? { ...INITIAL_TAX_RATES, ...JSON.parse(saved) } : INITIAL_TAX_RATES;
+        return saved ? { ...INITIAL_TAX_RATES, ...safeParseJson<Record<string, number>>(saved, {}) } : INITIAL_TAX_RATES;
     });
 
     const [preferences, setPreferences] = useState<StorePreferences>(() => {
         const saved = localStorage.getItem('store_preferences');
-        return saved ? { ...INITIAL_PREFERENCES, ...JSON.parse(saved) } : INITIAL_PREFERENCES;
+        return saved ? { ...INITIAL_PREFERENCES, ...safeParseJson<Partial<StorePreferences>>(saved, {}) } : INITIAL_PREFERENCES;
     });
 
     const [pages, setPages] = useState<Page[]>(() => {
         const saved = localStorage.getItem('store_pages');
-        return saved ? JSON.parse(saved) : INITIAL_PAGES;
+        return safeParseJson<Page[]>(saved, INITIAL_PAGES);
     });
 
     // Backfill required legal pages for older localStorage snapshots.
@@ -528,12 +491,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const [cartItems, setCartItems] = useState<CartItem[]>(() => {
         const saved = localStorage.getItem('store_cart');
-        return saved ? JSON.parse(saved) : [];
+        return safeParseJson<CartItem[]>(saved, []);
     });
 
     const [subscription, setSubscription] = useState<TribeSubscription | null>(() => {
         const saved = localStorage.getItem('store_subscription');
-        return saved ? JSON.parse(saved) : null;
+        return safeParseJson<TribeSubscription | null>(saved, null);
     });
 
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -632,7 +595,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 }];
             }
         });
-        setIsCartOpen(true);
     }, []);
 
     const handleUpdateQuantity = useCallback((productId: string | number, change: number) => {

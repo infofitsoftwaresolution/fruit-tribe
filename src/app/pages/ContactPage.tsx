@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Send, MessageSquare } from 'lucide-react';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
+import { submitContactMessage } from '@/lib/api';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -17,6 +18,7 @@ export function ContactPage() {
     subject: '',
     message: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!subjectFromUrl) return;
@@ -29,7 +31,7 @@ export function ContactPage() {
     }));
   }, [subjectFromUrl]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailPattern.test(formData.email.trim())) {
@@ -42,10 +44,30 @@ export function ContactPage() {
       toast.error('Please enter a message.');
       return;
     }
-    toast.success('Thank you for your message!', {
-      description: 'We will get back to you soon.',
-    });
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    try {
+      await submitContactMessage({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        subject: formData.subject.trim(),
+        message: formData.message.trim(),
+      });
+      toast.success('Thank you for your message!', {
+        description: 'We will get back to you soon.',
+      });
+      setFormData({ name: '', email: '', subject: '', message: '' });
+    } catch (error: any) {
+      const subject = encodeURIComponent(formData.subject.trim() || 'Website inquiry');
+      const body = encodeURIComponent(
+        `Name: ${formData.name.trim()}\nEmail: ${formData.email.trim()}\n\n${formData.message.trim()}`
+      );
+      window.location.href = `mailto:${STORE_PUBLIC_CONTACT.email}?subject=${subject}&body=${body}`;
+      toast.error(error?.message || 'Could not send message through server.', {
+        description: 'Opening your email app so you can send this directly.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -56,7 +78,7 @@ export function ContactPage() {
   };
 
   return (
-    <div className="pt-28 pb-12 min-h-screen bg-gradient-to-b from-white to-orange-50/50">
+    <div className="pt-28 pb-12 min-h-screen bg-slate-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <motion.div
@@ -65,11 +87,11 @@ export function ContactPage() {
           className="text-center mb-8"
         >
           <h1 className="text-3xl md:text-4xl font-bold mb-3">
-            <span className="bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-emerald-600 to-emerald-500 bg-clip-text text-transparent">
               Get in touch
             </span>
           </h1>
-          <p className="text-base text-gray-600 max-w-xl mx-auto">
+          <p className="text-base text-slate-500 max-w-xl mx-auto">
             Have a question or feedback? We'd love to hear from you!
           </p>
         </motion.div>
@@ -82,8 +104,8 @@ export function ContactPage() {
             className="space-y-4"
           >
             <div>
-              <h2 className="text-xl font-bold text-gray-800 mb-2">Contact Information</h2>
-              <p className="text-sm text-gray-600 mb-4">
+              <h2 className="text-xl font-black text-slate-900 mb-2">Contact Information</h2>
+              <p className="text-sm text-slate-500 mb-4">
                 Reach out through any of these channels. We're here to help!
               </p>
             </div>
@@ -91,16 +113,16 @@ export function ContactPage() {
             <div className="space-y-4">
               <motion.div
                 whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-sm border border-slate-100"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Mail className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Email</h3>
+                  <h3 className="font-semibold text-slate-900 text-sm mb-0.5">Email</h3>
                   <a
                     href={`mailto:${STORE_PUBLIC_CONTACT.email}`}
-                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors"
+                    className="text-slate-600 text-sm hover:text-emerald-600 transition-colors"
                   >
                     {STORE_PUBLIC_CONTACT.email}
                   </a>
@@ -109,33 +131,33 @@ export function ContactPage() {
 
               <motion.div
                 whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-sm border border-slate-100"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
                   <Phone className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Phone</h3>
+                  <h3 className="font-semibold text-slate-900 text-sm mb-0.5">Phone</h3>
                   <a
                     href={storePhoneTelHref(STORE_PUBLIC_CONTACT.phone)}
-                    className="text-gray-600 text-sm hover:text-orange-600 transition-colors block"
+                    className="text-slate-600 text-sm hover:text-emerald-600 transition-colors block"
                   >
                     {STORE_PUBLIC_CONTACT.phone}
                   </a>
-                  <p className="text-gray-600 text-sm mt-1">Mon–Sat: 9AM – 6PM IST</p>
+                  <p className="text-slate-600 text-sm mt-1">Mon–Sat: 9AM – 6PM IST</p>
                 </div>
               </motion.div>
 
               <motion.div
                 whileHover={{ x: 4 }}
-                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-md border border-gray-100"
+                className="flex items-start gap-3 p-4 bg-white rounded-xl shadow-sm border border-slate-100"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
                   <MapPin className="w-5 h-5 text-white" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-800 text-sm mb-0.5">Address</h3>
-                  <p className="text-gray-600 text-sm">{STORE_PUBLIC_CONTACT.address}</p>
+                  <h3 className="font-semibold text-slate-900 text-sm mb-0.5">Address</h3>
+                  <p className="text-slate-600 text-sm">{STORE_PUBLIC_CONTACT.address}</p>
                 </div>
               </motion.div>
             </div>
@@ -145,18 +167,18 @@ export function ContactPage() {
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
+            className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
           >
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-amber-500 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
                 <MessageSquare className="w-5 h-5 text-white" />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Send us a message</h2>
+              <h2 className="text-xl font-black text-slate-900">Send us a message</h2>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">Name</label>
                 <input
                   type="text"
                   id="name"
@@ -164,13 +186,13 @@ export function ContactPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors text-sm"
                   placeholder="Your name"
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                 <input
                   type="email"
                   id="email"
@@ -178,13 +200,13 @@ export function ContactPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors text-sm"
                   placeholder="your.email@example.com"
                 />
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+                <label htmlFor="subject" className="block text-sm font-medium text-slate-700 mb-1">Subject</label>
                 <input
                   type="text"
                   id="subject"
@@ -192,13 +214,13 @@ export function ContactPage() {
                   value={formData.subject}
                   onChange={handleChange}
                   required
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors text-sm"
                   placeholder="What's this about?"
                 />
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <label htmlFor="message" className="block text-sm font-medium text-slate-700 mb-1">Message</label>
                 <textarea
                   id="message"
                   name="message"
@@ -206,22 +228,23 @@ export function ContactPage() {
                   onChange={handleChange}
                   required
                   rows={4}
-                  className="w-full px-3 py-2.5 rounded-lg border border-gray-200 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 focus:outline-none transition-colors resize-none text-sm"
+                  className="w-full px-3 py-2.5 rounded-lg border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-colors resize-none text-sm"
                   placeholder="Tell us what's on your mind..."
                 />
               </div>
 
               <motion.button
                 type="submit"
+                disabled={isSubmitting}
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                  "w-full py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 rounded-lg",
+                  "w-full py-3 bg-emerald-600 text-white font-semibold text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 rounded-lg disabled:opacity-70 disabled:cursor-not-allowed",
                   getRoundedClass(theme.buttonStyle)
                 )}
               >
                 <Send className="w-4 h-4" />
-                Send message
+                {isSubmitting ? 'Sending...' : 'Send message'}
               </motion.button>
             </form>
           </motion.div>

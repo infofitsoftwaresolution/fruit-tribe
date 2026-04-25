@@ -113,6 +113,37 @@ export class ChangePasswordDto {
     newPassword: string;
 }
 
+export class UpdateProfileDto {
+    @ApiProperty({ example: 'Jane', required: false })
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    firstName?: string;
+
+    @ApiProperty({ example: 'Doe', required: false })
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    lastName?: string;
+
+    @ApiProperty({
+        example: '9876543210',
+        description: 'Indian mobile number (10 digits, or with +91 / leading 0).',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    @MinLength(10)
+    @MaxLength(20)
+    phone?: string;
+
+    @ApiProperty({ example: 'Sarjapur, Bangalore', required: false })
+    @IsOptional()
+    @IsString()
+    @MaxLength(500)
+    address?: string;
+}
+
 export class BulkCustomerAnnouncementDto {
     @ApiProperty({ example: 'Stock clearance sale — this weekend only' })
     @IsString()

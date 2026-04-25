@@ -8,6 +8,7 @@ interface MobileBottomNavProps {
 }
 
 export function MobileBottomNav({ cartCount, onCartClick }: MobileBottomNavProps) {
+  const displayCartBadge = cartCount > 99 ? '99+' : String(cartCount);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -64,8 +65,11 @@ export function MobileBottomNav({ cartCount, onCartClick }: MobileBottomNavProps
                   </div>
                   <span>{item.label}</span>
                   {item.isCart && cartCount > 0 && (
-                    <span className="absolute top-1 right-3 inline-flex h-4 min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-500 px-1 text-[9px] font-black text-white shadow-lg">
-                      {cartCount}
+                    <span
+                      aria-label={`${cartCount} item${cartCount === 1 ? '' : 's'} in cart`}
+                      className="absolute top-1 right-3 inline-flex h-4 min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[8px] font-black text-white shadow-lg border border-slate-950"
+                    >
+                      {displayCartBadge}
                     </span>
                   )}
                 </button>

@@ -10,6 +10,7 @@ import {
     UseGuards,
     ParseUUIDPipe,
     HttpStatus,
+    Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ProductService } from '../application/product.service';
@@ -43,8 +44,8 @@ export class ProductController {
     @Roles('SELLER', 'ADMIN')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Post()
-    async create(@Body() createProductDto: CreateProductDto) {
-        return this.productService.create(createProductDto);
+    async create(@Request() req: any, @Body() createProductDto: CreateProductDto) {
+        return this.productService.create(createProductDto, req.user);
     }
 
     @ApiBearerAuth()
@@ -54,9 +55,10 @@ export class ProductController {
     @Patch(':id')
     async update(
         @Param('id', ParseUUIDPipe) id: string,
+        @Request() req: any,
         @Body() updateProductDto: UpdateProductDto
     ) {
-        return this.productService.update(id, updateProductDto);
+        return this.productService.update(id, updateProductDto, req.user);
     }
 
     @ApiBearerAuth()
@@ -66,9 +68,10 @@ export class ProductController {
     @Patch('variants/:variantId/stock')
     async adjustStock(
         @Param('variantId', ParseUUIDPipe) variantId: string,
+        @Request() req: any,
         @Body() body: { changeAmount: number, reason: string }
     ) {
-        return this.productService.updateStock(variantId, body.changeAmount, body.reason);
+        return this.productService.updateStock(variantId, body.changeAmount, body.reason, req.user);
     }
 
     @ApiBearerAuth()
@@ -85,7 +88,7 @@ export class ProductController {
     @Roles('SELLER', 'ADMIN')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Delete(':id')
-    async remove(@Param('id', ParseUUIDPipe) id: string) {
-        return this.productService.remove(id);
+    async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
+        return this.productService.remove(id, req.user);
     }
 }

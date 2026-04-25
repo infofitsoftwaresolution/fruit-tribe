@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useMemo, useCallback, memo } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/app/context/AuthContext';
 import { StoreProvider, useStore, type CartItem } from '@/app/context/StoreContext';
@@ -14,6 +15,7 @@ import { ProtectedRoute } from '@/app/components/ProtectedRoute';
 import { Toaster } from 'sonner';
 import { BottomCartBar } from '@/app/components/BottomCartBar';
 import { DeliveryProvider } from '@/app/context/DeliveryContext';
+import { useLocation } from 'react-router-dom';
 
 // Lazy-load pages for smaller initial bundle and faster first paint
 const HomePage = lazy(() => import('@/app/pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -98,6 +100,7 @@ const MainLayout = memo(function MainLayout({
   isCartOpen,
   setIsCartOpen
 }: MainLayoutProps) {
+  const location = useLocation();
   const closeCart = useCallback(() => setIsCartOpen(false), [setIsCartOpen]);
   const [showLocationPrompt, setShowLocationPrompt] = React.useState(() => {
     if (typeof window === 'undefined') return false;
@@ -129,6 +132,8 @@ const MainLayout = memo(function MainLayout({
     );
   }, [handleDismissLocation]);
 
+  const shouldShowBottomCartBar = cartItems.length > 0 && !['/cart', '/checkout'].includes(location.pathname);
+
   return (
     <div className="relative min-h-screen bg-white flex flex-col">
       <SeasonalEffects />
@@ -136,7 +141,7 @@ const MainLayout = memo(function MainLayout({
       <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
-      <MobileBottomNav cartCount={cartCount} onCartClick={onCartClick} />
+      {!shouldShowBottomCartBar && <MobileBottomNav cartCount={cartCount} onCartClick={onCartClick} />}
       <BottomCartBar />
       <Footer />
       <CartDrawer
@@ -146,9 +151,21 @@ const MainLayout = memo(function MainLayout({
         onUpdateQuantity={onUpdateQuantity}
         onRemoveItem={onRemoveItem}
       />
-      {showLocationPrompt && (
-        <div className="fixed inset-0 z-[140] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-          <div className="w-full sm:max-w-md mx-4 mb-6 sm:mb-0 rounded-3xl bg-white shadow-2xl border border-slate-100 p-6 space-y-4">
+      <AnimatePresence>
+        {showLocationPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[140] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="w-full sm:max-w-md mx-4 mb-6 sm:mb-0 rounded-3xl bg-white shadow-2xl border border-slate-100 p-6 space-y-4"
+            >
             <div>
               <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em]">
                 Delivery area check
@@ -177,9 +194,10 @@ const MainLayout = memo(function MainLayout({
             <p className="text-[10px] text-slate-400">
               We only use your location to check if we can deliver to you in Bengaluru.
             </p>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 });

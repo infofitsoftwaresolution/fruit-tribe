@@ -13,7 +13,7 @@ import { NewsletterSection } from '@/app/components/NewsletterSection';
 import { ParallaxBanner } from '@/app/components/ParallaxBanner';
 import { useProducts } from '@/app/hooks/useProducts';
 import { motion } from 'framer-motion';
-import { Tag } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface HomePageProps {
   onAddToCart: (product: any) => void;
@@ -22,6 +22,7 @@ interface HomePageProps {
 export function HomePage({ onAddToCart }: HomePageProps) {
   const { theme } = useStore();
   const { products } = useProducts({ limit: 100 });
+  const navigate = useNavigate();
 
   const categories = Array.from(new Set(products.map((p) => p.category))).slice(0, 6);
 
@@ -49,7 +50,7 @@ export function HomePage({ onAddToCart }: HomePageProps) {
                 whileHover={{ y: -2, scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
-                  window.location.hash = `#/products?categoryName=${encodeURIComponent(cat)}`;
+                  navigate(`/products?categoryName=${encodeURIComponent(cat)}`);
                 }}
                 className="px-5 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-[10px] font-black uppercase tracking-[0.25em] text-slate-600 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-all"
               >

@@ -10,6 +10,16 @@ export class ProductService {
 
     constructor(private readonly prisma: PrismaService) { }
 
+    private async resolveActorSellerId(actor: { id: string; role?: string }): Promise<string | null> {
+        if (String(actor?.role || '').toUpperCase() !== 'SELLER') return null;
+        const seller = await this.prisma.seller.findUnique({
+            where: { userId: actor.id },
+            select: { id: true },
+        });
+        if (!seller) throw new BadRequestException('Seller profile not found for this account.');
+        return seller.id;
+    }
+
     /** Persist admin bulk qty / unit price as entered (positive numbers only). No auto-clear vs base price. */
     private parseBulkTier(
         qty: number | null | undefined,
@@ -140,12 +150,21 @@ export class ProductService {
         return this.mapStats(product);
     }
 
-    async create(dto: CreateProductDto) {
+    async create(dto: CreateProductDto, actor: { id: string; role?: string }) {
         // Principal Engineer Review Comment: 
         // We use a transaction to ensure atomicity between product, variants, and initial inventory.
         return this.prisma.$transaction(async (tx) => {
             const slug = await this.resolveUniqueSlug(tx, dto.name);
             const bulk = this.parseBulkTier(dto.bulkDiscountQty, dto.bulkDiscountPrice);
+            const actorSellerId = await this.resolveActorSellerId(actor);
+            const effectiveSellerId =
+                actorSellerId ??
+                (dto.sellerId && String(dto.sellerId).trim()
+                    ? String(dto.sellerId).trim()
+                    : null);
+            if (!effectiveSellerId) {
+                throw new BadRequestException('sellerId is required for admin product creation.');
+            }
             const product = await tx.product.create({
                 data: {
                     name: dto.name,
@@ -154,7 +173,7 @@ export class ProductService {
                     basePrice: dto.basePrice,
                     unit: 'kg',
                     tags: [],
-                    seller: { connect: { id: dto.sellerId } },
+                    seller: { connect: { id: effectiveSellerId } },
                     category: { connect: { id: dto.categoryId } },
                     harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : undefined,
                     expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
@@ -209,9 +228,13 @@ export class ProductService {
         }, { timeout: 20000, maxWait: 10000 });
     }
 
-    async update(id: string, dto: any) {
+    async update(id: string, dto: any, actor: { id: string; role?: string }) {
         const existing = await this.prisma.product.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException(`Product ${id} not found`);
+        const actorSellerId = await this.resolveActorSellerId(actor);
+        if (actorSellerId && existing.sellerId !== actorSellerId) {
+            throw new BadRequestException('You can only update your own products.');
+        }
 
         const mergedBulkQty = dto.bulkDiscountQty !== undefined ? dto.bulkDiscountQty : existing.bulkDiscountQty;
         const mergedBulkPrice = dto.bulkDiscountPrice !== undefined ? dto.bulkDiscountPrice : existing.bulkDiscountPrice;
@@ -229,7 +252,7 @@ export class ProductService {
                     ...(dto.description !== undefined && { description: dto.description }),
                     ...(dto.basePrice !== undefined && { basePrice: dto.basePrice }),
                     ...(dto.categoryId && { categoryId: dto.categoryId }),
-                    ...(dto.sellerId && { sellerId: dto.sellerId }),
+                    ...(!actorSellerId && dto.sellerId && { sellerId: dto.sellerId }),
                     ...(dto.harvestDate !== undefined && { harvestDate: dto.harvestDate ? new Date(dto.harvestDate) : null }),
                     ...(dto.expiryDate !== undefined && { expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null }),
                     ...(dto.isSeasonal !== undefined && { isSeasonal: dto.isSeasonal }),
@@ -331,14 +354,18 @@ export class ProductService {
         }, { timeout: 30000, maxWait: 10000 });
     }
 
-    async updateStock(variantId: string, changeAmount: number, reason: string) {
+    async updateStock(variantId: string, changeAmount: number, reason: string, actor: { id: string; role?: string }) {
+        const actorSellerId = await this.resolveActorSellerId(actor);
         return this.prisma.$transaction(async (tx) => {
             const [variant] = await tx.$queryRawUnsafe<any[]>(
-                'SELECT stock_quantity as "stockQuantity", reserved_quantity as "reservedQuantity" FROM product_variants WHERE id = $1 FOR UPDATE',
+                'SELECT pv.stock_quantity as "stockQuantity", pv.reserved_quantity as "reservedQuantity", p.seller_id as "sellerId" FROM product_variants pv JOIN products p ON p.id = pv.product_id WHERE pv.id = $1 FOR UPDATE',
                 variantId
             );
 
             if (!variant) throw new NotFoundException(`Variant ${variantId} not found`);
+            if (actorSellerId && String(variant.sellerId) !== actorSellerId) {
+                throw new BadRequestException('You can only update stock for your own products.');
+            }
 
             const newStock = variant.stockQuantity + changeAmount;
             const newAvailable = newStock - variant.reservedQuantity;
@@ -495,9 +522,13 @@ export class ProductService {
         });
     }
 
-    async remove(id: string) {
+    async remove(id: string, actor: { id: string; role?: string }) {
         const existing = await this.prisma.product.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException(`Product ${id} not found`);
+        const actorSellerId = await this.resolveActorSellerId(actor);
+        if (actorSellerId && existing.sellerId !== actorSellerId) {
+            throw new BadRequestException('You can only remove your own products.');
+        }
 
         // We perform a soft delete via isActive flag for data integrity
         return this.prisma.product.update({

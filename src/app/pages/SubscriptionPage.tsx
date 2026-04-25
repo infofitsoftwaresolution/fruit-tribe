@@ -290,9 +290,6 @@ export function SubscriptionPage() {
     try {
       const created = await createSubscriptionOrder({
         planId: plan.id,
-        planName: plan.name,
-        price: plan.price,
-        frequency: plan.frequency,
         fruitSelection: customBox,
         deliveryDay,
         shippingAddress,

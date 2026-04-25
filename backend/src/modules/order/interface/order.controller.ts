@@ -18,6 +18,8 @@ import { CreateManualOrderDto } from './dtos/create-manual-order.dto';
 import { CreateRazorpayOrderDto } from './dtos/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dtos/verify-payment.dto';
 import { JwtAuthGuard } from '../../auth/interface/guards/jwt-auth.guard';
+import { RolesGuard } from '../../auth/interface/guards/roles.guard';
+import { Roles } from '../../auth/interface/decorators/roles.decorator';
 
 @ApiTags('Orders')
 @ApiBearerAuth()
@@ -42,6 +44,8 @@ export class OrderController {
     }
 
     @ApiOperation({ summary: 'Create a manual order (admin only)' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Post('manual')
     async createManual(@Request() req: any, @Body() dto: CreateManualOrderDto) {
         const order = await this.orderService.createManualOrder(req.user.id, dto);
@@ -144,6 +148,8 @@ export class OrderController {
     }
 
     @ApiOperation({ summary: 'Update payment status (admin only)' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
     @Patch(':id/payment-status')
     async updatePaymentStatus(
         @Param('id', ParseUUIDPipe) id: string,

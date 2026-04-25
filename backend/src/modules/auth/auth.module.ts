@@ -15,7 +15,7 @@ import { WhatsappService } from '../../common/whatsapp/whatsapp.service';
         JwtModule.registerAsync({
             imports: [ConfigModule],
             useFactory: (config: ConfigService) => ({
-                secret: config.get<string>('JWT_SECRET') || 'default-jwt-secret',
+                secret: config.get<string>('JWT_SECRET'),
                 signOptions: { expiresIn: (config.get<string>('JWT_EXPIRY') || '1d') as any },
             }),
             inject: [ConfigService],

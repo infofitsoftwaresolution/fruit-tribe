@@ -1,10 +1,14 @@
 import { motion } from 'framer-motion';
 import { Leaf, Award, Truck, Heart, Shield, Users, Zap, ShieldCheck, Microscope, Globe } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
+import { useProducts } from '@/app/hooks/useProducts';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { cn } from '@/lib/utils';
 
 export function AboutSection() {
   const { theme, isEditing, updateTheme } = useStore();
+  const { meta: productMeta } = useProducts({ limit: 1, showOutOfSeason: true });
+  const { cities: serviceableCities } = useServiceableAreas();
 
   const handleTextChange = (field: string) => (e: React.FocusEvent<HTMLElement>) => {
     if (!isEditing) return;
@@ -69,6 +73,31 @@ export function AboutSection() {
       fieldTitle: 'aboutFeature6Title',
       fieldDesc: 'aboutFeature6Desc',
       color: 'pink'
+    },
+  ];
+
+  const productCount = productMeta?.total ?? 0;
+  const cityCount = serviceableCities.length;
+  const byTheNumbers = [
+    {
+      value: productCount > 0 ? `${productCount}+` : '—',
+      label: 'Product varieties',
+      sub: 'Live in catalog',
+    },
+    {
+      value: cityCount > 0 ? `${cityCount}` : '—',
+      label: 'Service cities',
+      sub: 'Currently active',
+    },
+    {
+      value: '99%',
+      label: 'Customer satisfaction',
+      sub: 'Rated',
+    },
+    {
+      value: 'Mon-Sat',
+      label: 'Support window',
+      sub: '9AM - 6PM IST',
     },
   ];
 
@@ -187,12 +216,7 @@ export function AboutSection() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-12 w-full max-w-5xl">
-            {[
-              { value: '100+', label: 'Product varieties', sub: 'In catalog' },
-              { value: '300+', label: 'Happy customers', sub: 'And growing' },
-              { value: '99%', label: 'Customer satisfaction', sub: 'Rated' },
-              { value: '24/7', label: 'Support', sub: 'Always here' },
-            ].map((stat, index) => (
+            {byTheNumbers.map((stat, index) => (
               <div key={index} className="space-y-2">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}

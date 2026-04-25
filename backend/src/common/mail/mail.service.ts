@@ -220,5 +220,49 @@ export class MailService {
             this.logger.error(`Failed to send delivery OTP email to ${to}: ${err?.message || err}`);
         }
     }
+
+    async sendContactSubmissionEmail(payload: {
+        name: string;
+        email: string;
+        subject: string;
+        message: string;
+        submittedAt: string;
+    }): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn('Cannot send contact submission email: transporter not configured.');
+            return;
+        }
+        const destination =
+            this.config.get<string>('CONTACT_RECEIVER_EMAIL') ||
+            this.config.get<string>('SMTP_USER');
+        if (!destination) {
+            this.logger.warn('Cannot send contact submission email: CONTACT_RECEIVER_EMAIL/SMTP_USER missing.');
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+        const subject = `[Contact] ${payload.subject}`.slice(0, 220);
+        const text =
+            `New contact form submission\n\n` +
+            `Name: ${payload.name}\n` +
+            `Email: ${payload.email}\n` +
+            `Submitted at: ${payload.submittedAt}\n` +
+            `Subject: ${payload.subject}\n\n` +
+            `${payload.message}`;
+        const html = `<p><strong>New contact form submission</strong></p>
+<p><strong>Name:</strong> ${payload.name}<br/>
+<strong>Email:</strong> ${payload.email}<br/>
+<strong>Submitted at:</strong> ${payload.submittedAt}<br/>
+<strong>Subject:</strong> ${payload.subject}</p>
+<p>${payload.message.replace(/\n/g, '<br/>')}</p>`;
+        try {
+            await this.transporter.sendMail({ from, to: destination, replyTo: payload.email, subject, text, html });
+            this.logger.log(`Contact submission email forwarded: ${payload.email}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send contact submission email: ${err?.message || err}`);
+            throw err;
+        }
+    }
 }
 

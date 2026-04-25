@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
       - name: Determine API URL
         id: api_url
@@ -59,7 +59,7 @@ jobs:
           echo "Protocol: $PROTOCOL"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -98,7 +98,7 @@ jobs:
           EOL
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build frontend with dynamic API URL
         run: npm run build
@@ -109,7 +109,7 @@ jobs:
       - name: Install backend dependencies & Build
         working-directory: ./backend
         run: |
-          npm install
+          npm ci
           npx prisma generate
           npm run build
         env:
@@ -163,7 +163,7 @@ jobs:
           ls -lh deploy.tar.gz
 
       - name: Test SSH connection
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -181,10 +181,10 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p 22 ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -p 22 ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
           echo "Transferring deployment package via SSH..."
           base64 deploy.tar.gz | ssh -i ~/.ssh/deploy_key \
-            -o StrictHostKeyChecking=no \
+            -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile=~/.ssh/known_hosts \
             -o ConnectTimeout=60 \
             -p 22 \
@@ -192,7 +192,7 @@ jobs:
             "base64 -d > /tmp/deploy.tar.gz && echo 'File transferred successfully'"
 
       - name: SSH and deploy with IP-agnostic setup
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
@@ -212,30 +212,11 @@ jobs:
             if [ -z "$DEPLOY_DIR" ]; then DEPLOY_DIR="/home/${{ secrets.EC2_USERNAME }}/fruit-tribe-deploy"; fi
 
             echo "Checking system dependencies..."
-            install_node_20() {
-              if command -v apt-get &> /dev/null; then
-                sudo apt-get update -q
-                curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-                sudo apt-get install -y nodejs
-              elif command -v yum &> /dev/null; then
-                curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                sudo yum install -y nodejs
-              fi
-              echo "Node.js $(node --version) installed"
-            }
-            if command -v node &> /dev/null; then
-              NODE_MAJOR=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
-              if [ "$NODE_MAJOR" -lt 20 ]; then install_node_20; fi
-            else
-              install_node_20
-            fi
-
-            if ! command -v pm2 &> /dev/null; then sudo npm install -g pm2 && sudo pm2 startup || true; fi
-            if ! command -v nginx &> /dev/null; then
-              if command -v apt-get &> /dev/null; then sudo apt-get install -y nginx; elif command -v yum &> /dev/null; then sudo yum install -y nginx; fi
-              sudo systemctl enable nginx
-              sudo systemctl start nginx
-            fi
+            if ! command -v node &> /dev/null; then echo "Node.js is required on target host"; exit 1; fi
+            NODE_MAJOR=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+            if [ "$NODE_MAJOR" -lt 20 ]; then echo "Node.js 20+ is required on target host"; exit 1; fi
+            if ! command -v pm2 &> /dev/null; then echo "pm2 is required on target host"; exit 1; fi
+            if ! command -v nginx &> /dev/null; then echo "nginx is required on target host"; exit 1; fi
             sudo mkdir -p /etc/nginx/conf.d
 
             mkdir -p /tmp/deploy-ip
@@ -278,7 +259,7 @@ jobs:
 
             echo "Installing dependencies (Production)..."
             export CI=true
-            npm install --omit=dev --no-audit --no-fund --legacy-peer-deps
+            npm ci --omit=dev --no-audit --no-fund
             npx prisma@6.3.1 generate
             mkdir -p uploads
             chmod -R 755 uploads

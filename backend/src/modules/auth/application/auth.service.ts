@@ -21,6 +21,7 @@ import {
     BulkCustomerAnnouncementDto,
     SendWhatsappOtpDto,
     VerifyWhatsappOtpDto,
+    UpdateProfileDto,
 } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
@@ -31,6 +32,8 @@ import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name);
+    private static readonly LOGIN_LOCK_THRESHOLD = 5;
+    private static readonly LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
 
     constructor(
         private readonly prisma: PrismaService,
@@ -320,10 +323,20 @@ export class AuthService {
 
         const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
         if (!passwordValid) {
+            const nextFailedAttempts = (user.failedLoginAttempts ?? 0) + 1;
+            const shouldLock = nextFailedAttempts >= AuthService.LOGIN_LOCK_THRESHOLD;
             await this.prisma.user.update({
                 where: { id: user.id },
-                data: { failedLoginAttempts: { increment: 1 } },
+                data: shouldLock
+                    ? {
+                        failedLoginAttempts: 0,
+                        lockedUntil: new Date(Date.now() + AuthService.LOGIN_LOCK_DURATION_MS),
+                    }
+                    : { failedLoginAttempts: { increment: 1 } },
             });
+            if (shouldLock) {
+                throw new UnauthorizedException('Account is temporarily locked due to multiple failed attempts. Please try again in 15 minutes.');
+            }
             throw new UnauthorizedException('Invalid credentials');
         }
 
@@ -368,6 +381,7 @@ export class AuthService {
                 where: { id: user.id },
                 data: {
                     failedLoginAttempts: 0,
+                    lockedUntil: null,
                     lastLogin: new Date(),
                     refreshTokenHash: refreshHash,
                 },
@@ -402,6 +416,10 @@ export class AuthService {
             throw new BadRequestException('No active verification code. Please register again.');
         }
         if (user.otpCode !== dto.code) {
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: { failedLoginAttempts: { increment: 1 } },
+            });
             throw new BadRequestException('Invalid verification code');
         }
         if (user.otpExpiry < new Date()) {
@@ -415,6 +433,8 @@ export class AuthService {
                     otpCode: null,
                     otpExpiry: null,
                     isActive: true,
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
                 },
             });
             await tx.otpLog.updateMany({
@@ -499,6 +519,46 @@ export class AuthService {
                 seller: { select: { id: true, storeName: true } },
             },
         });
+    }
+
+    async updateProfile(userId: string, dto: UpdateProfileDto) {
+        const data: Prisma.UserUpdateInput = {};
+        if (dto.firstName !== undefined) data.firstName = dto.firstName.trim() || null;
+        if (dto.lastName !== undefined) data.lastName = dto.lastName.trim() || null;
+        if (dto.phone !== undefined) {
+            const normalizedPhone = this.normalizeIndianMobile(dto.phone);
+            if (!normalizedPhone) {
+                throw new BadRequestException('Please enter a valid 10-digit Indian mobile number.');
+            }
+            const existing = await this.prisma.user.findUnique({
+                where: { phone: normalizedPhone },
+                select: { id: true },
+            });
+            if (existing && existing.id !== userId) {
+                throw new ConflictException('PHONE_ALREADY_REGISTERED');
+            }
+            data.phone = normalizedPhone;
+        }
+
+        await this.prisma.user.update({
+            where: { id: userId },
+            data,
+        });
+
+        // Address is accepted for API compatibility but managed via dedicated address endpoints.
+        if (dto.address !== undefined) {
+            await this.prisma.auditLog.create({
+                data: {
+                    userId,
+                    action: 'PROFILE_ADDRESS_UPDATE_REQUEST',
+                    entity: 'USER_PROFILE',
+                    entityId: userId,
+                    metadata: { address: dto.address },
+                },
+            });
+        }
+
+        return this.getProfile(userId);
     }
 
     /** Admin: list users (customers) with order stats */
@@ -632,6 +692,43 @@ export class AuthService {
             emailBatchCapped: !!dto.sendEmail && filtered.length > EMAIL_CAP,
             emailCap: EMAIL_CAP,
         };
+    }
+
+    async getMyNotifications(userId: string, limit: number = 20, unreadOnly: boolean = false) {
+        const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
+        const where: Prisma.NotificationWhereInput = {
+            userId,
+            ...(unreadOnly ? { isRead: false } : {}),
+        };
+
+        const [items, unreadCount] = await Promise.all([
+            this.prisma.notification.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                take: safeLimit,
+                select: {
+                    id: true,
+                    title: true,
+                    message: true,
+                    type: true,
+                    isRead: true,
+                    createdAt: true,
+                },
+            }),
+            this.prisma.notification.count({
+                where: { userId, isRead: false },
+            }),
+        ]);
+
+        return { items, unreadCount };
+    }
+
+    async markAllNotificationsRead(userId: string) {
+        const result = await this.prisma.notification.updateMany({
+            where: { userId, isRead: false },
+            data: { isRead: true },
+        });
+        return { updated: result.count };
     }
 
     async forgotPassword(dto: ForgotPasswordDto) {
@@ -829,6 +926,10 @@ export class AuthService {
         }
 
         if (user.otpCode !== dto.otp) {
+            await this.prisma.user.update({
+                where: { id: user.id },
+                data: { failedLoginAttempts: { increment: 1 } },
+            });
             throw new UnauthorizedException('Incorrect OTP. Please try again.');
         }
 
@@ -840,7 +941,7 @@ export class AuthService {
         await this.prisma.$transaction(async (tx) => {
             await tx.user.update({
                 where: { id: user.id },
-                data: { otpCode: null, otpExpiry: null, lastLogin: new Date(), failedLoginAttempts: 0 },
+                data: { otpCode: null, otpExpiry: null, lastLogin: new Date(), failedLoginAttempts: 0, lockedUntil: null },
             });
             await tx.otpLog.updateMany({
                 where: { userId: user.id, otp: dto.otp, verified: false },

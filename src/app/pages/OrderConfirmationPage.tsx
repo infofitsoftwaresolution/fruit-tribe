@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { CheckCircle, Package, Home, ShoppingBag, Download, ShieldCheck, Printer, Zap, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -8,7 +7,6 @@ import { toast } from 'sonner';
 // Re-using same icons but with consistent imports
 import {
   CheckCircle as CheckIcon,
-  Package as PackageIcon,
   Home as HomeIcon,
   ShoppingBag as BagIcon,
   Download as DownloadIcon,
@@ -64,7 +62,7 @@ export function OrderConfirmationPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-3xl relative z-10"
       >
-        <div className="bg-white rounded-[4rem] shadow-6xl p-8 md:p-16 text-center border border-white overflow-hidden relative group">
+        <div className="bg-white rounded-[3rem] shadow-2xl p-8 md:p-12 text-center border border-slate-100 overflow-hidden relative">
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-emerald-500 via-blue-500 to-orange-500" />
 
           {/* Success Icon */}
@@ -79,17 +77,18 @@ export function OrderConfirmationPage() {
           </motion.div>
 
           {/* Title */}
-          <h1 className="text-5xl md:text-8xl font-black mb-8 uppercase tracking-tighter leading-[0.85] text-slate-900">
-            Order <br />
+          <h1 className="text-4xl md:text-6xl font-black mb-6 tracking-tight leading-[0.95] text-slate-900">
+            Order
+            <br />
             <span className="text-emerald-500">confirmed</span>
           </h1>
 
-          <p className="text-lg text-slate-400 font-black uppercase tracking-[0.2em] italic mb-14 px-10">
+          <p className="text-base text-slate-500 font-semibold mb-10 px-4">
             Thank you for your order. We're preparing your items for delivery.
           </p>
 
           {/* Order details card */}
-          <div className="bg-slate-50 border border-slate-100 rounded-[3rem] p-12 mb-14 relative overflow-hidden text-left">
+          <div className="bg-slate-50 border border-slate-100 rounded-[2rem] p-8 mb-10 relative overflow-hidden text-left">
             <div className="absolute top-0 right-0 p-8 opacity-5">
               <ZapIcon className="w-32 h-32" />
             </div>
@@ -97,7 +96,7 @@ export function OrderConfirmationPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8 mb-10 pb-10 border-b border-slate-200/50">
               <div>
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Order ID</p>
-                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">#{displayOrderId}</h2>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">#{displayOrderId}</h2>
               </div>
               <div className="flex gap-3">
                 <button
@@ -116,7 +115,7 @@ export function OrderConfirmationPage() {
             <div className="grid md:grid-cols-2 gap-12">
               <div className="space-y-6">
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Order IDs</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Order IDs</p>
                   <div className="flex flex-wrap gap-2 mt-3">
                     {allOrders && allOrders.length > 1 ? (
                       allOrders.map(id => (
@@ -130,8 +129,8 @@ export function OrderConfirmationPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Delivery to</p>
-                  <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Your delivery address</p>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Delivery to</p>
+                  <p className="text-sm font-semibold text-slate-900">Your delivery address</p>
                 </div>
               </div>
               <div className="space-y-6">
@@ -140,8 +139,8 @@ export function OrderConfirmationPage() {
                     <ZapIcon className="w-8 h-8 text-emerald-400" />
                   </div>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Estimated delivery</p>
-                  <p className="text-xl font-black tracking-tighter">~24 HOURS</p>
-                  <p className="text-[8px] font-black text-emerald-400 uppercase mt-2">Priority shipping</p>
+                  <p className="text-xl font-black tracking-tight">~24 HOURS</p>
+                  <p className="text-[10px] font-bold text-emerald-400 mt-2">Priority shipping</p>
                 </div>
               </div>
             </div>
@@ -153,7 +152,7 @@ export function OrderConfirmationPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full py-5 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3"
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3"
               >
                 <HomeIcon className="w-4 h-4" />
                 Back to home
@@ -163,7 +162,7 @@ export function OrderConfirmationPage() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full py-5 bg-white border-2 border-slate-100 text-slate-900 rounded-3xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
+                className="w-full py-4 bg-white border-2 border-slate-100 text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
               >
                 <BagIcon className="w-4 h-4" />
                 Continue shopping

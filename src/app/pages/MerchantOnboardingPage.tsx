@@ -4,11 +4,9 @@ import { Briefcase, Building, CreditCard, MapPin, CheckCircle2, ChevronRight, Ar
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/app/context/AuthContext';
 
 export function MerchantOnboardingPage() {
     const navigate = useNavigate();
-    const { user, updateUser } = useAuth();
     const [step, setStep] = useState(1);
     const [formData, setFormData] = useState({
         storeName: '',
@@ -46,14 +44,14 @@ export function MerchantOnboardingPage() {
             }
         };
 
+        void submissionData;
         toast.promise(
-            new Promise((resolve) => setTimeout(resolve, 2000)),
+            new Promise((resolve) => setTimeout(resolve, 1200)),
             {
                 loading: 'Saving your application...',
                 success: () => {
-                    updateUser({ role: 'seller' });
-                    navigate('/admin/seller-dashboard');
-                    return 'Seller account activated. Welcome to The Fruit Tribe.';
+                    navigate('/profile');
+                    return 'Application submitted. Our team will review and verify your seller account.';
                 },
                 error: 'Something went wrong. Please try again.'
             }

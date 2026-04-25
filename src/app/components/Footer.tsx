@@ -4,24 +4,24 @@ import { Link } from 'react-router-dom';
 import { STORE_PUBLIC_CONTACT, storePhoneTelHref } from '@/app/constants/storeContact';
 import { useStore } from '@/app/context/StoreContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
-import { useProducts } from '@/app/hooks/useProducts';
+import { getCategories, subscribeNewsletter } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export function Footer() {
-  const { theme, products: localProducts } = useStore();
-  const { products: apiProducts } = useProducts({ limit: 200, showOutOfSeason: true });
-  const products = apiProducts.length > 0 ? apiProducts : localProducts;
+  const { theme } = useStore();
   const { cities: deliveryCities } = useServiceableAreas();
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterError, setNewsletterError] = useState('');
   const [newsletterSuccess, setNewsletterSuccess] = useState('');
+  const [newsletterBusy, setNewsletterBusy] = useState(false);
+  const [categoryNames, setCategoryNames] = useState<string[]>([]);
 
   const socialLinks = [
     { icon: Facebook, href: theme.socialFacebook || '#', label: 'Facebook' },
     { icon: Instagram, href: theme.socialInstagram || '#', label: 'Instagram' },
     { icon: Twitter, href: theme.socialTwitter || '#', label: 'Twitter' },
-  ];
+  ].filter((link) => link.href && link.href !== '#');
 
   const quickLinks = [
     { name: 'Home', path: '/' },
@@ -31,13 +31,27 @@ export function Footer() {
   ];
 
   const categories = useMemo(() => {
-    const names = products
-      .map((p) => (p.category || '').trim())
+    const names = categoryNames
+      .map((name) => name.trim())
       .filter((name): name is string => Boolean(name))
       .filter((name, idx, arr) => arr.findIndex((v) => v.toLowerCase() === name.toLowerCase()) === idx)
       .sort((a, b) => a.localeCompare(b));
     return names.slice(0, 8);
-  }, [products]);
+  }, [categoryNames]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCategories()
+      .then((data) => {
+        if (cancelled) return;
+        const names = (data || []).map((c) => c.name).filter(Boolean);
+        setCategoryNames(names);
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryNames([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const { address: footerAddress, phone: footerPhone, email: footerEmail } = STORE_PUBLIC_CONTACT;
   const footerPhoneHref = storePhoneTelHref(footerPhone);
@@ -47,8 +61,8 @@ export function Footer() {
       {/* Cinematic Static & Noise */}
       <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
 
-      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 py-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-16 mb-24">
+      <div className="relative z-10 max-w-[1400px] mx-auto px-6 md:px-12 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-12">
 
           {/* Brand */}
           <motion.div
@@ -193,7 +207,7 @@ export function Footer() {
               <div className="flex gap-2">
                 <input
                   type="email"
-                  placeholder="you@gmail.com"
+                  placeholder="you@example.com"
                   value={newsletterEmail}
                   onChange={(e) => {
                     setNewsletterEmail(e.target.value);
@@ -203,10 +217,12 @@ export function Footer() {
                   className="flex-1 h-14 px-6 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-all shadow-inner"
                 />
                 <motion.button
+                  type="button"
+                  disabled={newsletterBusy}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="h-14 w-14 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all"
-                  onClick={() => {
+                  className="h-14 w-14 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  onClick={async () => {
                     const value = newsletterEmail.trim();
                     const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!pattern.test(value)) {
@@ -214,14 +230,18 @@ export function Footer() {
                       setNewsletterSuccess('');
                       return;
                     }
-                    if (!value.toLowerCase().endsWith('@gmail.com')) {
-                      setNewsletterError('Please use a valid Gmail address (e.g. you@gmail.com).');
+                    setNewsletterBusy(true);
+                    try {
+                      await subscribeNewsletter(value);
+                      setNewsletterError('');
+                      setNewsletterSuccess('Subscribed successfully. Check your inbox soon!');
+                      setNewsletterEmail('');
+                    } catch (error: any) {
+                      setNewsletterError(error?.message || 'Could not subscribe right now. Please try again later.');
                       setNewsletterSuccess('');
-                      return;
+                    } finally {
+                      setNewsletterBusy(false);
                     }
-                    setNewsletterError('');
-                    setNewsletterSuccess('Subscribed successfully. Check your inbox soon!');
-                    setNewsletterEmail('');
                   }}
                 >
                   <Zap className="w-5 h-5" />

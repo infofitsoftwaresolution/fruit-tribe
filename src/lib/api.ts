@@ -6,14 +6,18 @@ import type { SavedDeliveryAddress } from './deliveryAddressUtils';
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
 /** Use for all fetch(): avoids mixed content by using relative /api/v1 when page is HTTPS and base is HTTP */
-function getEffectiveApiBase(): string {
+export function getEffectiveApiBase(): string {
   if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && API_BASE.startsWith('http://'))
     return '/api/v1';
   return API_BASE;
 }
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+  const token =
+    localStorage.getItem('token')
+    || localStorage.getItem('accessToken')
+    || sessionStorage.getItem('token')
+    || sessionStorage.getItem('accessToken');
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   return headers;
@@ -32,8 +36,50 @@ export type AuthProfile = {
   seller?: { id: string; storeName: string } | null;
 };
 
+export type AuthProfileUpdate = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  address?: string;
+};
+
 export async function getAuthProfile(): Promise<AuthProfile> {
   const res = await fetch(`${getEffectiveApiBase()}/auth/me`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function updateAuthProfile(body: AuthProfileUpdate): Promise<AuthProfile> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/profile`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function submitContactMessage(body: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): Promise<{ message?: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/contact`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function subscribeNewsletter(email: string): Promise<{ message?: string }> {
+  const res = await fetch(`${getEffectiveApiBase()}/newsletter/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -398,7 +444,7 @@ export async function getOrders(): Promise<any[]> {
 
 /** Create order (auth required). Persists to database. */
 export async function createOrder(body: {
-  items: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }>;
+  items: Array<{ productId: string; variantId: string; quantity: number }>;
   shippingAddress: Record<string, unknown>;
   billingAddress?: Record<string, unknown>;
   couponCode?: string;
@@ -432,9 +478,6 @@ export async function createOrder(body: {
 /** Subscription signup order (no line items; pay via existing Razorpay endpoints). */
 export async function createSubscriptionOrder(body: {
   planId: string;
-  planName: string;
-  price: number;
-  frequency: 'Weekly' | 'Bi-weekly' | 'Monthly';
   fruitSelection: string[];
   deliveryDay: string;
   shippingAddress: Record<string, unknown>;
@@ -690,6 +733,39 @@ export async function postBulkCustomerAnnouncement(body: {
     }
     throw new Error(msg || res.statusText);
   }
+  return res.json();
+}
+
+export interface UserNotification {
+  id: string;
+  title: string;
+  message: string;
+  type?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export async function getMyNotifications(params?: { limit?: number; unreadOnly?: boolean }): Promise<{
+  items: UserNotification[];
+  unreadCount: number;
+}> {
+  const q = new URLSearchParams();
+  if (typeof params?.limit === 'number') q.set('limit', String(params.limit));
+  if (typeof params?.unreadOnly === 'boolean') q.set('unreadOnly', String(params.unreadOnly));
+  const suffix = q.toString() ? `?${q.toString()}` : '';
+  const res = await fetch(`${getEffectiveApiBase()}/auth/notifications${suffix}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+export async function markAllNotificationsRead(): Promise<{ updated: number }> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/notifications/read-all`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
@@ -1089,7 +1165,7 @@ export async function updateCouponScopes(scopes: CouponScopeRule[]): Promise<Cou
   return Array.isArray(data?.scopes) ? data.scopes : [];
 }
 
-export { API_BASE, getEffectiveApiBase };
+export { API_BASE };
 
 /** Base URL of the backend server (no path). Use for static assets like /uploads/xxx */
 export const API_ORIGIN = (() => {

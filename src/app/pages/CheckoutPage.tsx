@@ -89,6 +89,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     state: 'Karnataka',
     zipCode: '',
   });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const [savedAddresses, setSavedAddresses] = useState<SavedDeliveryAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
@@ -384,6 +385,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const etaMin = Math.max(20, Math.round(deliveryStats.estimatedMins * 0.8));
   const etaMax = Math.max(etaMin + 10, Math.round(deliveryStats.estimatedMins * 1.2));
   const etaLabel = `${etaMin}-${etaMax} mins`;
+  const configuredDeliverySlots = Array.isArray(preferences.deliverySlots) ? preferences.deliverySlots : [];
+  const hasConfiguredDeliverySlots = configuredDeliverySlots.length > 0;
+  const deliverySlotOptions = hasConfiguredDeliverySlots
+    ? configuredDeliverySlots
+    : [`Today · in ${etaLabel}`, 'Today · 6pm – 8pm', 'Tomorrow · 8am – 10am'];
+
+  useEffect(() => {
+    if (deliverySlot) return;
+    if (deliverySlotOptions.length === 1) {
+      setDeliverySlot(deliverySlotOptions[0]);
+    }
+  }, [deliverySlot, deliverySlotOptions]);
 
   const groupedItems = useMemo(() => {
     return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
@@ -538,6 +551,16 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const nextErrors: Partial<Record<keyof typeof formData, string>> = {};
+    (Object.keys(formData) as Array<keyof typeof formData>).forEach((key) => {
+      const message = validateField(key, String(formData[key] ?? ''));
+      if (message) nextErrors[key] = message;
+    });
+    if (Object.values(nextErrors).some(Boolean)) {
+      setFieldErrors(nextErrors);
+      toast.error('Please fix the highlighted fields before placing the order.');
+      return;
+    }
     setSubmitting(true);
     
     // Give fixed UI time to register 'submitting' state before sync validation might reset it
@@ -596,14 +619,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         return;
       }
 
-      if (!deliverySlot) {
+      if (hasConfiguredDeliverySlots && !deliverySlot) {
         toast.error('Please choose a delivery slot', {
           description: 'Select a convenient time window for your delivery.',
         });
         return;
       }
   
-      const orderItems: Array<{ productId: string; variantId: string; sellerId: string; quantity: number; pricePerUnit: number }> = [];
+      const orderItems: Array<{ productId: string; variantId: string; quantity: number }> = [];
       const uuidLike = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
       for (const item of items) {
         const product = products.find((p: any) => p.id === item.id || String(p.id) === String(item.id));
@@ -626,22 +649,19 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           pickedVariant = priceMatched || firstAvailable || variants[0];
         }
         const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
-        const sellerId = (product as any).sellerId != null ? String((product as any).sellerId) : '';
-        if (!variantId || !sellerId) {
+        if (!variantId) {
           toast.error(`Unable to place order: missing details for "${item.name}". Please refresh and try again.`);
           return;
         }
         const productId = String(product.id);
-        if (!uuidLike(productId) || !uuidLike(variantId) || !uuidLike(sellerId)) {
+        if (!uuidLike(productId) || !uuidLike(variantId)) {
           toast.error('Product data is still loading or invalid. Please refresh the page and try again.');
           return;
         }
         orderItems.push({
           productId,
           variantId,
-          sellerId,
           quantity: requestedQty,
-          pricePerUnit: Number(item.price) ?? 0,
         });
       }
   
@@ -794,6 +814,33 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const { name, value } = e.target;
     setSelectedSavedAddressId('');
     setFormData({ ...formData, [name]: value });
+    if (fieldErrors[name as keyof typeof formData]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateField = (name: keyof typeof formData, value: string): string => {
+    const trimmed = String(value || '').trim();
+    if (['firstName', 'lastName', 'address', 'city', 'state'].includes(name) && !trimmed) {
+      return 'This field is required.';
+    }
+    if (name === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return 'Enter a valid email address.';
+    }
+    if (name === 'phone' && trimmed.replace(/\D/g, '').length < 10) {
+      return 'Enter a valid 10-digit phone number.';
+    }
+    if (name === 'zipCode' && serviceablePincodes.length > 0 && trimmed.replace(/\D/g, '').length !== 6) {
+      return 'Enter a valid 6-digit PIN code.';
+    }
+    return '';
+  };
+
+  const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const key = name as keyof typeof formData;
+    const message = validateField(key, value);
+    setFieldErrors((prev) => ({ ...prev, [key]: message }));
   };
 
   // Redirect to cart when empty unless an order was just placed successfully
@@ -892,9 +939,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                     className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.firstName && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.firstName}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
@@ -905,9 +954,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.lastName && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.lastName}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Email</label>
@@ -916,10 +967,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       placeholder="you@email.com"
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.email && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.email}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Phone number</label>
@@ -928,10 +981,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       placeholder="e.g. 9876543210"
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.phone && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.phone}</p>}
                   </div>
                   <div className="space-y-1.5 md:col-span-2">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Street address</label>
@@ -940,10 +995,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="address"
                       value={formData.address}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       placeholder="Street address"
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.address && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.address}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">City</label>
@@ -952,6 +1009,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="city"
                       value={formData.city}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       placeholder="e.g. Bangalore"
                       className={cn(
@@ -961,6 +1019,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           : "border-slate-100 focus:border-orange-500"
                       )}
                     />
+                    {fieldErrors.city && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.city}</p>}
                     {serviceableCities.length > 0 && (
                       <p className="text-[9px] font-bold text-slate-400 pl-2 flex items-center gap-1">
                         <MapPin className="w-2.5 h-2.5 text-emerald-500" />
@@ -978,10 +1037,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="state"
                       value={formData.state}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required
                       placeholder="e.g. Karnataka"
                       className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
                     />
+                    {fieldErrors.state && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.state}</p>}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
@@ -993,6 +1054,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       name="zipCode"
                       value={formData.zipCode}
                       onChange={handleChange}
+                      onBlur={handleFieldBlur}
                       required={serviceablePincodes.length > 0}
                       placeholder={serviceablePincodes.length > 0 ? 'Must be in our delivery area' : 'e.g. 560001'}
                       inputMode="numeric"
@@ -1010,6 +1072,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           : 'border-slate-100 focus:border-orange-500'
                       )}
                     />
+                    {fieldErrors.zipCode && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.zipCode}</p>}
                     {serviceablePincodes.length > 0 && (
                       <div className="pl-1">
                         <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
@@ -1104,16 +1167,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   <div className="pt-4 border-t border-slate-100 mt-4">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">Choose delivery slot</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {(() => {
-                        const slots = preferences.deliverySlots ?? [
-                          `Today · in ${etaLabel}`,
-                          'Today · 6pm – 8pm',
-                          'Tomorrow · 8am – 10am',
-                        ];
-                        if (slots.length === 0) {
-                          return <p className="text-[10px] text-slate-400 font-bold col-span-full py-2">No delivery slots available for today.</p>;
-                        }
-                        return slots.map((slot) => (
+                      {deliverySlotOptions.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 font-bold col-span-full py-2">No delivery slots available for today.</p>
+                      ) : (
+                        deliverySlotOptions.map((slot) => (
                           <button
                             key={slot}
                             type="button"
@@ -1127,10 +1184,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           >
                             {slot}
                           </button>
-                        ));
-                      })()}
+                        ))
+                      )}
                     </div>
-                    {!deliverySlot && (
+                    {!deliverySlot && hasConfiguredDeliverySlots && (
                       <p className="mt-2 text-[10px] font-bold text-slate-400 pl-4">
                         We recommend choosing a slot so our delivery partners can plan better.
                       </p>

@@ -9,7 +9,7 @@ WORKDIR /app
 # Install dependencies first (better caching)
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm install
+RUN npm ci
 
 # Copy source and build
 COPY . .
@@ -21,9 +21,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
 # Copy only necessary files from builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 

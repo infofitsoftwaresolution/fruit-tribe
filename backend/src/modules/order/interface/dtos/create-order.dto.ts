@@ -12,18 +12,9 @@ class OrderItemDto {
     variantId: string;
 
     @ApiProperty()
-    @IsUUID()
-    sellerId: string;
-
-    @ApiProperty()
     @IsNumber()
     @Min(1)
     quantity: number;
-
-    @ApiProperty()
-    @IsNumber()
-    @Min(0)
-    pricePerUnit: number;
 }
 
 export class CreateOrderDto {

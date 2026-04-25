@@ -1,5 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
+import { MailService } from '../../../common/mail/mail.service';
+import { ContactFormDto } from '../interface/dtos/public-engagement.dto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 
 const KEY_RAZORPAY_KEY_ID = 'razorpay_key_id';
 const KEY_RAZORPAY_KEY_SECRET = 'razorpay_key_secret';
@@ -14,6 +17,7 @@ const KEY_DELIVERY_PER_KM_RATE = 'delivery_per_km_rate';
 const KEY_FREE_DELIVERY_THRESHOLD = 'free_delivery_threshold';
 const KEY_COUPON_SCOPES = 'coupon_scopes';
 const KEY_PLATFORM_FEE = 'platform_fee';
+const KEY_NEWSLETTER_SUBSCRIBERS = 'newsletter_subscribers';
 
 export interface DeliveryFeeRule {
     upToKm: number;
@@ -66,7 +70,44 @@ interface CouponContext {
 export class SettingsService {
     private readonly logger = new Logger(SettingsService.name);
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly mailService: MailService,
+    ) {}
+
+    private getSecretCipherKey(): Buffer | null {
+        const secret = (process.env.SETTINGS_ENCRYPTION_KEY || process.env.JWT_SECRET || '').trim();
+        if (!secret) return null;
+        return createHash('sha256').update(secret).digest();
+    }
+
+    private encryptSecret(value: string): string {
+        const key = this.getSecretCipherKey();
+        if (!key) return value;
+        const iv = randomBytes(12);
+        const cipher = createCipheriv('aes-256-gcm', key, iv);
+        const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+        const tag = cipher.getAuthTag();
+        return `enc:v1:${iv.toString('base64')}:${tag.toString('base64')}:${encrypted.toString('base64')}`;
+    }
+
+    private decryptSecret(value: string): string {
+        if (!value.startsWith('enc:v1:')) return value;
+        const key = this.getSecretCipherKey();
+        if (!key) return '';
+        try {
+            const [, , ivB64, tagB64, dataB64] = value.split(':');
+            const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivB64, 'base64'));
+            decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+            const decrypted = Buffer.concat([
+                decipher.update(Buffer.from(dataB64, 'base64')),
+                decipher.final(),
+            ]);
+            return decrypted.toString('utf8');
+        } catch {
+            return '';
+        }
+    }
 
     async get(key: string): Promise<string | null> {
         const row = await this.prisma.storeSetting.findUnique({
@@ -84,13 +125,87 @@ export class SettingsService {
         this.logger.log(`Setting updated: ${key}`);
     }
 
+    async submitContactMessage(dto: ContactFormDto): Promise<{ message: string }> {
+        const payload = {
+            name: dto.name.trim(),
+            email: dto.email.trim().toLowerCase(),
+            subject: dto.subject.trim(),
+            message: dto.message.trim(),
+            submittedAt: new Date().toISOString(),
+        };
+        const entityId = `contact-${Date.now()}`;
+        await this.prisma.auditLog.create({
+            data: {
+                action: 'CONTACT_FORM_SUBMITTED',
+                entity: 'CONTACT_MESSAGE',
+                entityId,
+                metadata: payload,
+            },
+        });
+
+        try {
+            await this.mailService.sendContactSubmissionEmail(payload);
+        } catch (err: any) {
+            this.logger.warn(`Contact email notification failed: ${err?.message || err}`);
+        }
+
+        return { message: 'Thanks for contacting us. We will get back to you soon.' };
+    }
+
+    async subscribeNewsletter(email: string, source?: string): Promise<{ message: string; alreadySubscribed: boolean }> {
+        const normalizedEmail = email.trim().toLowerCase();
+        const raw = await this.get(KEY_NEWSLETTER_SUBSCRIBERS);
+        let subscribers: Array<{ email: string; subscribedAt: string; source?: string }> = [];
+        if (raw?.trim()) {
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    subscribers = parsed
+                        .filter((row): row is { email: string; subscribedAt: string; source?: string } => !!row && typeof row.email === 'string')
+                        .map((row) => ({
+                            email: String(row.email).trim().toLowerCase(),
+                            subscribedAt: typeof row.subscribedAt === 'string' ? row.subscribedAt : new Date().toISOString(),
+                            source: typeof row.source === 'string' ? row.source : undefined,
+                        }));
+                }
+            } catch {
+                subscribers = [];
+            }
+        }
+
+        const alreadySubscribed = subscribers.some((entry) => entry.email === normalizedEmail);
+        if (!alreadySubscribed) {
+            subscribers.push({
+                email: normalizedEmail,
+                subscribedAt: new Date().toISOString(),
+                source: source?.trim() || undefined,
+            });
+            await this.set(KEY_NEWSLETTER_SUBSCRIBERS, JSON.stringify(subscribers));
+            await this.prisma.auditLog.create({
+                data: {
+                    action: 'NEWSLETTER_SUBSCRIBED',
+                    entity: 'NEWSLETTER',
+                    entityId: normalizedEmail,
+                    metadata: { email: normalizedEmail, source: source?.trim() || null },
+                },
+            });
+        }
+
+        return {
+            message: alreadySubscribed
+                ? 'You are already subscribed to newsletter updates.'
+                : 'Subscribed successfully.',
+            alreadySubscribed,
+        };
+    }
+
     async getRazorpayCredentials(): Promise<{ keyId: string; keySecret: string } | null> {
         const rows = await this.prisma.storeSetting.findMany({
             where: { key: { in: [KEY_RAZORPAY_KEY_ID, KEY_RAZORPAY_KEY_SECRET] } },
         });
         const map = Object.fromEntries(rows.map((r) => [r.key, r.value ?? '']));
         const keyId = map[KEY_RAZORPAY_KEY_ID]?.trim();
-        const keySecret = map[KEY_RAZORPAY_KEY_SECRET]?.trim();
+        const keySecret = this.decryptSecret(map[KEY_RAZORPAY_KEY_SECRET] || '').trim();
         if (!keyId || !keySecret) return null;
         return { keyId, keySecret };
     }
@@ -98,7 +213,7 @@ export class SettingsService {
     async setRazorpayCredentials(keyId: string, keySecret: string): Promise<void> {
         await Promise.all([
             this.set(KEY_RAZORPAY_KEY_ID, keyId.trim()),
-            this.set(KEY_RAZORPAY_KEY_SECRET, keySecret.trim()),
+            this.set(KEY_RAZORPAY_KEY_SECRET, this.encryptSecret(keySecret.trim())),
         ]);
     }
 

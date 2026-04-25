@@ -164,11 +164,58 @@ export class OrderService {
             if (existing) return existing;
         }
 
-        // Calculate totals
-        const subtotal = dto.items.reduce(
-            (sum, item) => sum + item.pricePerUnit * item.quantity,
-            0,
+        // Canonicalize cart lines from DB (never trust client-submitted sellerId/pricePerUnit).
+        const variantIds = dto.items.map((i) => i.variantId);
+        const lockedVariants = await this.prisma.$queryRawUnsafe<Array<{
+            id: string;
+            sku: string | null;
+            availableQuantity: number;
+            threshold: number | null;
+            productId: string;
+            sellerId: string;
+            basePrice: number | string;
+            priceOverride: number | string | null;
+        }>>(
+            `SELECT
+                pv.id,
+                pv.sku,
+                pv.available_quantity as "availableQuantity",
+                pv.low_stock_threshold as "threshold",
+                pv.product_id as "productId",
+                p.seller_id as "sellerId",
+                p.base_price as "basePrice",
+                pv.price_override as "priceOverride"
+             FROM product_variants pv
+             JOIN products p ON p.id = pv.product_id
+             WHERE pv.id = ANY($1::uuid[]) FOR UPDATE`,
+            variantIds,
         );
+        const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
+        const canonicalItems = dto.items.map((item) => {
+            const variant = variantMap.get(item.variantId);
+            if (!variant) {
+                throw new BadRequestException(`Product variant ${item.variantId} not found`);
+            }
+            if (String(item.productId) !== String(variant.productId)) {
+                throw new BadRequestException(`Variant ${item.variantId} does not belong to product ${item.productId}`);
+            }
+            if (variant.availableQuantity < item.quantity) {
+                throw new BadRequestException(
+                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
+                );
+            }
+            const unitPrice =
+                variant.priceOverride != null ? Number(variant.priceOverride) : Number(variant.basePrice);
+            return {
+                productId: String(variant.productId),
+                variantId: String(variant.id),
+                sellerId: String(variant.sellerId),
+                quantity: item.quantity,
+                pricePerUnit: unitPrice,
+                subtotal: unitPrice * item.quantity,
+            };
+        });
+        const subtotal = canonicalItems.reduce((sum, item) => sum + item.subtotal, 0);
 
         let discountAmount = 0;
         let couponId: string | undefined;
@@ -176,7 +223,7 @@ export class OrderService {
         // Apply coupon if provided
         if (dto.couponCode) {
             const couponContextItems = await this.prisma.product.findMany({
-                where: { id: { in: dto.items.map((i) => i.productId) } },
+                where: { id: { in: canonicalItems.map((i) => i.productId) } },
                 select: { id: true, category: { select: { name: true } } },
             });
             const couponContext = {
@@ -241,14 +288,14 @@ export class OrderService {
 
         // Server-side COD enforcement: if any cart product disables COD, order must be paid online.
         const products = await this.prisma.product.findMany({
-            where: { id: { in: dto.items.map((i) => i.productId) } },
+            where: { id: { in: canonicalItems.map((i) => i.productId) } },
             select: { id: true, allowCashOnDelivery: true },
         });
         const codBlocked = new Set(
             products.filter((p) => p.allowCashOnDelivery === false).map((p) => p.id),
         );
         const requestedCod = String(dto.paymentMethod || 'online').toLowerCase() === 'cod';
-        const hasCodBlockedItem = dto.items.some((i) => codBlocked.has(i.productId));
+        const hasCodBlockedItem = canonicalItems.some((i) => codBlocked.has(i.productId));
         const isCod = requestedCod && !hasCodBlockedItem;
         if (requestedCod && hasCodBlockedItem) {
             this.logger.warn(`Order create: forcing online payment because one or more products are COD-disabled.`);
@@ -328,26 +375,19 @@ export class OrderService {
             const orderNumber = `FT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
             // 1. Batch Row-level Lock all variants and Validate Stock
-            const variantIds = dto.items.map(i => i.variantId);
-            const lockedVariants = await tx.$queryRawUnsafe<any[]>(
-                `SELECT id, sku, available_quantity as "availableQuantity", low_stock_threshold as "threshold" 
-                 FROM product_variants 
-                 WHERE id = ANY($1::uuid[]) 
+            const txLockedVariants = await tx.$queryRawUnsafe<any[]>(
+                `SELECT id, sku, available_quantity as "availableQuantity"
+                 FROM product_variants
+                 WHERE id = ANY($1::uuid[])
                  FOR UPDATE`,
-                variantIds
+                canonicalItems.map((i) => i.variantId)
             );
-
-            const variantMap = new Map(lockedVariants.map(v => [v.id, v]));
-
-            for (const item of dto.items) {
-                const variant = variantMap.get(item.variantId);
-                if (!variant) {
-                    throw new BadRequestException(`Product variant ${item.variantId} not found`);
-                }
-
-                if (variant.availableQuantity < item.quantity) {
+            const txVariantMap = new Map(txLockedVariants.map(v => [String(v.id), v]));
+            for (const item of canonicalItems) {
+                const variant = txVariantMap.get(String(item.variantId));
+                if (!variant || variant.availableQuantity < item.quantity) {
                     throw new BadRequestException(
-                        `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
+                        `Insufficient stock for SKU ${variant?.sku || item.variantId}. Available: ${variant?.availableQuantity ?? 0}, requested: ${item.quantity}.`,
                     );
                 }
             }
@@ -373,13 +413,13 @@ export class OrderService {
                     status: initialOrderStatus,
                     paymentStatus: 'PENDING',
                     items: {
-                        create: dto.items.map((item) => ({
+                        create: canonicalItems.map((item) => ({
                             productId: item.productId,
                             variantId: item.variantId,
                             sellerId: item.sellerId,
                             quantity: item.quantity,
                             pricePerUnit: item.pricePerUnit,
-                            subtotal: item.pricePerUnit * item.quantity,
+                            subtotal: item.subtotal,
                             status: 'PENDING',
                         })),
                     },
@@ -389,7 +429,7 @@ export class OrderService {
 
             // Decrement stock for each variant (Professional approach: RESERVE STOCK vs COMMIT)
             
-            for (const item of dto.items) {
+            for (const item of canonicalItems) {
                 // If COD, we commit immediately. If online, we reserve.
                 const reservationStatus = isCod ? 'COMPLETED' : 'PENDING';
                 
@@ -490,14 +530,28 @@ export class OrderService {
             }
         }
 
-        const price = Number(dto.price);
+        const prefs = await this.settingsService.getStorePreferences();
+        const subscriptionPage = (prefs?.subscriptionPage && typeof prefs.subscriptionPage === 'object')
+            ? (prefs.subscriptionPage as any)
+            : null;
+        const plans = Array.isArray(subscriptionPage?.plans) ? subscriptionPage.plans : [];
+        const matchedPlan = plans.find((p: any) => String(p?.id) === String(dto.planId));
+        if (!matchedPlan) {
+            throw new BadRequestException('Invalid subscription plan selected.');
+        }
+        const price = Number(matchedPlan.price);
+        if (!Number.isFinite(price) || price <= 0) {
+            throw new BadRequestException('Selected subscription plan has invalid pricing.');
+        }
+        const canonicalPlanName = String(matchedPlan.name || dto.planId);
+        const canonicalFrequency = String(matchedPlan.frequency || 'Monthly');
         const orderNumber = `FT-SUB-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
         const metadata = {
             orderKind: 'SUBSCRIPTION',
-            planId: dto.planId,
-            planName: dto.planName,
-            frequency: dto.frequency,
+            planId: String(dto.planId),
+            planName: canonicalPlanName,
+            frequency: canonicalFrequency,
             fruitSelection: dto.fruitSelection,
             deliveryDay: dto.deliveryDay,
         };

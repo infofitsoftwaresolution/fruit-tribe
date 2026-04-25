@@ -78,27 +78,27 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
           >
             {/* Mobile Sheet Handle */}
             <div className="w-full flex justify-center pt-3 pb-1 md:hidden">
-              <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+              <div className="w-12 h-1.5 bg-slate-300 rounded-full" />
             </div>
 
             {/* Header */}
-            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50 shrink-0">
+            <div className="flex items-center justify-between p-3 sm:p-6 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-orange-600 to-amber-600 rounded-full flex items-center justify-center shadow-md">
+                <div className="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-md">
                   <ShoppingBag className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-800">Shopping Cart</h2>
-                  <p className="text-sm text-gray-600">{items.length} items</p>
+                  <h2 className="text-xl font-bold text-slate-900">Shopping Cart</h2>
+                  <p className="text-sm text-slate-600">{items.length} items</p>
                 </div>
               </div>
               <motion.button
                 whileHover={{ scale: 1.1, rotate: 90 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={onClose}
-                className="w-11 h-11 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-11 h-11 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200 transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-5 h-5 text-slate-600" />
               </motion.button>
             </div>
 
@@ -110,11 +110,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                   animate={{ opacity: 1, scale: 1 }}
                   className="flex flex-col items-center justify-center h-full text-center"
                 >
-                  <div className="w-24 h-24 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center mb-4">
-                    <ShoppingBag className="w-12 h-12 text-orange-400" />
+                  <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+                    <ShoppingBag className="w-12 h-12 text-emerald-500" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">Your cart is empty</h3>
-                  <p className="text-gray-600 mb-6">Add some delicious fruits!</p>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Your cart is empty</h3>
+                  <p className="text-slate-600 mb-6">Add your first fresh pick to get started.</p>
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -123,7 +123,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       navigate('/products');
                     }}
                     className={cn(
-                      "px-6 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold shadow-lg",
+                      "px-6 py-3 bg-emerald-600 text-white font-semibold shadow-lg",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >
@@ -139,7 +139,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       exit={{ opacity: 0, x: -20 }}
-                      className="bg-gradient-to-r from-gray-50 to-orange-50/30 rounded-2xl p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-md"
+                      className="bg-slate-50 rounded-2xl p-3 sm:p-4 flex gap-3 sm:gap-4 shadow-sm"
                     >
                       {/* Image */}
                       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-md">
@@ -152,8 +152,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-bold text-gray-800 mb-1 truncate">{item.name}</h3>
-                        <p className="text-lg font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2">
+                        <h3 className="font-bold text-slate-900 mb-1 truncate">{item.name}</h3>
+                        <p className="text-lg font-bold text-slate-900 mb-2">
                           ₹{item.price.toFixed(2)}
                         </p>
 
@@ -170,9 +170,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                    onUpdateQuantity(item.id, -1);
                                  }
                                }}
-                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
+                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-slate-200"
                              >
-                               <Minus className="w-4 h-4 text-gray-600" />
+                               <Minus className="w-4 h-4 text-slate-600" />
                              </motion.button>
                             <input
                                type="text"
@@ -197,7 +197,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                    onUpdateQuantity(item.id, 1 - item.quantity);
                                  }
                                }}
-                               className="w-10 text-center font-semibold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0 text-base"
+                               className="w-10 text-center font-semibold text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 text-base"
                              />
                              <motion.button
                                whileHover={{ scale: 1.1 }}
@@ -211,9 +211,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                    toast.error(`Only ${maxAvailable} units available`);
                                  }
                                }}
-                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-200"
+                               className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-slate-200"
                              >
-                               <Plus className="w-4 h-4 text-gray-600" />
+                               <Plus className="w-4 h-4 text-slate-600" />
                              </motion.button>
                           </div>
 
@@ -235,16 +235,16 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
             {/* Footer */}
             {items.length > 0 && (
-              <div className="border-t border-gray-200 p-3 sm:p-6 bg-gradient-to-r from-orange-50 to-amber-50 shrink-0 mt-auto">
+              <div className="border-t border-slate-200 p-3 sm:p-6 bg-slate-50 shrink-0 mt-auto">
                 {/* Summary */}
                 <div className="space-y-1.5 sm:space-y-3 mb-3 sm:mb-6">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-semibold text-gray-800">₹{subtotal.toFixed(2)}</span>
+                    <span className="text-slate-600">Subtotal:</span>
+                    <span className="font-semibold text-slate-800">₹{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Shipping:</span>
-                    <span className="font-semibold text-gray-800">
+                    <span className="text-slate-600">Shipping:</span>
+                    <span className="font-semibold text-slate-800">
                       {shipping === 0 ? (
                         <span className="text-green-600">FREE</span>
                       ) : (
@@ -253,8 +253,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tax:</span>
-                    <span className="font-semibold text-gray-800">₹{calculatedTax.toFixed(2)}</span>
+                    <span className="text-slate-600">Tax:</span>
+                    <span className="font-semibold text-slate-800">₹{calculatedTax.toFixed(2)}</span>
                   </div>
                   {threshold > 0 && subtotal > 0 && subtotal < threshold && (
                     <motion.p
@@ -265,10 +265,10 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       Add ₹{(threshold - subtotal).toFixed(2)} more for free shipping!
                     </motion.p>
                   )}
-                  <div className="border-t border-gray-300 pt-3">
+                  <div className="border-t border-slate-300 pt-3">
                     <div className="flex justify-between items-center">
-                      <span className="font-bold text-gray-800">Total:</span>
-                      <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                      <span className="font-bold text-slate-800">Total:</span>
+                      <span className="text-2xl font-bold text-slate-900">
                         ₹{total.toFixed(2)}
                       </span>
                     </div>
@@ -282,7 +282,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileTap={{ scale: 0.98 }}
                     onClick={onClose}
                     className={cn(
-                      "flex-1 min-h-[44px] py-2 bg-white border border-gray-200 text-gray-700 text-xs sm:text-sm font-semibold hover:bg-gray-50 transition-all",
+                      "flex-1 min-h-[44px] py-2 bg-white border border-slate-200 text-slate-700 text-xs sm:text-sm font-semibold hover:bg-slate-50 transition-all",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >
@@ -293,7 +293,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     whileTap={{ scale: 0.98 }}
                     onClick={handleViewCart}
                     className={cn(
-                      "flex-[2] min-h-[44px] py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white text-xs sm:text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-2",
+                      "flex-[2] min-h-[44px] py-2 bg-emerald-600 text-white text-xs sm:text-sm font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-1 sm:gap-2",
                       getRoundedClass(theme.buttonStyle)
                     )}
                   >

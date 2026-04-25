@@ -43,3 +43,9 @@ export const motionTapTransition = {
     duration: 0.1,
     ease: 'easeOut' as const,
 };
+
+/** Runtime reduced-motion preference check for animation guards. */
+export function prefersReducedMotion(): boolean {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}

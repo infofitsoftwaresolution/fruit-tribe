@@ -1,12 +1,13 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, ChevronRight } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
-import { cn, getRoundedClass } from '@/lib/utils';
+import { cn, getRoundedClass, prefersReducedMotion } from '@/lib/utils';
 import { useLocation } from 'react-router-dom';
 
 export function BottomCartBar() {
   const { cartItems, setIsCartOpen, theme } = useStore();
   const location = useLocation();
+  const reduceMotion = prefersReducedMotion();
   
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -17,14 +18,14 @@ export function BottomCartBar() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        exit={{ y: 100 }}
+        initial={reduceMotion ? false : { y: 100 }}
+        animate={reduceMotion ? undefined : { y: 0 }}
+        exit={reduceMotion ? undefined : { y: 100 }}
         className="fixed bottom-[88px] left-0 right-0 z-[130] px-4 pointer-events-none md:hidden"
       >
         <div className="max-w-md mx-auto pointer-events-auto">
           <motion.button
-            whileHover={{ scale: 1.02 }}
+            whileHover={reduceMotion ? undefined : { scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setIsCartOpen(true)}
             className={cn(

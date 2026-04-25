@@ -5,7 +5,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
-import { cn, motionTapTransition } from '@/lib/utils';
+import { cn, motionTapTransition, prefersReducedMotion } from '@/lib/utils';
 
 interface NavbarProps {
   cartCount: number;
@@ -19,9 +19,11 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
+  const [searchValue, setSearchValue] = useState('');
+  const reduceMotion = prefersReducedMotion();
 
   const isAdmin = user && ['admin', 'seller'].includes(user.role);
-  const isDeliveryPartner = user?.role === 'delivery_partner';
+  const displayCartBadge = cartCount > 99 ? '99+' : String(cartCount);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,6 +36,11 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   useEffect(() => {
     setIsMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchValue(params.get('q') ?? '');
+  }, [location.pathname, location.search]);
 
   const handleAccountClick = () => {
     if (isAuthenticated) {
@@ -59,9 +66,9 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
     <>
       <div className="fixed top-0 left-0 right-0 z-[100] px-2 sm:px-4 py-3 sm:py-6 md:px-10 pointer-events-none">
         <motion.nav
-          initial={{ y: -100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 100, damping: 20 }}
+          initial={reduceMotion ? false : { y: -100, opacity: 0 }}
+          animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
+          transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 100, damping: 20 }}
           className={cn(
             "max-w-[1400px] mx-auto h-20 rounded-b-[2rem] border-b transition-all duration-500 pointer-events-auto",
             isScrolled
@@ -108,7 +115,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                         ? "text-emerald-600"
                         : "text-slate-500 hover:text-emerald-600"
                     )}
-                    whileHover={{ y: -1 }}
+                    whileHover={reduceMotion ? undefined : { y: -1 }}
                   >
                     {item.label}
                     <motion.span
@@ -129,11 +136,14 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 <input 
                     type="text"
                     placeholder="Search fruits..."
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl pl-11 pr-4 py-2.5 text-xs font-medium focus:ring-2 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none"
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                            const q = (e.target as HTMLInputElement).value.trim();
+                            const q = searchValue.trim();
                             if (q) navigate(`/products?q=${encodeURIComponent(q)}`);
+                            else navigate('/products');
                         }
                     }}
                 />
@@ -142,11 +152,12 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
             {/* High-End Operations Node */}
             <div className="flex items-center gap-2 sm:gap-4">
                {/* Mobile Menu Trigger - Right Side after Icons */}
-               <motion.button
+                <motion.button
                   transition={motionTapTransition}
-                  whileHover={{ scale: 1.1 }}
+                  whileHover={reduceMotion ? undefined : { scale: 1.1 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setIsMenuOpen(true)}
+                  aria-label="Open menu"
                   className={cn(
                     'touch-manipulation lg:hidden h-11 w-11 flex items-center justify-center rounded-2xl transition-all duration-300',
                     'bg-slate-50 text-slate-900',
@@ -156,7 +167,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 </motion.button>
 
               {isAdmin && (
-                <Link to="/admin" className="hidden xl:flex items-center gap-3 px-6 h-10 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-[transform,opacity,background-color] duration-100 ease-out active:scale-[0.98] shadow-xl shadow-emerald-500/20">
+                <Link to="/admin" className="hidden lg:flex items-center gap-3 px-6 h-10 bg-emerald-500 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-[transform,opacity,background-color] duration-100 ease-out active:scale-[0.98] shadow-xl shadow-emerald-500/20">
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   Admin
                 </Link>
@@ -165,9 +176,10 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <motion.button
                   transition={motionTapTransition}
-                  whileHover={{ scale: 1.1, rotate: 15 }}
+                  whileHover={reduceMotion ? undefined : { scale: 1.1, rotate: 15 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={handleAccountClick}
+                  aria-label={isAuthenticated ? 'Open profile' : 'Open login'}
                   className={cn(
                     'touch-manipulation h-11 w-11 flex items-center justify-center rounded-2xl transition-all duration-300',
                     'bg-slate-50 text-slate-900 border border-slate-100',
@@ -178,9 +190,10 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
 
                 <motion.button
                   transition={motionTapTransition}
-                  whileHover={{ scale: 1.05 }}
+                  whileHover={reduceMotion ? undefined : { scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onCartClick}
+                  aria-label="Open cart"
                   className={cn(
                     'touch-manipulation relative h-11 px-3 sm:px-4 flex items-center justify-center gap-2 rounded-2xl transition-all duration-300',
                     'bg-slate-900 text-white shadow-xl shadow-slate-900/10'
@@ -191,12 +204,13 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   <AnimatePresence>
                     {cartCount > 0 && (
                       <motion.span
-                        initial={{ scale: 0, x: 5, y: -5 }}
-                        animate={{ scale: 1, x: 0, y: 0 }}
-                        exit={{ scale: 0 }}
-                        className="absolute -top-1 -right-1 bg-white text-slate-900 text-[8px] font-extrabold rounded-lg w-5 h-5 flex items-center justify-center shadow-lg border border-slate-100"
+                      initial={reduceMotion ? false : { scale: 0, x: 5, y: -5 }}
+                      animate={reduceMotion ? undefined : { scale: 1, x: 0, y: 0 }}
+                      exit={reduceMotion ? undefined : { scale: 0 }}
+                        aria-label={`${cartCount} item${cartCount === 1 ? '' : 's'} in cart`}
+                        className="absolute -top-1.5 -right-1.5 min-w-[1.1rem] h-[1.1rem] px-1 bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center shadow-lg border border-white"
                       >
-                        {cartCount}
+                        {displayCartBadge}
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -212,18 +226,18 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
         {isMenuOpen && (
           <div className="fixed inset-0 z-[150] flex justify-start">
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={reduceMotion ? false : { opacity: 0 }}
+              animate={reduceMotion ? undefined : { opacity: 1 }}
+              exit={reduceMotion ? undefined : { opacity: 0 }}
               onClick={() => setIsMenuOpen(false)}
               className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
             />
 
             <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              initial={reduceMotion ? false : { x: '-100%' }}
+              animate={reduceMotion ? undefined : { x: 0 }}
+              exit={reduceMotion ? undefined : { x: '-100%' }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
               className="relative w-[300px] sm:w-[350px] bg-white h-full shadow-2xl flex flex-col overflow-hidden"
             >
               <div className="p-6 flex items-center justify-between border-b border-slate-100">
@@ -246,8 +260,8 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 {navItems.map((item, idx) => (
                   <Link key={item.path} to={item.path} onClick={() => setIsMenuOpen(false)}>
                     <motion.div
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
+                      initial={reduceMotion ? false : { opacity: 0, x: -20 }}
+                      animate={reduceMotion ? undefined : { opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.05 }}
                       className={cn(
                         "flex items-center gap-4 p-4 rounded-2xl transition-all font-bold min-h-[56px]",
@@ -311,12 +325,14 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                     <User className="h-4 w-4" />
                     Profile
                   </button>
-                  <button
+                  <Link
+                    to="/contact"
+                    onClick={() => setIsMenuOpen(false)}
                     className="h-16 bg-white border border-slate-200 text-slate-900 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all"
                   >
                     <Globe className="h-4 w-4" />
-                    En-US
-                  </button>
+                    Support
+                  </Link>
                 </div>
               </div>
             </motion.div>

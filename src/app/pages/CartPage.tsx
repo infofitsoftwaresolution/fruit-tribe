@@ -49,23 +49,23 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
 
   if (items.length === 0) {
     return (
-      <div className="pt-28 pb-16 min-h-screen bg-gradient-to-b from-white to-orange-50 flex items-center justify-center">
+      <div className="pt-28 pb-16 min-h-screen bg-slate-50 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="text-center max-w-md mx-auto px-4"
         >
-          <div className="w-32 h-32 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <ShoppingBag className="w-16 h-16 text-orange-400" />
+          <div className="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <ShoppingBag className="w-12 h-12 text-emerald-500" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">Your cart is empty</h1>
-          <p className="text-gray-600 mb-8">Looks like you haven't added anything to your cart yet.</p>
+          <h1 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Your cart is empty</h1>
+          <p className="text-slate-500 mb-8">Add fresh picks from the catalog to get started.</p>
           <Link to="/products">
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               className={cn(
-                "px-8 py-4 bg-gradient-to-r from-orange-600 to-amber-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 mx-auto",
+                "px-8 py-4 bg-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 mx-auto",
                 getRoundedClass(theme.buttonStyle)
               )}
             >

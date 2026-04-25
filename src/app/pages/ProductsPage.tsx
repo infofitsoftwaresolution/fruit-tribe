@@ -174,6 +174,18 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     return list;
   }, [categories]);
 
+  const resetAllFilters = () => {
+    setSelectedCategoryId('');
+    setSearchQuery('');
+    setSortOption('relevance');
+    setAvailabilityFilter('all');
+    setPriceFilter('all');
+    setShowOffersOnly(false);
+    setShowSeasonalOnly(false);
+    setShowCodOnly(false);
+    setProductTab('all');
+  };
+
   return (
     <div className="pt-24 sm:pt-32 pb-16 sm:pb-32 min-h-screen bg-white">
       {/* Background Manifest Elements */}
@@ -184,7 +196,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
 
       <div className="relative z-10 max-w-[1400px] mx-auto px-3 sm:px-6 md:px-12">
         {/* Cinematic Header Orchestration */}
-        <div className="mb-12 sm:mb-24 space-y-6 sm:space-y-8">
+        <div className="mb-8 sm:mb-16 space-y-6 sm:space-y-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-12">
             <motion.div
               initial={{ opacity: 0, x: -40 }}
@@ -219,7 +231,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               <div className="relative z-10 text-right">
                 <p className="text-[10px] font-semibold text-emerald-500 tracking-wide mb-1">Available products</p>
                 <p className="text-xl sm:text-2xl font-black text-white tracking-tight sm:tracking-tighter leading-none">{displayedProducts.length} products</p>
-                <p className="text-[11px] font-medium text-slate-300 mt-1">Currently in stock</p>
+                <p className="text-[11px] font-medium text-slate-300 mt-1">Showing {displayedProducts.length} of {storeProducts.length}</p>
               </div>
             </motion.div>
           </div>
@@ -318,15 +330,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               <option value="500_plus">Price: Above Rs 500</option>
             </select>
             <button
-              onClick={() => {
-                setSortOption('relevance');
-                setAvailabilityFilter('all');
-                setPriceFilter('all');
-                setShowOffersOnly(false);
-                setShowSeasonalOnly(false);
-                setShowCodOnly(false);
-                setProductTab('all');
-              }}
+              onClick={resetAllFilters}
               className="h-12 px-4 bg-slate-900 text-white rounded-2xl text-sm font-semibold hover:bg-emerald-500 transition-colors"
             >
               Reset all filters
@@ -429,10 +433,37 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               ))}
             </motion.div>
           )}
-          {error && (
-            <motion.div key="error-msg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="py-40 text-center text-red-500 font-bold uppercase tracking-widest">{error}</motion.div>
-          )}
-          {!loading && !error && displayedProducts.length > 0 ? (
+          {error ? (
+            <motion.div
+              key="error-msg"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="py-20 sm:py-32 text-center space-y-5"
+            >
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Unable to load products right now</h3>
+              <p className="text-slate-500 text-sm font-medium max-w-xl mx-auto">
+                There was a temporary network issue. Please retry to continue shopping.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-slate-900 text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-500 transition-colors"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={resetAllFilters}
+                  className="px-6 py-3 bg-white text-slate-700 border border-slate-200 rounded-2xl text-xs font-black uppercase tracking-widest hover:border-slate-400 transition-colors"
+                >
+                  Clear filters
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">{error}</p>
+            </motion.div>
+          ) : !loading && displayedProducts.length > 0 ? (
             <motion.div
               layout
               key="products-grid"
@@ -495,17 +526,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 </p>
               </div>
               <button
-                onClick={() => {
-                  setSelectedCategoryId('');
-                  setSearchQuery('');
-                  setSortOption('relevance');
-                  setAvailabilityFilter('all');
-                  setPriceFilter('all');
-                  setShowOffersOnly(false);
-                  setShowSeasonalOnly(false);
-                  setShowCodOnly(false);
-                  setProductTab('all');
-                }}
+                onClick={resetAllFilters}
                 className="px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase sm:uppercase tracking-[0.08em] sm:tracking-widest hover:bg-emerald-500 transition-all shadow-3xl"
               >
                 Clear all filters

@@ -10,10 +10,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         private readonly config: ConfigService,
         private readonly prisma: PrismaService,
     ) {
+        const jwtSecret = config.get<string>('JWT_SECRET');
+        if (!jwtSecret) {
+            throw new Error('JWT_SECRET is required');
+        }
+        const cookieExtractor = (req: { headers?: { cookie?: string } } | undefined): string | null => {
+            const raw = req?.headers?.cookie;
+            if (!raw) return null;
+            const tokenCookie = raw
+                .split(';')
+                .map((part) => part.trim())
+                .find((part) => part.startsWith('ft_access_token='));
+            if (!tokenCookie) return null;
+            return decodeURIComponent(tokenCookie.substring('ft_access_token='.length));
+        };
         super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            jwtFromRequest: ExtractJwt.fromExtractors([
+                ExtractJwt.fromAuthHeaderAsBearerToken(),
+                cookieExtractor,
+            ]),
             ignoreExpiration: false,
-            secretOrKey: config.get<string>('JWT_SECRET') || 'default-jwt-secret',
+            secretOrKey: jwtSecret,
         });
     }
 

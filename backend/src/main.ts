@@ -10,6 +10,9 @@ import { join } from 'path';
 
 async function bootstrap() {
     const logger = new Logger('Bootstrap');
+    if (!process.env.JWT_SECRET || !process.env.JWT_SECRET.trim()) {
+        throw new Error('Missing required environment variable: JWT_SECRET');
+    }
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
     // Serve Static Assets (Uploads)
