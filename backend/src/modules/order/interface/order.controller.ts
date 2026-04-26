@@ -53,7 +53,7 @@ export class OrderController {
         // If the order is created with payment status PENDING, generate a payment link automatically
         if (order.paymentStatus === 'PENDING') {
             try {
-                const { paymentLink } = await this.paymentService.createPaymentLink(
+                const { paymentLink, emailDispatch } = await this.paymentService.createPaymentLink(
                     order.id,
                     order.userId,
                     Math.round(Number(order.payableAmount) * 100), // convert to paise
@@ -63,7 +63,7 @@ export class OrderController {
                         contact: dto.customerPhone,
                     }
                 );
-                return { ...order, paymentLink };
+                return { ...order, paymentLink, emailDispatch };
             } catch (err: any) {
                 // Return order even if link generation fails (can be generated later)
                 return { ...order, paymentLinkError: err.message };
@@ -144,6 +144,7 @@ export class OrderController {
             req.user.id,
             dto.amountInPaise,
             dto.customerDetails,
+            req.user.role,
         );
     }
 

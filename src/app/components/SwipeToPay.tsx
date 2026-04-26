@@ -7,11 +7,12 @@ interface SwipeToPayProps {
   onSuccess: () => void;
   submitting?: boolean;
   disabled?: boolean;
+  disabledLabel?: string;
   className?: string;
   themeStyle?: string;
 }
 
-export function SwipeToPay({ onSuccess, submitting, disabled, className, themeStyle }: SwipeToPayProps) {
+export function SwipeToPay({ onSuccess, submitting, disabled, disabledLabel, className, themeStyle }: SwipeToPayProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dragX = useMotionValue(0);
   const [complete, setComplete] = useState(false);
@@ -55,7 +56,7 @@ export function SwipeToPay({ onSuccess, submitting, disabled, className, themeSt
       )}
     >
       <motion.div style={{ opacity: textOpacity }} className="absolute text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-white/50 z-10 pointer-events-none pr-8">
-        {submitting ? 'Placing Order...' : disabled ? 'Fix Address to Pay' : 'Swipe to Pay'}
+        {submitting ? 'Placing Order...' : disabled ? (disabledLabel || 'Complete Required Fields') : 'Swipe to Pay'}
       </motion.div>
       
       {/* Expanding progress background */}

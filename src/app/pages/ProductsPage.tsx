@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ProductCard } from '@/app/components/ProductCard';
 import { Search, SlidersHorizontal, Grid3X3, List, Package, X, ChevronDown } from 'lucide-react';
 import { useProducts } from '@/app/hooks/useProducts';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCategories, getAvailableOffers, type Category, type AvailableOffer } from '@/lib/api';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { productHasBulkPricing } from '@/lib/pricing';
+import { useStore } from '@/app/context/StoreContext';
+
+const PLACEHOLDER_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
 
 interface ProductsPageProps {
   onAddToCart: (product: Product) => void;
@@ -16,6 +19,7 @@ interface ProductsPageProps {
 export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { cartItems, handleUpdateQuantity } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -74,6 +78,10 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     sortBy: 'createdAt',
     sortOrder: 'desc',
   });
+  const { products: allCatalogProducts } = useProducts({
+    limit: 200,
+    showOutOfSeason: true,
+  });
 
   const filteredProducts = useMemo(() => {
     let next = storeProducts;
@@ -125,10 +133,25 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     return next;
   }, [filteredProducts, availabilityFilter, priceFilter, showOffersOnly, showSeasonalOnly, showCodOnly, productTab, sortOption]);
 
-  const categoryOptions = useMemo(() => [
-    { id: '', name: 'All products' },
-    ...categories.map((c) => ({ id: c.id, name: c.name })),
-  ], [categories]);
+  const categoryOptions = useMemo(() => {
+    const liveCategoryNames = new Set(
+      allCatalogProducts
+        .map((p) => (p.category || '').trim().toLowerCase())
+        .filter(Boolean),
+    );
+    const liveCategories = categories.filter((c) => liveCategoryNames.has((c.name || '').trim().toLowerCase()));
+    const usableCategories = liveCategories.length > 0 ? liveCategories : categories;
+    return [
+      { id: '', name: 'All products' },
+      ...usableCategories.map((c) => ({ id: c.id, name: c.name })),
+    ];
+  }, [categories, allCatalogProducts]);
+
+  useEffect(() => {
+    if (!selectedCategoryId) return;
+    const stillExists = categoryOptions.some((c) => String(c.id) === String(selectedCategoryId));
+    if (!stillExists) setSelectedCategoryId('');
+  }, [selectedCategoryId, categoryOptions]);
 
   const hasActiveFilters =
     sortOption !== 'relevance' || availabilityFilter !== 'all' || priceFilter !== 'all' ||
@@ -410,11 +433,12 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
 
           {!loading && !error && displayedProducts.length > 0 && (
             <motion.div
-              key="grid"
+              key={`products-${viewMode}`}
               layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
               className={cn(
                 'grid gap-4',
                 viewMode === 'grid'
@@ -431,26 +455,126 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.3) }}
                 >
-                  <ProductCard
-                    id={product.id}
-                    name={product.name}
-                    price={product.price}
-                    stock={product.stock}
-                    image={product.image}
-                    description={product.description}
-                    badge={product.badge}
-                    isSeasonal={product.isSeasonal}
-                    bulkDiscountQty={product.bulkDiscountQty}
-                    bulkDiscountPrice={product.bulkDiscountPrice}
-                    onAddToCart={onAddToCart}
-                    product={product}
-                    liveOfferHint={getOfferHintForProduct(product)}
-                    harvestDate={product.harvestDate}
-                    farmName={product.farmName}
-                    farmState={product.farmState}
-                    freshnessScore={product.freshnessScore}
-                    ripenessStage={product.ripenessStage}
-                  />
+                  {viewMode === 'list' ? (
+                    <div className="bg-white rounded-2xl border border-slate-200 hover:border-emerald-200 hover:shadow-sm transition-all p-3 sm:p-4">
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <Link to={`/product/${product.id}`} className="block shrink-0">
+                          <img
+                            src={(product.image || '').trim() || PLACEHOLDER_PRODUCT_IMAGE}
+                            alt={product.name}
+                            loading="lazy"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = PLACEHOLDER_PRODUCT_IMAGE;
+                            }}
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover bg-slate-100"
+                          />
+                        </Link>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <Link
+                                to={`/product/${product.id}`}
+                                className="text-sm sm:text-base font-semibold text-slate-900 hover:text-emerald-700 line-clamp-2"
+                              >
+                                {product.name}
+                              </Link>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                {(product.category || 'Fresh produce')} · {product.unit || 'kg'}
+                              </p>
+                            </div>
+
+                            {(product.availableStock ?? product.stock ?? 0) > 0 ? (
+                              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                                In stock
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full shrink-0">
+                                Sold out
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-end justify-between mt-3 gap-2">
+                            <div>
+                              <p className="text-lg font-bold text-slate-900">₹{Number(product.price || 0)}</p>
+                              <p className="text-[11px] text-slate-500">per {product.unit || 'kg'}</p>
+                            </div>
+
+                            {(() => {
+                              const available = product.availableStock ?? product.stock ?? 0;
+                              const cartQty = cartItems.find((item) => String(item.id) === String(product.id))?.quantity ?? 0;
+
+                              if (cartQty > 0 && available > 0) {
+                                return (
+                                  <div className="flex items-center gap-1 h-9 px-1 rounded-xl border border-slate-200 bg-white shadow-sm">
+                                    <motion.button
+                                      whileTap={{ scale: 0.9 }}
+                                      type="button"
+                                      onClick={() => handleUpdateQuantity(product.id, -1)}
+                                      className="h-7 w-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-base font-bold"
+                                    >
+                                      −
+                                    </motion.button>
+                                    <span className="min-w-[1.5rem] text-center text-sm font-bold text-slate-900">{cartQty}</span>
+                                    <motion.button
+                                      whileTap={{ scale: 0.9 }}
+                                      type="button"
+                                      onClick={() => {
+                                        if (cartQty >= available) return;
+                                        handleUpdateQuantity(product.id, 1);
+                                      }}
+                                      className="h-7 w-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-base font-bold"
+                                    >
+                                      +
+                                    </motion.button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={available <= 0}
+                                  onClick={() => onAddToCart(product)}
+                                  className={cn(
+                                    'h-9 px-4 rounded-xl text-xs font-semibold transition-colors',
+                                    available <= 0
+                                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                  )}
+                                >
+                                  Add
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <ProductCard
+                      id={product.id}
+                      name={product.name}
+                      price={product.price}
+                      stock={product.stock}
+                      image={product.image}
+                      description={product.description}
+                      badge={product.badge}
+                      isSeasonal={product.isSeasonal}
+                      bulkDiscountQty={product.bulkDiscountQty}
+                      bulkDiscountPrice={product.bulkDiscountPrice}
+                      onAddToCart={onAddToCart}
+                      product={product}
+                      liveOfferHint={getOfferHintForProduct(product)}
+                      harvestDate={product.harvestDate}
+                      farmName={product.farmName}
+                      farmState={product.farmState}
+                      freshnessScore={product.freshnessScore}
+                      ripenessStage={product.ripenessStage}
+                    />
+                  )}
                 </motion.div>
               ))}
             </motion.div>

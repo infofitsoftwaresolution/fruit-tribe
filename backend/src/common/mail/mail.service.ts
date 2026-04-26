@@ -264,5 +264,54 @@ export class MailService {
             throw err;
         }
     }
+
+    async sendManualOrderPaymentLinkEmail(payload: {
+        to: string;
+        customerName: string;
+        orderNumber: string;
+        payableAmount: number;
+        items: Array<{ name: string; quantity: number; unitPrice: number }>;
+        paymentLink: string;
+    }): Promise<void> {
+        if (!this.transporter) {
+            this.logger.warn(`Cannot send manual order payment link email to ${payload.to}: transporter not configured.`);
+            return;
+        }
+        const from =
+            this.config.get<string>('SMTP_FROM') ||
+            `"The Fruit Tribe" <${this.config.get<string>('SMTP_USER')}>`;
+
+        const subject = `Payment link for order #${payload.orderNumber}`;
+        const itemLines = payload.items.map(
+            (item) => `- ${item.name} x ${item.quantity} @ ₹${item.unitPrice} each`,
+        );
+        const text =
+            `Hi ${payload.customerName},\n\n` +
+            `Your order #${payload.orderNumber} has been created by The Fruit Tribe.\n` +
+            `Amount payable: ₹${payload.payableAmount}\n\n` +
+            `Order items:\n${itemLines.join('\n')}\n\n` +
+            `Complete payment using this secure link:\n${payload.paymentLink}\n\n` +
+            `Once payment is successful, your order will be confirmed automatically.\n\n` +
+            `Thank you,\nThe Fruit Tribe`;
+        const html = `<p>Hi ${payload.customerName},</p>
+<p>Your order <strong>#${payload.orderNumber}</strong> has been created by <strong>The Fruit Tribe</strong>.</p>
+<p><strong>Amount payable:</strong> ₹${payload.payableAmount}</p>
+<p><strong>Order items:</strong></p>
+<ul>
+${payload.items.map((item) => `<li>${item.name} x ${item.quantity} @ ₹${item.unitPrice} each</li>`).join('')}
+</ul>
+<p>Complete payment using this secure link:</p>
+<p><a href="${payload.paymentLink}" target="_blank" rel="noopener noreferrer">${payload.paymentLink}</a></p>
+<p>Once payment is successful, your order will be confirmed automatically.</p>
+<p>Thank you,<br/>The Fruit Tribe</p>`;
+
+        try {
+            await this.transporter.sendMail({ from, to: payload.to, subject, text, html });
+            this.logger.log(`Manual order payment link email sent to ${payload.to} for order ${payload.orderNumber}`);
+        } catch (err: any) {
+            this.logger.error(`Failed to send manual order payment link email to ${payload.to}: ${err?.message || err}`);
+            throw err;
+        }
+    }
 }
 

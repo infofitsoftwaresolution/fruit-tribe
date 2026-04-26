@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Heart, MapPin, Leaf, CalendarDays, Tag } from 'lucide-react';
+import { ShoppingCart, Heart, MapPin, Leaf, CalendarDays, Tag, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
@@ -10,6 +10,22 @@ import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
+const PDP_META_PREFIX = '[PDP_META]';
+const PDP_META_LEGACY_PREFIX = '[PDP_META';
+
+function sanitizeCardDescription(value?: string): string {
+  if (!value) return '';
+  if (!value.startsWith(PDP_META_LEGACY_PREFIX)) return value;
+  try {
+    const payload = value.startsWith(PDP_META_PREFIX)
+      ? value.slice(PDP_META_PREFIX.length)
+      : value.slice(PDP_META_LEGACY_PREFIX.length);
+    const parsed = JSON.parse(payload) as { details?: string };
+    return (parsed.details || '').trim();
+  } catch {
+    return '';
+  }
+}
 
 /* ── Image component ── */
 function ProductImage({ src, alt, isOutOfStock }: { src: string; alt: string; isOutOfStock: boolean }) {
@@ -86,6 +102,7 @@ export const ProductCard = memo(({
 }: ProductCardProps) => {
   const [isLiked, setIsLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
+  const [isPackSelectOpen, setIsPackSelectOpen] = useState(false);
 
   const effectiveFarmName       = farmName       ?? (product as any)?.farmName       ?? product?.vendor ?? null;
   const effectiveFarmState      = farmState      ?? (product as any)?.farmState      ?? null;
@@ -140,6 +157,7 @@ export const ProductCard = memo(({
   const lowStock     = !isOutOfStock && avail <= (product?.lowStockThreshold ?? 10);
   const isOrganicProduct = Boolean(product?.isOrganic ?? isOrganic);
   const cartQty      = cartItems.find((item) => String(item.id) === String(id))?.quantity ?? 0;
+  const cleanDescription = useMemo(() => sanitizeCardDescription(description), [description]);
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -299,9 +317,9 @@ export const ProductCard = memo(({
           <h3 className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5">
             {name}
           </h3>
-          {description && (
+          {cleanDescription && (
             <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-1">
-              {description}
+              {cleanDescription}
             </p>
           )}
         </Link>
@@ -317,17 +335,28 @@ export const ProductCard = memo(({
         {/* Pack selector if bulk */}
         {!isOutOfStock && hasBulk && (
           <div className="mt-2">
+            <div className="relative">
             <select
               value={bulkDealMode ? 'bulk' : packKind}
-              onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value as 'retail' | 'bulk'); }}
+              onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value as 'retail' | 'bulk'); setIsPackSelectOpen(false); }}
+              onFocus={() => setIsPackSelectOpen(true)}
+              onBlur={() => setIsPackSelectOpen(false)}
+              onClick={() => setIsPackSelectOpen((prev) => !prev)}
               disabled={!!bulkDealMode}
-              className="w-full h-8 px-2.5 text-[11px] text-slate-900 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+              className="w-full h-8 pl-2.5 pr-8 text-[11px] text-slate-900 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 appearance-none"
             >
               {!bulkDealMode && <option value="retail">1 {unitLabel} · {formatInr(retailRef)}</option>}
               {bulkQty != null && bulkPriceVal != null && (
                 <option value="bulk">{bulkQty} {unitLabel} pack · {formatInr(Number(bulkPriceVal))} total</option>
               )}
             </select>
+            <ChevronDown
+              className={cn(
+                'pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform',
+                isPackSelectOpen && 'rotate-180'
+              )}
+            />
+            </div>
           </div>
         )}
 

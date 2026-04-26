@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AdminSidebar } from '@/app/components/admin/AdminSidebar';
 import { AdminHeader } from '@/app/components/admin/AdminHeader';
@@ -8,6 +8,15 @@ import { AdminDataProvider } from '@/app/context/AdminDataContext';
 
 export function AdminLayout() {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const { pathname } = useLocation();
+    const mainScrollRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        // Reset admin content panel scroll on each route change.
+        if (mainScrollRef.current) {
+            mainScrollRef.current.scrollTo({ top: 0, behavior: 'auto' });
+        }
+    }, [pathname]);
 
     return (
         <AdminDataProvider>
@@ -28,7 +37,7 @@ export function AdminLayout() {
 
             <div className="flex flex-1 flex-col min-w-0 h-full overflow-hidden relative z-10">
                 <AdminHeader onOpenSidebar={() => setMobileNavOpen(true)} />
-                <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8 py-6 md:py-8 max-w-[1400px] mx-auto w-full relative z-10 scroll-smooth custom-scrollbar">
+                <main ref={mainScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8 py-6 md:py-8 max-w-[1400px] mx-auto w-full relative z-10 scroll-smooth custom-scrollbar">
                     <Outlet />
                 </main>
             </div>

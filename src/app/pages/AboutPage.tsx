@@ -7,6 +7,7 @@ import { Testimonials } from '@/app/components/Testimonials';
 import { StatsSection } from '@/app/components/StatsSection';
 import { useStore } from '@/app/context/StoreContext';
 import { Link } from 'react-router-dom';
+import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 
 const VALUES = [
   {
@@ -72,7 +73,8 @@ const MILESTONES = [
 ];
 
 export function AboutPage() {
-  const { theme } = useStore();
+  const { theme, preferences } = useStore();
+  const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
   const storyImage =
     theme.aboutPageImage ||
     'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1080&q=80';
@@ -322,12 +324,14 @@ export function AboutPage() {
                 Start shopping
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
-              <Link
-                to="/subscription"
-                className="inline-flex items-center gap-2 h-11 px-6 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition-colors"
-              >
-                View plans
-              </Link>
+              {subscriptionPageEnabled && (
+                <Link
+                  to="/subscription"
+                  className="inline-flex items-center gap-2 h-11 px-6 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition-colors"
+                >
+                  View plans
+                </Link>
+              )}
             </div>
           </motion.div>
         </div>

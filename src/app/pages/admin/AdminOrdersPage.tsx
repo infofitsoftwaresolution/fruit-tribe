@@ -47,6 +47,31 @@ export function AdminOrdersPage() {
         selectedProducts: [] as { productId: string | number; quantity: number }[]
     });
     const [freshEntryProductSearch, setFreshEntryProductSearch] = useState('');
+    const [isPaymentEmailModalOpen, setIsPaymentEmailModalOpen] = useState(false);
+    const [paymentLinkTargetOrder, setPaymentLinkTargetOrder] = useState<(Order & { userEmail?: string; userPhone?: string }) | null>(null);
+    const [paymentLinkEmail, setPaymentLinkEmail] = useState('');
+
+    const copyText = useCallback(async (text: string) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                return ok;
+            } catch {
+                return false;
+            }
+        }
+    }, []);
 
     const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
@@ -109,6 +134,8 @@ export function AdminOrdersPage() {
             courierName,
             vendorNames,
             distanceKm: extractDistanceKm(api),
+            userEmail: api.user?.email || '',
+            userPhone: api.user?.phone || '',
         } as any;
     }
 
@@ -414,8 +441,13 @@ export function AdminOrdersPage() {
             toast.success(`Order #${result.orderNumber} created successfully.`);
             
             if (result.paymentLink) {
-                navigator.clipboard.writeText(result.paymentLink);
-                toast.success('Payment link generated and copied to clipboard.');
+                const copied = await copyText(result.paymentLink);
+                toast.success(copied ? 'Payment link generated and copied to clipboard.' : `Payment link generated: ${result.paymentLink}`);
+                if (result.emailDispatch?.sent) {
+                    toast.success(`Payment link email sent to ${formData.email}.`);
+                } else if (result.emailDispatch?.sent === false) {
+                    toast.error(`Email sending failed for ${formData.email}: ${result.emailDispatch?.error || 'Invalid email or SMTP issue'}`);
+                }
             }
 
             setIsModalOpen(false);
@@ -424,21 +456,42 @@ export function AdminOrdersPage() {
         }
     };
 
-    const handleGeneratePaymentLink = async (order: Order | any) => {
+    const handleGeneratePaymentLink = (order: Order | any) => {
         if (!order) return;
-        const amountInPaise = Math.round(order.total * 100);
-        
+        const currentEmail =
+            String((order as any).userEmail || (order as any).user?.email || '').trim();
+        setPaymentLinkTargetOrder(order as any);
+        setPaymentLinkEmail(currentEmail);
+        setIsPaymentEmailModalOpen(true);
+    };
+
+    const handleConfirmPaymentLinkEmail = () => {
+        if (!paymentLinkTargetOrder) return;
+        const editedEmail = paymentLinkEmail.trim();
+        if (!editedEmail) {
+            toast.error('Email is required to send payment link.');
+            return;
+        }
+        const amountInPaise = Math.round(paymentLinkTargetOrder.total * 100);
+
         toast.promise(
-            generateOrderPaymentLink(order.id, amountInPaise, {
-                name: order.customer,
-                email: (order as any).user?.email,
-                contact: (order as any).user?.phone
+            generateOrderPaymentLink(paymentLinkTargetOrder.id, amountInPaise, {
+                name: paymentLinkTargetOrder.customer,
+                email: editedEmail,
+                contact: (paymentLinkTargetOrder as any).userPhone || (paymentLinkTargetOrder as any).user?.phone
             }),
             {
                 loading: 'Initializing Razorpay Telemetry…',
                 success: (data) => {
                     if (data.paymentLink) {
-                        navigator.clipboard.writeText(data.paymentLink);
+                        void copyText(data.paymentLink);
+                        setIsPaymentEmailModalOpen(false);
+                        if (data.emailDispatch?.sent) {
+                            return `Link copied and emailed to ${editedEmail}`;
+                        }
+                        if (data.emailDispatch?.sent === false) {
+                            return `Link copied. Email failed: ${data.emailDispatch?.error || 'invalid email or SMTP issue'}`;
+                        }
                         return `Link copied: ${data.paymentLink}`;
                     }
                     return 'Payment link generated.';
@@ -994,6 +1047,73 @@ export function AdminOrdersPage() {
                 </AnimatePresence>,
                 document.body
             )}
+            {isPaymentEmailModalOpen && paymentLinkTargetOrder && createPortal(
+                <AnimatePresence>
+                    <div className="fixed inset-0 z-[140] flex items-center justify-center p-6">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+                            onClick={() => setIsPaymentEmailModalOpen(false)}
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.96 }}
+                            transition={{ type: 'spring', stiffness: 240, damping: 24 }}
+                            className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Send payment link</h3>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        Order #{(paymentLinkTargetOrder as any).orderNumber || paymentLinkTargetOrder.id}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPaymentEmailModalOpen(false)}
+                                    className="h-10 w-10 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:border-slate-300 transition-colors"
+                                >
+                                    <X className="h-4 w-4 mx-auto" />
+                                </button>
+                            </div>
+
+                            <div className="mt-6 space-y-2">
+                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">
+                                    Customer email
+                                </label>
+                                <input
+                                    type="email"
+                                    value={paymentLinkEmail}
+                                    onChange={(e) => setPaymentLinkEmail(e.target.value)}
+                                    placeholder="customer@example.com"
+                                    className="w-full h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                                />
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPaymentEmailModalOpen(false)}
+                                    className="h-11 px-5 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleConfirmPaymentLinkEmail}
+                                    className="h-11 px-6 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700"
+                                >
+                                    Send link
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                </AnimatePresence>,
+                document.body
+            )}
             {/* Direct Entry Node: Manual Order Generation */}
             {isModalOpen && createPortal(
                 <AnimatePresence>
@@ -1034,35 +1154,35 @@ export function AdminOrdersPage() {
                                 <div className="space-y-8">
                                     <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
                                         <div className="h-1.5 w-8 bg-blue-500 rounded-full" />
-                                        Identity Parameters
+                                        Customer Details
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Receiver Moniker</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Name</label>
                                             <input
                                                 required
-                                                placeholder="Full Name / Entity Name"
+                                                placeholder="Enter full customer name"
                                                 value={formData.customer}
                                                 onChange={e => setFormData({ ...formData, customer: e.target.value })}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
                                             />
                                         </div>
                                         <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Communication Channel</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
                                             <input
                                                 required
                                                 type="email"
-                                                placeholder="entity@domain.com"
+                                                placeholder="customer@example.com"
                                                 value={formData.email}
                                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
                                             />
                                         </div>
                                         <div className="space-y-3 md:col-span-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telemetry Contact</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
                                             <input
                                                 required
-                                                placeholder="+91 XXXXX XXXXX"
+                                                placeholder="+91 98765 43210"
                                                 value={formData.phone}
                                                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
@@ -1075,34 +1195,34 @@ export function AdminOrdersPage() {
                                 <div className="space-y-8">
                                     <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
                                         <div className="h-1.5 w-8 bg-orange-500 rounded-full" />
-                                        Logistics Coordinates
+                                        Delivery Address
                                     </h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                         <div className="space-y-3 md:col-span-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Terminal Address (Primary)</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Address Line 1</label>
                                             <input
                                                 required
-                                                placeholder="Street, Hub, Sector"
+                                                placeholder="House/Flat, Street, Area"
                                                 value={(formData as any).addressLine1 || ''}
                                                 onChange={e => setFormData({ ...formData, addressLine1: e.target.value } as any)}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
                                             />
                                         </div>
                                         <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City Hub</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">City</label>
                                             <input
                                                 required
-                                                placeholder="Metro / City"
+                                                placeholder="Enter city name"
                                                 value={(formData as any).city || ''}
                                                 onChange={e => setFormData({ ...formData, city: e.target.value } as any)}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
                                             />
                                         </div>
                                         <div className="space-y-3">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Regional Code</label>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Pincode</label>
                                             <input
                                                 required
-                                                placeholder="6-Digit PIN"
+                                                placeholder="Enter 6-digit pincode"
                                                 value={(formData as any).pincode || ''}
                                                 onChange={e => setFormData({ ...formData, pincode: e.target.value } as any)}
                                                 className="w-full h-18 rounded-3xl bg-slate-50 border border-slate-100 px-8 text-sm font-black text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500"
@@ -1116,14 +1236,14 @@ export function AdminOrdersPage() {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
                                             <div className="h-1.5 w-8 bg-emerald-500 rounded-full" />
-                                            Asset Allocation
+                                            Add Products
                                         </h3>
                                     </div>
                                     <div className="relative group">
                                         <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-emerald-500 transition-all duration-500" />
                                         <input
                                             type="text"
-                                            placeholder="Search inventory matrix by name, merchant or SKU..."
+                                            placeholder="Search products by name, seller, or SKU..."
                                             value={freshEntryProductSearch}
                                             onChange={(e) => setFreshEntryProductSearch(e.target.value)}
                                             className="w-full h-16 pl-16 pr-8 rounded-[1.25rem] border border-slate-100 bg-slate-50 text-[13px] font-bold text-slate-900 focus:bg-white focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 outline-none transition-all duration-500"

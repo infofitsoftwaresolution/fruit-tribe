@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { SettingsService } from '../../settings/application/settings.service';
+import { MailService } from '../../../common/mail/mail.service';
 import * as crypto from 'crypto';
 
 // Razorpay package uses module.exports (no default); use require so constructor is available
@@ -16,7 +18,71 @@ export class PaymentService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly settingsService: SettingsService,
+        private readonly mailService: MailService,
     ) {}
+
+    private async finalizeOrderPayment(params: {
+        orderId: string;
+        transactionId: string;
+        amount: number;
+        currency: string;
+        gatewayResponse: Record<string, unknown>;
+    }): Promise<void> {
+        const { orderId, transactionId, amount, currency, gatewayResponse } = params;
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new BadRequestException('Order not found');
+        if (String(order.paymentStatus).toUpperCase() === 'PAID') return;
+
+        const existingPayment = await this.prisma.payment.findUnique({
+            where: { transactionId },
+        });
+        if (existingPayment) return;
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.payment.create({
+                data: {
+                    orderId,
+                    transactionId,
+                    paymentMethod: 'razorpay',
+                    amount,
+                    currency,
+                    gatewayResponse: gatewayResponse as Prisma.InputJsonValue,
+                    status: 'CAPTURED',
+                },
+            });
+
+            await tx.order.update({
+                where: { id: orderId },
+                data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
+            });
+
+            const reservations = await tx.stockReservation.findMany({
+                where: { orderId, status: 'PENDING' },
+            });
+
+            for (const res of reservations) {
+                await tx.stockReservation.update({
+                    where: { id: res.id },
+                    data: { status: 'COMPLETED' },
+                });
+                await tx.productVariant.update({
+                    where: { id: res.variantId },
+                    data: {
+                        stockQuantity: { decrement: res.quantity },
+                        reservedQuantity: { decrement: res.quantity },
+                    },
+                });
+                await tx.inventoryLog.create({
+                    data: {
+                        variantId: res.variantId,
+                        changeAmount: -res.quantity,
+                        reason: 'PAYMENT_SUCCESS_COMMIT',
+                        referenceId: orderId,
+                    },
+                });
+            }
+        });
+    }
 
     private getRazorpayInstance(keyId: string, keySecret: string) {
         const cacheKey = `${keyId}\0${keySecret}`;
@@ -50,6 +116,9 @@ export class PaymentService {
 
             const order = await this.prisma.order.findFirst({
                 where: { id: orderId, userId },
+                include: {
+                    user: { select: { firstName: true, lastName: true } },
+                },
             });
             if (!order) throw new BadRequestException('Order not found');
             if (String(order.status).toUpperCase() === 'CANCELLED') {
@@ -172,55 +241,12 @@ export class PaymentService {
             return { success: true };
         }
 
-        await this.prisma.$transaction(async (tx) => {
-            await tx.payment.create({
-                data: {
-                    orderId: order.id,
-                    transactionId: razorpayPaymentId,
-                    paymentMethod: 'razorpay',
-                    amount: order.payableAmount,
-                    currency: 'INR',
-                    gatewayResponse: { razorpayOrderId, razorpayPaymentId },
-                    status: 'CAPTURED',
-                },
-            });
-
-            await tx.order.update({
-                where: { id: order.id },
-                data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
-            });
-
-            // Professional Step: Commit Reserved Stock
-            const reservations = await tx.stockReservation.findMany({
-                where: { orderId: order.id, status: 'PENDING' }
-            });
-
-            for (const res of reservations) {
-                // Update reservation status
-                await tx.stockReservation.update({
-                    where: { id: res.id },
-                    data: { status: 'COMPLETED' }
-                });
-
-                // Physically reduce total stock (reserved count already accounted for in OrderService/ProductService logic)
-                // We reduce physical stock and release the reservation hold
-                await tx.productVariant.update({
-                    where: { id: res.variantId },
-                    data: {
-                        stockQuantity: { decrement: res.quantity },
-                        reservedQuantity: { decrement: res.quantity }
-                    }
-                });
-
-                await tx.inventoryLog.create({
-                    data: {
-                        variantId: res.variantId,
-                        changeAmount: -res.quantity,
-                        reason: 'PAYMENT_SUCCESS_COMMIT',
-                        referenceId: order.id
-                    }
-                });
-            }
+        await this.finalizeOrderPayment({
+            orderId: order.id,
+            transactionId: razorpayPaymentId,
+            amount: Number(order.payableAmount),
+            currency: 'INR',
+            gatewayResponse: { razorpayOrderId, razorpayPaymentId },
         });
 
         this.logger.log(`Payment verified for order ${order.orderNumber}`);
@@ -232,7 +258,8 @@ export class PaymentService {
         userId: string,
         amountInPaise: number,
         customerDetails?: { name: string; email?: string; contact?: string },
-    ): Promise<{ paymentLink: string }> {
+        requesterRole: string = 'CUSTOMER',
+    ): Promise<{ paymentLink: string; emailDispatch?: { sent: boolean; error?: string } }> {
         try {
             const credentials = await this.settingsService.getRazorpayCredentials();
             if (!credentials) {
@@ -240,9 +267,23 @@ export class PaymentService {
             }
 
             const order = await this.prisma.order.findFirst({
-                where: { id: orderId, userId },
+                where:
+                    String(requesterRole).toUpperCase() === 'ADMIN'
+                        ? { id: orderId }
+                        : { id: orderId, userId },
+                include: {
+                    user: {
+                        select: { firstName: true, lastName: true },
+                    },
+                },
             });
-            if (!order) throw new BadRequestException('Order not found');
+            if (!order) {
+                throw new BadRequestException(
+                    String(requesterRole).toUpperCase() === 'ADMIN'
+                        ? 'Order not found.'
+                        : 'Order not found for this user.',
+                );
+            }
 
             // If order is already confirmed or paid, do not allow generating a new link
             const isConfirmed = String(order.status).toUpperCase() === 'CONFIRMED';
@@ -271,17 +312,153 @@ export class PaymentService {
                 notes: {
                     orderId: order.id,
                 },
-                callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/order-confirmation?id=${order.id}`,
+                callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/#/order-confirmation?id=${order.id}`,
                 callback_method: 'get',
             };
 
             const response = await instance.paymentLink.create(options);
+            const existingMetadata =
+                order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                    ? (order.metadata as Record<string, unknown>)
+                    : {};
+            await this.prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    metadata: {
+                        ...existingMetadata,
+                        paymentContext: {
+                            ...(existingMetadata['paymentContext'] && typeof existingMetadata['paymentContext'] === 'object'
+                                ? (existingMetadata['paymentContext'] as Record<string, unknown>)
+                                : {}),
+                            paymentLinkId: response.id,
+                            paymentLinkUrl: response.short_url,
+                            amountInPaise: Math.round(amountInPaise),
+                            currency: 'INR',
+                        },
+                    },
+                },
+            });
             this.logger.log(`Razorpay payment link created for order ${order.orderNumber}: ${response.short_url}`);
-
-            return { paymentLink: response.short_url };
+            const normalizedEmail = String(customerDetails?.email || '').trim().toLowerCase();
+            if (!normalizedEmail) {
+                return { paymentLink: response.short_url };
+            }
+            const nameFromUser = [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ').trim();
+            const customerName = String(customerDetails?.name || nameFromUser || 'Customer');
+            const items = await this.prisma.orderItem.findMany({
+                where: { orderId: order.id },
+                include: { product: { select: { name: true } } },
+            });
+            try {
+                await this.mailService.sendManualOrderPaymentLinkEmail({
+                    to: normalizedEmail,
+                    customerName,
+                    orderNumber: String(order.orderNumber),
+                    payableAmount: Number(order.payableAmount),
+                    items: items.map((item) => ({
+                        name: item.product?.name || `Item ${String(item.productId).slice(0, 8)}`,
+                        quantity: Number(item.quantity || 0),
+                        unitPrice: Number(item.pricePerUnit || 0),
+                    })),
+                    paymentLink: response.short_url,
+                });
+                return { paymentLink: response.short_url, emailDispatch: { sent: true } };
+            } catch (emailErr: any) {
+                const message = emailErr?.message || 'Failed to send payment link email';
+                this.logger.warn(`Payment link email failed for order ${order.orderNumber}: ${message}`);
+                return { paymentLink: response.short_url, emailDispatch: { sent: false, error: message } };
+            }
         } catch (err: any) {
             this.logger.error(`createPaymentLink failed: ${err.message}`, err.stack);
             throw new BadRequestException(err?.error?.description || 'Failed to create payment link');
         }
+    }
+
+    async confirmPaymentFromPaymentLink(
+        orderId: string,
+        paymentId?: string,
+        paymentLinkIdFromClient?: string,
+        paymentLinkStatusFromClient?: string,
+    ): Promise<{ success: boolean; paymentStatus: string; orderStatus: string; captured: boolean }> {
+        const credentials = await this.settingsService.getRazorpayCredentials();
+        if (!credentials) {
+            throw new BadRequestException('Razorpay is not configured.');
+        }
+
+        const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+        if (!order) throw new BadRequestException('Order not found');
+
+        if (String(order.paymentStatus).toUpperCase() === 'PAID') {
+            return { success: true, paymentStatus: 'PAID', orderStatus: String(order.status), captured: false };
+        }
+
+        const paymentContext =
+            order.metadata &&
+            typeof order.metadata === 'object' &&
+            !Array.isArray(order.metadata) &&
+            (order.metadata as any).paymentContext &&
+            typeof (order.metadata as any).paymentContext === 'object'
+                ? (order.metadata as any).paymentContext
+                : {};
+
+        const paymentLinkId = String(paymentLinkIdFromClient || paymentContext.paymentLinkId || '').trim();
+        const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
+        const expectedAmountInPaise = Math.round(Number(order.payableAmount) * 100);
+        let resolvedPaymentId = String(paymentId || '').trim();
+
+        if (!resolvedPaymentId && paymentLinkId) {
+            try {
+                const paymentCollection = await instance.payments.all({ payment_link_id: paymentLinkId, count: 1 });
+                const first = Array.isArray(paymentCollection?.items) ? paymentCollection.items[0] : null;
+                if (first?.id) resolvedPaymentId = String(first.id);
+            } catch {
+                // fallback to status checks below
+            }
+        }
+
+        if (resolvedPaymentId) {
+            const payment = await instance.payments.fetch(resolvedPaymentId);
+            const paid = String(payment?.status || '').toLowerCase() === 'captured';
+            const amountMatches = Number(payment?.amount || 0) === expectedAmountInPaise;
+            const orderNoteMatches = String(payment?.notes?.orderId || '') === String(order.id);
+            if (paid && amountMatches && orderNoteMatches) {
+                await this.finalizeOrderPayment({
+                    orderId: order.id,
+                    transactionId: resolvedPaymentId,
+                    amount: Number(order.payableAmount),
+                    currency: String(payment.currency || 'INR'),
+                    gatewayResponse: {
+                        source: 'payment_link_sync',
+                        paymentLinkId: paymentLinkId || null,
+                        paymentId: resolvedPaymentId,
+                    },
+                });
+                return { success: true, paymentStatus: 'PAID', orderStatus: 'CONFIRMED', captured: true };
+            }
+        }
+
+        const normalizedClientStatus = String(paymentLinkStatusFromClient || '').toLowerCase();
+        if (normalizedClientStatus === 'paid') {
+            return { success: true, paymentStatus: String(order.paymentStatus), orderStatus: String(order.status), captured: false };
+        }
+
+        if (paymentLinkId) {
+            try {
+                const paymentLink = await instance.paymentLink.fetch(paymentLinkId);
+                const linkStatus = String(paymentLink?.status || '').toLowerCase();
+                if (linkStatus === 'paid') {
+                    return { success: true, paymentStatus: String(order.paymentStatus), orderStatus: String(order.status), captured: false };
+                }
+            } catch {
+                // Keep graceful response when fetch is unavailable.
+            }
+        }
+
+        return {
+            success: true,
+            paymentStatus: String(order.paymentStatus),
+            orderStatus: String(order.status),
+            captured: false,
+        };
     }
 }

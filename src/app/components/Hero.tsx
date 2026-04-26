@@ -11,11 +11,11 @@ import { useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useProducts } from '@/app/hooks/useProducts';
 
-/* Testimonial avatar URLs */
-const AVATAR_URLS = [
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=64&q=80',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&q=80',
+/* Social proof avatar placeholders */
+const AVATAR_PLACEHOLDERS = [
+  { label: 'KP', bgClass: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  { label: 'AP', bgClass: 'bg-sky-100 text-sky-700 border-sky-200' },
+  { label: 'SS', bgClass: 'bg-violet-100 text-violet-700 border-violet-200' },
 ];
 
 export function Hero() {
@@ -188,14 +188,18 @@ export function Hero() {
                 {/* Avatars + rating */}
                 <div className="flex items-center justify-center lg:justify-start gap-4">
                   <div className="flex items-center">
-                    {AVATAR_URLS.map((src, i) => (
-                      <img
-                        key={i}
-                        src={src}
-                        alt="Customer"
-                        className="w-7 h-7 rounded-full border-2 border-white object-cover shadow-sm"
+                    {AVATAR_PLACEHOLDERS.map((avatar, i) => (
+                      <div
+                        key={avatar.label}
+                        aria-hidden="true"
+                        className={cn(
+                          'w-7 h-7 rounded-full border-2 border-white flex items-center justify-center text-[9px] font-bold shadow-sm',
+                          avatar.bgClass,
+                        )}
                         style={{ marginLeft: i > 0 ? '-8px' : 0 }}
-                      />
+                      >
+                        {avatar.label}
+                      </div>
                     ))}
                     <div
                       className="w-7 h-7 rounded-full bg-emerald-600 border-2 border-white flex items-center justify-center text-white text-[9px] font-bold shadow-sm"

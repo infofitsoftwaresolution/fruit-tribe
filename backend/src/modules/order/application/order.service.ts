@@ -23,16 +23,38 @@ export class OrderService {
     ) { }
 
     async createManualOrder(adminUserId: string, dto: CreateManualOrderDto) {
-        // 1. Find or create user
-        let targetUser = await this.prisma.user.findUnique({
-            where: { email: dto.customerEmail },
+        // 1. Find or create user (support existing users by either email or phone)
+        const normalizedEmail = String(dto.customerEmail || '').trim().toLowerCase();
+        const normalizedPhone = String(dto.customerPhone || '').replace(/\D/g, '');
+        const userByEmail = await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
         });
+        const userByPhone = normalizedPhone
+            ? await this.prisma.user.findUnique({
+                where: { phone: normalizedPhone },
+            })
+            : null;
+
+        // If both are present but belong to different users, fail fast with clear reason.
+        if (userByEmail && userByPhone && userByEmail.id !== userByPhone.id) {
+            throw new ConflictException(
+                'Email and phone number belong to different users. Please use matching customer details.',
+            );
+        }
+
+        let targetUser = userByEmail || userByPhone;
+        if (targetUser && !targetUser.email) {
+            targetUser = await this.prisma.user.update({
+                where: { id: targetUser.id },
+                data: { email: normalizedEmail },
+            });
+        }
 
         if (!targetUser) {
             targetUser = await this.prisma.user.create({
                 data: {
-                    email: dto.customerEmail,
-                    phone: dto.customerPhone,
+                    email: normalizedEmail,
+                    phone: normalizedPhone || dto.customerPhone,
                     firstName: dto.customerName.split(' ')[0],
                     lastName: dto.customerName.split(' ').slice(1).join(' ') || '',
                     passwordHash: crypto.randomBytes(16).toString('hex'), // Random password
@@ -95,7 +117,13 @@ export class OrderService {
                         })),
                     },
                 },
-                include: { items: true },
+                include: {
+                    items: {
+                        include: {
+                            product: { select: { name: true } },
+                        },
+                    },
+                },
             });
 
             // Handle stock reservations

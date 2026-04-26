@@ -599,7 +599,7 @@ export async function generateOrderPaymentLink(
   orderId: string,
   amountInPaise: number,
   customerDetails?: { name: string; email?: string; contact?: string }
-): Promise<{ paymentLink: string }> {
+): Promise<{ paymentLink: string; emailDispatch?: { sent: boolean; error?: string } }> {
   const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-link`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -646,6 +646,21 @@ export async function verifyPayment(
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Public: sync and capture payment for manual-order payment links (no auth required). */
+export async function confirmPaymentLink(orderId: string, payload?: {
+  paymentId?: string;
+  paymentLinkId?: string;
+  paymentLinkStatus?: string;
+}): Promise<{ success: boolean; paymentStatus: string; orderStatus: string; captured: boolean }> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/public/${orderId}/confirm-payment-link`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload ?? {}),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();

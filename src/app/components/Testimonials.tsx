@@ -32,6 +32,10 @@ export function Testimonials() {
       text: 'The nutritional value of these farm-fresh mangoes is evident in the taste. My family loves the Litchis too. Sourcing directly from orchards makes a huge difference.',
     },
   ];
+  const reviewCount = testimonials.length;
+  const averageRating = testimonials.length
+    ? (testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length).toFixed(1)
+    : '0.0';
 
   return (
     <section className="py-16 md:py-24 bg-white">
@@ -54,13 +58,13 @@ export function Testimonials() {
           {/* Overall rating summary */}
           <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 shrink-0">
             <div className="text-center">
-              <p className="text-3xl font-bold text-slate-900">4.9</p>
+              <p className="text-3xl font-bold text-slate-900">{averageRating}</p>
               <div className="flex items-center gap-0.5 mt-1 justify-center">
                 {[...Array(5)].map((_, i) => (
                   <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                 ))}
               </div>
-              <p className="text-xs text-slate-400 mt-1">300+ reviews</p>
+              <p className="text-xs text-slate-400 mt-1">{reviewCount} {reviewCount === 1 ? 'review' : 'reviews'}</p>
             </div>
           </div>
         </div>

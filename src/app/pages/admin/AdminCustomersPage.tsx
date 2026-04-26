@@ -316,9 +316,9 @@ export function AdminCustomersPage() {
                             className="bg-transparent h-10 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
                         >
                             <option value="all">All Segments</option>
-                            <option value="VIP">VIP Assets</option>
-                            <option value="Active">Active Nodes</option>
-                            <option value="Inactive">Cold Storage</option>
+                            <option value="VIP">VIP Customers</option>
+                            <option value="Active">Active Customers</option>
+                            <option value="Inactive">Inactive Customers</option>
                         </select>
                         <div className="h-4 w-[1px] bg-slate-100" />
                         <select
@@ -337,8 +337,8 @@ export function AdminCustomersPage() {
                             className="bg-transparent h-10 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
                         >
                             <option value="all">Activity Level</option>
-                            <option value="with_orders">Transacted</option>
-                            <option value="no_orders">Inert</option>
+                            <option value="with_orders">With Orders</option>
+                            <option value="no_orders">No Orders</option>
                         </select>
                     </div>
 
@@ -346,7 +346,7 @@ export function AdminCustomersPage() {
                         <Search className="absolute left-8 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-500 transition-all duration-500 group-focus-within:scale-110" />
                         <input
                             type="text"
-                            placeholder="Identify customer by name, email, or digital signature..."
+                            placeholder="Search by customer name, email, or phone..."
                             className="w-full h-16 pl-16 pr-8 bg-white border border-slate-100 rounded-[1.5rem] text-[13px] font-bold text-slate-900 focus:ring-[12px] focus:ring-blue-500/5 focus:border-blue-500/50 outline-none transition-all duration-500 shadow-inner"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}

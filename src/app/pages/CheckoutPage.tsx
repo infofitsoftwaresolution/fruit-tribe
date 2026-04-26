@@ -850,6 +850,36 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }
   }, [items.length, navigate, orderPlacedOptimistically]);
 
+  const isCheckoutFormReady = useMemo(() => {
+    const requiredKeys: Array<keyof typeof formData> = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state'];
+    if (serviceablePincodes.length > 0) requiredKeys.push('zipCode');
+
+    const hasMissingRequired = requiredKeys.some((key) => {
+      const raw = String(formData[key] ?? '').trim();
+      return !raw;
+    });
+    if (hasMissingRequired) return false;
+
+    const hasValidationError = requiredKeys.some((key) => Boolean(validateField(key, String(formData[key] ?? ''))));
+    if (hasValidationError) return false;
+
+    if (serviceableCities.length > 0 && formData.city.trim() && !isCityServiceable(formData.city)) return false;
+    if (serviceablePincodes.length > 0 && !isPincodeServiceable(formData.zipCode)) return false;
+    if (addressMismatch) return false;
+    if (hasConfiguredDeliverySlots && !deliverySlot) return false;
+
+    return true;
+  }, [
+    formData,
+    serviceablePincodes.length,
+    serviceableCities.length,
+    isCityServiceable,
+    isPincodeServiceable,
+    addressMismatch,
+    hasConfiguredDeliverySlots,
+    deliverySlot,
+  ]);
+
   if (items.length === 0 && !orderPlacedOptimistically) {
     return null;
   }
@@ -1605,7 +1635,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <SwipeToPay 
                         onSuccess={() => submitRef.current?.click()} 
                         submitting={submitting} 
-                        disabled={!!addressMismatch}
+                        disabled={!isCheckoutFormReady || submitting}
+                        disabledLabel={addressMismatch ? 'Fix address mismatch to pay' : 'Complete required fields to pay'}
                         themeStyle={theme.buttonStyle} 
                       />
                   </div>

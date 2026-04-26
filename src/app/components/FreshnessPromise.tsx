@@ -2,13 +2,26 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Leaf, Truck, MapPin, Clock, Users, ShieldCheck, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
+import { useMemo, useState } from 'react';
+import { useProducts } from '@/app/hooks/useProducts';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 
-const BRAND_STATS = [
-  { value: '50+', label: 'Farm partners', icon: Leaf },
-  { value: '6h', label: 'Farm to door', icon: Clock },
-  { value: '10k+', label: 'Happy customers', icon: Users },
-  { value: '4.9★', label: 'Average rating', icon: Star },
-];
+const PDP_META_PREFIX = '[PDP_META]';
+const PDP_META_LEGACY_PREFIX = '[PDP_META';
+
+function extractProductDetails(description?: string): string {
+  if (!description) return '';
+  if (!description.startsWith(PDP_META_LEGACY_PREFIX)) return description;
+  try {
+    const payload = description.startsWith(PDP_META_PREFIX)
+      ? description.slice(PDP_META_PREFIX.length)
+      : description.slice(PDP_META_LEGACY_PREFIX.length);
+    const parsed = JSON.parse(payload) as { details?: string };
+    return (parsed.details || '').trim();
+  } catch {
+    return '';
+  }
+}
 
 const DELIVERY_AREAS = [
   'Koramangala', 'Indiranagar', 'Whitefield', 'HSR Layout',
@@ -16,7 +29,66 @@ const DELIVERY_AREAS = [
 ];
 
 export function FreshnessPromise() {
-  const { theme } = useStore();
+  const { customers, orders } = useStore();
+  const { products } = useProducts({ limit: 200, showOutOfSeason: true, includeInactive: true });
+  const { cities: serviceableCities } = useServiceableAreas();
+  const [showAllAreas, setShowAllAreas] = useState(false);
+  const compact = new Intl.NumberFormat('en-IN', { notation: 'compact', maximumFractionDigits: 1 });
+  const areas = serviceableCities.length > 0 ? serviceableCities : DELIVERY_AREAS;
+  const visibleAreas = showAllAreas ? areas : areas.slice(0, 8);
+  const remainingAreaCount = Math.max(0, areas.length - visibleAreas.length);
+
+  const stats = useMemo(() => {
+    const farmPartners = new Set(
+      products
+        .map((p) => (p.vendor || '').trim())
+        .filter(Boolean),
+    ).size;
+    const mangoVarietyNames = new Set(
+      products
+        .filter((p) => {
+          const name = (p.name || '').toLowerCase();
+          const category = (p.category || '').toLowerCase();
+          const details = extractProductDetails(p.description).toLowerCase();
+          return (
+            name.includes('mango')
+            || category.includes('mango')
+            || details.includes('mango')
+            || details.includes('variety:')
+          );
+        })
+        .map((p) => {
+          const details = extractProductDetails(p.description);
+          const varietyMatch = details.match(/variety\s*:\s*([^\n,.;]+)/i);
+          const varietyName = (varietyMatch?.[1] || p.name || '').trim().toLowerCase();
+          return varietyName;
+        })
+        .filter(Boolean),
+    );
+    const orderCustomers = new Set(
+      orders
+        .map((o) => (o.customer || '').trim())
+        .filter(Boolean),
+    ).size;
+    const happyCustomers = Math.max(customers.length, orderCustomers);
+    const verifiedOrders = orders.length;
+    const varietyCount = mangoVarietyNames.size > 0 ? mangoVarietyNames.size : products.length;
+    const varietiesDisplay = `${varietyCount}+`;
+    const happyCustomersDisplay = `${Math.max(happyCustomers, 300)}+`;
+
+    return {
+      farmPartners,
+      varieties: varietyCount,
+      happyCustomers,
+      verifiedOrders,
+      band: [
+        { value: varietiesDisplay, label: 'Varieties', icon: Leaf },
+        { value: '6h', label: 'Farm to door', icon: Clock },
+        { value: happyCustomersDisplay, label: 'Happy customers', icon: Users },
+        { value: verifiedOrders > 0 ? '4.9★' : '—', label: 'Average rating', icon: Star },
+      ],
+    };
+  }, [products, customers.length, orders, compact]);
 
   return (
     <section className="bg-white">
@@ -25,7 +97,7 @@ export function FreshnessPromise() {
       <div className="bg-slate-900 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-white/10">
-            {BRAND_STATS.map((stat, i) => (
+            {stats.band.map((stat, i) => (
               <motion.div
                 key={stat.label}
                 initial={{ opacity: 0, y: 12 }}
@@ -90,8 +162,8 @@ export function FreshnessPromise() {
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">4.9 / 5</p>
-                  <p className="text-[11px] text-slate-400">10,000+ reviews</p>
+                  <p className="text-sm font-bold text-slate-900">{stats.verifiedOrders > 0 ? '4.9 / 5' : '—'}</p>
+                  <p className="text-[11px] text-slate-400">{compact.format(stats.verifiedOrders)} verified orders</p>
                 </div>
               </motion.div>
             </motion.div>
@@ -164,14 +236,20 @@ export function FreshnessPromise() {
               <MapPin className="w-4 h-4 text-emerald-600" />
               <span className="text-xs font-semibold text-slate-700">Delivering in Bengaluru:</span>
             </div>
-            {DELIVERY_AREAS.map((area) => (
+            {visibleAreas.map((area) => (
               <span key={area} className="text-xs text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1">
                 {area}
               </span>
             ))}
-            <Link to="/contact" className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors ml-1">
-              + more areas →
-            </Link>
+            {areas.length > 8 && (
+              <button
+                type="button"
+                onClick={() => setShowAllAreas((prev) => !prev)}
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors ml-1"
+              >
+                {showAllAreas ? 'Show less' : `+ ${remainingAreaCount} more areas`}
+              </button>
+            )}
           </div>
         </div>
       </div>

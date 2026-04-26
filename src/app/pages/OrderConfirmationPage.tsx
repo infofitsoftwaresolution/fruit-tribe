@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { confirmPaymentLink } from '@/lib/api';
 
 // Re-using same icons but with consistent imports
 import {
@@ -19,14 +20,50 @@ export function OrderConfirmationPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const allOrders = location.state?.allOrders as string[] | undefined;
-  const primaryOrderId = location.state?.orderId || '';
+  const params = new URLSearchParams(location.search);
+  const queryOrderId = params.get('id') || '';
+  const primaryOrderId = location.state?.orderId || queryOrderId || '';
   const [isPrinting, setIsPrinting] = useState(false);
+  const [paymentState, setPaymentState] = useState<'unknown' | 'paid' | 'pending'>('unknown');
 
   useEffect(() => {
-    if (!location.state?.orderId && !location.state?.allOrders) {
+    if (!location.state?.orderId && !location.state?.allOrders && !queryOrderId) {
       navigate('/', { replace: true });
     }
-  }, [location.state, navigate]);
+  }, [location.state, navigate, queryOrderId]);
+
+  useEffect(() => {
+    if (!primaryOrderId) return;
+    const paymentId =
+      params.get('razorpay_payment_id') ||
+      params.get('payment_id') ||
+      undefined;
+    const paymentLinkId =
+      params.get('razorpay_payment_link_id') ||
+      params.get('payment_link_id') ||
+      undefined;
+    const paymentLinkStatus =
+      params.get('razorpay_payment_link_status') ||
+      params.get('payment_link_status') ||
+      undefined;
+
+    const hasPaymentSignal = Boolean(paymentId || paymentLinkId || paymentLinkStatus);
+    if (!hasPaymentSignal && !queryOrderId) return;
+
+    confirmPaymentLink(primaryOrderId, { paymentId, paymentLinkId, paymentLinkStatus })
+      .then((res) => {
+        if (res.paymentStatus === 'PAID') {
+          setPaymentState('paid');
+          toast.success('Payment captured successfully.');
+        } else {
+          setPaymentState('pending');
+          toast.info('Order created. Payment is still pending.');
+        }
+      })
+      .catch(() => {
+        setPaymentState('pending');
+      });
+  }, [primaryOrderId, queryOrderId, location.search]);
 
   if (!primaryOrderId && !allOrders?.length) {
     return null;
@@ -84,7 +121,11 @@ export function OrderConfirmationPage() {
           </h1>
 
           <p className="text-base text-slate-500 font-semibold mb-10 px-4">
-            Thank you for your order. We're preparing your items for delivery.
+            {paymentState === 'paid'
+              ? "Payment received. We're preparing your items for delivery."
+              : paymentState === 'pending'
+                ? 'Order created. Complete payment to confirm processing.'
+                : "Thank you for your order. We're preparing your items for delivery."}
           </p>
 
           {/* Order details card */}
