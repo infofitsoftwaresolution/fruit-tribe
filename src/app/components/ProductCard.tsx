@@ -1,6 +1,6 @@
 import { memo, useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Heart, MapPin, Leaf, CalendarDays, Tag, ChevronDown } from 'lucide-react';
+import { ShoppingCart, MapPin, Leaf, CalendarDays, Tag, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
@@ -100,7 +100,6 @@ export const ProductCard = memo(({
   bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode, liveOfferHint,
   farmName, farmState, freshnessScore, ripenessStage, harvestDate,
 }: ProductCardProps) => {
-  const [isLiked, setIsLiked] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [isPackSelectOpen, setIsPackSelectOpen] = useState(false);
 
@@ -273,17 +272,6 @@ export const ProductCard = memo(({
             {bulkSavingPct}% off bulk
           </div>
         )}
-
-        {/* Wishlist button */}
-        <button
-          onClick={() => handleAction(() => setIsLiked(!isLiked))}
-          className={cn(
-            'absolute bottom-3 right-3 h-8 w-8 rounded-xl flex items-center justify-center transition-all opacity-0 group-hover:opacity-100 shadow-md',
-            isLiked ? 'bg-red-500 text-white' : 'bg-white text-slate-400 hover:text-red-500'
-          )}
-        >
-          <Heart className={cn('w-4 h-4', isLiked && 'fill-white')} />
-        </button>
 
         {/* Freshness indicator */}
         {effectiveFreshnessScore != null && !isOutOfStock && (

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
+import { Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
@@ -93,7 +93,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const [packKind, setPackKind] = useState<'retail' | 'bulk'>('retail');
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
-  const [isLiked, setIsLiked] = useState(false);
   const [pincode, setPincode] = useState('');
   const [tab, setTab] = useState<InfoTab>('details');
   const [reviews, setReviews] = useState<ProductReview[]>([]);
@@ -226,6 +225,32 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     toast.success('Review added. Thank you for your feedback!');
   };
 
+  const handleShareProduct = async () => {
+    if (!id || !product) return;
+    const url = `${window.location.origin}/#/product/${id}`;
+    const shareData = {
+      title: `${product.name} | The Fruit Tribe`,
+      text: `Check out ${product.name} on The Fruit Tribe.`,
+      url,
+    };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Product link copied');
+      }
+    } catch {
+      // User-cancelled share should be silent; clipboard fallback for unsupported/error cases.
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success('Product link copied');
+      } catch {
+        toast.error('Could not share this product right now.');
+      }
+    }
+  };
+
   const tabContent = {
     details: (
       <div className="space-y-4">
@@ -294,10 +319,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             </div>
 
             <div className="absolute right-4 bottom-4 flex gap-2">
-              <button className="h-11 w-11 rounded-xl bg-white/90 border border-black/10 flex items-center justify-center text-slate-600" onClick={() => setIsLiked((v) => !v)}>
-                <Heart className={cn('w-5 h-5', isLiked && 'fill-red-500 text-red-500')} />
-              </button>
-              <button className="h-11 w-11 rounded-xl bg-white/90 border border-black/10 flex items-center justify-center text-slate-600">
+              <button className="h-11 w-11 rounded-xl bg-white/90 border border-black/10 flex items-center justify-center text-slate-600" onClick={handleShareProduct}>
                 <Share2 className="w-5 h-5" />
               </button>
             </div>
