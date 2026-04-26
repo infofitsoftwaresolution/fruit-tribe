@@ -398,10 +398,17 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
 }
 
 export async function getProduct(id: string): Promise<ApiProduct | null> {
+  const key = String(id);
+  const now = Date.now();
+  const cached = (globalThis as any).__ft_product_cache?.get?.(key);
+  if (cached && now - cached.at < 45_000) return cached.data;
   const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, { headers: getAuthHeaders() });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
-  return res.json();
+  const data = await res.json();
+  if (!(globalThis as any).__ft_product_cache) (globalThis as any).__ft_product_cache = new Map();
+  (globalThis as any).__ft_product_cache.set(key, { at: now, data });
+  return data;
 }
 
 export interface Category {

@@ -14,6 +14,7 @@ import {
   setDefaultUserAddress,
   createRazorpayOrder,
   verifyPayment,
+  getProduct,
 } from '@/lib/api';
 import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import {
@@ -53,8 +54,11 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     };
   });
   const total = Number(api.payableAmount ?? api.totalAmount ?? 0);
-  const platformFeeRate = 0.02; // 2% platform fee
-  const platformFee = Math.round(total * platformFeeRate * 100) / 100;
+  const itemSubtotal = orderItems.reduce((sum: number, item: any) => sum + Number(item.subtotal || 0), 0);
+  const shippingFee = Number(api.shippingFee ?? 0);
+  const taxAmount = Number(api.taxAmount ?? 0);
+  const platformFee = Number(api.platformFee ?? 0);
+  const extraCharges = Math.max(0, total - itemSubtotal);
   const rawStatus: string = api.status ?? 'CREATED';
 
   const firstDelivery = (api.deliveries || [])[0] || null;
@@ -103,7 +107,11 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     channel: 'Online Store' as const,
     itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
     orderItems,
+    itemSubtotal,
+    shippingFee,
+    taxAmount,
     platformFee,
+    extraCharges,
     statusTimeline: timeline,
     shippingAddress: api.shippingAddress || null,
     courierName,
@@ -397,6 +405,11 @@ export function ProfilePage() {
     logout();
     navigate('/');
   };
+
+  const prefetchProduct = useCallback((productId: string | number) => {
+    if (!productId) return;
+    void getProduct(String(productId)).catch(() => undefined);
+  }, []);
 
   return (
     <div className="pt-20 pb-20 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
@@ -739,7 +752,8 @@ export function ProfilePage() {
                   <button onClick={() => navigate('/products')} className="mt-8 px-8 py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-600/20">Browse products</button>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="space-y-6">
                   {displayedOrders.map((order, idx) => (
                     <motion.div
                       key={order.id}
@@ -794,7 +808,17 @@ export function ProfilePage() {
                         <div className="border-t border-slate-200/80 pt-6 space-y-4">
                           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Items</p>
                           {(order.orderItems || []).map((item: { productId: string; productName: string; imageUrl: string; quantity: number; pricePerUnit: number; subtotal: number }) => (
-                            <div key={item.productId} className="flex gap-4 items-center bg-white rounded-2xl p-4 border border-slate-100">
+                            <button
+                              type="button"
+                              key={item.productId}
+                              onMouseEnter={() => prefetchProduct(item.productId)}
+                              onFocus={() => prefetchProduct(item.productId)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/product/${item.productId}`);
+                              }}
+                              className="w-full text-left flex gap-4 items-center bg-white rounded-2xl p-4 border border-slate-100 hover:border-emerald-200 transition-all"
+                            >
                               <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
                                 {item.imageUrl ? (
                                   <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
@@ -809,8 +833,14 @@ export function ProfilePage() {
                               <div className="text-right shrink-0">
                                 <p className="font-semibold text-slate-900">₹{item.subtotal}</p>
                               </div>
-                            </div>
+                            </button>
                           ))}
+                          {order.extraCharges > 0 && (
+                            <div className="flex items-center justify-between text-xs text-slate-500 px-1 pt-1">
+                              <span>Additional charges (delivery, taxes, fees)</span>
+                              <span className="font-semibold">+₹{order.extraCharges.toFixed(2)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </motion.div>
@@ -823,6 +853,7 @@ export function ProfilePage() {
                       Loading more orders...
                     </div>
                   )}
+                  </div>
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Heart, Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck } from 'lucide-react';
+import { Heart, Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
@@ -17,6 +17,41 @@ interface ProductDetailPageProps {
 
 type InfoTab = 'details' | 'storage' | 'origin' | 'faq';
 const PDP_META_PREFIX = '[PDP_META]';
+const REVIEWS_STORAGE_KEY = 'ft_product_reviews_v1';
+
+type ProductReview = {
+  id: string;
+  productId: string;
+  author: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+};
+
+function getStoredReviews(productId: string): ProductReview[] {
+  try {
+    const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ProductReview[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((r) => String(r.productId) === String(productId))
+      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+function addStoredReview(review: ProductReview) {
+  try {
+    const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as ProductReview[]) : [];
+    const next = Array.isArray(parsed) ? [review, ...parsed] : [review];
+    localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // noop: avoid blocking UI on storage errors
+  }
+}
 
 function parseProductDescription(raw?: string | null): {
   details: string;
@@ -61,6 +96,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [pincode, setPincode] = useState('');
   const [tab, setTab] = useState<InfoTab>('details');
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const handleAction = (callback: () => void) => {
     if (!user) {
@@ -113,8 +151,33 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     setActiveVariant(null);
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    setReviews(getStoredReviews(id));
+  }, [id]);
+
   if (loading) {
-    return <div className="min-h-[60vh] flex items-center justify-center text-slate-500">Loading product...</div>;
+    return (
+      <div className="min-h-screen bg-[#fdf8f2] pt-16">
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 animate-pulse">
+          <section className="p-6 sm:p-10">
+            <div className="aspect-square rounded-3xl bg-slate-200" />
+            <div className="mt-4 flex gap-2">
+              <div className="h-16 w-16 rounded-xl bg-slate-200" />
+              <div className="h-16 w-16 rounded-xl bg-slate-200" />
+              <div className="h-16 w-16 rounded-xl bg-slate-200" />
+            </div>
+          </section>
+          <section className="p-6 sm:p-10 space-y-4">
+            <div className="h-6 w-24 rounded bg-slate-200" />
+            <div className="h-10 w-3/4 rounded bg-slate-200" />
+            <div className="h-5 w-1/2 rounded bg-slate-200" />
+            <div className="h-20 w-full rounded-2xl bg-slate-200" />
+            <div className="h-12 w-full rounded-xl bg-slate-200" />
+          </section>
+        </div>
+      </div>
+    );
   }
   if (error || !product || !apiProduct) {
     return <NotFoundPage />;
@@ -126,6 +189,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const effectiveQty = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : quantity;
   const currentPrice = hasBulk && packKind === 'bulk' && bulkPriceVal != null ? Number(bulkPriceVal) : Number(product.sellPrice);
   const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
+  const reviewAverage = reviews.length
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    : '0.0';
 
   const handleAddToCart = () => {
     if (product.stock <= 0) {
@@ -135,6 +201,29 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     const safeQty = Math.max(1, Math.min(effectiveQty, product.stock));
     handleAction(() => onAddToCart({ ...apiProduct, stock: product.stock, availableStock: product.availableStock }, safeQty));
     toast.success(`${product.name} added to cart`);
+  };
+
+  const handleSubmitReview = () => {
+    if (!id) return;
+    const comment = reviewComment.trim();
+    if (comment.length < 6) {
+      toast.error('Please write a slightly longer review.');
+      return;
+    }
+    const review: ProductReview = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      productId: id,
+      author: user?.name || user?.email?.split('@')[0] || 'Customer',
+      rating: reviewRating,
+      comment,
+      createdAt: new Date().toISOString(),
+    };
+    addStoredReview(review);
+    const next = [review, ...reviews];
+    setReviews(next);
+    setReviewComment('');
+    setReviewRating(5);
+    toast.success('Review added. Thank you for your feedback!');
   };
 
   const tabContent = {
@@ -361,6 +450,84 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             <Link to="/products" className="text-sm font-semibold text-emerald-700 hover:underline">View all</Link>
           </div>
           <AIRecommendations currentProductId={(id || '') as any} limit={4} />
+        </div>
+      </section>
+
+      <section className="bg-white border-t border-black/5 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8">
+          <div className="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-emerald-900">Customer reviews</h2>
+              <p className="text-sm text-slate-500 mt-1">Real feedback from buyers of this product.</p>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-slate-900">{reviewAverage}</p>
+              <p className="text-xs text-slate-500">{reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</p>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-3">
+              {reviews.length === 0 ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                  No reviews yet. Be the first to review this product.
+                </div>
+              ) : (
+                reviews.slice(0, 8).map((review) => (
+                  <div key={review.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-slate-900">{review.author}</p>
+                      <p className="text-xs text-slate-400">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-0.5 mt-2">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            'w-4 h-4',
+                            i <= review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200',
+                          )}
+                        />
+                      ))}
+                    </div>
+                    <p className="text-sm text-slate-700 mt-2 leading-relaxed">{review.comment}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 space-y-4">
+              <h3 className="text-sm font-semibold text-slate-900">Write a review</h3>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setReviewRating(i)}
+                    className="p-0.5"
+                  >
+                    <Star className={cn('w-5 h-5', i <= reviewRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300')} />
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                placeholder="Share taste, freshness, quality, and delivery experience..."
+                rows={4}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-emerald-400"
+              />
+              <button
+                type="button"
+                onClick={handleSubmitReview}
+                className="w-full h-10 rounded-xl bg-emerald-700 text-white text-sm font-semibold hover:bg-emerald-800"
+              >
+                Submit review
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </div>
