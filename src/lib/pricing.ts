@@ -26,12 +26,20 @@ export type ProductLikeForBulk = ProductPricingInput & {
  * cannot pick a bogus low value.
  */
 export function getRetailUnitReference(
-  product: ProductPricingInput & { variants?: { price: number }[] },
+  product: ProductPricingInput & { variants?: { price: number; name?: string; attributeValue?: string }[] },
 ): number {
   const base = Number(product.price);
   const vars = product.variants;
   if (!vars?.length) {
     return Number.isFinite(base) && base > 0 ? base : 0;
+  }
+  // If there is only one "default" variant, treat base price as the source of truth.
+  // This avoids stale variant override values masking admin-updated base price.
+  if (vars.length === 1) {
+    const only = vars[0] as any;
+    const label = String(only?.name ?? only?.attributeValue ?? '').trim().toLowerCase();
+    const isDefaultLike = !label || label === 'default';
+    if (isDefaultLike && Number.isFinite(base) && base > 0) return base;
   }
   const vp = vars.map((v) => Number(v.price)).filter((x) => Number.isFinite(x) && x > 0);
   const candidates = [base, ...vp].filter((x) => Number.isFinite(x) && x > 0);
