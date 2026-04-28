@@ -933,7 +933,13 @@ export function ProfilePage() {
                             </p>
                           )}
                 </div>
-                <button onClick={() => setTrackingOrder(null)} className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-semibold">âœ•</button>
+                <button
+                  onClick={() => setTrackingOrder(null)}
+                  aria-label="Close tracking"
+                  className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-semibold"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {/* Items in this order */}
