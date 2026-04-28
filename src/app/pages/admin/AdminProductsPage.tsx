@@ -86,6 +86,8 @@ export function AdminProductsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
+    const [productOverrides, setProductOverrides] = useState<Record<string, Product>>({});
+    const [deletedProductIds, setDeletedProductIds] = useState<Set<string>>(new Set());
     const [formData, setFormData] = useState({
         name: '',
         price: '',
@@ -124,18 +126,24 @@ export function AdminProductsPage() {
 
     const isSeller = user?.role === 'seller';
 
+    const effectiveProducts = useMemo(() => {
+        return products
+            .filter((p) => !deletedProductIds.has(String(p.id)))
+            .map((p) => productOverrides[String(p.id)] || p);
+    }, [products, deletedProductIds, productOverrides]);
+
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const focusProductId = params.get('focusProductId');
         if (!focusProductId) return;
 
-        const target = products.find((p) => String(p.id) === focusProductId);
+        const target = effectiveProducts.find((p) => String(p.id) === focusProductId);
         if (!target) return;
 
         setSearchQuery(target.name);
         setActiveCategory('All');
         setInventoryFilter('All');
-    }, [location.search, products]);
+    }, [location.search, effectiveProducts]);
 
     // For seller users, auto-bind their own sellerId when opening the form
     useEffect(() => {
@@ -156,7 +164,7 @@ export function AdminProductsPage() {
     }, [isSeller, user, sellers, formData.sellerId]);
 
     const filteredProducts = useMemo(() => {
-        return products.filter(product => {
+        return effectiveProducts.filter(product => {
             if (isSeller && !productBelongsToSeller(product, user)) return false;
 
             const matchesSearch = !searchQuery ||
@@ -176,17 +184,17 @@ export function AdminProductsPage() {
             if (sortOrder === 'asc') return a.price - b.price;
             return b.price - a.price;
         });
-    }, [products, user, searchQuery, sortOrder, activeCategory, inventoryFilter, isSeller]);
+    }, [effectiveProducts, user, searchQuery, sortOrder, activeCategory, inventoryFilter, isSeller]);
 
     const stats = useMemo(() => {
-        const base = isSeller ? products.filter((p) => productBelongsToSeller(p, user)) : products;
+        const base = isSeller ? effectiveProducts.filter((p) => productBelongsToSeller(p, user)) : effectiveProducts;
         return {
             total: base.length,
             lowStock: base.filter(p => p.availableStock <= (p.lowStockThreshold ?? 5) && p.availableStock > 0).length,
             outOfStock: base.filter(p => p.availableStock === 0).length,
             seasonal: base.filter(p => p.isSeasonal).length
         };
-    }, [products, isSeller, user]);
+    }, [effectiveProducts, isSeller, user]);
 
     const escapeCsvValue = (value: unknown) => {
         const str = value == null ? '' : String(value);
@@ -248,11 +256,18 @@ export function AdminProductsPage() {
             action: {
                 label: "Archive",
                 onClick: async () => {
+                    const key = String(id);
+                    setDeletedProductIds((prev) => new Set(prev).add(key));
                     try {
-                        await deleteProductApi(String(id));
-                        await refreshProducts();
+                        await deleteProductApi(key);
+                        void refreshProducts();
                         toast.success(`${name} archived successfully`);
                     } catch (e: any) {
+                        setDeletedProductIds((prev) => {
+                            const next = new Set(prev);
+                            next.delete(key);
+                            return next;
+                        });
                         toast.error(e?.message || 'Failed to archive');
                     }
                 }
@@ -359,16 +374,28 @@ export function AdminProductsPage() {
             const imagesPayload = imagePaths.length > 0
                 ? imagePaths.map((imageUrl, i) => ({ imageUrl, isPrimary: i === 0 }))
                 : undefined;
+            const skuSeed = (formData.sku || formData.name || 'variant')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '') || 'VARIANT';
             const normalizedVariants = formData.variants
-                .map(v => ({
-                    id: v.id,
-                    sku: v.sku,
-                    attributeValue: v.name,
-                    priceOverride: parseFloat(v.price) || undefined,
-                    stockQuantity: parseInt(v.stock, 10) || 0,
-                    lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
-                }))
-                .filter(v => v.sku || v.attributeValue);
+                .map((v, index) => {
+                    const rawName = String(v.name || '').trim();
+                    const rawSku = String(v.sku || '').trim().toUpperCase();
+                    const rawPrice = String(v.price || '').trim();
+                    const rawStock = String(v.stock || '').trim();
+                    const hasUserInput = !!(rawName || rawSku || rawPrice || rawStock);
+                    if (!hasUserInput) return null;
+                    return {
+                        id: v.id,
+                        sku: rawSku || `${skuSeed}-${index + 1}`,
+                        attributeValue: rawName || `Option ${index + 1}`,
+                        priceOverride: parseFloat(v.price) || undefined,
+                        stockQuantity: parseInt(v.stock, 10) || 0,
+                        lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
+                    };
+                })
+                .filter((v): v is NonNullable<typeof v> => !!v);
 
             const composedDescription = composeDescriptionWithMeta(formData.description || '', {
                 storageInfo: formData.storageInfo || '',
@@ -409,6 +436,25 @@ export function AdminProductsPage() {
             }
 
             if (editingProduct) {
+                const sellerName =
+                    sellers.find((s) => s.id === sellerId)?.storeName ||
+                    editingProduct.vendor ||
+                    '';
+                const optimisticProduct: Product = {
+                    ...editingProduct,
+                    name: formData.name,
+                    category: formData.category,
+                    vendor: sellerName,
+                    sellerId: sellerId as string,
+                    sku: formData.sku || editingProduct.sku,
+                    price: parseFloat(formData.price) || editingProduct.price,
+                    discountPrice: formData.discountPrice ? parseFloat(formData.discountPrice) : undefined,
+                    image: imagePaths[0] || editingProduct.image,
+                    images: imagePaths.length ? imagePaths : (editingProduct.images || []),
+                    stock: parsedStock,
+                    availableStock: parsedStock,
+                } as Product;
+                setProductOverrides((prev) => ({ ...prev, [String(editingProduct.id)]: optimisticProduct }));
                 const updated = await updateProductApi(String(editingProduct.id), {
                     name: formData.name,
                     description: composedDescription,
@@ -477,6 +523,13 @@ export function AdminProductsPage() {
                 void refreshProducts();
             }
         } catch (err: any) {
+            if (editingProduct) {
+                setProductOverrides((prev) => {
+                    const next = { ...prev };
+                    delete next[String(editingProduct.id)];
+                    return next;
+                });
+            }
             toast.error(err?.message || 'Failed to save product');
         } finally {
             setIsSavingProduct(false);
@@ -845,7 +898,7 @@ export function AdminProductsPage() {
                         >
                             {/* Sheet Header: Premium Glass Backdrop */}
                             <div className="p-12 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32" />
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
                                 <div className="relative z-10">
                                     <div className="flex items-center gap-4 mb-3">
                                         <div className="h-12 w-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center shadow-2xl shadow-slate-900/20">
@@ -861,7 +914,7 @@ export function AdminProductsPage() {
                                 </div>
                                 <button 
                                     onClick={() => setIsModalOpen(false)} 
-                                    className="h-14 w-14 flex items-center justify-center bg-white border border-slate-200 rounded-[1.5rem] text-slate-300 hover:text-red-500 hover:border-red-100 hover:shadow-2xl transition-all duration-500"
+                                    className="relative z-10 h-14 w-14 flex items-center justify-center bg-white border border-slate-200 rounded-[1.5rem] text-slate-300 hover:text-red-500 hover:border-red-100 hover:shadow-2xl transition-all duration-500"
                                 >
                                     <X className="h-6 w-6" />
                                 </button>
@@ -1193,7 +1246,7 @@ export function AdminProductsPage() {
                                                             placeholder="Auto"
                                                         />
                                                         <FormInput
-                                                            label="Price Offset (₹)"
+                                                            label="Variant Price (₹)"
                                                             type="number"
                                                             value={variant.price}
                                                             onChange={(v: string) => {
@@ -1201,7 +1254,7 @@ export function AdminProductsPage() {
                                                                 n[i].price = v;
                                                                 setFormData({ ...formData, variants: n });
                                                             }}
-                                                            placeholder="0.00"
+                                                            placeholder="Final pack price (e.g. 220)"
                                                         />
                                                         <div className="grid grid-cols-2 gap-8">
                                                             <FormInput

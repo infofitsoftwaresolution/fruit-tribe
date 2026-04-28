@@ -22,6 +22,19 @@ export class OrderService {
         private readonly settingsService: SettingsService,
     ) { }
 
+    /** Keep fiscal state consistent for already delivered orders. */
+    private async reconcileDeliveredFiscalState(): Promise<void> {
+        await this.prisma.order.updateMany({
+            where: {
+                status: 'DELIVERED',
+                paymentStatus: 'PENDING',
+            },
+            data: {
+                paymentStatus: 'PAID',
+            },
+        });
+    }
+
     async createManualOrder(adminUserId: string, dto: CreateManualOrderDto) {
         // 1. Find or create user (support existing users by either email or phone)
         const normalizedEmail = String(dto.customerEmail || '').trim().toLowerCase();
@@ -632,6 +645,7 @@ export class OrderService {
     }
 
     async findByUser(userId: string) {
+        await this.reconcileDeliveredFiscalState();
         return this.prisma.order.findMany({
             where: { userId },
             include: {
@@ -666,6 +680,7 @@ export class OrderService {
     }
 
     async findOne(id: string, userId: string) {
+        await this.reconcileDeliveredFiscalState();
         const order = await this.prisma.order.findFirst({
             where: { id, userId },
             include: {
@@ -690,6 +705,7 @@ export class OrderService {
 
     /** Admin: list all orders (no user filter). Light payload — no statusLogs / product images (detail uses findOne when needed). */
     async findAll() {
+        await this.reconcileDeliveredFiscalState();
         return this.prisma.order.findMany({
             include: {
                 user: { select: { id: true, email: true, firstName: true, lastName: true } },
@@ -810,9 +826,13 @@ export class OrderService {
                 }
             }
 
+            const shouldAutoMarkPaid = nextStatus === 'DELIVERED' && currentOrder.paymentStatus === 'PENDING';
             const o = await tx.order.update({
                 where: { id: orderId },
-                data: { status: nextStatus },
+                data: {
+                    status: nextStatus,
+                    ...(shouldAutoMarkPaid ? { paymentStatus: 'PAID' } : {}),
+                },
             });
 
             await tx.orderStatusLog.create({

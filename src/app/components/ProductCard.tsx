@@ -27,6 +27,19 @@ function sanitizeCardDescription(value?: string): string {
   }
 }
 
+function parseVariantPackDescriptor(rawName: string, fallbackUnit: string): { label: string; packQty: number; packUnit: string } {
+  const cleaned = String(rawName || '').trim();
+  const fallback = String(fallbackUnit || 'kg').trim().toLowerCase() || 'kg';
+  if (!cleaned) return { label: `1 ${fallback}`, packQty: 1, packUnit: fallback };
+  const matched = cleaned.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
+  if (!matched) return { label: cleaned, packQty: 1, packUnit: fallback };
+  const qty = Number(matched[1]);
+  const unit = String(matched[2] || fallback).toLowerCase();
+  const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+  const normalized = `${normalizedQty}${unit}`;
+  return { label: normalized, packQty: normalizedQty, packUnit: unit };
+}
+
 /* ── Image component ── */
 function ProductImage({ src, alt, isOutOfStock }: { src: string; alt: string; isOutOfStock: boolean }) {
   const [effectiveSrc, setEffectiveSrc] = useState(() => (src && src.trim()) ? src : PLACEHOLDER_IMAGE);
@@ -123,16 +136,45 @@ export const ProductCard = memo(({
   const retailRef    = useMemo(() => getRetailUnitReference(productForBulk), [productForBulk]);
   const bulkQty      = productForBulk.bulkDiscountQty;
   const bulkPriceVal = productForBulk.bulkDiscountPrice;
+  const unitLabel    = product?.unit ? product.unit : 'kg';
 
-  const [packKind, setPackKind] = useState<'retail' | 'bulk'>(() =>
+  const variantOptions = useMemo(() => {
+    return (product?.variants || [])
+      .filter((v: any) => String(v?.name || '').trim().toLowerCase() !== 'default')
+      .map((v: any) => ({
+        ...parseVariantPackDescriptor(String(v.name || ''), unitLabel),
+        key: `variant:${v.sku}`,
+        label: `${parseVariantPackDescriptor(String(v.name || ''), unitLabel).label} pack · ${formatInr(Number(v.price || retailRef))}`,
+        price: Number(v.price || retailRef),
+        stock: Number(v.stock ?? 0),
+        availableStock: Number(v.availableStock ?? v.stock ?? 0),
+        sku: String(v.sku || ''),
+        name: parseVariantPackDescriptor(String(v.name || ''), unitLabel).label,
+      }));
+  }, [product?.variants, retailRef, unitLabel]);
+
+  const [packKind, setPackKind] = useState<string>(() =>
     bulkDealMode && hasBulk ? 'bulk' : 'retail'
   );
   useEffect(() => { if (bulkDealMode && hasBulk) setPackKind('bulk'); }, [bulkDealMode, hasBulk]);
+  useEffect(() => {
+    if (packKind.startsWith('variant:') && !variantOptions.some((v) => v.key === packKind)) {
+      setPackKind(bulkDealMode && hasBulk ? 'bulk' : 'retail');
+    }
+  }, [packKind, variantOptions, bulkDealMode, hasBulk]);
 
-  const unitLabel         = product?.unit ? product.unit : 'kg';
-  const effectiveQty      = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : 1;
+  const selectedVariant   = packKind.startsWith('variant:')
+    ? variantOptions.find((v) => v.key === packKind) || null
+    : null;
+  const effectiveQty      = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0
+    ? bulkQty
+    : Math.max(1, quantity);
   const bulkPackTotal     = hasBulk && bulkPriceVal != null ? Number(bulkPriceVal) : null;
-  const displayUnitPrice  = hasBulk && packKind === 'bulk' && bulkPackTotal != null ? bulkPackTotal : retailRef;
+  const displayUnitPrice  = selectedVariant
+    ? selectedVariant.price
+    : hasBulk && packKind === 'bulk' && bulkPackTotal != null
+      ? bulkPackTotal
+      : retailRef;
   const bulkDerivedUnit   = bulkPackTotal != null && bulkQty && bulkQty > 0 ? bulkPackTotal / bulkQty : null;
   const bulkSavingPct     = bulkDerivedUnit != null && retailRef > 0
     ? Math.round(((retailRef - bulkDerivedUnit) / retailRef) * 100) : 0;
@@ -151,19 +193,43 @@ export const ProductCard = memo(({
     callback();
   };
 
-  const avail        = product?.availableStock ?? stock;
+  const avail        = selectedVariant?.availableStock ?? product?.availableStock ?? stock;
   const isOutOfStock = avail <= 0;
   const lowStock     = !isOutOfStock && avail <= (product?.lowStockThreshold ?? 10);
   const isOrganicProduct = Boolean(product?.isOrganic ?? isOrganic);
-  const cartQty      = cartItems.find((item) => String(item.id) === String(id))?.quantity ?? 0;
+  const selectedVariantSku = selectedVariant?.sku || '';
+  const lineKey = `${String(id)}::${selectedVariantSku}`;
+  const cartQty = cartItems
+    .filter(
+      (item) =>
+        String(item.id) === String(id) &&
+        String((item as any).selectedVariantSku || '') === String(selectedVariantSku || '')
+    )
+    .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const cleanDescription = useMemo(() => sanitizeCardDescription(description), [description]);
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([20, 30, 20]);
-    const payload = product ?? id;
-    const finalQty = hasBulk ? effectiveQty : Math.max(1, quantity);
-    const maxAllowed = product?.availableStock ?? stock;
+    const payload = product
+      ? {
+          ...product,
+          ...(selectedVariant
+            ? {
+                price: selectedVariant.price,
+                sku: selectedVariant.sku,
+                stock: selectedVariant.stock,
+                availableStock: selectedVariant.availableStock,
+                __selectedVariantSku: selectedVariant.sku,
+                __selectedVariantName: selectedVariant.name,
+                __selectedVariantPackQty: selectedVariant.packQty,
+                __selectedVariantPackUnit: selectedVariant.packUnit,
+              }
+            : {}),
+        }
+      : id;
+    const finalQty = effectiveQty;
+    const maxAllowed = selectedVariant?.availableStock ?? product?.availableStock ?? stock;
     if (finalQty > maxAllowed) { toast.error(`Only ${maxAllowed} units available`); return; }
     handleAction(() => onAddToCart(payload as any, finalQty));
   };
@@ -195,10 +261,10 @@ export const ProductCard = memo(({
           <div className="absolute bottom-2 right-2">
             {cartQty > 0 ? (
               <div className="h-8 px-1.5 rounded-xl bg-white border border-slate-200 shadow-md flex items-center gap-1">
-                <motion.button type="button" whileTap={{ scale: 0.85 }} onClick={(e) => { e.preventDefault(); handleUpdateQuantity(id, -1); }}
+                <motion.button type="button" whileTap={{ scale: 0.85 }} onClick={(e) => { e.preventDefault(); handleUpdateQuantity(lineKey, -1); }}
                   className="h-6 w-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-semibold">−</motion.button>
                 <span className="min-w-[1.25rem] text-center text-[11px] font-bold text-slate-900">{cartQty}</span>
-                <button type="button" onClick={(e) => { e.preventDefault(); if (cartQty >= avail) { toast.error(`Only ${avail} units available`); return; } handleUpdateQuantity(id, 1); }}
+                <button type="button" onClick={(e) => { e.preventDefault(); if (cartQty >= avail) { toast.error(`Only ${avail} units available`); return; } handleUpdateQuantity(lineKey, 1); }}
                   className="h-6 w-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center text-sm font-semibold">+</button>
               </div>
             ) : (
@@ -321,12 +387,12 @@ export const ProductCard = memo(({
         )}
 
         {/* Pack selector if bulk */}
-        {!isOutOfStock && hasBulk && (
+        {!isOutOfStock && (hasBulk || variantOptions.length > 0) && (
           <div className="mt-2">
             <div className="relative">
             <select
               value={bulkDealMode ? 'bulk' : packKind}
-              onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value as 'retail' | 'bulk'); setIsPackSelectOpen(false); }}
+              onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value); setIsPackSelectOpen(false); }}
               onFocus={() => setIsPackSelectOpen(true)}
               onBlur={() => setIsPackSelectOpen(false)}
               onClick={() => setIsPackSelectOpen((prev) => !prev)}
@@ -337,6 +403,9 @@ export const ProductCard = memo(({
               {bulkQty != null && bulkPriceVal != null && (
                 <option value="bulk">{bulkQty} {unitLabel} pack · {formatInr(Number(bulkPriceVal))} total</option>
               )}
+              {!bulkDealMode && variantOptions.map((variant) => (
+                <option key={variant.key} value={variant.key}>{variant.label}</option>
+              ))}
             </select>
             <ChevronDown
               className={cn(
@@ -349,7 +418,7 @@ export const ProductCard = memo(({
         )}
 
         {/* Quantity selector (retail) */}
-        {!isOutOfStock && !hasBulk && (
+        {!isOutOfStock && (!hasBulk || packKind !== 'bulk') && (
           <div className="flex items-center justify-between mt-2">
             <span className="text-[11px] text-slate-400 font-medium">Qty</span>
             <div className="flex items-center gap-2">
@@ -404,7 +473,11 @@ export const ProductCard = memo(({
               )}
             </div>
             <p className="text-[10px] text-slate-400 mt-0">
-              {hasBulk && packKind === 'bulk' && bulkQty ? `for ${bulkQty} ${unitLabel}` : `per ${unitLabel}`}
+              {selectedVariant
+                ? `${selectedVariant.name}`
+                : hasBulk && packKind === 'bulk' && bulkQty
+                  ? `for ${bulkQty} ${unitLabel}`
+                  : `per ${unitLabel}`}
             </p>
           </div>
 
@@ -412,11 +485,11 @@ export const ProductCard = memo(({
           {cartQty > 0 && !isOutOfStock ? (
             <div className="flex items-center gap-1 h-8 px-1 rounded-lg border border-slate-200 bg-white shadow-sm">
               <motion.button whileTap={{ scale: 0.85 }} type="button"
-                onClick={() => handleUpdateQuantity(id, -1)}
+                onClick={() => handleUpdateQuantity(lineKey, -1)}
                 className="h-6 w-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center text-sm font-bold">−</motion.button>
               <span className="min-w-[1.25rem] text-center text-sm font-bold text-slate-900">{cartQty}</span>
               <motion.button whileTap={{ scale: 0.85 }} type="button"
-                onClick={() => { if (cartQty >= avail) { toast.error(`Only ${avail} units available`); return; } handleUpdateQuantity(id, 1); }}
+                onClick={() => { if (cartQty >= avail) { toast.error(`Only ${avail} units available`); return; } handleUpdateQuantity(lineKey, 1); }}
                 className="h-6 w-6 rounded-md bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">+</motion.button>
             </div>
           ) : (

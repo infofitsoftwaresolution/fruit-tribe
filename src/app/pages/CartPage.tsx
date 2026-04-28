@@ -23,9 +23,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
   const { user } = useAuth();
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
-  const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
-  const shipping = (threshold > 0 && subtotal >= threshold) ? 0 : deliveryCharge;
+  // Cart summary shows provisional shipping only; final shipping is calculated at checkout.
+  const shipping = 0;
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
@@ -103,8 +103,11 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                 </div>
                 <div className="space-y-4">
                   {vendorItems.map((item: CartItem, index: number) => (
+                    (() => {
+                      const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                      return (
                     <motion.div
-                      key={item.id}
+                      key={`${item.id}-${item.selectedVariantSku || 'default'}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: (vIdx * 0.1) + (index * 0.05) }}
@@ -124,12 +127,22 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h3 className="text-xl font-bold text-gray-800 truncate pr-4">{item.name}</h3>
+                            {item.selectedVariantName && (
+                              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mt-0.5">
+                                Pack: {item.selectedVariantName}
+                              </p>
+                            )}
+                            {item.selectedVariantPackQty && item.selectedVariantPackQty > 1 && (
+                              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5">
+                                1 pack = {item.selectedVariantPackQty} {item.selectedVariantPackUnit || 'kg'}
+                              </p>
+                            )}
                             {item.vendor && <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Assigned Vendor: {item.vendor}</span>}
                           </div>
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => onRemoveItem(item.id)}
+                            onClick={() => onRemoveItem(lineKey)}
                             className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-5 h-5" />
@@ -148,9 +161,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                               whileTap={{ scale: 0.9 }}
                               onClick={() => {
                                 if (item.quantity <= 1) {
-                                  onRemoveItem(item.id);
+                                  onRemoveItem(lineKey);
                                 } else {
-                                  onUpdateQuantity(item.id, -1);
+                                  onUpdateQuantity(lineKey, -1);
                                 }
                               }}
                               className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-gray-100"
@@ -164,7 +177,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === '') {
-                                  onUpdateQuantity(item.id, -item.quantity); // Temporary state effectively 0
+                                  onUpdateQuantity(lineKey, -item.quantity); // Temporary state effectively 0
                                   return;
                                 }
                                 const num = parseInt(val);
@@ -173,12 +186,12 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                                   const product = products.find(p => p.id === item.id);
                                   const maxStock = product?.availableStock ?? product?.stock ?? 999;
                                   const target = Math.min(maxStock, Math.max(0, num));
-                                  onUpdateQuantity(item.id, target - item.quantity);
+                                  onUpdateQuantity(lineKey, target - item.quantity);
                                 }
                               }}
                               onBlur={() => {
                                 if (item.quantity < 1) {
-                                  onUpdateQuantity(item.id, 1 - item.quantity);
+                                  onUpdateQuantity(lineKey, 1 - item.quantity);
                                 }
                               }}
                               className="w-10 text-center text-lg font-bold text-gray-800 bg-transparent border-none focus:outline-none focus:ring-0"
@@ -190,7 +203,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                                 const product = products.find(p => p.id === item.id);
                                 const avail = product?.availableStock ?? product?.stock ?? 0;
                                 if (!product || item.quantity < avail) {
-                                  onUpdateQuantity(item.id, 1);
+                                  onUpdateQuantity(lineKey, 1);
                                 } else {
                                   toast.error(`Only ${avail} units available`);
                                 }
@@ -210,6 +223,8 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                         </div>
                       </div>
                     </motion.div>
+                      );
+                    })()
                   ))}
                 </div>
               </div>
@@ -230,16 +245,6 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                 <div className="flex justify-between text-gray-600">
                   <span>Subtotal</span>
                   <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                  <span>Shipping</span>
-                  <span className="font-semibold">
-                    {shipping === 0 ? (
-                      <span className="text-green-600">FREE</span>
-                    ) : (
-                      `₹${shipping.toFixed(2)}`
-                    )}
-                  </span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Tax</span>

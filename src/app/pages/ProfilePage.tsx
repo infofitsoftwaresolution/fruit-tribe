@@ -101,6 +101,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     date: api.createdAt ? new Date(api.createdAt).toLocaleDateString() : '—',
     total,
     payment: paymentMap[api.paymentStatus] || 'Pending',
+    paymentMethod: String(api.paymentMethod ?? '').toUpperCase(),
     fulfillment: api.status === 'DELIVERED' ? 'Fulfilled' : 'Unfulfilled',
     status: statusMap[rawStatus] || 'Created',
     rawStatus,
@@ -266,6 +267,21 @@ export function ProfilePage() {
       return db - da;
     });
   }, [user, ordersLoading, apiOrders]);
+
+  const hasOpenOrders = useMemo(() => {
+    return apiOrders.some((order) => {
+      const raw = String(order.rawStatus ?? '').toUpperCase();
+      return raw !== 'DELIVERED' && raw !== 'CANCELLED';
+    });
+  }, [apiOrders]);
+
+  useEffect(() => {
+    if (!user || !hasOpenOrders) return;
+    const intervalId = window.setInterval(() => {
+      void loadOrders().catch(() => undefined);
+    }, 10000);
+    return () => window.clearInterval(intervalId);
+  }, [user, hasOpenOrders, loadOrders]);
 
   useEffect(() => {
     setVisibleOrderCount(12);
@@ -789,7 +805,16 @@ export function ProfilePage() {
                             )}>
                               {order.status}
                             </div>
-                            {order.payment !== 'Paid' && order.status !== 'Cancelled' && (
+                            {(() => {
+                              const rawStatus = String(order.rawStatus ?? '').toUpperCase();
+                              const paymentMethod = String(order.paymentMethod ?? '').toUpperCase();
+                              const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
+                              const canShowPayNow =
+                                order.payment !== 'Paid' &&
+                                !isFinal &&
+                                paymentMethod !== 'COD';
+                              if (!canShowPayNow) return null;
+                              return (
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -800,7 +825,8 @@ export function ProfilePage() {
                               >
                                 Pay now
                               </button>
-                            )}
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -1060,23 +1086,41 @@ export function ProfilePage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
-                    <Phone className="w-4 h-4" />
-                    Call driver
-                  </button>
-                  <button
-                    className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
-                    onClick={() => {
-                      toast.info('Your latest order status is shown above.', {
-                        description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
-                      });
-                    }}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Track order
-                  </button>
-                </div>
+                {(() => {
+                  const rawStatus = String(trackingOrder.rawStatus ?? '').toUpperCase();
+                  const paymentMethod = String(trackingOrder.paymentMethod ?? '').toUpperCase();
+                  const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
+                  const isDeliveredCod = rawStatus === 'DELIVERED' && paymentMethod === 'COD';
+                  const showTrackingActions = !isFinal;
+
+                  if (!showTrackingActions) {
+                    return (
+                      <div className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-semibold uppercase tracking-widest text-center">
+                        {isDeliveredCod ? 'Order delivered successfully (COD)' : 'Order is in final state'}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+                      <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
+                        <Phone className="w-4 h-4" />
+                        Call driver
+                      </button>
+                      <button
+                        className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
+                        onClick={() => {
+                          toast.info('Your latest order status is shown above.', {
+                            description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
+                          });
+                        }}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Track order
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             </motion.div>
           </div>

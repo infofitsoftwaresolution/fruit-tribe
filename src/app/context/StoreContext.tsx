@@ -200,6 +200,7 @@ export interface ThemeSettings {
 
 export interface CartItem {
     id: string | number;
+    productId?: string | number;
     name: string;
     /** Effective unit price for the current quantity tier (retail or bulk). */
     price: number;
@@ -211,6 +212,10 @@ export interface CartItem {
     retailUnitPrice?: number;
     bulkDiscountQty?: number;
     bulkDiscountPrice?: number;
+    selectedVariantSku?: string;
+    selectedVariantName?: string;
+    selectedVariantPackQty?: number;
+    selectedVariantPackUnit?: string;
 }
 
 export interface Page {
@@ -298,6 +303,13 @@ interface StoreContextType {
     setSubscription: (sub: TribeSubscription | null) => void;
 }
 
+function parseCartLineTarget(target: string | number): { id: string; sku?: string } {
+    const raw = String(target);
+    if (!raw.includes('::')) return { id: raw };
+    const [id, sku] = raw.split('::');
+    return { id, sku: sku || undefined };
+}
+
 // --- Initial Data: products come from API (database), not hardcoded ---
 const INITIAL_PRODUCTS: Product[] = [];
 
@@ -358,6 +370,7 @@ const INITIAL_TAX_RATES: Record<string, number> = {
 const INITIAL_PREFERENCES: StorePreferences = {
     homepageTitle: 'The Fruit Tribe | Fresh Tropical Fruits Delivered',
     homepageMetaDescription: 'Order fresh, organic, and hand-picked tropical fruits directly from the farm. Same-day delivery available.',
+    deliveryCharge: 0,
     deliveryFeeRules: [
         { upToKm: 3, fee: 20 },
         { upToKm: 8, fee: 40 },
@@ -366,6 +379,7 @@ const INITIAL_PREFERENCES: StorePreferences = {
     ],
     deliveryFeeMode: 'SLAB',
     deliveryPerKmRate: 10,
+    platformFee: 0,
 };
 
 const INITIAL_PAGES: Page[] = [
@@ -551,8 +565,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             return;
         }
 
+        const selectedVariantSku = String((product as any).__selectedVariantSku || '').trim();
+        const selectedVariantName = String((product as any).__selectedVariantName || '').trim();
+        const selectedVariantPackQtyRaw = Number((product as any).__selectedVariantPackQty);
+        const selectedVariantPackQty = Number.isFinite(selectedVariantPackQtyRaw) && selectedVariantPackQtyRaw > 0
+            ? selectedVariantPackQtyRaw
+            : undefined;
+        const selectedVariantPackUnit = String((product as any).__selectedVariantPackUnit || '').trim().toLowerCase() || undefined;
+
         setCartItems(prevItems => {
-            const existingItem = prevItems.find(item => item.id === product.id);
+            const existingItem = prevItems.find(
+                item =>
+                    String(item.id) === String(product.id) &&
+                    String(item.selectedVariantSku || '') === selectedVariantSku
+            );
             const currentQty = existingItem?.quantity ?? 0;
             const maxStock = product.availableStock ?? product.stock;
             const newQty = Math.min(currentQty + desiredQty, maxStock);
@@ -562,11 +588,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 return prevItems;
             }
 
-            const unitPrice = getEffectiveUnitPrice(product, newQty);
-            const retailRef = getRetailUnitReference(product);
+            const matchedVariant = selectedVariantSku
+                ? (product.variants || []).find((v: any) => String(v?.sku || '') === selectedVariantSku)
+                : null;
+            const explicitSelectedPrice = selectedVariantSku ? Number((product as any).price) : NaN;
+            const variantRetailRef = selectedVariantSku
+                ? (Number.isFinite(explicitSelectedPrice) && explicitSelectedPrice > 0
+                    ? explicitSelectedPrice
+                    : Number((matchedVariant as any)?.price ?? NaN))
+                : null;
+            // For explicitly selected variants, preserve that exact variant price.
+            // Do not let generic retail reference fallback to default/min variant.
+            const unitPrice = variantRetailRef != null
+                ? variantRetailRef
+                : getEffectiveUnitPrice(product, newQty);
+            const retailRef = variantRetailRef != null
+                ? variantRetailRef
+                : getRetailUnitReference(product);
+            const resolvedVariantName = selectedVariantName || String((matchedVariant as any)?.name || '').trim();
             if (existingItem) {
                 const updatedItems = prevItems.map(item =>
-                    item.id === product.id
+                    String(item.id) === String(product.id) &&
+                    String(item.selectedVariantSku || '') === selectedVariantSku
                         ? {
                             ...item,
                             quantity: newQty,
@@ -574,6 +617,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                             retailUnitPrice: retailRef,
                             bulkDiscountQty: product.bulkDiscountQty,
                             bulkDiscountPrice: product.bulkDiscountPrice,
+                            selectedVariantSku: selectedVariantSku || undefined,
+                            selectedVariantName: resolvedVariantName || undefined,
+                            selectedVariantPackQty,
+                            selectedVariantPackUnit,
                         }
                         : item
                 );
@@ -584,6 +631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 toast.success(`${product.name} added to cart (${newQty} units)!`);
                 return [...prevItems, {
                     id: product.id,
+                    productId: product.id,
                     name: product.name,
                     price: unitPrice,
                     quantity: newQty,
@@ -593,14 +641,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     retailUnitPrice: retailRef,
                     bulkDiscountQty: product.bulkDiscountQty,
                     bulkDiscountPrice: product.bulkDiscountPrice,
+                    selectedVariantSku: selectedVariantSku || undefined,
+                    selectedVariantName: resolvedVariantName || undefined,
+                    selectedVariantPackQty,
+                    selectedVariantPackUnit,
                 }];
             }
         });
     }, []);
 
     const handleUpdateQuantity = useCallback((productId: string | number, change: number) => {
+        const target = parseCartLineTarget(productId);
         setCartItems(prevItems => prevItems.map(item => {
-            if (item.id === productId) {
+            const sameId = String(item.id) === target.id;
+            const sameVariant = target.sku == null
+                ? true
+                : String(item.selectedVariantSku || '') === String(target.sku || '');
+            if (sameId && sameVariant) {
                 const newQuantity = item.quantity + change;
                 const maxStock = item.stock ?? 999;
                 if (change > 0 && newQuantity > maxStock) {
@@ -619,10 +676,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const handleRemoveItem = useCallback((productId: string | number) => {
+        const target = parseCartLineTarget(productId);
         setCartItems(prevItems => {
-            const item = prevItems.find(i => i.id === productId);
+            const item = prevItems.find((i) => {
+                const sameId = String(i.id) === target.id;
+                const sameVariant = target.sku == null
+                    ? true
+                    : String(i.selectedVariantSku || '') === String(target.sku || '');
+                return sameId && sameVariant;
+            });
             if (item) toast.error(`${item.name} removed from cart`);
-            return prevItems.filter(i => i.id !== productId);
+            return prevItems.filter((i) => {
+                const sameId = String(i.id) === target.id;
+                const sameVariant = target.sku == null
+                    ? true
+                    : String(i.selectedVariantSku || '') === String(target.sku || '');
+                return !(sameId && sameVariant);
+            });
         });
     }, []);
 
@@ -633,25 +703,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             items.map((item) => {
                 const p = byId.get(String(item.id));
                 if (!p) return item;
-                const maxStock = p.availableStock ?? p.stock ?? item.stock ?? 999;
+                const matchedVariant = item.selectedVariantSku
+                    ? (p.variants || []).find((v: any) => String(v.sku) === String(item.selectedVariantSku))
+                    : null;
+                const maxStock = matchedVariant
+                    ? Number((matchedVariant as any).availableStock ?? (matchedVariant as any).stock ?? item.stock ?? 999)
+                    : (p.availableStock ?? p.stock ?? item.stock ?? 999);
                 const q = Math.min(Math.max(0, Math.floor(item.quantity)), Math.max(0, maxStock));
-                const unitPrice = getEffectiveUnitPrice(
-                    {
-                        price: p.price,
-                        bulkDiscountQty: p.bulkDiscountQty,
-                        bulkDiscountPrice: p.bulkDiscountPrice,
-                        variants: p.variants,
-                    },
-                    q,
-                );
+                const unitPrice = item.selectedVariantSku
+                    ? (matchedVariant
+                        ? Number((matchedVariant as any).price ?? item.price)
+                        : Number(item.price))
+                    : getEffectiveUnitPrice(
+                        {
+                            price: p.price,
+                            bulkDiscountQty: p.bulkDiscountQty,
+                            bulkDiscountPrice: p.bulkDiscountPrice,
+                            variants: p.variants,
+                        },
+                        q,
+                    );
                 return {
                     ...item,
                     quantity: q,
                     price: unitPrice,
-                    retailUnitPrice: getRetailUnitReference(p),
+                    retailUnitPrice: item.selectedVariantSku
+                        ? (matchedVariant ? Number((matchedVariant as any).price ?? item.retailUnitPrice ?? item.price) : (item.retailUnitPrice ?? item.price))
+                        : getRetailUnitReference(p),
                     bulkDiscountQty: p.bulkDiscountQty,
                     bulkDiscountPrice: p.bulkDiscountPrice,
                     stock: maxStock,
+                    selectedVariantName: matchedVariant?.name || item.selectedVariantName,
                 };
             }),
         );

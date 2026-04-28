@@ -38,6 +38,26 @@ interface CheckoutPageProps {
 const DEFAULT_WAREHOUSE_LAT = 22.5726;
 const DEFAULT_WAREHOUSE_LNG = 88.3639;
 
+function normalizeCityName(input: string): string {
+  return input.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function citiesRoughlyMatch(a: string, b: string): boolean {
+  const x = normalizeCityName(a);
+  const y = normalizeCityName(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const aliases: Record<string, string[]> = {
+    bangalore: ['bengaluru'],
+    bengaluru: ['bangalore'],
+    kolkata: ['calcutta'],
+    calcutta: ['kolkata'],
+    mumbai: ['bombay'],
+    bombay: ['mumbai'],
+  };
+  return (aliases[x] || []).includes(y) || (aliases[y] || []).includes(x);
+}
+
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -94,11 +114,16 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
 
-  const [deliveryStats, setDeliveryStats] = useState({
-    distanceKm: 4.8,
-    onTimeRate: 94,
-    estimatedMins: 45,
+  const [deliveryStats, setDeliveryStats] = useState<{
+    distanceKm: number | null;
+    onTimeRate: number | null;
+    estimatedMins: number | null;
+  }>({
+    distanceKm: null,
+    onTimeRate: null,
+    estimatedMins: null,
   });
+  const [geocodeCityMismatch, setGeocodeCityMismatch] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const checkoutMapEmbedSrc = useMemo(
     () => (mapCenter ? buildOpenStreetMapEmbedSrc([{ lat: mapCenter.lat, lng: mapCenter.lng }]) : null),
@@ -164,6 +189,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     
     return null;
   }, [formData.address, formData.city, formData.zipCode, serviceableCities]);
+  const effectiveAddressMismatch = geocodeCityMismatch || addressMismatch;
+  const hasAddressInputs = Boolean(formData.address.trim() || formData.city.trim() || formData.zipCode.trim());
+  const isAddressResolvedForPricing = !effectiveAddressMismatch && !!mapCenter;
 
   const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
@@ -271,7 +299,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const query = [formData.address, formData.city, formData.zipCode].filter(Boolean).join(', ');
     if (!query.trim()) {
       setMapCenter(null);
-      setDeliveryStats({ distanceKm: 4.8, onTimeRate: 94, estimatedMins: 45 });
+      setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
       return;
     }
     if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
@@ -279,18 +307,34 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setGeocodeLoading(true);
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(query)}&limit=1`,
           { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
         );
         const data = await res.json();
         if (data && data[0]) {
+          const resolvedCity = String(
+            data[0]?.address?.city ||
+            data[0]?.address?.town ||
+            data[0]?.address?.village ||
+            data[0]?.address?.state_district ||
+            ''
+          ).trim();
+          if (formData.city?.trim() && resolvedCity && !citiesRoughlyMatch(formData.city, resolvedCity)) {
+            setGeocodeCityMismatch(`Address looks like ${resolvedCity}, but city is ${formData.city}`);
+            setMapCenter(null);
+            setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+            return;
+          }
+          setGeocodeCityMismatch(null);
           const lat = parseFloat(data[0].lat);
           const lng = parseFloat(data[0].lon);
           updateDeliveryFromCoordinates(lat, lng);
         } else {
+          setGeocodeCityMismatch(null);
           setMapCenter(null);
         }
       } catch {
+        setGeocodeCityMismatch(null);
         setMapCenter(null);
       } finally {
         setGeocodeLoading(false);
@@ -382,9 +426,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;
   const deliveryEfficiency = deliveryStats.onTimeRate;
-  const etaMin = Math.max(20, Math.round(deliveryStats.estimatedMins * 0.8));
-  const etaMax = Math.max(etaMin + 10, Math.round(deliveryStats.estimatedMins * 1.2));
-  const etaLabel = `${etaMin}-${etaMax} mins`;
+  const etaLabel = useMemo(() => {
+    if (deliveryStats.estimatedMins == null) return '';
+    const etaMin = Math.max(20, Math.round(deliveryStats.estimatedMins * 0.8));
+    const etaMax = Math.max(etaMin + 10, Math.round(deliveryStats.estimatedMins * 1.2));
+    return `${etaMin}-${etaMax} mins`;
+  }, [deliveryStats.estimatedMins]);
   const configuredDeliverySlots = Array.isArray(preferences.deliverySlots) ? preferences.deliverySlots : [];
   const hasConfiguredDeliverySlots = configuredDeliverySlots.length > 0;
   const deliverySlotOptions = hasConfiguredDeliverySlots
@@ -412,12 +459,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }, [items]);
 
   const shippingFeeForDistance = useMemo(() => {
+    if (!isAddressResolvedForPricing) return 0;
+    if (effectiveAddressMismatch) return 0;
     const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
     const rules = preferences.deliveryFeeRules || [];
     const mode = preferences.deliveryFeeMode || 'SLAB';
     const perKmRate = Number(preferences.deliveryPerKmRate) || 0;
     return computeDeliveryFeeByDistanceKm(
-      deliveryDistance,
+      deliveryDistance ?? null,
       rules,
       fallbackDeliveryCharge,
       mode,
@@ -426,6 +475,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       Number(preferences.freeDeliveryThreshold) || 0,
     );
   }, [
+    isAddressResolvedForPricing,
+    effectiveAddressMismatch,
     deliveryDistance,
     subtotalOnly,
     preferences.deliveryCharge,
@@ -463,6 +514,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const totalShipping = useMemo(() => {
     return vendorSummaries.reduce((sum: number, s: any) => sum + s.shipping, 0);
   }, [vendorSummaries]);
+
+  const platformFee = Number(preferences.platformFee) || 0;
+  const baseBillBeforeDiscount = useMemo(() => {
+    return subtotalOnly + totalTax + totalShipping + platformFee;
+  }, [subtotalOnly, totalTax, totalShipping, platformFee]);
+
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
     if (appliedCoupon.minOrderValue != null && subtotalOnly < appliedCoupon.minOrderValue) return 0;
@@ -474,8 +531,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     return appliedCoupon.discountValue;
   }, [appliedCoupon, subtotalOnly]);
 
-  const platformFee = Number(preferences.platformFee) || 0;
-  const grandTotal = Math.max(0, vendorSummaries.reduce((sum, s) => sum + s.total, 0) + platformFee - discountAmount);
+  const grandTotal = Math.max(0, baseBillBeforeDiscount - discountAmount);
 
   const [orderPlacedOptimistically, setOrderPlacedOptimistically] = useState(false);
   const [paymentAwaiting, setPaymentAwaiting] = useState(false);
@@ -489,6 +545,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       toast.error('Enter a promo code');
       return;
     }
+    if (appliedCoupon?.code?.toUpperCase() === code.toUpperCase()) {
+      toast.info(`${code.toUpperCase()} is already applied`);
+      return;
+    }
     setApplyingPromo(true);
     try {
       const cartProductIds = items.map((i) => String(i.id));
@@ -497,6 +557,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         .filter((name): name is string => !!name);
       const result = await validateCoupon(code, { cartProductIds, cartCategoryNames });
       if (result.valid && result.discountType != null && result.discountValue != null) {
+        if (result.minOrderValue != null && subtotalOnly < result.minOrderValue) {
+          const needed = Math.max(0, result.minOrderValue - subtotalOnly);
+          setAppliedCoupon(null);
+          toast.error(`Add ₹${needed.toFixed(2)} more to use ${code}`);
+          return;
+        }
         setAppliedCoupon({
           code,
           discountType: result.discountType,
@@ -504,7 +570,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           maxDiscount: result.maxDiscount ?? undefined,
           minOrderValue: result.minOrderValue ?? undefined,
         });
-        toast.success('Promo code applied');
+        toast.success(`Promo code ${code.toUpperCase()} applied`);
       } else {
         toast.error(result.message || 'Invalid promo code');
         setAppliedCoupon(null);
@@ -516,6 +582,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setApplyingPromo(false);
     }
   };
+
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    if (appliedCoupon.minOrderValue != null && subtotalOnly < appliedCoupon.minOrderValue) {
+      setAppliedCoupon(null);
+      toast.info('Coupon removed because cart value dropped below minimum order.');
+    }
+  }, [appliedCoupon, subtotalOnly]);
 
   const handleApplyPromo = async () => {
     await applyPromoCode(promoCode);
@@ -610,9 +684,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       }
 
       // 4. Address Consistency Check (Cross-city mismatch)
-      if (addressMismatch) {
+      if (effectiveAddressMismatch) {
         toast.error('Address Inconsistency Detected', {
-          description: `${addressMismatch}. Please correct your address to proceed.`,
+          description: `${effectiveAddressMismatch}. Please correct your address to proceed.`,
           duration: 5000,
         });
         setSubmitting(false);
@@ -638,6 +712,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
         let pickedVariant = variants[0];
         if (variants.length > 0) {
+          const skuMatched = item.selectedVariantSku
+            ? variants.find((v: any) => String(v.sku) === String(item.selectedVariantSku))
+            : null;
           // Prefer a variant matching cart unit price and enough available quantity.
           const priceMatched = variants.find((v: any) =>
             Number(v.price) === Number(item.price) &&
@@ -646,7 +723,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           const firstAvailable = variants.find((v: any) =>
             Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
           );
-          pickedVariant = priceMatched || firstAvailable || variants[0];
+          pickedVariant = skuMatched || priceMatched || firstAvailable || variants[0];
         }
         const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
         if (!variantId) {
@@ -865,7 +942,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
     if (serviceableCities.length > 0 && formData.city.trim() && !isCityServiceable(formData.city)) return false;
     if (serviceablePincodes.length > 0 && !isPincodeServiceable(formData.zipCode)) return false;
-    if (addressMismatch) return false;
+    if (effectiveAddressMismatch) return false;
+    // Do not allow payment until address is geocoded to a concrete location.
+    if (hasAddressInputs && !mapCenter) return false;
     if (hasConfiguredDeliverySlots && !deliverySlot) return false;
 
     return true;
@@ -875,7 +954,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     serviceableCities.length,
     isCityServiceable,
     isPincodeServiceable,
-    addressMismatch,
+    effectiveAddressMismatch,
+    hasAddressInputs,
+    mapCenter,
     hasConfiguredDeliverySlots,
     deliverySlot,
   ]);
@@ -899,7 +980,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
             <div className="min-w-0">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">Distance</p>
-              <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">{deliveryDistance} <span className="text-xs font-bold">km</span></p>
+                      <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">
+                        {deliveryDistance == null ? '—' : <>{deliveryDistance} <span className="text-xs font-bold">km</span></>}
+                      </p>
             </div>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3">
@@ -908,7 +991,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
             <div className="min-w-0">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">On-time</p>
-              <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">{deliveryEfficiency}<span className="text-xs font-bold">%</span></p>
+              <p className="text-lg font-black text-slate-900 tracking-tighter leading-none">
+                {deliveryEfficiency == null ? '—' : <>{deliveryEfficiency}<span className="text-xs font-bold">%</span></>}
+              </p>
             </div>
           </div>
           <div className="bg-slate-900 p-4 rounded-2xl text-white shadow-lg flex items-center gap-3 relative overflow-hidden">
@@ -920,7 +1005,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
             <div className="min-w-0">
               <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest truncate">ETA</p>
-              <p className="text-lg font-black text-white tracking-tighter leading-none">{etaLabel}</p>
+              <p className="text-lg font-black text-white tracking-tighter leading-none">{etaLabel || '—'}</p>
             </div>
           </div>
         </motion.div>
@@ -1122,19 +1207,32 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         <div className="flex flex-col gap-1">
                           <p className={cn(
                             "text-[9px] font-bold pl-1 flex items-center gap-1",
-                            addressMismatch ? "text-amber-600" : "text-emerald-600"
+                            effectiveAddressMismatch ? "text-amber-600" : "text-emerald-600"
                           )}>
-                            {addressMismatch ? '⚠️ Potential area mismatch' : '✅ In delivery area'}
+                            {effectiveAddressMismatch ? '⚠️ Potential area mismatch' : '✅ In delivery area'}
                           </p>
-                          {addressMismatch && (
+                          {effectiveAddressMismatch && (
                             <p className="text-[8px] text-amber-500 font-bold pl-1 leading-tight">
-                              {addressMismatch}.
+                              {effectiveAddressMismatch}.
                             </p>
                           )}
                         </div>
                       )}
                   </div>
                 </div>
+
+                {(effectiveAddressMismatch || (hasAddressInputs && !isAddressResolvedForPricing && !geocodeLoading)) && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
+                      Please enter the correct street address
+                    </p>
+                    <p className="mt-1 text-[11px] font-bold text-amber-700">
+                      {effectiveAddressMismatch
+                        ? `${effectiveAddressMismatch}. Update street, city and PIN so delivery fee and ETA can be calculated correctly.`
+                        : 'We could not resolve this address yet. Please correct street name/area details so delivery fee and ETA can be calculated.'}
+                    </p>
+                  </div>
+                )}
 
                 {user && !selectedSavedAddressId && (
                   <div className="mt-6 flex items-start gap-3 pl-1">
@@ -1250,7 +1348,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         </div>
                         <div className="space-y-4">
                           {summary.items.map((item: CartItem) => (
-                            <div key={item.id} className="flex items-center gap-3">
+                            <div key={`${item.id}-${item.selectedVariantSku || 'default'}`} className="flex items-center gap-3">
+                              {(() => {
+                                const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                                return (
+                                  <>
                               {/* Product Image */}
                               <div className="w-10 h-10 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100/50">
                                 <img src={item.image} className="w-full h-full object-cover" />
@@ -1259,12 +1361,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                               {/* Info & Quantity Controls */}
                               <div className="flex-1 min-w-0">
                                 <p className="text-[10px] font-black text-slate-900 truncate uppercase tracking-tight leading-none mb-1">{item.name}</p>
+                                {item.selectedVariantName && (
+                                  <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                                    Pack: {item.selectedVariantName}
+                                  </p>
+                                )}
+                                {item.selectedVariantPackQty && item.selectedVariantPackQty > 1 && (
+                                  <p className="text-[8px] font-semibold text-slate-400 uppercase tracking-widest mb-1">
+                                    1 pack = {item.selectedVariantPackQty} {item.selectedVariantPackUnit || 'kg'}
+                                  </p>
+                                )}
                                 <div className="flex items-center gap-2">
                                   {/* Compact Qty Controls */}
                                   <div className="flex items-center bg-slate-100 rounded-md p-0.5 border border-slate-200/50">
                                     <button
                                       type="button"
-                                      onClick={() => item.quantity <= 1 ? handleRemoveItem(item.id) : handleUpdateQuantity(item.id, -1)}
+                                      onClick={() => item.quantity <= 1 ? handleRemoveItem(lineKey) : handleUpdateQuantity(lineKey, -1)}
                                       className="h-5 w-5 flex items-center justify-center text-slate-500 hover:text-slate-900 transition-colors"
                                     >
                                       <Minus className="w-3 h-3" />
@@ -1275,7 +1387,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                                       onClick={() => {
                                         const product = products.find((p: any) => String(p.id) === String(item.id));
                                         const avail = Number((product as any)?.availableStock ?? (product as any)?.stock ?? 0);
-                                        if (!product || item.quantity < avail) handleUpdateQuantity(item.id, 1);
+                                        if (!product || item.quantity < avail) handleUpdateQuantity(lineKey, 1);
                                         else toast.error(`Max stock: ${avail}`);
                                       }}
                                       className="h-5 w-5 flex items-center justify-center text-slate-500 hover:text-emerald-600 transition-colors"
@@ -1289,6 +1401,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
                               {/* Subtotal per item */}
                               <p className="text-[11px] font-black text-slate-900 tabular-nums">₹{item.price * item.quantity}</p>
+                                  </>
+                                );
+                              })()}
                             </div>
                           ))}
                         </div>
@@ -1315,14 +1430,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           <span>Items Total</span>
                           <span className="text-slate-900 font-black">₹{vendorSummaries.reduce((sum, s) => sum + s.subtotal, 0)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          <span>Delivery Fee ({deliveryDistance} km)</span>
-                          {shippingFeeForDistance === 0 ? (
-                            <span className="text-emerald-500 font-black px-2 py-0.5 bg-emerald-50 rounded-md">FREE</span>
-                          ) : (
-                            <span className="text-slate-900 font-black">₹{shippingFeeForDistance}</span>
-                          )}
-                        </div>
+                        {isAddressResolvedForPricing && (
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                            <span>Delivery Fee ({deliveryDistance == null ? '—' : `${deliveryDistance} km`})</span>
+                            {effectiveAddressMismatch ? (
+                              <span className="text-amber-600 font-black px-2 py-0.5 bg-amber-50 rounded-md">Fix address</span>
+                            ) : shippingFeeForDistance === 0 ? (
+                              <span className="text-slate-900 font-black">₹0</span>
+                            ) : (
+                              <span className="text-slate-900 font-black">₹{shippingFeeForDistance}</span>
+                            )}
+                          </div>
+                        )}
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                           <span>Tax & Charges</span>
                           <span className="text-slate-900 font-black">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
@@ -1367,21 +1486,25 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           type="text"
                           value={promoCode}
                           onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (!applyingPromo && promoCode.trim()) void handleApplyPromo();
+                            }
+                          }}
                           placeholder="e.g. SAVE10"
                           className="flex-1 w-full min-w-0 h-10 px-3 rounded-lg border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-[11px] font-bold uppercase min-h-[40px]"
                         />
                         <button
                           type="button"
                           onClick={handleApplyPromo}
-                          disabled={applyingPromo || !promoCode.trim() || !!appliedCoupon}
+                          disabled={applyingPromo || !promoCode.trim()}
                           className={cn(
                             "h-10 px-4 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all disabled:cursor-not-allowed",
-                            appliedCoupon
-                              ? "bg-emerald-600 text-white"
-                              : "bg-slate-900 text-white hover:bg-black disabled:opacity-50"
+                            appliedCoupon ? "bg-orange-500 text-white hover:bg-orange-600" : "bg-slate-900 text-white hover:bg-black disabled:opacity-50"
                           )}
                         >
-                          {applyingPromo ? '…' : appliedCoupon ? 'Applied' : 'Apply'}
+                          {applyingPromo ? '…' : appliedCoupon ? 'Replace' : 'Apply'}
                         </button>
                       </div>
                       {appliedCoupon && (
@@ -1562,6 +1685,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           <span className="text-[8px] font-bold text-orange-500 uppercase px-1.5 py-0.5 bg-orange-50 rounded">Split Order</span>
                         </div>
                         <div className="text-right">
+                          {discountAmount > 0 && (
+                            <p className="text-[11px] font-black text-slate-400 line-through">₹{baseBillBeforeDiscount.toFixed(2)}</p>
+                          )}
                           <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
                         </div>
                       </div>
@@ -1636,7 +1762,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         onSuccess={() => submitRef.current?.click()} 
                         submitting={submitting} 
                         disabled={!isCheckoutFormReady || submitting}
-                        disabledLabel={addressMismatch ? 'Fix address mismatch to pay' : 'Complete required fields to pay'}
+                        disabledLabel={
+                          effectiveAddressMismatch || (hasAddressInputs && !isAddressResolvedForPricing && !geocodeLoading)
+                            ? 'Give correct street address to pay'
+                            : 'Complete required fields to pay'
+                        }
                         themeStyle={theme.buttonStyle} 
                       />
                   </div>

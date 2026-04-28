@@ -30,10 +30,16 @@ export function AdminOrdersPage() {
         isInitialLoading: ordersLoading,
     } = useAdminData();
     const [localDraftOrders, setLocalDraftOrders] = useState<Order[]>([]);
-    const orders = useMemo(
-        () => [...localDraftOrders, ...(rawOrders || []).map(mapApiOrderToOrder)],
-        [rawOrders, localDraftOrders],
-    );
+    const orders = useMemo(() => {
+        const merged = [...localDraftOrders, ...(rawOrders || []).map(mapApiOrderToOrder)];
+        const seen = new Set<string>();
+        return merged.filter((o) => {
+            const id = String((o as any).id || '');
+            if (!id || seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
+    }, [rawOrders, localDraftOrders]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -197,44 +203,89 @@ export function AdminOrdersPage() {
         };
     }, [orders]);
 
+    const patchLocalOrder = useCallback((id: string, patch: Partial<Order>) => {
+        setLocalDraftOrders((prev) => {
+            const idx = prev.findIndex((o) => String((o as any).id) === String(id));
+            if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = { ...next[idx], ...patch };
+                return next;
+            }
+            const base = orders.find((o) => String((o as any).id) === String(id));
+            if (!base) return prev;
+            return [{ ...base, ...patch } as Order, ...prev];
+        });
+    }, [orders]);
+
     const handleStatusChange = useCallback(async (id: string, newStatus: Order['status']) => {
         const statusMap: Record<Order['status'], string> = {
             Created: 'CREATED', Confirmed: 'CONFIRMED', Packed: 'PACKED', Shipped: 'SHIPPED', Delivered: 'DELIVERED', Cancelled: 'CANCELLED',
         };
         const apiStatus = statusMap[newStatus];
+        const current = orders.find((o) => String((o as any).id) === String(id));
+        if (!current) return;
+        const optimisticPatch: Partial<Order> = {
+            status: newStatus,
+            fulfillment: newStatus === 'Delivered' ? 'Fulfilled' : newStatus === 'Cancelled' ? 'Unfulfilled' : current.fulfillment,
+            payment: newStatus === 'Delivered' && current.payment === 'Pending' ? 'Paid' : current.payment,
+        };
+        patchLocalOrder(id, optimisticPatch);
         try {
             await updateOrderStatus(id, apiStatus);
-            await refreshOrders();
+            void refreshOrders();
             toast.success(`Order status updated to ${newStatus}`);
         } catch (e: any) {
+            patchLocalOrder(id, {
+                status: current.status,
+                fulfillment: current.fulfillment,
+                payment: current.payment,
+            });
             toast.error(e?.message || 'Failed to update order status');
         }
-    }, [refreshOrders]);
+    }, [orders, patchLocalOrder, refreshOrders]);
 
     const handlePaymentStatusChange = useCallback(async (id: string, newPaymentStatus: Order['payment']) => {
         const paymentMap: Record<Order['payment'], string> = {
             Paid: 'PAID', Pending: 'PENDING', Refunded: 'REFUNDED',
         };
         const apiStatus = paymentMap[newPaymentStatus];
+        const current = orders.find((o) => String((o as any).id) === String(id));
+        if (!current) return;
+        patchLocalOrder(id, { payment: newPaymentStatus });
         try {
             await updateOrderPaymentStatus(id, apiStatus);
-            await refreshOrders();
+            void refreshOrders();
             toast.success(`Payment status updated to ${newPaymentStatus}`);
         } catch (e: any) {
+            patchLocalOrder(id, { payment: current.payment });
             toast.error(e?.message || 'Failed to update payment status');
         }
-    }, [refreshOrders]);
+    }, [orders, patchLocalOrder, refreshOrders]);
 
     const handleAssignDelivery = useCallback(async (orderId: string, partnerId: string) => {
         if (!partnerId) return;
+        const current = orders.find((o) => String((o as any).id) === String(orderId));
+        const partnerName = deliveryPartners.find((p) => String(p.id) === String(partnerId))?.name || current?.courierName || null;
+        if (current) {
+            patchLocalOrder(orderId, {
+                courierName: partnerName as any,
+                status: current.status === 'Created' ? 'Confirmed' : current.status,
+            });
+        }
         try {
             await assignDeliveryPartner(orderId, partnerId);
-            await refreshOrders();
+            void refreshOrders();
             toast.success('Delivery partner assigned to order');
         } catch (e: any) {
+            if (current) {
+                patchLocalOrder(orderId, {
+                    courierName: current.courierName as any,
+                    status: current.status,
+                });
+            }
             toast.error(e?.message || 'Failed to assign delivery partner');
         }
-    }, [refreshOrders]);
+    }, [deliveryPartners, orders, patchLocalOrder, refreshOrders]);
 
     const handleOpenModal = () => {
         setFormData({ customer: '', email: '', phone: '', status: 'Created', payment: 'Pending', fulfillment: 'Unfulfilled', selectedProducts: [] });
@@ -777,7 +828,7 @@ export function AdminOrdersPage() {
                                                                 <Printer className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
                                                             </button>
                                                         </div>
-                                                        {deliveryPartners.length > 0 && user?.role === 'admin' && (
+                                                        {deliveryPartners.length > 0 && user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
                                                             <div className="relative group/rider w-full">
                                                                 <select
                                                                     defaultValue=""

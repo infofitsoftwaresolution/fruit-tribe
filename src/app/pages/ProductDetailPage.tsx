@@ -3,6 +3,18 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
+
+function parseVariantPackDescriptor(rawName: string, fallbackUnit: string): { label: string; packQty: number; packUnit: string } {
+  const cleaned = String(rawName || '').trim();
+  const fallback = String(fallbackUnit || 'kg').trim().toLowerCase() || 'kg';
+  if (!cleaned) return { label: `1 ${fallback}`, packQty: 1, packUnit: fallback };
+  const matched = cleaned.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
+  if (!matched) return { label: cleaned, packQty: 1, packUnit: fallback };
+  const qty = Number(matched[1]);
+  const unit = String(matched[2] || fallback).toLowerCase();
+  const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+  return { label: `${normalizedQty}${unit}`, packQty: normalizedQty, packUnit: unit };
+}
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
@@ -198,7 +210,31 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       return;
     }
     const safeQty = Math.max(1, Math.min(effectiveQty, product.stock));
-    handleAction(() => onAddToCart({ ...apiProduct, stock: product.stock, availableStock: product.availableStock }, safeQty));
+    const selectedVariant =
+      apiProduct.variants?.find((variant) => String(variant.sku) === String(product.sku)) ?? null;
+    const packInfo = selectedVariant
+      ? parseVariantPackDescriptor(String(selectedVariant.name || ''), String(apiProduct.unit || 'kg'))
+      : null;
+    handleAction(() =>
+      onAddToCart(
+        {
+          ...apiProduct,
+          stock: product.stock,
+          availableStock: product.availableStock,
+          sku: product.sku,
+          price: Number(product.sellPrice),
+          ...(selectedVariant
+            ? {
+                __selectedVariantSku: selectedVariant.sku,
+                __selectedVariantName: packInfo?.label || selectedVariant.name,
+                __selectedVariantPackQty: packInfo?.packQty,
+                __selectedVariantPackUnit: packInfo?.packUnit,
+              }
+            : {}),
+        } as any,
+        safeQty
+      )
+    );
     toast.success(`${product.name} added to cart`);
   };
 
@@ -362,7 +398,21 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           {product.variants && product.variants.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select option</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 items-center">
+                <select
+                  value={activeVariant ?? ''}
+                  onChange={(e) => setActiveVariant(e.target.value || null)}
+                  className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400"
+                >
+                  <option value="">Default</option>
+                  {product.variants
+                    .filter((v: any) => String(v.name || '').trim().toLowerCase() !== 'default')
+                    .map((variant: any) => (
+                      <option key={variant.sku} value={variant.sku}>
+                        {variant.name}
+                      </option>
+                    ))}
+                </select>
                 <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>Default</button>
                 {product.variants.filter((v: any) => String(v.name || '').trim().toLowerCase() !== 'default').map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>

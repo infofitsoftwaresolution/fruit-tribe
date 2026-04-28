@@ -10,6 +10,10 @@ interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  selectedVariantSku?: string;
+  selectedVariantName?: string;
+  selectedVariantPackQty?: number;
+  selectedVariantPackUnit?: string;
 }
 
 interface CartDrawerProps {
@@ -29,9 +33,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
   const { products, taxRates, theme, preferences } = useStore();
   const navigate = useNavigate();
   const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
-  const deliveryCharge = Number(preferences.deliveryCharge) ?? 49;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
-  const shipping = (threshold > 0 && subtotal >= threshold) ? 0 : deliveryCharge;
+  // Drawer summary keeps shipping provisional; final fee is distance-based at checkout.
+  const shipping = 0;
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
@@ -133,9 +137,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 </motion.div>
               ) : (
                 <div className="space-y-4">
-                  {items.map((item, index) => (
+                  {items.map((item, index) => {
+                    const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                    return (
                     <motion.div
-                      key={item.id}
+                      key={`${item.id}-${item.selectedVariantSku || 'default'}`}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
@@ -154,6 +160,16 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-bold text-slate-900 mb-1 truncate">{item.name}</h3>
+                        {item.selectedVariantName && (
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                            Pack: {item.selectedVariantName}
+                          </p>
+                        )}
+                        {item.selectedVariantPackQty && item.selectedVariantPackQty > 1 && (
+                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-1">
+                            1 pack = {item.selectedVariantPackQty} {item.selectedVariantPackUnit || 'kg'}
+                          </p>
+                        )}
                         <p className="text-lg font-bold text-slate-900 mb-2">
                           ₹{item.price.toFixed(2)}
                         </p>
@@ -166,9 +182,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                whileTap={{ scale: 0.9 }}
                                onClick={() => {
                                  if (item.quantity <= 1) {
-                                   onRemoveItem(item.id);
+                                   onRemoveItem(lineKey);
                                  } else {
-                                   onUpdateQuantity(item.id, -1);
+                                   onUpdateQuantity(lineKey, -1);
                                  }
                                }}
                                className="w-7 h-7 bg-white rounded-lg flex items-center justify-center shadow-sm hover:shadow-md transition-all border border-slate-200"
@@ -182,7 +198,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                onChange={(e) => {
                                  const val = e.target.value;
                                  if (val === '') {
-                                   onUpdateQuantity(item.id, -item.quantity);
+                                   onUpdateQuantity(lineKey, -item.quantity);
                                    return;
                                  }
                                   const num = parseInt(val);
@@ -190,12 +206,12 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                     const product = products.find(p => p.id === item.id);
                                     const maxStock = product?.availableStock ?? product?.stock ?? 999;
                                     const target = Math.min(maxStock, Math.max(0, num));
-                                    onUpdateQuantity(item.id, target - item.quantity);
+                                    onUpdateQuantity(lineKey, target - item.quantity);
                                   }
                                }}
                                onBlur={() => {
                                  if (item.quantity < 1) {
-                                   onUpdateQuantity(item.id, 1 - item.quantity);
+                                   onUpdateQuantity(lineKey, 1 - item.quantity);
                                  }
                                }}
                                className="w-10 text-center font-semibold text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 text-base"
@@ -207,7 +223,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                                  const product = products.find(p => p.id === item.id);
                                  const maxAvailable = product?.availableStock ?? product?.stock ?? 0;
                                  if (!product || item.quantity < maxAvailable) {
-                                   onUpdateQuantity(item.id, 1);
+                                   onUpdateQuantity(lineKey, 1);
                                  } else {
                                    toast.error(`Only ${maxAvailable} units available`);
                                  }
@@ -221,7 +237,7 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                           <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
-                            onClick={() => onRemoveItem(item.id)}
+                            onClick={() => onRemoveItem(lineKey)}
                             className="p-2 hover:bg-red-50 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
@@ -229,7 +245,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -242,16 +259,6 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Subtotal:</span>
                     <span className="font-semibold text-slate-800">₹{subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Shipping:</span>
-                    <span className="font-semibold text-slate-800">
-                      {shipping === 0 ? (
-                        <span className="text-green-600">FREE</span>
-                      ) : (
-                        `₹${shipping.toFixed(2)}`
-                      )}
-                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">Tax:</span>
