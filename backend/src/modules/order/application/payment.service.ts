@@ -6,7 +6,6 @@ import { MailService } from '../../../common/mail/mail.service';
 import * as crypto from 'crypto';
 
 // Razorpay package uses module.exports (no default); use require so constructor is available
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const Razorpay = require('razorpay');
 
 @Injectable()
