@@ -255,45 +255,47 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* ── Team ── */}
-      <section className="py-16 md:py-20 bg-slate-50 border-y border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-10">
-            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-              The people behind it
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-              Meet the team
-            </h2>
-          </div>
+      {/* ── Team (temporarily hidden) ── */}
+      {false && (
+        <section className="py-16 md:py-20 bg-slate-50 border-y border-slate-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-10">
+              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
+                The people behind it
+              </p>
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                Meet the team
+              </h2>
+            </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {TEAM.map((member, i) => (
-              <motion.div
-                key={member.name}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-sm transition-all"
-              >
-                <div className="aspect-[3/2] overflow-hidden bg-slate-100">
-                  <img
-                    src={member.image}
-                    alt={member.name}
-                    className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500"
-                  />
-                </div>
-                <div className="p-5">
-                  <p className="text-base font-semibold text-slate-900">{member.name}</p>
-                  <p className="text-xs font-medium text-emerald-600 mt-0.5 mb-2">{member.role}</p>
-                  <p className="text-xs text-slate-500 leading-relaxed">{member.bio}</p>
-                </div>
-              </motion.div>
-            ))}
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {TEAM.map((member, i) => (
+                <motion.div
+                  key={member.name}
+                  initial={{ opacity: 0, y: 12 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-sm transition-all"
+                >
+                  <div className="aspect-[3/2] overflow-hidden bg-slate-100">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500"
+                    />
+                  </div>
+                  <div className="p-5">
+                    <p className="text-base font-semibold text-slate-900">{member.name}</p>
+                    <p className="text-xs font-medium text-emerald-600 mt-0.5 mb-2">{member.role}</p>
+                    <p className="text-xs text-slate-500 leading-relaxed">{member.bio}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ── Testimonials ── */}
       <Testimonials />
