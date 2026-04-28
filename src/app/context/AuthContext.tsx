@@ -38,6 +38,15 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function safeParseJson<T>(value: string | null): T | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
 function mapBackendRoleToFrontend(role: string | undefined): UserRole {
   if (!role) return 'customer';
   const r = role.toUpperCase();
@@ -52,9 +61,8 @@ function mapBackendRoleToFrontend(role: string | undefined): UserRole {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     // Check for stored user in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
+    const parsedUser = safeParseJson<User & { role?: string }>(localStorage.getItem('user'));
+    if (parsedUser) {
       // PATCH: Migration for legacy users without role — default to 'customer' (NOT admin)
       if (!parsedUser.role) {
         parsedUser.role = 'customer';
