@@ -94,6 +94,7 @@ export function AdminDashboard() {
             orderNumber: o.orderNumber,
             total: Number(o.payableAmount ?? o.totalAmount ?? 0),
             payment: o.paymentStatus === 'PAID' ? 'Paid' : 'Pending',
+            paymentStatus: String(o.paymentStatus ?? '').toUpperCase(),
             status: o.status,
             date: o.createdAt,
             user: o.user,
@@ -126,9 +127,14 @@ export function AdminDashboard() {
             }));
 
         const globalRevenue = fullOrders.reduce(
-            (sum, o) => sum + (o.payment === 'Paid' ? o.total : 0),
+            (sum, o) => {
+                const isPaid = o.paymentStatus === 'PAID';
+                const isRefunded = o.paymentStatus === 'REFUNDED';
+                return sum + (isPaid && !isRefunded ? o.total : 0);
+            },
             0
         );
+        const paidOrders = fullOrders.filter((o) => o.paymentStatus === 'PAID').length;
         const buyerBase = customers.filter((c: any) => c.verificationStatus === 'Verified').length || 0;
         const vendorBase = sellers.length;
 
@@ -138,6 +144,7 @@ export function AdminDashboard() {
             pending,
             recent,
             globalRevenue,
+            paidOrders,
             buyerBase,
             vendorBase,
             growth: '—'
@@ -253,12 +260,12 @@ export function AdminDashboard() {
                 ) : isAdmin ? (
                     <>
                         <MetricGlassCard
-                            label="Net Revenue"
+                            label="Collected Revenue"
                             value={`₹${intel.globalRevenue.toLocaleString()}`}
-                            sub="Settled volume"
+                            sub="Paid orders total"
                             color="emerald"
                             icon={IndianRupee}
-                            trend="+24.8%"
+                            trend={`${intel.paidOrders} paid`}
                         />
                         <MetricGlassCard
                             label="Active Merchants"
@@ -266,7 +273,6 @@ export function AdminDashboard() {
                             sub="Verified vendors"
                             color="blue"
                             icon={Store}
-                            trend="+4"
                         />
                         <MetricGlassCard
                             label="Total Customers"
@@ -274,7 +280,6 @@ export function AdminDashboard() {
                             sub="Verified users"
                             color="purple"
                             icon={Users}
-                            trend="+128"
                         />
                         <motion.div
                             whileHover={{ y: -4, scale: 1.01 }}
