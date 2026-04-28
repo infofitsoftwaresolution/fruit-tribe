@@ -827,6 +827,36 @@ export class OrderService {
             }
 
             const shouldAutoMarkPaid = nextStatus === 'DELIVERED' && currentOrder.paymentStatus === 'PENDING';
+
+            // If delivery transition auto-marks payment as PAID, commit any pending reservations.
+            // This keeps physical stock (stockQuantity) consistent for fulfillment-driven flows.
+            if (shouldAutoMarkPaid) {
+                const reservations = await tx.stockReservation.findMany({
+                    where: { orderId, status: 'PENDING' },
+                });
+                for (const res of reservations) {
+                    await tx.stockReservation.update({
+                        where: { id: res.id },
+                        data: { status: 'COMPLETED' },
+                    });
+                    await tx.productVariant.update({
+                        where: { id: res.variantId },
+                        data: {
+                            stockQuantity: { decrement: res.quantity },
+                            reservedQuantity: { decrement: res.quantity },
+                        },
+                    });
+                    await tx.inventoryLog.create({
+                        data: {
+                            variantId: res.variantId,
+                            changeAmount: -res.quantity,
+                            reason: 'AUTO_DELIVERED_PAYMENT_COMMIT',
+                            referenceId: orderId,
+                        },
+                    });
+                }
+            }
+
             const o = await tx.order.update({
                 where: { id: orderId },
                 data: {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
@@ -15,33 +15,77 @@ import { cn } from '@/lib/utils';
 import { AdminStatsSkeleton } from '@/app/components/admin/AdminTableSkeleton';
 import { toast } from 'sonner';
 
+function getLiveAvailableUnits(product: any): number {
+    const productLevelAvailable = Number(product?.availableStock ?? product?.stock ?? 0);
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    if (variants.length > 0) {
+        const variantTotal = variants.reduce(
+            (sum: number, v: any) => sum + Number(v?.availableStock ?? v?.stock ?? 0),
+            0
+        );
+        // Prefer a conservative inventory number when top-level and variant stock drift.
+        if (Number.isFinite(productLevelAvailable) && productLevelAvailable >= 0) {
+            return Math.min(productLevelAvailable, variantTotal);
+        }
+        return variantTotal;
+    }
+    return productLevelAvailable;
+}
+
+function getLiveStockUnits(product: any): number {
+    const productLevelStock = Number(product?.stock ?? 0);
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+    if (variants.length > 0) {
+        const variantStockTotal = variants.reduce(
+            (sum: number, v: any) => sum + Number(v?.stock ?? 0),
+            0
+        );
+        if (Number.isFinite(productLevelStock) && productLevelStock >= 0) {
+            return Math.min(productLevelStock, variantStockTotal);
+        }
+        return variantStockTotal;
+    }
+    return productLevelStock;
+}
+
 export function AdminDashboard() {
     const { theme } = useStore();
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { orders, customers, sellers, products, isInitialLoading: adminBootLoading } = useAdminData();
+    const {
+        orders,
+        customers,
+        sellers,
+        products,
+        isInitialLoading: adminBootLoading,
+        refreshOrders,
+        refreshProducts,
+    } = useAdminData();
 
     const isAdmin = user?.role === 'admin';
     const isSeller = user?.role === 'seller';
     const [inventorySearch, setInventorySearch] = useState('');
     const [inventoryVendorFilter, setInventoryVendorFilter] = useState('all');
-    const [inventoryStockFilter, setInventoryStockFilter] = useState<'all' | 'low' | 'out' | 'healthy'>('low');
+    const [inventoryStockFilter, setInventoryStockFilter] = useState<'all' | 'low' | 'out' | 'healthy'>('all');
     const [orderSearch, setOrderSearch] = useState('');
     const [orderPaymentFilter, setOrderPaymentFilter] = useState<'all' | 'Paid' | 'Pending'>('all');
     const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'active' | 'DELIVERED' | 'CANCELLED'>('all');
     const [orderWindow, setOrderWindow] = useState<'all' | 'today' | '7d' | '30d'>('7d');
 
     const lowStockCount = useMemo(
-        () => products.filter((p) => (p.availableStock ?? p.stock) < (p.lowStockThreshold ?? 5) && (p.availableStock ?? p.stock) > 0).length,
+        () => products.filter((p) => {
+            const available = getLiveAvailableUnits(p);
+            return available < (p.lowStockThreshold ?? 5) && available > 0;
+        }).length,
         [products]
     );
 
     const inventoryIntel = useMemo(() => {
         const totalProducts = products.length;
-        const totalUnits = products.reduce((sum, p) => sum + (p.stock ?? 0), 0);
-        const outOfStock = products.filter((p) => (p.availableStock ?? p.stock) <= 0).length;
+        const totalUnits = products.reduce((sum, p) => sum + getLiveStockUnits(p), 0);
+        const outOfStock = products.filter((p) => getLiveAvailableUnits(p) <= 0).length;
         const lowStock = products.filter(
-            (p) => (p.availableStock ?? p.stock) > 0 && (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5)
+            (p) => getLiveAvailableUnits(p) > 0 && getLiveAvailableUnits(p) <= (p.lowStockThreshold ?? 5)
         ).length;
         const healthy = Math.max(0, totalProducts - outOfStock - lowStock);
         return { totalProducts, totalUnits, outOfStock, lowStock, healthy };
@@ -63,7 +107,7 @@ export function AdminDashboard() {
         const query = inventorySearch.trim().toLowerCase();
         return products
             .filter((p) => {
-                const available = p.availableStock ?? p.stock;
+                const available = getLiveAvailableUnits(p);
                 const threshold = p.lowStockThreshold ?? 5;
                 const isLow = available > 0 && available <= threshold;
                 const isOut = available <= 0;
@@ -76,15 +120,17 @@ export function AdminDashboard() {
                           : inventoryStockFilter === 'out'
                             ? isOut
                             : isHealthy;
-                const vendorOk = inventoryVendorFilter === 'all' || p.vendor === inventoryVendorFilter;
+                const vendorOk =
+                    inventoryVendorFilter === 'all' ||
+                    String(p.vendor || '').trim().toLowerCase() === String(inventoryVendorFilter || '').trim().toLowerCase();
                 const searchOk =
                     query.length === 0 ||
-                    p.name.toLowerCase().includes(query) ||
+                    String(p.name ?? '').toLowerCase().includes(query) ||
                     String(p.sku ?? '').toLowerCase().includes(query) ||
                     String(p.vendor ?? '').toLowerCase().includes(query);
                 return stockOk && vendorOk && searchOk;
             })
-            .sort((a, b) => (a.availableStock ?? a.stock) - (b.availableStock ?? b.stock))
+            .sort((a, b) => getLiveAvailableUnits(a) - getLiveAvailableUnits(b))
             .slice(0, 8);
     }, [products, inventorySearch, inventoryVendorFilter, inventoryStockFilter]);
 
@@ -187,6 +233,16 @@ export function AdminDashboard() {
             })
             .slice(0, 8);
     }, [intel.recent, orderSearch, orderPaymentFilter, orderStatusFilter, orderWindow]);
+
+    // Keep dashboard KPIs fresh so stock/revenue counters reflect new sales quickly.
+    useEffect(() => {
+        const refresh = () => {
+            void Promise.allSettled([refreshOrders(), refreshProducts()]);
+        };
+        refresh();
+        const id = window.setInterval(refresh, 10000);
+        return () => window.clearInterval(id);
+    }, [refreshOrders, refreshProducts]);
 
     return (
         <div className="space-y-12 pb-20 font-sans relative">
@@ -459,9 +515,9 @@ export function AdminDashboard() {
                                     <div className="text-right">
                                         <span className={cn(
                                             "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
-                                            (p.availableStock ?? p.stock) <= (p.lowStockThreshold ?? 5) ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                            getLiveAvailableUnits(p) <= (p.lowStockThreshold ?? 5) ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
                                         )}>
-                                            {p.availableStock ?? p.stock} Units
+                                            {getLiveAvailableUnits(p)} Units
                                         </span>
                                     </div>
                                 </motion.button>
@@ -469,6 +525,15 @@ export function AdminDashboard() {
                                 <div className="py-10 text-center">
                                     <Activity className="h-10 w-10 text-slate-200 mx-auto mb-3" />
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No matching assets.</p>
+                                    {inventoryStockFilter !== 'all' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setInventoryStockFilter('all')}
+                                            className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all"
+                                        >
+                                            Show Any Stock
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -733,6 +798,7 @@ function InventoryBar({
     colorClass: string;
 }) {
     const pct = Math.max(0, Math.min(100, Math.round((value / Math.max(1, total)) * 100)));
+    const itemLabel = value === 1 ? 'product' : 'products';
     return (
         <div className="group">
             <div className="flex items-center justify-between mb-2.5">
@@ -740,7 +806,9 @@ function InventoryBar({
                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
                     <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Real-time</span>
                 </div>
-                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{value} Units <span className="text-slate-300 ml-1">/ {pct}%</span></p>
+                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">
+                    {value} {itemLabel} <span className="text-slate-300 ml-1">/ {pct}%</span>
+                </p>
             </div>
             <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-50 shadow-inner">
                 <motion.div 
