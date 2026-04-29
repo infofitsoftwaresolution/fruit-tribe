@@ -267,7 +267,7 @@ export class AuthService {
         if (trimmed.includes('@')) {
             return this.prisma.user.findUnique({
                 where: { email: trimmed.toLowerCase() },
-                include: { role: true },
+                include: { role: true, deliveryPartner: true },
             });
         }
 
@@ -295,7 +295,7 @@ export class AuthService {
 
         return this.prisma.user.findFirst({
             where: { OR: phones.map((phone) => ({ phone })) },
-            include: { role: true },
+            include: { role: true, deliveryPartner: true },
         });
     }
 
@@ -310,7 +310,28 @@ export class AuthService {
             throw new UnauthorizedException(this.getVerificationResentPayload(user));
         }
 
-        if (!user.isActive) throw new UnauthorizedException('Account is inactive');
+        if (!user.isActive) {
+            const partnerStatus = String(user.deliveryPartner?.status || '').toUpperCase();
+            const canAutoRecoverDeliveryAccount =
+                !!user.deliveryPartner &&
+                (partnerStatus === '' || partnerStatus === 'ACTIVE' || partnerStatus === 'ONLINE');
+
+            if (canAutoRecoverDeliveryAccount) {
+                user = await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: {
+                        isActive: true,
+                        otpCode: null,
+                        otpExpiry: null,
+                        failedLoginAttempts: 0,
+                        lockedUntil: null,
+                    },
+                    include: { role: true, deliveryPartner: true },
+                });
+            } else {
+                throw new UnauthorizedException('Account is inactive');
+            }
+        }
 
         if (user.otpCode && user.otpExpiry && user.otpExpiry > new Date()) {
             throw new UnauthorizedException(this.getVerificationResentPayload(user));
@@ -340,26 +361,23 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Attach DELIVERY_PARTNER role if missing (single write; session fields updated below).
-        if (!user.role) {
-            const deliveryPartner = await this.prisma.deliveryPartner.findUnique({
-                where: { userId: user.id },
+        // Keep delivery login role in sync whenever a linked partner record exists.
+        const hasLinkedDeliveryPartner = !!user.deliveryPartner;
+        const currentRoleName = String(user.role?.name || '').toUpperCase();
+        if (hasLinkedDeliveryPartner && currentRoleName !== 'DELIVERY_PARTNER') {
+            const role = await this.prisma.role.upsert({
+                where: { name: 'DELIVERY_PARTNER' },
+                update: {},
+                create: {
+                    name: 'DELIVERY_PARTNER',
+                    permissions: {},
+                },
             });
-            if (deliveryPartner) {
-                const role = await this.prisma.role.upsert({
-                    where: { name: 'DELIVERY_PARTNER' },
-                    update: {},
-                    create: {
-                        name: 'DELIVERY_PARTNER',
-                        permissions: {},
-                    },
-                });
-                user = await this.prisma.user.update({
-                    where: { id: user.id },
-                    data: { roleId: role.id },
-                    include: { role: true },
-                });
-            }
+            user = await this.prisma.user.update({
+                where: { id: user.id },
+                data: { roleId: role.id },
+                include: { role: true, deliveryPartner: true },
+            });
         }
 
         const payload = { sub: user.id, email: user.email, role: user.role?.name };

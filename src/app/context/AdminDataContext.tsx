@@ -26,6 +26,7 @@ type DeliveryPartnerRow = {
     phone: string;
     vehicle: string | null;
     status: string;
+    onlineStatus?: string;
     user?: { email: string };
 };
 

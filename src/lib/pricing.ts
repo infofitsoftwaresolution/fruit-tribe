@@ -29,26 +29,18 @@ export function getRetailUnitReference(
   product: ProductPricingInput & { variants?: { price: number; name?: string; attributeValue?: string }[] },
 ): number {
   const base = Number(product.price);
+  if (Number.isFinite(base) && base > 0) {
+    // Admin-updated base price should be the default storefront retail price.
+    // Variant pricing is applied only when that variant is explicitly selected.
+    return base;
+  }
   const vars = product.variants;
   if (!vars?.length) {
     return Number.isFinite(base) && base > 0 ? base : 0;
   }
-  // If there is only one "default" variant, treat base price as the source of truth.
-  // This avoids stale variant override values masking admin-updated base price.
-  if (vars.length === 1) {
-    const only = vars[0] as any;
-    const label = String(only?.name ?? only?.attributeValue ?? '').trim().toLowerCase();
-    const isDefaultLike = !label || label === 'default';
-    if (isDefaultLike && Number.isFinite(base) && base > 0) return base;
-  }
   const vp = vars.map((v) => Number(v.price)).filter((x) => Number.isFinite(x) && x > 0);
-  const candidates = [base, ...vp].filter((x) => Number.isFinite(x) && x > 0);
-  if (candidates.length === 0) return Number.isFinite(base) ? base : 0;
-  const hi = Math.max(...candidates);
-  const floor = hi * 0.05;
-  const sane = candidates.filter((x) => x >= floor);
-  const pool = sane.length > 0 ? sane : candidates;
-  return Math.min(...pool);
+  if (vp.length === 0) return Number.isFinite(base) ? base : 0;
+  return Math.min(...vp);
 }
 
 /**

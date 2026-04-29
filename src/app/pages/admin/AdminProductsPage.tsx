@@ -163,6 +163,21 @@ export function AdminProductsPage() {
         }
     }, [isSeller, user, sellers, formData.sellerId]);
 
+    // Auto-resolve selected category name to categoryId after categories load.
+    useEffect(() => {
+        if (!categories.length) return;
+        setFormData((prev) => {
+            if (prev.categoryId && categories.some((c) => String(c.id) === String(prev.categoryId))) {
+                return prev;
+            }
+            const byName = categories.find(
+                (c) => String(c.name || '').trim().toLowerCase() === String(prev.category || '').trim().toLowerCase()
+            );
+            if (!byName) return prev;
+            return { ...prev, categoryId: byName.id, category: byName.name };
+        });
+    }, [categories]);
+
     const filteredProducts = useMemo(() => {
         return effectiveProducts.filter(product => {
             if (isSeller && !productBelongsToSeller(product, user)) return false;
@@ -335,7 +350,13 @@ export function AdminProductsPage() {
     const handleSubmitProduct = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSavingProduct) return;
-        const categoryId = formData.categoryId || categories.find(c => c.name === formData.category)?.id;
+        const categoryId =
+            (formData.categoryId && categories.some((c) => String(c.id) === String(formData.categoryId))
+                ? formData.categoryId
+                : undefined) ||
+            categories.find(
+                (c) => String(c.name || '').trim().toLowerCase() === String(formData.category || '').trim().toLowerCase()
+            )?.id;
         const parsedStock = parseInt(formData.stock, 10) || 0;
 
         // Resolve sellerId: admins choose from dropdown; sellers get their own sellerId auto-bound
@@ -434,6 +455,15 @@ export function AdminProductsPage() {
                     ];
                 }
             }
+
+            // Prevent accidental "Default" variant override from masking base price.
+            // Base price should represent the default pack; only explicit non-default variants override price.
+            variantsPayload = variantsPayload.map((v) => {
+                const label = String((v as any).attributeValue || '').trim().toLowerCase();
+                const isDefaultLike = !label || label === 'default';
+                if (!isDefaultLike) return v;
+                return { ...v, priceOverride: undefined };
+            });
 
             if (editingProduct) {
                 const sellerName =
@@ -793,7 +823,11 @@ export function AdminProductsPage() {
                                                         const now = new Date();
                                                         const start = product.seasonalStart ? new Date(product.seasonalStart) : null;
                                                         const end = product.seasonalEnd ? new Date(product.seasonalEnd) : null;
-                                                        const isInSeason = start && end && now >= start && now <= end;
+                                                        // Keep seasonal state consistent with backend filtering:
+                                                        // if either boundary is missing, treat window as open-ended.
+                                                        const afterStart = !start || now >= start;
+                                                        const beforeEnd = !end || now <= end;
+                                                        const isInSeason = afterStart && beforeEnd;
                                                         return (
                                                             <span className={cn(
                                                                 "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border",
@@ -991,7 +1025,11 @@ export function AdminProductsPage() {
                                                 value={formData.categoryId || formData.category}
                                                 onChange={(v: string) => {
                                                     const cat = categories.find(c => c.id === v || c.name === v);
-                                                    setFormData({ ...formData, categoryId: v, category: cat?.name || v });
+                                                    setFormData({
+                                                        ...formData,
+                                                        categoryId: cat ? String(cat.id) : '',
+                                                        category: cat?.name || v,
+                                                    });
                                                 }}
                                                 options={categories.length ? categories.map(c => ({ label: c.name, value: c.id })) : [
                                                     { label: 'Fruits', value: 'Fruits' }, { label: 'Vegetables', value: 'Vegetables' }

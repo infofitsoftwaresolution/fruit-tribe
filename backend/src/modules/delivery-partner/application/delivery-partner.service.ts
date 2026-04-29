@@ -59,6 +59,14 @@ export class DeliveryPartnerService {
         if (!partner) {
             throw new NotFoundException('Delivery partner not found');
         }
+        const staffStatus = String(partner.status || '').toUpperCase();
+        const onlineStatus = String(partner.onlineStatus || '').toUpperCase();
+        if (staffStatus !== 'ACTIVE') {
+            throw new BadRequestException('Only active delivery partners can be assigned.');
+        }
+        if (onlineStatus !== 'ONLINE') {
+            throw new BadRequestException('Selected delivery partner is offline. Please assign an online rider.');
+        }
 
         // Create or update a Delivery record linking this order and partner.
         const existing = await this.prisma.delivery.findFirst({
@@ -140,6 +148,11 @@ export class DeliveryPartnerService {
                     firstName: data.name,
                     roleId: role.id,
                     passwordHash,
+                    isActive: true,
+                    otpCode: null,
+                    otpExpiry: null,
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
                     requirePasswordChange: true,
                 },
             });

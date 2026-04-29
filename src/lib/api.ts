@@ -1040,7 +1040,7 @@ export async function deleteWarehouse(id: string): Promise<void> {
 }
 
 /** List delivery partners / in-house delivery staff (admin only). */
-export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; user?: { email: string } }>> {
+export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; onlineStatus?: string; user?: { email: string } }>> {
   const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();

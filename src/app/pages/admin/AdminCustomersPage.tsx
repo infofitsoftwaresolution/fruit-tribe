@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
@@ -22,6 +23,7 @@ const STOCK_CLEARANCE_PRESET = {
 };
 
 export function AdminCustomersPage() {
+    const navigate = useNavigate();
     const { theme } = useStore();
     const { user } = useAuth();
     const { customers, orders, isInitialLoading: loading } = useAdminData();
@@ -95,6 +97,33 @@ export function AdminCustomersPage() {
             growth: `${verified}/${total} verified`,
         };
     }, [filteredCustomersByAllFilters]);
+
+    const handleSendCustomerUpdate = (customer: any) => {
+        if (!customer) return;
+        const customerEmail = String(customer.email || '').trim();
+        if (!customerEmail) {
+            toast.error('Customer email is unavailable for this profile.');
+            return;
+        }
+        const subject = encodeURIComponent('Update from The Fruit Tribe');
+        const body = encodeURIComponent(
+            `Hi ${customer.name || 'Customer'},\n\nQuick update from The Fruit Tribe.\n\nRegards,\nThe Fruit Tribe Team`
+        );
+        window.open(`mailto:${customerEmail}?subject=${subject}&body=${body}`, '_self');
+        toast.success(`Update draft opened for ${customer.name}.`);
+    };
+
+    const handleViewCustomerAnalytics = (customer: any) => {
+        if (!customer) return;
+        const query = String(customer.email || customer.name || '').trim();
+        if (!query) {
+            navigate('/admin/orders');
+            return;
+        }
+        navigate(`/admin/orders?search=${encodeURIComponent(query)}`);
+        setSelectedCustomer(null);
+        toast.success('Opened order analytics for selected customer.');
+    };
 
     const handleViewDetails = (customer: any) => {
         setSelectedCustomer(customer);
@@ -730,7 +759,12 @@ export function AdminCustomersPage() {
                                             <div className="h-1.5 w-8 bg-orange-500 rounded-full" />
                                             Historical Ledger
                                         </h3>
-                                        <button className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline">Full Analysis</button>
+                                        <button
+                                            onClick={() => handleViewCustomerAnalytics(selectedCustomer)}
+                                            className="text-[9px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+                                        >
+                                            Full Analysis
+                                        </button>
                                     </div>
                                     <div className="space-y-4">
                                         {orders.filter(o => o.user?.id === selectedCustomer.id).slice(0, 4).map((order, i) => (
@@ -759,12 +793,13 @@ export function AdminCustomersPage() {
 
                             <div className="p-10 bg-slate-50/80 backdrop-blur-md border-t border-slate-100 flex gap-4 mt-auto">
                                 <button
-                                    onClick={() => toast.success(`Newsletter invite sent to ${selectedCustomer.name}`)}
+                                    onClick={() => handleSendCustomerUpdate(selectedCustomer)}
                                     className="flex-1 h-14 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-100 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
                                 >
                                     Send Update
                                 </button>
                                 <button
+                                    onClick={() => handleViewCustomerAnalytics(selectedCustomer)}
                                     className="flex-1 h-14 bg-slate-900 text-white rounded-2xl hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"
                                 >
                                     View Analytics

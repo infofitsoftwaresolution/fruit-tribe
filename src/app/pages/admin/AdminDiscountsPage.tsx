@@ -53,6 +53,7 @@ export function AdminDiscountsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editing, setEditing] = useState<AdminCoupon | null>(null);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
+    const [isSavingCoupon, setIsSavingCoupon] = useState(false);
 
     const loadData = async (silent = false) => {
         if (!silent) setLoading(true);
@@ -169,6 +170,8 @@ export function AdminDiscountsPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isSavingCoupon) return;
+        setIsSavingCoupon(true);
         try {
             const body = {
                 code: form.code.trim().toUpperCase(),
@@ -191,12 +194,23 @@ export function AdminDiscountsPage() {
                 categoryNames: form.scopeType === 'CATEGORY' ? form.categoryNames : [],
                 productIds: form.scopeType === 'PRODUCT' ? form.productIds : [],
             });
-            await updateCouponScopes(nextScopes);
-            toast.success(editing ? 'Coupon updated' : 'Coupon created');
+            setCoupons((prev) => {
+                const idx = prev.findIndex((c) => String(c.id) === String(saved.id));
+                if (idx >= 0) {
+                    const next = [...prev];
+                    next[idx] = saved;
+                    return next;
+                }
+                return [saved, ...prev];
+            });
+            setScopes(nextScopes);
             setIsModalOpen(false);
-            await loadData(true);
+            toast.success(editing ? 'Coupon updated' : 'Coupon created');
+            void Promise.allSettled([updateCouponScopes(nextScopes), loadData(true)]);
         } catch (e: any) {
             toast.error(e?.message || 'Failed to save coupon');
+        } finally {
+            setIsSavingCoupon(false);
         }
     };
 
@@ -372,7 +386,9 @@ export function AdminDiscountsPage() {
 
                         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2">
                             <button type="button" onClick={() => setIsModalOpen(false)} className="h-11 min-h-[44px] px-4 rounded-xl border border-slate-200 font-bold">Cancel</button>
-                            <button type="submit" className="h-11 min-h-[44px] px-4 rounded-xl bg-slate-900 text-white font-bold">Save coupon</button>
+                            <button type="submit" disabled={isSavingCoupon} className="h-11 min-h-[44px] px-4 rounded-xl bg-slate-900 text-white font-bold disabled:opacity-70 disabled:cursor-not-allowed">
+                                {isSavingCoupon ? 'Saving...' : 'Save coupon'}
+                            </button>
                         </div>
                     </form>
                 </div>

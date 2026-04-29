@@ -83,7 +83,14 @@ export function AdminOrdersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const deliveryPartners = useMemo(() => {
         if (user?.role !== 'admin') return [];
-        return (dpRows || []).map((p) => ({ id: p.id, name: p.name }));
+        return (dpRows || [])
+            .map((p) => ({
+                id: p.id,
+                name: p.name,
+                status: String(p.status || '').toUpperCase(),
+                onlineStatus: String((p as any).onlineStatus || '').toUpperCase(),
+            }))
+            .filter((p) => p.status === 'ACTIVE' && p.onlineStatus === 'ONLINE');
     }, [dpRows, user?.role]);
 
     function extractDistanceKm(api: any): number | null {
@@ -165,12 +172,15 @@ export function AdminOrdersPage() {
             });
         }
         return filtered.filter(order => {
+            const q = searchQuery.toLowerCase();
             const matchesSearch =
-                order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                order.customer.toLowerCase().includes(q) ||
                 order.id.includes(searchQuery) ||
-                (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (order.orderNumber || '').toLowerCase().includes(q) ||
+                String((order as any).userEmail || '').toLowerCase().includes(q) ||
+                String((order as any).userPhone || '').toLowerCase().includes(q) ||
                 (((order as any).vendorNames || []) as string[]).some((v) =>
-                    v.toLowerCase().includes(searchQuery.toLowerCase())
+                    v.toLowerCase().includes(q)
                 );
             if (!matchesSearch) return false;
             switch (activeTab) {
@@ -839,7 +849,7 @@ export function AdminOrdersPage() {
                                                                     }}
                                                                     className="w-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] px-6 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
                                                                 >
-                                                                    <option value="">Deploy Rider</option>
+                                                                    <option value="">Deploy Rider (Online)</option>
                                                                     {deliveryPartners.map((p) => (
                                                                         <option key={p.id} value={p.id}>{p.name}</option>
                                                                     ))}
@@ -994,13 +1004,17 @@ export function AdminOrdersPage() {
                                                 <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-emerald-500 group-hover/item:border-emerald-500 transition-all duration-500">
                                                     <Mail className="w-5 h-5" />
                                                 </div>
-                                                <span className="text-xs font-black uppercase tracking-tight">{selectedOrder.customer.toLowerCase().replace(/\s+/g, '.')}@gmail.com</span>
+                                                <span className="text-xs font-black uppercase tracking-tight">
+                                                    {(selectedOrder as any).userEmail || 'NO EMAIL AVAILABLE'}
+                                                </span>
                                             </div>
                                             <div className="flex items-center gap-5 text-slate-600 group/item cursor-default">
                                                 <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-blue-500 group-hover/item:border-blue-500 transition-all duration-500">
                                                     <Phone className="w-5 h-5" />
                                                 </div>
-                                                <span className="text-xs font-black uppercase tracking-tight">+91 98765 00012</span>
+                                                <span className="text-xs font-black uppercase tracking-tight">
+                                                    {(selectedOrder as any).userPhone || 'NO PHONE AVAILABLE'}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>

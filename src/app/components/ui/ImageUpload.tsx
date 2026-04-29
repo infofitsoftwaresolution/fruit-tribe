@@ -49,13 +49,26 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Product Im
 
         setIsUploading(true);
         try {
+            const token =
+                localStorage.getItem('token') ||
+                localStorage.getItem('accessToken') ||
+                sessionStorage.getItem('token') ||
+                sessionStorage.getItem('accessToken');
             const response = await fetch(`${getEffectiveApiBase()}/uploads/multiple`, {
                 method: 'POST',
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 body: formData,
             });
 
             if (!response.ok) {
-                throw new Error('Upload failed');
+                let message = 'Upload failed';
+                try {
+                    const errData = await response.json();
+                    if (typeof errData?.message === 'string') message = errData.message;
+                } catch {
+                    // keep fallback message
+                }
+                throw new Error(message);
             }
 
             const data = await response.json();
@@ -65,7 +78,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Product Im
         } catch (error) {
             console.error('Upload error:', error);
             toast.error('Image upload failed', {
-                description: 'Upload was interrupted. Please check backend status and try again.'
+                description: error instanceof Error ? error.message : 'Upload was interrupted. Please check backend status and try again.'
             });
         } finally {
             setIsUploading(false);
