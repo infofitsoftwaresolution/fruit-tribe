@@ -76,6 +76,13 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     };
   });
 
+  // Normalize noisy status logs: keep roadmap readable when same status
+  // is written multiple times (e.g. repeated DELIVERED updates).
+  timeline = timeline.filter((step, idx, arr) => {
+    if (idx === 0) return true;
+    return String(step.rawStatus || '') !== String(arr[idx - 1]?.rawStatus || '');
+  });
+
   // Fallback: if there are no explicit status logs yet (older orders),
   // synthesize a simple linear timeline up to the current status.
   if (!timeline.length) {
