@@ -26,10 +26,12 @@ function namesSimilar(a: string, b: string): boolean {
   const x = normName(a);
   const y = normName(b);
   if (x === y) return true;
-  if (x.length < 4 || y.length < 4) return false;
-  if (x[0] !== y[0]) return false;
-  if (Math.abs(x.length - y.length) > 3) return false;
-  return levenshtein(x, y) <= 2;
+  if (x.length < 5 || y.length < 5) return false;
+  if (!x.startsWith(y.slice(0, 3)) && !y.startsWith(x.slice(0, 3))) return false;
+  if (Math.abs(x.length - y.length) > 2) return false;
+  // Keep dedupe strict so distinct catalog items are never hidden.
+  // We only merge near-identical typo rows.
+  return levenshtein(x, y) <= 1;
 }
 
 /**
