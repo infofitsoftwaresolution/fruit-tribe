@@ -477,7 +477,7 @@ export function ProfilePage() {
           {/* Left column */}
           <div className="lg:col-span-4 space-y-10">
             {/* Subscription card */}
-            {subscription ? (
+            {subscriptionPageEnabled && (subscription ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -505,18 +505,12 @@ export function ProfilePage() {
                     </div>
                   </div>
 
-                  {subscriptionPageEnabled ? (
-                    <button type="button" onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
-                      Manage Subscription
-                    </button>
-                  ) : (
-                    <p className="text-[10px] font-bold text-emerald-100/90 text-center uppercase tracking-widest">
-                      Subscription page is currently hidden by the store.
-                    </p>
-                  )}
+                  <button type="button" onClick={() => navigate('/subscription')} className="w-full py-4 bg-white text-emerald-600 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-xl">
+                    Manage Subscription
+                  </button>
                 </div>
               </motion.div>
-            ) : subscriptionPageEnabled ? (
+            ) : (
               <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl text-center">
                 <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-6">
                   <Leaf className="w-10 h-10 text-slate-300" />
@@ -527,7 +521,7 @@ export function ProfilePage() {
                   View subscription plans
                 </button>
               </div>
-            ) : null}
+            ))}
 
             {/* Profile card */}
             <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl">

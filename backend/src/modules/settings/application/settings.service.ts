@@ -558,13 +558,13 @@ export class SettingsService {
 
     async getPlatformFee(): Promise<number> {
         const raw = await this.get(KEY_PLATFORM_FEE);
-        if (raw == null || raw === '') return 5; // Default Zepto-like fee
+        if (raw == null || raw === '') return 0;
         const n = parseFloat(raw);
-        return Number.isFinite(n) && n >= 0 ? n : 5;
+        return Number.isFinite(n) && n >= 0 ? n : 0;
     }
 
     async setPlatformFee(fee: number): Promise<void> {
-        const n = Number.isFinite(fee) && fee >= 0 ? fee : 5;
+        const n = Number.isFinite(fee) && fee >= 0 ? fee : 0;
         await this.set(KEY_PLATFORM_FEE, String(n));
     }
 
