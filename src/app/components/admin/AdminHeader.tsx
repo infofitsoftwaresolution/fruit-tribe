@@ -3,7 +3,8 @@ import { useAuth } from '@/app/context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, KeyboardEvent } from 'react';
+import { useState, KeyboardEvent, useEffect, useRef } from 'react';
+import { getAdminContactSubmissions, type AdminContactSubmission } from '@/lib/api';
 
 interface AdminHeaderProps {
     onOpenSidebar?: () => void;
@@ -13,16 +14,41 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [globalSearch, setGlobalSearch] = useState('');
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notificationLoading, setNotificationLoading] = useState(false);
+    const [contactNotifications, setContactNotifications] = useState<AdminContactSubmission[]>([]);
+    const notificationBoxRef = useRef<HTMLDivElement | null>(null);
 
-    const showNotifications = () => {
-        toast.info('New order #1005', {
-            description: 'Customer: Alice Smith • 2m ago',
-        });
-        setTimeout(() => {
-            toast.success('Low stock alert', {
-                description: 'Alphonso Mango: fewer than 5 left',
-            });
-        }, 500);
+    useEffect(() => {
+        const onClickAway = (event: MouseEvent) => {
+            if (!notificationBoxRef.current) return;
+            const target = event.target as Node | null;
+            if (target && !notificationBoxRef.current.contains(target)) {
+                setNotificationsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', onClickAway);
+        return () => document.removeEventListener('mousedown', onClickAway);
+    }, []);
+
+    const loadNotifications = async () => {
+        setNotificationLoading(true);
+        try {
+            const items = await getAdminContactSubmissions(12);
+            setContactNotifications(items);
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to load notifications');
+        } finally {
+            setNotificationLoading(false);
+        }
+    };
+
+    const showNotifications = async () => {
+        const nextOpen = !notificationsOpen;
+        setNotificationsOpen(nextOpen);
+        if (nextOpen) {
+            await loadNotifications();
+        }
     };
 
     return (
@@ -78,13 +104,54 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
                 <div className="h-8 w-[1px] bg-slate-100 hidden md:block" />
 
                 {/* Notifications Node */}
-                <button
-                    onClick={showNotifications}
-                    className="relative h-10 w-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-500 hover:bg-slate-900 hover:text-white hover:shadow-xl transition-all duration-500 group"
-                >
-                    <Bell className="h-4 w-4 transition-transform group-hover:rotate-12" />
-                    <span className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white shadow-sm animate-bounce" />
-                </button>
+                <div className="relative" ref={notificationBoxRef}>
+                    <button
+                        onClick={() => { void showNotifications(); }}
+                        className="relative h-10 w-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-500 hover:bg-slate-900 hover:text-white hover:shadow-xl transition-all duration-500 group"
+                    >
+                        <Bell className="h-4 w-4 transition-transform group-hover:rotate-12" />
+                        {contactNotifications.length > 0 && (
+                            <span className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white shadow-sm animate-bounce" />
+                        )}
+                    </button>
+                    <AnimatePresence>
+                        {notificationsOpen && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                                className="absolute right-0 mt-2 w-[360px] max-w-[85vw] bg-white border border-slate-100 rounded-2xl shadow-2xl overflow-hidden z-[120]"
+                            >
+                                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Contact Notifications</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => { void loadNotifications(); }}
+                                        className="text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:underline"
+                                    >
+                                        Refresh
+                                    </button>
+                                </div>
+                                <div className="max-h-[360px] overflow-y-auto">
+                                    {notificationLoading ? (
+                                        <div className="px-4 py-6 text-[11px] font-bold text-slate-400">Loading...</div>
+                                    ) : contactNotifications.length === 0 ? (
+                                        <div className="px-4 py-6 text-[11px] font-bold text-slate-400">No contact messages yet.</div>
+                                    ) : (
+                                        contactNotifications.map((item) => (
+                                            <div key={item.id} className="px-4 py-3 border-b border-slate-50 last:border-b-0">
+                                                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">{item.subject}</p>
+                                                <p className="text-[10px] font-bold text-slate-500 truncate">{item.name} • {item.email}</p>
+                                                <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{item.message}</p>
+                                                <p className="text-[9px] font-bold text-slate-400 mt-1">{new Date(item.submittedAt).toLocaleString()}</p>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
 
                 {/* User Identity Node */}
                 <button className="flex items-center gap-3 pl-1.5 pr-4 h-11 bg-white border border-slate-100 rounded-xl hover:shadow-xl transition-all duration-500 group relative overflow-hidden">

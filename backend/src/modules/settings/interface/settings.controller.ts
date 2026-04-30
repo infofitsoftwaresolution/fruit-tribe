@@ -139,6 +139,20 @@ export class SettingsController {
 
     @ApiOperation({ summary: 'Get coupon scope rules (admin only)' })
     @ApiBearerAuth()
+    @Get('contact-submissions')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    async getContactSubmissions(@Query('limit') limit?: string) {
+        const parsed = Number(limit);
+        return {
+            items: await this.settingsService.getRecentContactSubmissions(
+                Number.isFinite(parsed) ? parsed : 12,
+            ),
+        };
+    }
+
+    @ApiOperation({ summary: 'Get coupon scope rules (admin only)' })
+    @ApiBearerAuth()
     @Get('coupon-scopes')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Roles('ADMIN')

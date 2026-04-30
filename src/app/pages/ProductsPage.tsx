@@ -77,8 +77,6 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     categoryId: selectedCategoryId || undefined,
     sortBy: 'createdAt',
     sortOrder: 'desc',
-    // Keep catalogue count aligned with admin catalog; seasonal visibility is handled by page filters/tabs.
-    showOutOfSeason: true,
   });
   const { products: allCatalogProducts } = useProducts({
     limit: 200,

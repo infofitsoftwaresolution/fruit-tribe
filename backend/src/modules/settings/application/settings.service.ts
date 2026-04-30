@@ -152,6 +152,43 @@ export class SettingsService {
         return { message: 'Thanks for contacting us. We will get back to you soon.' };
     }
 
+    async getRecentContactSubmissions(limit: number = 12): Promise<Array<{
+        id: string;
+        name: string;
+        email: string;
+        subject: string;
+        message: string;
+        submittedAt: string;
+    }>> {
+        const safeLimit = Math.min(50, Math.max(1, Number(limit) || 12));
+        const rows = await this.prisma.auditLog.findMany({
+            where: {
+                action: 'CONTACT_FORM_SUBMITTED',
+                entity: 'CONTACT_MESSAGE',
+            },
+            orderBy: { createdAt: 'desc' },
+            take: safeLimit,
+            select: {
+                entityId: true,
+                createdAt: true,
+                metadata: true,
+            },
+        });
+        return rows.map((row) => {
+            const meta = (row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata))
+                ? (row.metadata as Record<string, unknown>)
+                : {};
+            return {
+                id: String(row.entityId),
+                name: String(meta.name || 'Customer'),
+                email: String(meta.email || ''),
+                subject: String(meta.subject || 'Contact request'),
+                message: String(meta.message || ''),
+                submittedAt: String(meta.submittedAt || row.createdAt.toISOString()),
+            };
+        });
+    }
+
     async subscribeNewsletter(email: string, source?: string): Promise<{ message: string; alreadySubscribed: boolean }> {
         const normalizedEmail = email.trim().toLowerCase();
         const raw = await this.get(KEY_NEWSLETTER_SUBSCRIBERS);

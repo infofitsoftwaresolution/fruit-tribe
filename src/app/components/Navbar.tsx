@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingCart, Menu, X, Search, User, LogIn,
-  LayoutDashboard, Zap, LogOut, Truck, Phone, ChevronRight,
+  LayoutDashboard, Zap, LogOut, Truck, Phone, ChevronRight, ArrowLeft,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
@@ -27,6 +27,10 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
   const { isAuthenticated, user, logout } = useAuth();
 
   const isAdmin = user && ['admin', 'seller'].includes(user.role);
+  const fromDelivery = new URLSearchParams(location.search).get('from') === 'delivery';
+  const showReturnToDelivery = fromDelivery;
+  const isDeliveryMode = fromDelivery;
+  const isDeliveryUser = user?.role === 'delivery_partner' || fromDelivery;
 
   // Scroll detection
   useEffect(() => {
@@ -80,6 +84,18 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
     return subOn ? all : all.filter((i) => i.path !== '/subscription');
   }, [preferences.subscriptionPage]);
 
+  const mobileMenuItems = useMemo(() => {
+    if (isDeliveryUser) {
+      return [
+        { path: '/delivery', label: 'Delivery dashboard' },
+        { path: '/delivery/assignments', label: 'Assignments' },
+        { path: '/delivery/earnings', label: 'Earnings' },
+        { path: '/?from=delivery', label: 'View store' },
+      ];
+    }
+    return navItems;
+  }, [isDeliveryUser, navItems]);
+
   const isActive = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
@@ -122,6 +138,16 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
 
             {/* Desktop nav links — centered */}
             <nav className="hidden lg:flex items-center gap-1 flex-1 justify-center">
+              {showReturnToDelivery && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/delivery')}
+                  className="inline-flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Back to dashboard
+                </button>
+              )}
               {navItems.map((item) => (
                 <Link
                   key={item.path}
@@ -162,7 +188,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
               </button>
 
               {/* Admin link — desktop */}
-              {isAdmin && (
+              {isAdmin && !isDeliveryMode && (
                 <Link
                   to="/admin"
                   className="hidden lg:flex items-center gap-1.5 h-9 px-4 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors"
@@ -328,7 +354,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                 <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                   Menu
                 </p>
-                {navItems.map((item, idx) => (
+                {mobileMenuItems.map((item, idx) => (
                   <Link
                     key={item.path}
                     to={item.path}
@@ -357,21 +383,21 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   Account
                 </p>
 
-                <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                <Link to={isDeliveryUser ? '/delivery' : '/profile'} onClick={() => setIsMenuOpen(false)}>
                   <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-0.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-2.5">
-                      <User className="w-4 h-4 text-slate-400" />
-                      {isAuthenticated ? (user?.name?.split(' ')[0] || 'My account') : 'Sign in / Register'}
+                      {isDeliveryUser ? <LayoutDashboard className="w-4 h-4 text-slate-400" /> : <User className="w-4 h-4 text-slate-400" />}
+                      {isDeliveryUser ? 'Delivery dashboard' : (isAuthenticated ? (user?.name?.split(' ')[0] || 'My account') : 'Sign in / Register')}
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
                   </div>
                 </Link>
 
-                <Link to="/profile" onClick={() => setIsMenuOpen(false)}>
+                <Link to={isDeliveryUser ? '/delivery/assignments' : '/profile'} onClick={() => setIsMenuOpen(false)}>
                   <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-0.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-2.5">
                       <Truck className="w-4 h-4 text-slate-400" />
-                      Track my order
+                      {isDeliveryUser ? 'My assignments' : 'Track my order'}
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-300" />
                   </div>
@@ -390,7 +416,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
 
               {/* Panel footer */}
               <div className="px-4 py-4 border-t border-slate-100 space-y-2">
-                {isAdmin && (
+                {isAdmin && !isDeliveryUser && (
                   <Link
                     to="/admin"
                     onClick={() => setIsMenuOpen(false)}

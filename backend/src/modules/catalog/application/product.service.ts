@@ -522,12 +522,66 @@ export class ProductService {
         });
     }
 
-    async remove(id: string, actor: { id: string; role?: string }) {
+    async remove(id: string, actor: { id: string; role?: string }, options?: { permanent?: boolean }) {
         const existing = await this.prisma.product.findUnique({ where: { id } });
         if (!existing) throw new NotFoundException(`Product ${id} not found`);
         const actorSellerId = await this.resolveActorSellerId(actor);
         if (actorSellerId && existing.sellerId !== actorSellerId) {
             throw new BadRequestException('You can only remove your own products.');
+        }
+        const wantsPermanentDelete = options?.permanent === true;
+        if (wantsPermanentDelete) {
+            const role = String(actor?.role || '').toUpperCase();
+            if (role !== 'ADMIN') {
+                throw new BadRequestException('Only admin can permanently delete products.');
+            }
+            return this.prisma.$transaction(async (tx) => {
+                const variants = await tx.productVariant.findMany({
+                    where: { productId: id },
+                    select: { id: true },
+                });
+                const variantIds = variants.map((v) => v.id);
+
+                // Zepto-style safeguard: never hard-delete any SKU that already participated in orders.
+                const linkedOrderItems = await tx.orderItem.count({
+                    where: {
+                        OR: [
+                            { productId: id },
+                            ...(variantIds.length > 0 ? [{ variantId: { in: variantIds } }] : []),
+                        ],
+                    },
+                });
+                if (linkedOrderItems > 0) {
+                    throw new BadRequestException(
+                        'This product has order history. Archive it instead of permanent deletion.',
+                    );
+                }
+
+                // Non-transactional references can be cleaned safely.
+                await tx.cartItem.deleteMany({
+                    where: {
+                        OR: [
+                            { productId: id },
+                            ...(variantIds.length > 0 ? [{ variantId: { in: variantIds } }] : []),
+                        ],
+                    },
+                });
+                await tx.wishlistItem.deleteMany({ where: { productId: id } });
+                await tx.review.deleteMany({ where: { productId: id } });
+                if (variantIds.length > 0) {
+                    await tx.inventoryLog.deleteMany({ where: { variantId: { in: variantIds } } });
+                    await tx.stockReservation.deleteMany({ where: { variantId: { in: variantIds } } });
+                }
+                await tx.productImage.deleteMany({ where: { productId: id } });
+
+                // Delete variants explicitly, then product.
+                if (variantIds.length > 0) {
+                    await tx.productVariant.deleteMany({ where: { productId: id } });
+                }
+                return tx.product.delete({
+                    where: { id },
+                });
+            }, { timeout: 20000 });
         }
 
         // We perform a soft delete via isActive flag for data integrity

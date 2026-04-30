@@ -7,10 +7,10 @@ import { useAdminData } from '@/app/context/AdminDataContext';
 import { updateOrderStatus, assignDeliveryPartner, productBelongsToSeller, getImageDisplayUrl, createManualOrder, generateOrderPaymentLink, updateOrderPaymentStatus } from '@/lib/api';
 import {
     Plus, Minus, Search, Filter, MoreHorizontal, ArrowUpDown, X,
-    Printer, Truck, User, Calendar, CreditCard, Package,
+    Truck, User, Calendar, CreditCard, Package,
     ChevronRight, ExternalLink, MapPin, Phone, Mail, Clock,
     CheckCircle2, AlertCircle, ShoppingBag, TrendingUp, Info,
-    Activity, Zap, ShieldCheck, Box, Download, MoreVertical,
+    Activity, Zap, ShieldCheck, Box, MoreVertical,
     FileText, Eye, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -594,14 +594,6 @@ export function AdminOrdersPage() {
                 </div>
                 <div className="flex items-center gap-4 relative z-10">
                     <button
-                        type="button"
-                        onClick={handleExportLedger}
-                        className="h-11 px-6 rounded-xl bg-white border border-slate-100 text-[9px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all duration-500 flex items-center gap-2 group"
-                    >
-                        <Download className="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                        Export Ledger
-                    </button>
-                    <button
                         onClick={handleOpenModal}
                         className="h-11 px-8 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all duration-700 shadow-xl shadow-slate-900/20 active:scale-95 flex items-center gap-2 group"
                     >
@@ -822,38 +814,40 @@ export function AdminOrdersPage() {
                                                             >
                                                                 <Eye className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
                                                             </button>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleGeneratePaymentLink(order);
-                                                                }}
-                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-2xl transition-all duration-500 group/btn"
-                                                            >
-                                                                <CreditCard className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => toast.info('Initializing output stream...')}
-                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-blue-600 hover:text-white hover:border-blue-600 hover:shadow-2xl transition-all duration-500 group/btn"
-                                                            >
-                                                                <Printer className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
-                                                            </button>
-                                                        </div>
-                                                        {deliveryPartners.length > 0 && user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
-                                                            <div className="relative group/rider w-full">
-                                                                <select
-                                                                    defaultValue=""
-                                                                    onChange={(e) => {
-                                                                        const partnerId = e.target.value;
-                                                                        if (!partnerId) return;
-                                                                        handleAssignDelivery(order.id, partnerId);
+                                                            {order.payment !== 'Paid' && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleGeneratePaymentLink(order);
                                                                     }}
-                                                                    className="w-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.2em] px-6 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                    className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-2xl transition-all duration-500 group/btn"
                                                                 >
-                                                                    <option value="">Deploy Rider (Online)</option>
-                                                                    {deliveryPartners.map((p) => (
-                                                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                                                    ))}
-                                                                </select>
+                                                                    <CreditCard className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        {user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
+                                                            <div className="relative group/rider w-full">
+                                                                {deliveryPartners.length > 0 ? (
+                                                                    <select
+                                                                        defaultValue=""
+                                                                        onChange={(e) => {
+                                                                            const partnerId = e.target.value;
+                                                                            if (!partnerId) return;
+                                                                            handleAssignDelivery(order.id, partnerId);
+                                                                        }}
+                                                                        className="w-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                    >
+                                                                        <option value="">Deploy Rider (Online)</option>
+                                                                        {deliveryPartners.map((p) => (
+                                                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                ) : (
+                                                                    <div className="mx-auto min-w-[220px] bg-slate-900 text-white text-[10px] font-black uppercase rounded-2xl border border-slate-800 shadow-2xl h-12 px-6 flex items-center justify-center tracking-[0.12em]">
+                                                                        No rider online
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
@@ -915,12 +909,14 @@ export function AdminOrdersPage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-4">
-                                    <button 
-                                        onClick={() => handleGeneratePaymentLink(selectedOrder)} 
-                                        className="h-14 w-14 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-orange-500 hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 flex items-center justify-center group"
-                                    >
-                                        <CreditCard className="h-6 w-6 transition-transform group-hover:scale-110" />
-                                    </button>
+                                    {selectedOrder.payment !== 'Paid' && (
+                                        <button 
+                                            onClick={() => handleGeneratePaymentLink(selectedOrder)} 
+                                            className="h-14 w-14 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-orange-500 hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 flex items-center justify-center group"
+                                        >
+                                            <CreditCard className="h-6 w-6 transition-transform group-hover:scale-110" />
+                                        </button>
+                                    )}
                                     <button onClick={() => setIsDetailOpen(false)} className="h-14 w-14 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group">
                                         <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
                                     </button>

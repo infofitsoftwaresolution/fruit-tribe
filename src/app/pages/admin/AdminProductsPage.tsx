@@ -5,6 +5,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
 import {
     createProduct as createProductApi,
+    createCategory as createCategoryApi,
     updateProduct as updateProductApi,
     deleteProduct as deleteProductApi,
     productBelongsToSeller,
@@ -76,7 +77,7 @@ function toDateInputValue(value?: string | null): string {
 export function AdminProductsPage() {
     const { user } = useAuth();
     const location = useLocation();
-    const { products, categories, sellers, refreshProducts, isInitialLoading: adminDataLoading } = useAdminData();
+    const { products, categories, sellers, refreshProducts, refreshCategories, isInitialLoading: adminDataLoading } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
     const [activeCategory, setActiveCategory] = useState('All');
@@ -86,8 +87,9 @@ export function AdminProductsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [isSavingProduct, setIsSavingProduct] = useState(false);
+    const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
     const [productOverrides, setProductOverrides] = useState<Record<string, Product>>({});
-    const [deletedProductIds, setDeletedProductIds] = useState<Set<string>>(new Set());
     const [formData, setFormData] = useState({
         name: '',
         price: '',
@@ -128,9 +130,33 @@ export function AdminProductsPage() {
 
     const effectiveProducts = useMemo(() => {
         return products
-            .filter((p) => !deletedProductIds.has(String(p.id)))
             .map((p) => productOverrides[String(p.id)] || p);
-    }, [products, deletedProductIds, productOverrides]);
+    }, [products, productOverrides]);
+
+    const handleCreateCategory = useCallback(async () => {
+        if (isCreatingCategory) return;
+        const name = newCategoryName.trim();
+        if (!name) {
+            toast.error('Enter a category name.');
+            return;
+        }
+        setIsCreatingCategory(true);
+        try {
+            const created = await createCategoryApi({ name });
+            await refreshCategories();
+            setFormData((prev) => ({
+                ...prev,
+                categoryId: String(created.id),
+                category: created.name,
+            }));
+            setNewCategoryName('');
+            toast.success(`Category "${created.name}" created.`);
+        } catch (e: any) {
+            toast.error(e?.message || 'Failed to create category');
+        } finally {
+            setIsCreatingCategory(false);
+        }
+    }, [isCreatingCategory, newCategoryName, refreshCategories]);
 
     useEffect(() => {
         const params = new URLSearchParams(location.search);
@@ -267,28 +293,67 @@ export function AdminProductsPage() {
 
     const handleDeleteProduct = useCallback((id: string | number, name: string) => {
         toast(`Archive ${name}?`, {
-            description: "Product will be hidden from consumer storefronts.",
+            description: user?.role === 'admin'
+                ? "Archive hides it from storefront. Admin can also permanently delete."
+                : "Product will be hidden from consumer storefronts.",
             action: {
                 label: "Archive",
                 onClick: async () => {
                     const key = String(id);
-                    setDeletedProductIds((prev) => new Set(prev).add(key));
+                    const current = products.find((p) => String(p.id) === key);
+                    if (current) {
+                        setProductOverrides((prev) => ({
+                            ...prev,
+                            [key]: {
+                                ...current,
+                                status: 'Draft',
+                            },
+                        }));
+                    }
                     try {
                         await deleteProductApi(key);
                         void refreshProducts();
                         toast.success(`${name} archived successfully`);
                     } catch (e: any) {
-                        setDeletedProductIds((prev) => {
-                            const next = new Set(prev);
-                            next.delete(key);
+                        setProductOverrides((prev) => {
+                            const next = { ...prev };
+                            delete next[key];
                             return next;
                         });
                         toast.error(e?.message || 'Failed to archive');
                     }
                 }
             },
+            cancel: user?.role === 'admin'
+                ? {
+                    label: 'Delete permanently',
+                    onClick: () => {
+                        const key = String(id);
+                        toast(`Permanently delete ${name}?`, {
+                            description: 'This cannot be undone.',
+                            action: {
+                                label: 'Delete forever',
+                                onClick: async () => {
+                                    try {
+                                        await deleteProductApi(key, { permanent: true });
+                                        setProductOverrides((prev) => {
+                                            const next = { ...prev };
+                                            delete next[key];
+                                            return next;
+                                        });
+                                        void refreshProducts();
+                                        toast.success(`${name} permanently deleted`);
+                                    } catch (e: any) {
+                                        toast.error(e?.message || 'Failed to permanently delete');
+                                    }
+                                },
+                            },
+                        });
+                    },
+                }
+                : undefined,
         });
-    }, [refreshProducts]);
+    }, [products, refreshProducts, user?.role]);
 
     const handleOpenEditModal = (product: Product) => {
         setEditingProduct(product);
@@ -1035,6 +1100,22 @@ export function AdminProductsPage() {
                                                     { label: 'Fruits', value: 'Fruits' }, { label: 'Vegetables', value: 'Vegetables' }
                                                 ]}
                                             />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                                            <input
+                                                value={newCategoryName}
+                                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                                placeholder="Create new category (e.g. Dry Fruits)"
+                                                className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleCreateCategory}
+                                                disabled={isCreatingCategory}
+                                                className="h-11 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                            >
+                                                {isCreatingCategory ? 'Creating…' : 'Create category'}
+                                            </button>
                                         </div>
                                         {!isSeller && (
                                             <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">

@@ -5,7 +5,7 @@ import {
     Filter, MoreHorizontal, ExternalLink, ShieldCheck,
     MapPin, Calendar, FileText, TrendingUp, Users,
     Package, ArrowUpRight, Ban, CheckCircle, XCircle,
-    Smartphone, Download, Zap, Briefcase, Binary,
+    Smartphone, Zap, Briefcase, Binary,
     Activity, X, Mail, Star, Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -115,58 +115,6 @@ export function AdminSellersPage() {
         });
     }, [sellers, searchQuery, activeTab, statusFilter, kycFilter]);
 
-    const escapeCsvValue = (value: unknown) => {
-        const str = value == null ? '' : String(value);
-        if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-        return str;
-    };
-
-    const handleExportNetworkAudit = useCallback(() => {
-        const list = filteredSellers;
-        if (!list.length) {
-            toast.error('No merchants to export for the current tab and search.');
-            return;
-        }
-        const header = [
-            'Seller ID',
-            'Store name',
-            'Owner',
-            'Email',
-            'Status',
-            'KYC status',
-            'Joined',
-            'Commission %',
-            'Location',
-            'GST',
-            'PAN',
-            'Rating',
-        ];
-        const rows = list.map((s) => [
-            s.id,
-            s.storeName,
-            s.ownerName,
-            s.email,
-            s.status,
-            s.kycStatus,
-            s.joinedAt,
-            s.commissionRate,
-            s.location,
-            s.gstNumber ?? '',
-            s.panNumber ?? '',
-            s.rating,
-        ]);
-        const csv = [header, ...rows].map((row) => row.map(escapeCsvValue).join(',')).join('\n');
-        const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `merchant-network-audit-${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success(`Exported ${list.length} merchant row(s) to CSV.`);
-    }, [filteredSellers]);
 
     const stats = [
         { label: 'Total Partnerships', value: sellers.length, icon: Users, color: 'emerald' },
@@ -193,20 +141,7 @@ export function AdminSellersPage() {
                         Supply Chain Audit & Merchant Onboarding
                     </p>
                 </div>
-                <div className="flex items-center gap-4 relative z-10">
-                    <button
-                        type="button"
-                        onClick={handleExportNetworkAudit}
-                        className="h-16 px-10 rounded-[2rem] bg-white border border-slate-100 text-[11px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-50 hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all duration-500 flex items-center gap-3 group"
-                    >
-                        <Download className="w-4 h-4 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                        Network Audit
-                    </button>
-                    <button className="h-16 px-12 rounded-[2rem] bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all duration-700 shadow-2xl shadow-slate-900/20 active:scale-95 flex items-center gap-3 group">
-                        <Briefcase className="h-5 w-5 transition-transform group-hover:rotate-12 duration-500" />
-                        Onboard Merchant
-                    </button>
-                </div>
+                <div className="relative z-10" />
             </div>
 
             {/* Yield Matrix: Visual Stats Row */}

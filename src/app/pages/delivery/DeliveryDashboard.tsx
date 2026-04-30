@@ -36,6 +36,12 @@ export function DeliveryDashboard() {
     const [loading, setLoading] = useState(true);
     const [toggling, setToggling] = useState(false);
     const [online, setOnline] = useState(false);
+    const getAuthToken = () =>
+        localStorage.getItem('token') ||
+        localStorage.getItem('accessToken') ||
+        sessionStorage.getItem('token') ||
+        sessionStorage.getItem('accessToken') ||
+        '';
 
     // Background location ping when online
     useEffect(() => {
@@ -49,7 +55,7 @@ export function DeliveryDashboard() {
                         timeout: 5000,
                     });
                 });
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 await fetch(`${getEffectiveApiBase()}/delivery/location`, {
                     method: 'POST',
                     headers: {
@@ -71,7 +77,7 @@ export function DeliveryDashboard() {
     useEffect(() => {
         const load = async () => {
             try {
-                const token = localStorage.getItem('token');
+                const token = getAuthToken();
                 const res = await fetch(`${getEffectiveApiBase()}/delivery/dashboard`, {
                     headers: { Authorization: token ? `Bearer ${token}` : '' },
                 });
@@ -177,7 +183,7 @@ export function DeliveryDashboard() {
                                         // ignore
                                     }
                                 }
-                                const token = localStorage.getItem('token');
+                                const token = getAuthToken();
                                 const res = await fetch(`${getEffectiveApiBase()}/delivery/status`, {
                                     method: 'PATCH',
                                     headers: {

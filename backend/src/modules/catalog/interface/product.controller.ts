@@ -88,7 +88,12 @@ export class ProductController {
     @Roles('SELLER', 'ADMIN')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @Delete(':id')
-    async remove(@Param('id', ParseUUIDPipe) id: string, @Request() req: any) {
-        return this.productService.remove(id, req.user);
+    async remove(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Request() req: any,
+        @Query('permanent') permanent?: string,
+    ) {
+        const shouldPermanentlyDelete = String(permanent || '').toLowerCase() === 'true';
+        return this.productService.remove(id, req.user, { permanent: shouldPermanentlyDelete });
     }
 }

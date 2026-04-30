@@ -98,21 +98,6 @@ export function AdminCustomersPage() {
         };
     }, [filteredCustomersByAllFilters]);
 
-    const handleSendCustomerUpdate = (customer: any) => {
-        if (!customer) return;
-        const customerEmail = String(customer.email || '').trim();
-        if (!customerEmail) {
-            toast.error('Customer email is unavailable for this profile.');
-            return;
-        }
-        const subject = encodeURIComponent('Update from The Fruit Tribe');
-        const body = encodeURIComponent(
-            `Hi ${customer.name || 'Customer'},\n\nQuick update from The Fruit Tribe.\n\nRegards,\nThe Fruit Tribe Team`
-        );
-        window.open(`mailto:${customerEmail}?subject=${subject}&body=${body}`, '_self');
-        toast.success(`Update draft opened for ${customer.name}.`);
-    };
-
     const handleViewCustomerAnalytics = (customer: any) => {
         if (!customer) return;
         const query = String(customer.email || customer.name || '').trim();
@@ -792,12 +777,6 @@ export function AdminCustomersPage() {
                             </div>
 
                             <div className="p-10 bg-slate-50/80 backdrop-blur-md border-t border-slate-100 flex gap-4 mt-auto">
-                                <button
-                                    onClick={() => handleSendCustomerUpdate(selectedCustomer)}
-                                    className="flex-1 h-14 bg-white border border-slate-200 text-slate-900 rounded-2xl hover:bg-slate-100 text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
-                                >
-                                    Send Update
-                                </button>
                                 <button
                                     onClick={() => handleViewCustomerAnalytics(selectedCustomer)}
                                     className="flex-1 h-14 bg-slate-900 text-white rounded-2xl hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"

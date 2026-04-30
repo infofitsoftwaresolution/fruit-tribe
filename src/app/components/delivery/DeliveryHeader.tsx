@@ -119,7 +119,7 @@ export function DeliveryHeader({ onOpenSidebar }: DeliveryHeaderProps) {
                 <div className="h-8 w-[1px] bg-slate-100 hidden sm:block" />
 
                 <Link
-                    to="/"
+                    to="/?from=delivery"
                     target="_blank"
                     className="hidden lg:flex items-center gap-2 px-5 h-11 bg-white border border-slate-200 rounded-xl text-[10px] font-black text-slate-600 hover:bg-slate-900 hover:text-white hover:shadow-xl transition-all uppercase tracking-widest"
                 >

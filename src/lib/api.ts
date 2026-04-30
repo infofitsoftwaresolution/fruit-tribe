@@ -418,6 +418,39 @@ export async function getCategories(): Promise<Category[]> {
   return res.json();
 }
 
+export type AdminContactSubmission = {
+  id: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  submittedAt: string;
+};
+
+export async function getAdminContactSubmissions(limit: number = 12): Promise<AdminContactSubmission[]> {
+  const params = new URLSearchParams();
+  params.set('limit', String(limit));
+  const res = await fetch(`${getEffectiveApiBase()}/settings/contact-submissions?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json() as { items?: AdminContactSubmission[] };
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+export async function createCategory(body: { name: string; description?: string; imageUrl?: string }): Promise<Category> {
+  const res = await fetch(`${getEffectiveApiBase()}/categories`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    throw new Error(text || res.statusText);
+  }
+  return res.json();
+}
+
 export async function getSellers(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/sellers`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -906,9 +939,12 @@ export async function updateProduct(
   return res.json();
 }
 
-/** Soft-delete product (auth required). */
-export async function deleteProduct(id: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {
+/** Archive product by default; admin may request permanent delete. */
+export async function deleteProduct(id: string, options?: { permanent?: boolean }): Promise<void> {
+  const params = new URLSearchParams();
+  if (options?.permanent) params.set('permanent', 'true');
+  const q = params.toString();
+  const res = await fetch(`${getEffectiveApiBase()}/products/${id}${q ? `?${q}` : ''}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
