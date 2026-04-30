@@ -1003,9 +1003,11 @@ export function ProfilePage() {
                   <div className="space-y-0 relative ml-2 md:ml-4 py-4">
                     {(trackingOrder.statusTimeline as any[]).map((step: any, idx: number, arr: any[]) => {
                       const currentIndex = arr.length - 1;
+                      const isDelivered = step.rawStatus === 'DELIVERED';
                       const isCompleted = idx < currentIndex && step.rawStatus !== 'CANCELLED';
                       const isCurrent = idx === currentIndex && step.rawStatus !== 'CANCELLED';
                       const isCancelled = step.rawStatus === 'CANCELLED';
+                      const showCompletedCheck = isCompleted || (isCurrent && isDelivered);
                       
                       return (
                         <div key={`${step.rawStatus}-${idx}`} className="relative pl-10 sm:pl-16 pb-10 last:pb-0">
@@ -1021,12 +1023,12 @@ export function ProfilePage() {
                           <div className={cn(
                             "absolute left-0 sm:left-0 top-0 h-7 w-7 sm:h-8 sm:w-8 rounded-full border-[3px] shadow-sm flex items-center justify-center z-10",
                             isCancelled ? "bg-red-50 text-red-500 border-red-100" :
-                            isCompleted ? "bg-emerald-500 text-white border-emerald-500" :
+                            showCompletedCheck ? "bg-emerald-500 text-white border-emerald-500" :
                             isCurrent ? "bg-white border-emerald-500 text-emerald-500 scale-110 shadow-emerald-500/30" : "bg-slate-50 border-slate-200 text-slate-300"
                           )}>
                             {isCancelled ? (
                                <X className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
-                            ) : isCompleted ? (
+                            ) : showCompletedCheck ? (
                                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 stroke-[3]" />
                             ) : (
                                <div className={cn("w-2 h-2 rounded-full", isCurrent ? "bg-emerald-500 animate-ping" : "bg-slate-300")} />

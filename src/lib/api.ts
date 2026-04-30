@@ -640,7 +640,16 @@ export async function generateOrderPaymentLink(
   });
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText);
-    throw new Error(text || res.statusText);
+    let message = text;
+    try {
+      const data = JSON.parse(text) as { message?: string | string[] };
+      if (data?.message != null) {
+        message = Array.isArray(data.message) ? data.message.join('; ') : data.message;
+      }
+    } catch {
+      // keep raw text fallback
+    }
+    throw new Error(message || res.statusText);
   }
   return res.json();
 }
