@@ -368,8 +368,15 @@ export class PaymentService {
                 return { paymentLink: response.short_url, emailDispatch: { sent: false, error: message } };
             }
         } catch (err: any) {
-            this.logger.error(`createPaymentLink failed: ${err.message}`, err.stack);
-            throw new BadRequestException(err?.error?.description || 'Failed to create payment link');
+            const message =
+                err?.error?.description ??
+                err?.error?.reason ??
+                err?.message ??
+                'Failed to create payment link';
+            this.logger.error(`createPaymentLink failed: ${message}`, err?.stack ?? err);
+            throw new BadRequestException(
+                typeof message === 'string' ? message : 'Failed to create payment link',
+            );
         }
     }
 
