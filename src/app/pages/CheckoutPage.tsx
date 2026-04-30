@@ -491,8 +491,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     return entries.map(([vendor, vendorItems], i) => {
       const vSubtotal = vendorItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
       const vTax = vendorItems.reduce((totalTax, item) => {
-        const product = products.find((p: any) => p.id === item.id);
-        const rate = taxRates[product?.category || 'Fruits'] || 0;
+        const product = products.find((p: any) =>
+          String(p.id) === String((item as any).productId ?? item.id)
+        );
+        const category = String(product?.category || '').trim();
+        const rate = category
+          ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0)
+          : 0;
         return totalTax + (item.price * item.quantity * (rate / 100));
       }, 0);
       const shipping = i === 0 ? shippingFeeForDistance : 0;

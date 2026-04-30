@@ -39,9 +39,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
 
   // Dynamic Tax Calculation based on Category
   const calculatedTax = items.reduce((totalTax: number, item: CartItem) => {
-    const product = products.find(p => p.id === item.id);
-    const category = product?.category || 'Fruits';
-    const rate = taxRates[category] || 0;
+    const matchedProduct = products.find((p) =>
+      String(p.id) === String(item.productId ?? item.id)
+    );
+    const category = String(matchedProduct?.category || '').trim();
+    const rate = category ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0) : 0;
     return totalTax + (item.price * item.quantity * (rate / 100));
   }, 0);
 
