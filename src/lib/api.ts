@@ -5,10 +5,20 @@ import type { SavedDeliveryAddress } from './deliveryAddressUtils';
 
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
-/** Use for all fetch(): avoids mixed content by using relative /api/v1 when page is HTTPS and base is HTTP */
+/**
+ * Base URL for `fetch()`.
+ * - Production / preview: `VITE_API_URL` or absolute localhost API.
+ * - HTTPS pages + HTTP API: `/api/v1` (proxy strips `/api` → Nest at `/v1`).
+ * - Vite dev: same-origin `/v1` so LAN/mobile hosts resolve correctly (`fetch(http://localhost:3000)` fails when the app is opened as http://192.168.x.x:5174).
+ */
 export function getEffectiveApiBase(): string {
-  if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && API_BASE.startsWith('http://'))
+  if (typeof window === 'undefined') return API_BASE;
+  if (window.location.protocol === 'https:' && API_BASE.startsWith('http://')) {
     return '/api/v1';
+  }
+  if (import.meta.env.DEV) {
+    return '/v1';
+  }
   return API_BASE;
 }
 

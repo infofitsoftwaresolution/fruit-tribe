@@ -4,17 +4,7 @@ import { motion } from 'framer-motion';
 import { Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
-function parseVariantPackDescriptor(rawName: string, fallbackUnit: string): { label: string; packQty: number; packUnit: string } {
-  const cleaned = String(rawName || '').trim();
-  const fallback = String(fallbackUnit || 'kg').trim().toLowerCase() || 'kg';
-  if (!cleaned) return { label: `1 ${fallback}`, packQty: 1, packUnit: fallback };
-  const matched = cleaned.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
-  if (!matched) return { label: cleaned, packQty: 1, packUnit: fallback };
-  const qty = Number(matched[1]);
-  const unit = String(matched[2] || fallback).toLowerCase();
-  const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
-  return { label: `${normalizedQty}${unit}`, packQty: normalizedQty, packUnit: unit };
-}
+import { humanizePackLabelString, parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
@@ -120,6 +110,20 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     }
     callback();
   };
+
+  const sortedSelectableVariants = useMemo((): NonNullable<Product['variants']> => {
+    if (!apiProduct) return [];
+    const unit = apiProduct.unit || 'kg';
+    return (apiProduct.variants || [])
+      .filter((v) => String(v.name || '').trim().toLowerCase() !== 'default')
+      .slice()
+      .sort((a, b) => {
+        const wa = parseVariantPackDescriptor(String(a.name || ''), unit).packQty;
+        const wb = parseVariantPackDescriptor(String(b.name || ''), unit).packQty;
+        if (wa !== wb) return wa - wb;
+        return String(a.sku).localeCompare(String(b.sku));
+      });
+  }, [apiProduct]);
 
   const product = useMemo(() => {
     if (!apiProduct) return null;
@@ -395,7 +399,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             )}
           </div>
 
-          {product.variants && product.variants.length > 0 && (
+          {sortedSelectableVariants.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select option</p>
               <div className="flex flex-wrap gap-2 items-center">
@@ -405,18 +409,16 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400"
                 >
                   <option value="">Default</option>
-                  {product.variants
-                    .filter((v: any) => String(v.name || '').trim().toLowerCase() !== 'default')
-                    .map((variant: any) => (
-                      <option key={variant.sku} value={variant.sku}>
-                        {variant.name}
-                      </option>
-                    ))}
+                  {sortedSelectableVariants.map((variant: any) => (
+                    <option key={variant.sku} value={variant.sku}>
+                      {humanizePackLabelString(String(variant.name || ''))}
+                    </option>
+                  ))}
                 </select>
                 <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>Default</button>
-                {product.variants.filter((v: any) => String(v.name || '').trim().toLowerCase() !== 'default').map((variant: any) => (
+                {sortedSelectableVariants.map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
-                    {variant.name}
+                    {humanizePackLabelString(String(variant.name || ''))}
                   </button>
                 ))}
               </div>

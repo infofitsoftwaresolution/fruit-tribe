@@ -15,6 +15,7 @@ import {
   createRazorpayOrder,
   verifyPayment,
   getProduct,
+  getEffectiveApiBase,
 } from '@/lib/api';
 import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import {
@@ -243,9 +244,12 @@ export function ProfilePage() {
     (async () => {
       try {
         const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(parts)}&limit=1`,
-          { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Tracking/1.0' } }
+          `${getEffectiveApiBase()}/geocode/search?${new URLSearchParams({ q: parts, limit: '1' })}`,
         );
+        if (!res.ok) {
+          if (!cancelled) setTrackingMapCenter(null);
+          return;
+        }
         const data = await res.json();
         if (!cancelled && data && data[0]) {
           const lat = parseFloat(data[0].lat);

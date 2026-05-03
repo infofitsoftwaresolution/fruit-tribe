@@ -6,6 +6,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { cn, formatInr } from '@/lib/utils';
+import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
@@ -25,19 +26,6 @@ function sanitizeCardDescription(value?: string): string {
   } catch {
     return '';
   }
-}
-
-function parseVariantPackDescriptor(rawName: string, fallbackUnit: string): { label: string; packQty: number; packUnit: string } {
-  const cleaned = String(rawName || '').trim();
-  const fallback = String(fallbackUnit || 'kg').trim().toLowerCase() || 'kg';
-  if (!cleaned) return { label: `1 ${fallback}`, packQty: 1, packUnit: fallback };
-  const matched = cleaned.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
-  if (!matched) return { label: cleaned, packQty: 1, packUnit: fallback };
-  const qty = Number(matched[1]);
-  const unit = String(matched[2] || fallback).toLowerCase();
-  const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
-  const normalized = `${normalizedQty}${unit}`;
-  return { label: normalized, packQty: normalizedQty, packUnit: unit };
 }
 
 /* ── Image component ── */
@@ -139,19 +127,67 @@ export const ProductCard = memo(({
   const unitLabel    = product?.unit ? product.unit : 'kg';
 
   const variantOptions = useMemo(() => {
-    return (product?.variants || [])
+    const rows = (product?.variants || [])
       .filter((v: any) => String(v?.name || '').trim().toLowerCase() !== 'default')
-      .map((v: any) => ({
-        ...parseVariantPackDescriptor(String(v.name || ''), unitLabel),
-        key: `variant:${v.sku}`,
-        label: `${parseVariantPackDescriptor(String(v.name || ''), unitLabel).label} pack · ${formatInr(Number(v.price || retailRef))}`,
-        price: Number(v.price || retailRef),
-        stock: Number(v.stock ?? 0),
-        availableStock: Number(v.availableStock ?? v.stock ?? 0),
-        sku: String(v.sku || ''),
-        name: parseVariantPackDescriptor(String(v.name || ''), unitLabel).label,
-      }));
+      .map((v: any) => {
+        const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
+        return {
+          ...parsed,
+          key: `variant:${v.sku}`,
+          label: `${parsed.label} pack · ${formatInr(Number(v.price || retailRef))}`,
+          price: Number(v.price || retailRef),
+          stock: Number(v.stock ?? 0),
+          availableStock: Number(v.availableStock ?? v.stock ?? 0),
+          sku: String(v.sku || ''),
+          name: parsed.label,
+        };
+      });
+    rows.sort((a, b) =>
+      a.packQty !== b.packQty ? a.packQty - b.packQty : String(a.sku).localeCompare(String(b.sku)),
+    );
+    return rows;
   }, [product?.variants, retailRef, unitLabel]);
+
+  /** Single sorted list: retail (1 unit), bulk slab, and variants — all ordered by pack weight. */
+  const sortedPackSelectOptions = useMemo(() => {
+    if (bulkDealMode && hasBulk && bulkQty != null && bulkPriceVal != null) {
+      return [
+        {
+          value: 'bulk',
+          label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
+          sortQty: Number(bulkQty) || 0,
+        },
+      ];
+    }
+    const rows: Array<{ value: string; label: string; sortQty: number }> = [];
+    rows.push({
+      value: 'retail',
+      label: `1 ${unitLabel} · ${formatInr(retailRef)}`,
+      sortQty: 1,
+    });
+    if (bulkQty != null && bulkPriceVal != null) {
+      rows.push({
+        value: 'bulk',
+        label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
+        sortQty: Number(bulkQty) || 0,
+      });
+    }
+    for (const v of variantOptions) {
+      rows.push({ value: v.key, label: v.label, sortQty: v.packQty });
+    }
+    rows.sort((a, b) =>
+      a.sortQty !== b.sortQty ? a.sortQty - b.sortQty : a.value.localeCompare(b.value),
+    );
+    return rows;
+  }, [
+    bulkDealMode,
+    hasBulk,
+    bulkQty,
+    bulkPriceVal,
+    unitLabel,
+    retailRef,
+    variantOptions,
+  ]);
 
   const [packKind, setPackKind] = useState<string>(() =>
     bulkDealMode && hasBulk ? 'bulk' : 'retail'
@@ -399,12 +435,10 @@ export const ProductCard = memo(({
               disabled={!!bulkDealMode}
               className="w-full h-8 pl-2.5 pr-8 text-[11px] text-slate-900 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 appearance-none"
             >
-              {!bulkDealMode && <option value="retail">1 {unitLabel} · {formatInr(retailRef)}</option>}
-              {bulkQty != null && bulkPriceVal != null && (
-                <option value="bulk">{bulkQty} {unitLabel} pack · {formatInr(Number(bulkPriceVal))} total</option>
-              )}
-              {!bulkDealMode && variantOptions.map((variant) => (
-                <option key={variant.key} value={variant.key}>{variant.label}</option>
+              {sortedPackSelectOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
             <ChevronDown

@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, Trash2, ChevronRight, Info, FileText } from 'lucide-react';
@@ -17,39 +18,81 @@ import {
   getAvailableOffers,
   getUserAddresses,
   createUserAddress,
+  getEffectiveApiBase,
+  getImageDisplayUrl,
   type AvailableOffer,
 } from '@/lib/api';
-import {
-  savedAddressToCheckoutForm,
-  checkoutFormToCreateAddressBody,
-  type SavedDeliveryAddress,
-} from '@/lib/deliveryAddressUtils';
+import { savedAddressToCheckoutForm, type SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
 import { toast } from 'sonner';
-import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
 
 interface CheckoutPageProps {
   items: CartItem[];
 }
 
-const DEFAULT_WAREHOUSE_LAT = 22.5726;
-const DEFAULT_WAREHOUSE_LNG = 88.3639;
+/** Dispatch default when API returns no warehouse rows — must be Bengaluru (was Kolkata by mistake). */
+const DEFAULT_WAREHOUSE_LAT = 12.9784;
+const DEFAULT_WAREHOUSE_LNG = 77.5946;
+/** Street phrase geocode debounce; PIN path runs immediately + sync estimate below. */
+const GEOCODE_DEBOUNCE_MS = 50;
+
+/** Single service area — store delivers only within Bengaluru Urban / Karnataka. */
+const DELIVERY_CITY_FIXED = 'Bengaluru';
+const DELIVERY_STATE_FIXED = 'Karnataka';
+
+/**
+ * Offline / throttled fallback & instant preview. Prefer PIN-specific centroids (OSM postal areas),
+ * not MG Road — using the city centre made HSR (~560102) look ~20km from a south-side warehouse.
+ */
+const BENGALURU_PIN_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
+  '560102': { lat: 12.9143784, lng: 77.6432565 },
+  '560034': { lat: 12.9352, lng: 77.6245 },
+  '560038': { lat: 12.9784, lng: 77.6408 },
+  '560066': { lat: 12.9698, lng: 77.75 },
+  '560011': { lat: 12.925, lng: 77.5938 },
+  '560078': { lat: 12.9077, lng: 77.585 },
+  '560100': { lat: 12.8456, lng: 77.6603 },
+  '560037': { lat: 12.9592, lng: 77.6974 },
+  '560010': { lat: 12.9915, lng: 77.5544 },
+  '560064': { lat: 13.1007, lng: 77.5963 },
+};
+
+function approximateLatLngForBengaluruServicePin(pin: string): { lat: number; lng: number } | null {
+  const d = pin.replace(/\D/g, '');
+  if (d.length !== 6) return null;
+  const p3 = d.slice(0, 3);
+  if (!['560', '561', '562', '563'].includes(p3)) return null;
+  if (BENGALURU_PIN_FALLBACK_COORDS[d]) return BENGALURU_PIN_FALLBACK_COORDS[d];
+  return { lat: 12.9352, lng: 77.6245 };
+}
 
 function normalizeCityName(input: string): string {
   return input.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function normalizeLocationToken(input: string): string {
+  return normalizeCityName(input)
+    .replace(/[.,/\\()-]/g, ' ')
+    .replace(/\b(city|district|urban|rural|metropolitan|metro|division|zone)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function citiesRoughlyMatch(a: string, b: string): boolean {
-  const x = normalizeCityName(a);
-  const y = normalizeCityName(b);
+  const x = normalizeLocationToken(a);
+  const y = normalizeLocationToken(b);
   if (!x || !y) return false;
   if (x === y) return true;
+  if (x.includes(y) || y.includes(x)) return true;
   const aliases: Record<string, string[]> = {
-    bangalore: ['bengaluru'],
-    bengaluru: ['bangalore'],
+    bangalore: ['bengaluru', 'banglore', 'bengalooru', 'bengalore'],
+    bengaluru: ['bangalore', 'banglore', 'bengalooru', 'bengalore'],
+    banglore: ['bangalore', 'bengaluru'],
+    'bangalore urban': ['bangalore', 'bengaluru', 'bengaluru urban'],
+    'bengaluru urban': ['bangalore', 'bengaluru', 'bangalore urban'],
     kolkata: ['calcutta'],
     calcutta: ['kolkata'],
     mumbai: ['bombay'],
@@ -67,6 +110,330 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+/** Tokens from flat + street used to pick the best Nominatim hit (e.g. HSR, layout, sector). */
+function tokenizeLocationHints(flatHouse: string, address: string): string[] {
+  const STOP = new Set([
+    'the', 'a', 'an', 'and', 'or', 'near', 'opp', 'floor', 'flat', 'no', 'building', 'name', 'house',
+  ]);
+  const blob = `${flatHouse} ${address}`;
+  const raw = blob.toLowerCase();
+  const words = raw
+    .split(/[\s,./]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2 && !STOP.has(t));
+  const firstSeg = address.split(',')[0]?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
+  const extra: string[] = [];
+  if (firstSeg.length >= 4) extra.push(firstSeg);
+  const sectorAnywhere = blob.match(/\b(sector|sec)\s*\d+\b/gi);
+  if (sectorAnywhere) {
+    for (const m of sectorAnywhere) {
+      extra.push(m.toLowerCase().replace(/\s+/g, ' '));
+    }
+  }
+  const m = firstSeg.match(/\b(sector|sec)\s*\d+\b/i);
+  if (m) extra.push(m[0].toLowerCase().replace(/\s+/g, ' '));
+  return Array.from(new Set([...extra, ...words]));
+}
+
+type NominatimHit = {
+  lat: string;
+  lon: string;
+  display_name?: string;
+  address?: Record<string, string>;
+};
+
+function scoreNominatimHit(hit: NominatimHit, city: string, hints: string[], pinDigits: string): number {
+  const d = String(hit.display_name || '').toLowerCase();
+  const cityTok = normalizeLocationToken(city);
+  let score = 0;
+  const hitPostcode = String(hit.address?.postcode || '').replace(/\D/g, '');
+  if (pinDigits.length === 6 && hitPostcode === pinDigits) {
+    score += 100;
+  }
+  if (
+    cityTok &&
+    (d.includes(cityTok) ||
+      d.includes('bengaluru') ||
+      d.includes('bangalore') ||
+      d.includes('banglore'))
+  ) {
+    score += 4;
+  }
+  for (const h of hints) {
+    if (h.length >= 3 && d.includes(h)) score += 3;
+    if (h.length === 2 && d.includes(h)) score += 1;
+  }
+  return score;
+}
+
+function dedupeNominatimHits(hits: NominatimHit[]): NominatimHit[] {
+  const seen = new Set<string>();
+  const out: NominatimHit[] = [];
+  for (const h of hits) {
+    const lat = parseFloat(h.lat);
+    const lng = parseFloat(h.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(h);
+  }
+  return out;
+}
+
+async function fetchNominatimIndia(q: string): Promise<NominatimHit[]> {
+  try {
+    if (!q.trim()) return [];
+    const base = getEffectiveApiBase();
+    const url = `${base}/geocode/search?${new URLSearchParams({ q: q.trim() })}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/** PIN centroid via backend structured search — use when street-level `q` returns nothing. */
+async function fetchNominatimIndiaByPostalCode(pin6: string): Promise<NominatimHit[]> {
+  try {
+    if (!/^\d{6}$/.test(pin6)) return [];
+    const base = getEffectiveApiBase();
+    const url = `${base}/geocode/search?${new URLSearchParams({ postalcode: pin6, limit: '12' })}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+type NominatimReverseJson = {
+  display_name?: string;
+  address?: Record<string, string | undefined>;
+};
+
+function strAddr(v: unknown): string {
+  if (typeof v === 'string') return v.trim();
+  if (v == null) return '';
+  return String(v).trim();
+}
+
+/** Normalize common Nominatim city/county labels for Indian metros (checkout form). */
+function normalizeCityFromReverse(name: string): string {
+  const t = normalizeCityName(name);
+  if (
+    t === 'bengaluru urban' ||
+    t === 'bangalore urban' ||
+    t === 'bbmp' ||
+    (t.includes('bengaluru') && t.includes('urban')) ||
+    (t.includes('bangalore') && t.includes('urban'))
+  ) {
+    return 'Bengaluru';
+  }
+  if (t === 'bengaluru' || t === 'bangalore' || t === 'banglore') return 'Bengaluru';
+  return name.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Nominatim reverse (esp. India) often omits `city` and uses suburb/neighbourhood/county.
+ * Never use raw display_name as the street field — it repeats city/state/country.
+ */
+function parseNominatimReverseForCheckout(data: NominatimReverseJson): {
+  flatHouse: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+} {
+  const a = data.address || {};
+  const house = strAddr(a.house_number) || strAddr((a as { house?: string }).house);
+  const road = strAddr(a.road);
+  const neighbourhood = strAddr(a.neighbourhood);
+  const suburb = strAddr(a.suburb);
+  const quarter = strAddr(a.quarter);
+  const cityDistrict = strAddr(a.city_district);
+
+  const rawCity =
+    strAddr(a.city) ||
+    strAddr(a.town) ||
+    strAddr(a.municipality) ||
+    strAddr(a.village) ||
+    strAddr(a.county) ||
+    cityDistrict ||
+    strAddr(a.state_district);
+
+  const city = rawCity ? normalizeCityFromReverse(rawCity) : '';
+  const state = strAddr(a.state);
+  const postcode = strAddr(a.postcode).replace(/\D/g, '');
+  const zipCode = postcode.length >= 6 ? postcode.slice(0, 6) : postcode;
+
+  const areaParts: string[] = [];
+  const push = (s: string) => {
+    const t = s.trim();
+    if (t && !areaParts.some((x) => x.toLowerCase() === t.toLowerCase())) areaParts.push(t);
+  };
+  if (road) push(road);
+  if (neighbourhood) push(neighbourhood);
+  if (suburb) push(suburb);
+  if (quarter) push(quarter);
+  if (cityDistrict && cityDistrict !== rawCity) push(cityDistrict);
+
+  let address = areaParts.join(', ');
+  if (!address && data.display_name) {
+    address = trimDisplayNameToLocalLine(String(data.display_name), city, state);
+  }
+
+  return {
+    flatHouse: house,
+    address,
+    city,
+    state,
+    zipCode,
+  };
+}
+
+/** Drop country / state / city / PIN from display_name; keep road + locality segment. */
+function trimDisplayNameToLocalLine(displayName: string, city: string, state: string): string {
+  const parts = displayName.split(',').map((p) => p.trim()).filter(Boolean);
+  const lc = city ? normalizeCityName(city) : '';
+  const ls = state ? normalizeCityName(state) : '';
+  const out: string[] = [];
+  for (const p of parts) {
+    const pl = normalizeCityName(p);
+    if (pl.includes('india')) break;
+    if (lc && (pl === lc || pl.includes(lc) || lc.includes(pl))) break;
+    if (ls && (pl === ls || pl.includes(ls))) break;
+    if (/^\d{6}$/.test(p.replace(/\s/g, ''))) break;
+    out.push(p);
+    if (out.length >= 6) break;
+  }
+  return out.join(', ') || displayName;
+}
+
+/**
+ * Forward-geocode hits: merge city/state from the search result.
+ * Do **not** set zipCode here — search results often attach a broad/wrong `postcode` (e.g. area default),
+ * which used to skip reverse geocode and left the PIN wrong for a known street. PIN comes from reverse at lat/lng.
+ */
+function extractFormSyncFromNominatimForwardHit(hit: NominatimHit): {
+  city?: string;
+  state?: string;
+} {
+  const a = hit.address || {};
+
+  const rawCity =
+    strAddr(a.city) ||
+    strAddr(a.town) ||
+    strAddr(a.municipality) ||
+    strAddr(a.village) ||
+    strAddr(a.county) ||
+    strAddr(a.city_district) ||
+    strAddr(a.state_district);
+
+  const city = rawCity ? normalizeCityFromReverse(rawCity) : '';
+  const state = strAddr(a.state);
+
+  return {
+    ...(city ? { city } : {}),
+    ...(state ? { state } : {}),
+  };
+}
+
+function pickBestNominatimHit(hits: NominatimHit[], city: string, hints: string[], pinDigits: string): NominatimHit | null {
+  if (!hits.length) return null;
+  let best: NominatimHit | null = null;
+  let bestScore = -1;
+  for (const h of hits) {
+    const s = scoreNominatimHit(h, city, hints, pinDigits);
+    if (s > bestScore) {
+      bestScore = s;
+      best = h;
+    }
+  }
+  return best;
+}
+
+/** OSM search prefers "Bengaluru" for Bangalore localities (e.g. HSR Layout). */
+function cityLabelForNominatim(city: string): string {
+  const t = normalizeCityName(city);
+  if (!t) return city.trim();
+  if (
+    t === 'bangalore' ||
+    t === 'bengaluru' ||
+    t === 'banglore' ||
+    t === 'bengalore' ||
+    t === 'bangalore urban' ||
+    t === 'bengaluru urban'
+  ) {
+    return 'Bengaluru';
+  }
+  return city.trim();
+}
+
+/** Users often paste "… Bangalore 560205" in the street field only — still need PIN for geocode fallbacks. */
+function extractIndiaPinDigitsFromText(...chunks: string[]): string {
+  const blob = chunks.filter(Boolean).join(' ');
+  const m = blob.match(/\b(\d{6})\b/);
+  return m ? m[1] : '';
+}
+
+/** When city box is empty but address mentions Bangalore / Bengaluru. */
+function inferCityFromAddressBlob(flatHouse: string, address: string): string {
+  const blob = `${flatHouse} ${address}`.toLowerCase();
+  if (/\b(bangalore|bengaluru|bengalore|banglore)\b/.test(blob)) return 'Bengaluru';
+  return '';
+}
+
+/** Rough metro hint from 6-digit PIN so Nominatim gets a city anchor when the city field is blank. */
+function inferCityHintFromIndianPin(pinDigits: string): string {
+  if (pinDigits.length !== 6) return '';
+  const p3 = pinDigits.slice(0, 3);
+  if (['560', '561', '562', '563'].includes(p3)) return 'Bengaluru';
+  if (['400', '401', '402', '403', '404', '405'].includes(p3)) return 'Mumbai';
+  if (['110', '111', '112', '113', '114', '115', '116', '117', '118'].includes(p3)) return 'New Delhi';
+  if (['600', '601', '602', '603'].includes(p3)) return 'Chennai';
+  if (['500', '501', '502'].includes(p3)) return 'Hyderabad';
+  if (['380', '381', '382', '383', '384', '385', '387', '388', '389'].includes(p3)) return 'Ahmedabad';
+  if (['700', '701', '711', '712', '713', '721', '722', '731', '734', '735', '736', '737'].includes(p3)) return 'Kolkata';
+  return '';
+}
+
+/** Extra queries when primary/secondary miss noisy locality strings (comma-heavy, "sector 6", etc.). */
+function buildSupplementalGeocodeQueries(street: string, city: string, state: string, pinDigits: string): string[] {
+  const c = cityLabelForNominatim(city);
+  const st = state?.trim() || '';
+  const head = street.split(',')[0]?.trim() || street.trim();
+  const compact = head.replace(/\s+/g, ' ').trim();
+  const out: string[] = [];
+
+  // PIN first: OSM often resolves rural/outskirts addresses when phrase queries fail; must run before slice(limit).
+  if (pinDigits.length === 6) {
+    out.push(`${pinDigits}, India`);
+    out.push([c, pinDigits, 'India'].filter(Boolean).join(', '));
+    out.push([head, c, pinDigits, 'India'].filter(Boolean).join(', '));
+  }
+  if (compact) {
+    out.push([compact, c, st, 'India'].filter(Boolean).join(', '));
+    out.push([compact, c, 'India'].filter(Boolean).join(', '));
+  }
+  if (/hsr/i.test(street) || /hsr/i.test(compact)) {
+    out.push([`HSR Layout`, c, st || 'Karnataka', 'India'].filter(Boolean).join(', '));
+    out.push([`HSR Layout Sector`, c, 'India'].filter(Boolean).join(', '));
+  }
+  if (/jigani/i.test(street) || /jigani/i.test(compact)) {
+    out.push([`Jigani`, c || 'Bengaluru', st || 'Karnataka', 'India'].filter(Boolean).join(', '));
+    out.push([`Jigani Industrial Area`, c || 'Bengaluru', 'India'].filter(Boolean).join(', '));
+  }
+  if (/gidenhalli/i.test(street)) {
+    out.push([`Gidenhalli`, c || 'Bengaluru', st || 'Karnataka', 'India'].filter(Boolean).join(', '));
+  }
+  out.push([c, st, 'India'].filter(Boolean).join(', '));
+  return Array.from(new Set(out.filter(Boolean)));
 }
 
 export function CheckoutPage({ items }: CheckoutPageProps) {
@@ -89,14 +456,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     void ensureRazorpayScript();
   }, [paymentMethod]);
   const { user } = useAuth();
-  const { cities: serviceableCities, pincodes: serviceablePincodes, isCityServiceable, isPincodeServiceable } =
-    useServiceableAreas();
+  const {
+    cities: serviceableCities,
+    pincodes: serviceablePincodes,
+    isCityServiceable,
+    isPincodeServiceable,
+  } = useServiceableAreas();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountType: string; discountValue: number; maxDiscount?: number | null; minOrderValue?: number | null } | null>(null);
   const [applyingPromo, setApplyingPromo] = useState(false);
-  const submitRef = useRef<HTMLButtonElement>(null);
   const [availableOffers, setAvailableOffers] = useState<AvailableOffer[]>([]);
   const [deliverySlot, setDeliverySlot] = useState<string>('');
   const [formData, setFormData] = useState({
@@ -104,15 +474,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     lastName: user?.name?.split(' ').slice(1).join(' ') || '',
     email: user?.email || '',
     phone: user?.phone || '',
+    flatHouse: '',
     address: user?.address || '',
-    city: '',
-    state: 'Karnataka',
+    city: DELIVERY_CITY_FIXED,
+    state: DELIVERY_STATE_FIXED,
     zipCode: '',
+    landmark: '',
+    deliveryInstructions: '',
   });
+  /** Always latest form values for debounced geocode (avoids stale closure inside setTimeout). */
+  const checkoutFormRef = useRef(formData);
+  checkoutFormRef.current = formData;
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
   const [savedAddresses, setSavedAddresses] = useState<SavedDeliveryAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
+  const [addressType, setAddressType] = useState<'home' | 'work' | 'other'>('home');
+  const [setAsDefaultAddress, setSetAsDefaultAddress] = useState(false);
 
   const [deliveryStats, setDeliveryStats] = useState<{
     distanceKm: number | null;
@@ -123,79 +501,54 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     onTimeRate: null,
     estimatedMins: null,
   });
-  const [geocodeCityMismatch, setGeocodeCityMismatch] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
-  const checkoutMapEmbedSrc = useMemo(
-    () => (mapCenter ? buildOpenStreetMapEmbedSrc([{ lat: mapCenter.lat, lng: mapCenter.lng }]) : null),
-    [mapCenter]
+  const [locationMeta, setLocationMeta] = useState<{
+    source: 'geocode' | 'postcode_area' | 'city_area' | null;
+    accuracyMeters: number | null;
+  }>({
+    source: null,
+    accuracyMeters: null,
+  });
+  const isAddressResolvedForPricing = true;
+
+  /** Prefer zip field; else first 6-digit PIN pasted in flat/street (e.g. "… Bangalore 560205"). */
+  const effectivePinDigits = useMemo(() => {
+    const z = formData.zipCode.replace(/\D/g, '');
+    if (z.length === 6) return z;
+    return extractIndiaPinDigitsFromText(formData.flatHouse, formData.address, formData.zipCode);
+  }, [formData.zipCode, formData.flatHouse, formData.address]);
+
+  /**
+   * City-centroid / street geocode: only need serviceable city (when admin lists cities).
+   * Postcode-centroid: also need a serviceable 6-digit PIN when admin lists pincodes — do not block city fallback while PIN is still empty.
+   */
+  const cityTrimForService = useMemo(
+    () =>
+      formData.city.trim() ||
+      inferCityFromAddressBlob(formData.flatHouse, formData.address) ||
+      inferCityHintFromIndianPin(effectivePinDigits),
+    [formData.city, formData.flatHouse, formData.address, effectivePinDigits],
   );
 
-  const CITY_PINCODE_PREFIXES: Record<string, string[]> = {
-    'bangalore': ['56'],
-    'bengaluru': ['56'],
-    'kolkata': ['70'],
-    'mumbai': ['40'],
-    'delhi': ['11'],
-    'new delhi': ['11'],
-    'chennai': ['60'],
-    'hyderabad': ['50'],
-    'pune': ['41'],
-    'ahmedabad': ['38'],
-    'surat': ['39'],
-    'jaipur': ['30'],
-    'lucknow': ['22'],
-    'kanpur': ['20'],
-    'nagpur': ['44'],
-  };
-
-  const MAJOR_INDIAN_CITIES = [
-    'kolkata', 'mumbai', 'delhi', 'chennai', 'hyderabad', 'pune', 'ahmedabad', 'surat', 'jaipur', 'lucknow', 'kanpur', 'nagpur',
-    'indore', 'bhopal', 'patna', 'vadodara', 'ghaziabad', 'ludhiana', 'agra', 'nashik', 'faridabad', 'meerut', 'rajkot', 
-    'pimpri', 'chinchwad', 'varanasi', 'srinagar', 'aurangabad', 'dhanbad', 'amritsar', 'navi mumbai', 'allahabad', 'howrah', 
-    'ranchi', 'gwalior', 'jabalpur', 'coimbatore', 'vijayawada', 'jodhpur', 'madurai', 'raipur', 'kota', 'guwahati', 
-    'chandigarh', 'solapur', 'hubli', 'dharwad', 'bareilly', 'mysore', 'tiruchirappalli', 'gurgaon', 'aligarh', 'jalandhar', 
-    'bhubaneswar', 'salem', 'warangal', 'thiruvananthapuram', 'bhiwandi', 'saharanpur', 'guntur', 'amravati', 'bikaner', 
-    'noida', 'jamshedpur', 'bhilai', 'cuttack', 'firozabad', 'kochi', 'nellore', 'bhavnagar', 'dehradun', 'durgapur', 
-    'asansol', 'rourkela', 'nanded', 'kolhapur', 'ajmer', 'akola', 'gulbarga', 'jamnagar', 'ujjain', 'loni', 'siliguri', 
-    'jhansi', 'ulhasnagar', 'jammu', 'belgaum', 'mangaluru', 'ambattur', 'tirunelveli', 'malegaon', 'gaya', 'jalgaon', 
-    'udaipur', 'maheshtala'
-  ];
-
-  const addressMismatch = useMemo(() => {
-    const street = (formData.address || '').toLowerCase();
-    const city = (formData.city || '').toLowerCase();
-    const zip = formData.zipCode.replace(/\D/g, '');
-    
-    if (!city) return null;
-
-    // 1. Check if another city is mentioned in street address
-    // We check both the store's serviceable cities AND major Indian cities
-    const citiesToCheck = Array.from(new Set([...serviceableCities.map(c => c.toLowerCase()), ...MAJOR_INDIAN_CITIES]));
-    const mismatchedCityName = citiesToCheck.find(c => {
-      return c !== city && street.includes(c);
-    });
-    if (mismatchedCityName) {
-        const capitalized = mismatchedCityName.charAt(0).toUpperCase() + mismatchedCityName.slice(1);
-        return `Street address mentions ${capitalized}, but city is ${formData.city}`;
+  const canFallbackCityArea = useMemo(() => {
+    if (serviceableCities.length > 0) {
+      if (!cityTrimForService || !isCityServiceable(cityTrimForService)) return false;
     }
+    return true;
+  }, [cityTrimForService, serviceableCities.length, isCityServiceable]);
 
-    // 2. Check if PIN prefix matches city (Cross-city check)
-    if (zip.length >= 2) {
-      const prefixes = CITY_PINCODE_PREFIXES[city];
-      if (prefixes && !prefixes.includes(zip.substring(0, 2))) {
-        return `PIN prefix mismatch for ${formData.city}`;
-      }
-    }
-    
-    return null;
-  }, [formData.address, formData.city, formData.zipCode, serviceableCities]);
-  const effectiveAddressMismatch = geocodeCityMismatch || addressMismatch;
-  const hasAddressInputs = Boolean(formData.address.trim() || formData.city.trim() || formData.zipCode.trim());
-  const isAddressResolvedForPricing = !effectiveAddressMismatch && !!mapCenter;
+  const canFallbackCityAreaRef = useRef(canFallbackCityArea);
+  canFallbackCityAreaRef.current = canFallbackCityArea;
 
-  const [geocodeLoading, setGeocodeLoading] = useState(false);
   const [warehouses, setWarehouses] = useState<Array<{ latitude: number | string; longitude: number | string }>>([]);
+  const warehousesRef = useRef(warehouses);
+  warehousesRef.current = warehouses;
   const geocodeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const geocodeRequestSeqRef = useRef(0);
+  /** Street/city hit applied — block late PIN provisional `.then` from overwriting. */
+  const pinProvisionalBlockRef = useRef(false);
+  /** Flat + street + city (no PIN): when this changes, clear the pin until the new address resolves — avoids showing the previous street's location. */
+  const lastSuccessfulGeocodeShapeKeyRef = useRef<string>('');
 
   useEffect(() => {
     // Hydrate last-used address from this device (only if not logged in or as initial fallback)
@@ -206,11 +559,42 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         setFormData((prev) => ({
           ...prev,
           ...parsed,
-          state: parsed.state ?? prev.state ?? 'Karnataka',
+          city: DELIVERY_CITY_FIXED,
+          state: DELIVERY_STATE_FIXED,
         }));
       }
     } catch { /* ignore */ }
   }, []);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          'saved_checkout_address',
+          JSON.stringify({
+            flatHouse: formData.flatHouse,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            zipCode: formData.zipCode,
+            landmark: formData.landmark,
+            deliveryInstructions: formData.deliveryInstructions,
+          }),
+        );
+      } catch {
+        /* ignore quota / private mode */
+      }
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [
+    formData.flatHouse,
+    formData.address,
+    formData.city,
+    formData.state,
+    formData.zipCode,
+    formData.landmark,
+    formData.deliveryInstructions,
+  ]);
 
   // Fetch and auto-fill saved addresses from account
   useEffect(() => {
@@ -233,6 +617,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
              setFormData((prev) => ({
               ...prev,
               ...savedAddressToCheckoutForm(preferred, user.email || prev.email || ''),
+              city: DELIVERY_CITY_FIXED,
+              state: DELIVERY_STATE_FIXED,
             }));
             setSelectedSavedAddressId(preferred.id);
           }
@@ -260,168 +646,349 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     getAvailableOffers({ cartProductIds, cartCategoryNames }).then(setAvailableOffers).catch(() => setAvailableOffers([]));
   }, [items, products]);
 
-  // Auto-fill city/state from Indian pincode
-  useEffect(() => {
-    const pin = formData.zipCode.replace(/\D/g, '');
-    if (pin.length === 6 && !formData.city) {
-      fetch(`https://api.postalpincode.in/pincode/${pin}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === 'Success') {
-            const postOffice = data[0].PostOffice[0];
-            setFormData(prev => ({
-              ...prev,
-              city: prev.city || postOffice.District,
-              state: prev.state || postOffice.State
-            }));
-            toast.success("Area detected", { description: `${postOffice.Name}, ${postOffice.District}` });
-          }
-        })
-        .catch(() => {});
-    }
-  }, [formData.zipCode]);
+  const updateDeliveryFromCoordinates = useCallback(
+    (
+      lat: number,
+      lng: number,
+      opts?: {
+        source?: 'geocode' | 'postcode_area' | 'city_area';
+        accuracyMeters?: number | null;
+      },
+    ) => {
+      setMapCenter({ lat, lng });
+      setLocationMeta({
+        source: opts?.source ?? null,
+        accuracyMeters: opts?.accuracyMeters ?? null,
+      });
+      const whList =
+        warehousesRef.current.length > 0 ? warehousesRef.current : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
+      let minDistance = Infinity;
+      for (const wh of whList) {
+        const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
+        if (d < minDistance) minDistance = d;
+      }
+      const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
+      const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
+      const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
+      setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+    },
+    [],
+  );
 
-  const updateDeliveryFromCoordinates = (lat: number, lng: number) => {
-    setMapCenter({ lat, lng });
+  useEffect(() => {
+    const flat = formData.flatHouse.trim();
+    const street = formData.address.trim();
+    const inferredCity = inferCityFromAddressBlob(flat, street);
+    const zipField = formData.zipCode.replace(/\D/g, '');
+    const pinFromBlob = extractIndiaPinDigitsFromText(flat, street, formData.zipCode);
+    const pinDigitsEarly = zipField.length === 6 ? zipField : pinFromBlob;
+    const inferredPinCity = inferCityHintFromIndianPin(pinDigitsEarly);
+    const city = formData.city.trim() || inferredCity || inferredPinCity;
+    const query = [flat, street, city, formData.zipCode].filter(Boolean).join(', ');
+    if (!query.trim()) {
+      setMapCenter(null);
+      setLocationMeta({ source: null, accuracyMeters: null });
+      setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+      return;
+    }
+    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+    const requestSeq = ++geocodeRequestSeqRef.current;
+    pinProvisionalBlockRef.current = false;
+
+    /** PIN fetch starts immediately (no debounce) so km / ETA appear as soon as the API answers. */
+    const flatImm = formData.flatHouse.trim();
+    const streetImm = formData.address.trim();
+    const zipImm = formData.zipCode.replace(/\D/g, '');
+    const pinImm =
+      zipImm.length === 6 ? zipImm : extractIndiaPinDigitsFromText(flatImm, streetImm, formData.zipCode);
+    const cityImm =
+      formData.city.trim() ||
+      inferCityFromAddressBlob(flatImm, streetImm) ||
+      inferCityHintFromIndianPin(pinImm) ||
+      DELIVERY_CITY_FIXED;
+    const geocodeShapeKeyImm = `${flatImm}\u001f${streetImm}\u001f${cityImm}`;
+    const cityForScoringImm = (cityLabelForNominatim(cityImm).trim() || cityImm.trim()).trim();
+    const hintsImm = tokenizeLocationHints(formData.flatHouse, formData.address);
+
+    /** Instant distance/ETA from PIN lookup table — refined when OSM responds (same or better coords). */
+    const pinPreview = approximateLatLngForBengaluruServicePin(pinImm);
+    if (pinPreview) {
+      updateDeliveryFromCoordinates(pinPreview.lat, pinPreview.lng, { source: 'postcode_area' });
+      lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKeyImm;
+    }
+
+    let pinFetchShared: Promise<NominatimHit[]> | null = null;
+    if (pinImm.length === 6) {
+      pinFetchShared = fetchNominatimIndiaByPostalCode(pinImm);
+      void pinFetchShared.then((raw) => {
+        /** Do not use `requestSeq` here: every keystroke bumps it while the user edits street,
+         *  so slow PIN responses were discarded and distance stayed "—". Apply when this response
+         *  still matches the **current** 6-digit PIN in the form. */
+        const fd = checkoutFormRef.current;
+        const zLive = fd.zipCode.replace(/\D/g, '');
+        const pinLive =
+          zLive.length === 6 ? zLive : extractIndiaPinDigitsFromText(fd.flatHouse, fd.address, fd.zipCode);
+        if (pinLive !== pinImm) return;
+        if (pinProvisionalBlockRef.current) return;
+        const pinHits = dedupeNominatimHits(raw);
+        let lat: number;
+        let lng: number;
+        if (pinHits.length === 0) {
+          const fb = approximateLatLngForBengaluruServicePin(pinImm);
+          if (!fb) return;
+          lat = fb.lat;
+          lng = fb.lng;
+        } else {
+          const pinPick =
+            pickBestNominatimHit(pinHits, cityForScoringImm, hintsImm, pinImm) ?? pinHits[0];
+          lat = parseFloat(pinPick.lat);
+          lng = parseFloat(pinPick.lon);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        }
+        updateDeliveryFromCoordinates(lat, lng, { source: 'postcode_area' });
+        const flatR = fd.flatHouse.trim();
+        const streetR = fd.address.trim();
+        const pinR =
+          fd.zipCode.replace(/\D/g, '').length === 6
+            ? fd.zipCode.replace(/\D/g, '')
+            : extractIndiaPinDigitsFromText(flatR, streetR, fd.zipCode);
+        const cityR =
+          fd.city.trim() ||
+          inferCityFromAddressBlob(flatR, streetR) ||
+          inferCityHintFromIndianPin(pinR) ||
+          DELIVERY_CITY_FIXED;
+        lastSuccessfulGeocodeShapeKeyRef.current = `${flatR}\u001f${streetR}\u001f${cityR}`;
+      });
+    }
+
+    geocodeTimeoutRef.current = setTimeout(async () => {
+      if (requestSeq !== geocodeRequestSeqRef.current) return;
+      const fd = checkoutFormRef.current;
+      const flatNow = fd.flatHouse.trim();
+      const streetNow = fd.address.trim();
+      const inferredCityNow = inferCityFromAddressBlob(flatNow, streetNow);
+      const zipFieldNow = fd.zipCode.replace(/\D/g, '');
+      const pinFromBlobNow = extractIndiaPinDigitsFromText(flatNow, streetNow, fd.zipCode);
+      const pinDigits = zipFieldNow.length === 6 ? zipFieldNow : pinFromBlobNow;
+      const cityNow =
+        fd.city.trim() || inferredCityNow || inferCityHintFromIndianPin(pinDigits);
+      const geocodeShapeKey = `${flatNow}\u001f${streetNow}\u001f${cityNow}`;
+      /** Avoid sending default Karnataka with unrelated street text before user sets city/PIN (biases Nominatim). */
+      const cityForSearch = cityLabelForNominatim(cityNow).trim();
+      /** Must match query normalization so scoring ranks the same city string Nominatim returns (e.g. "banglore" → Bengaluru). */
+      const cityForScoring = (cityForSearch || cityNow.trim()).trim();
+      const hasAnchorForState = Boolean(cityForSearch) || pinDigits.length === 6;
+      const supplementalState = hasAnchorForState ? (fd.state?.trim() || '') : '';
+
+      const hints = tokenizeLocationHints(fd.flatHouse, fd.address);
+      /** Single line for forward search: users split "HSR" vs "Layout" across flat vs street. */
+      const streetLine = [flatNow, streetNow].filter((s) => s.trim().length > 0).join(', ').trim();
+      const hasStreet = streetLine.length >= 2;
+
+      const applyGeocodeHit = (hit: NominatimHit, source: 'geocode' | 'postcode_area' | 'city_area'): boolean => {
+        const lat = parseFloat(hit.lat);
+        const lng = parseFloat(hit.lon);
+        if (requestSeq !== geocodeRequestSeqRef.current) return false;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+        const syncFormFromHit = () => {
+          const patch = extractFormSyncFromNominatimForwardHit(hit);
+          if (Object.keys(patch).length > 0) {
+            setFormData((prev) => ({
+              ...prev,
+              ...patch,
+              city: DELIVERY_CITY_FIXED,
+              state: DELIVERY_STATE_FIXED,
+            }));
+          }
+          void (async () => {
+            try {
+              const res = await fetch(
+                `${getEffectiveApiBase()}/geocode/reverse?${new URLSearchParams({
+                  lat: String(lat),
+                  lon: String(lng),
+                })}`,
+              );
+              if (!res.ok) return;
+              const data = (await res.json()) as NominatimReverseJson;
+              if (requestSeq !== geocodeRequestSeqRef.current) return;
+              const parsed = parseNominatimReverseForCheckout(data);
+              setFormData((prev) => ({
+                ...prev,
+                ...(parsed.zipCode.length === 6 ? { zipCode: parsed.zipCode } : {}),
+                city: DELIVERY_CITY_FIXED,
+                state: DELIVERY_STATE_FIXED,
+              }));
+            } catch {
+              /* ignore */
+            }
+          })();
+        };
+
+        updateDeliveryFromCoordinates(lat, lng, { source });
+        lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKey;
+        syncFormFromHit();
+        return true;
+      };
+
+      const applyPinAreaFallback = async (): Promise<boolean> => {
+        if (pinDigits.length !== 6) return false;
+        const pinHits = dedupeNominatimHits(await fetchNominatimIndiaByPostalCode(pinDigits));
+        if (requestSeq !== geocodeRequestSeqRef.current) return false;
+        const pinPick =
+          pinHits.length > 0
+            ? pickBestNominatimHit(pinHits, cityForScoring, hints, pinDigits) ?? pinHits[0]
+            : null;
+        if (pinPick) {
+          return applyGeocodeHit(pinPick, 'postcode_area');
+        }
+        return false;
+      };
+
+      try {
+        // Reuse the PIN request started before debounce when the 6-digit PIN is unchanged.
+        const pinAreaFetchPromise =
+          pinDigits.length === 6
+            ? pinDigits === pinImm && pinFetchShared
+              ? pinFetchShared
+              : fetchNominatimIndiaByPostalCode(pinDigits)
+            : Promise.resolve<NominatimHit[]>([]);
+
+        // Primary: full street + optional city + PIN — no state (default Karnataka poisons e.g. Delhi text).
+        const primaryParts = hasStreet
+          ? [streetLine, cityForSearch, ...(pinDigits.length === 6 ? [pinDigits] : []), 'India']
+          : [cityForSearch, ...(pinDigits.length === 6 ? [pinDigits] : []), 'India'];
+        const primaryQuery = primaryParts.filter(Boolean).join(', ');
+        const secondaryQuery =
+          hasStreet && pinDigits.length === 6
+            ? [streetLine, cityForSearch, pinDigits, 'India'].filter(Boolean).join(', ')
+            : [cityForSearch, pinDigits, 'India'].filter(Boolean).join(', ');
+
+        const primaryFetchPromise = fetchNominatimIndia(primaryQuery);
+        let streetCandidates = dedupeNominatimHits(await primaryFetchPromise);
+        if (requestSeq !== geocodeRequestSeqRef.current) return;
+
+        if (streetCandidates.length === 0 && secondaryQuery && secondaryQuery !== primaryQuery) {
+          streetCandidates = dedupeNominatimHits(await fetchNominatimIndia(secondaryQuery));
+          if (requestSeq !== geocodeRequestSeqRef.current) return;
+        }
+
+        if (streetCandidates.length === 0) {
+          const extras = buildSupplementalGeocodeQueries(
+            streetLine,
+            cityForScoring,
+            supplementalState,
+            pinDigits,
+          ).slice(0, 6);
+          if (extras.length > 0) {
+            const batches = await Promise.all(extras.map((q) => fetchNominatimIndia(q)));
+            if (requestSeq !== geocodeRequestSeqRef.current) return;
+            streetCandidates = dedupeNominatimHits(batches.flat());
+          }
+        }
+
+        const streetPick =
+          streetCandidates.length > 0
+            ? pickBestNominatimHit(streetCandidates, cityForScoring, hints, pinDigits)
+            : null;
+
+        let resolved = false;
+        if (streetPick) {
+          resolved = applyGeocodeHit(streetPick, 'geocode');
+          if (resolved) pinProvisionalBlockRef.current = true;
+        }
+
+        /** Street / phrase search failed or did not apply — use PIN centroid (structured `postalcode=` on backend). */
+        if (!resolved && pinDigits.length === 6) {
+          const pinAreaHits = dedupeNominatimHits(await pinAreaFetchPromise);
+          if (requestSeq !== geocodeRequestSeqRef.current) return;
+          const pinPick =
+            pinAreaHits.length > 0
+              ? pickBestNominatimHit(pinAreaHits, cityForScoring, hints, pinDigits) ?? pinAreaHits[0]
+              : null;
+          if (pinPick) {
+            resolved = applyGeocodeHit(pinPick, 'postcode_area');
+            if (resolved) pinProvisionalBlockRef.current = true;
+          }
+        }
+
+        if (!resolved && canFallbackCityAreaRef.current && cityForSearch) {
+          const cityHits = await fetchNominatimIndia(
+            [cityForSearch, supplementalState, 'India'].filter(Boolean).join(', '),
+          );
+          if (requestSeq !== geocodeRequestSeqRef.current) return;
+          const cityPick = pickBestNominatimHit(dedupeNominatimHits(cityHits), cityForScoring, hints, pinDigits);
+          if (cityPick) {
+            resolved = applyGeocodeHit(cityPick, 'city_area');
+            if (resolved) pinProvisionalBlockRef.current = true;
+          }
+        }
+
+        if (!resolved && requestSeq === geocodeRequestSeqRef.current) {
+          const fbPin = approximateLatLngForBengaluruServicePin(pinDigits);
+          if (pinDigits.length === 6 && fbPin) {
+            updateDeliveryFromCoordinates(fbPin.lat, fbPin.lng, { source: 'postcode_area' });
+            lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKey;
+          } else if (geocodeShapeKey !== lastSuccessfulGeocodeShapeKeyRef.current) {
+            setMapCenter(null);
+            setLocationMeta({ source: null, accuracyMeters: null });
+            setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+          }
+        }
+      } catch {
+        if (requestSeq !== geocodeRequestSeqRef.current) return;
+        void (async () => {
+          const ok = await applyPinAreaFallback();
+          if (ok || requestSeq !== geocodeRequestSeqRef.current) return;
+          const pinDigitsErr = (() => {
+            const z = checkoutFormRef.current.zipCode.replace(/\D/g, '');
+            if (z.length === 6) return z;
+            return extractIndiaPinDigitsFromText(
+              checkoutFormRef.current.flatHouse,
+              checkoutFormRef.current.address,
+              checkoutFormRef.current.zipCode,
+            );
+          })();
+          const fb = approximateLatLngForBengaluruServicePin(pinDigitsErr);
+          if (pinDigitsErr.length === 6 && fb) {
+            updateDeliveryFromCoordinates(fb.lat, fb.lng, { source: 'postcode_area' });
+            return;
+          }
+          if (geocodeShapeKey && geocodeShapeKey !== lastSuccessfulGeocodeShapeKeyRef.current) {
+            setMapCenter(null);
+            setLocationMeta({ source: null, accuracyMeters: null });
+            setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+          }
+        })();
+      }
+    }, GEOCODE_DEBOUNCE_MS);
+    return () => {
+      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+    };
+  }, [
+    formData.flatHouse,
+    formData.address,
+    formData.city,
+    formData.zipCode,
+    formData.state,
+    serviceableCities,
+    isCityServiceable,
+  ]);
+
+  // When warehouse list loads after delivery coordinates are set, recompute distance/ETA without re-running Nominatim.
+  useEffect(() => {
+    if (!mapCenter) return;
     const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
     let minDistance = Infinity;
     for (const wh of whList) {
-      const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
+      const d = haversineKm(Number(wh.latitude), Number(wh.longitude), mapCenter.lat, mapCenter.lng);
       if (d < minDistance) minDistance = d;
     }
     const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
     const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
     const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
     setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
-  };
-
-  useEffect(() => {
-    const query = [formData.address, formData.city, formData.zipCode].filter(Boolean).join(', ');
-    if (!query.trim()) {
-      setMapCenter(null);
-      setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
-      return;
-    }
-    if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
-    geocodeTimeoutRef.current = setTimeout(async () => {
-      setGeocodeLoading(true);
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(query)}&limit=1`,
-          { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
-        );
-        const data = await res.json();
-        if (data && data[0]) {
-          const resolvedCity = String(
-            data[0]?.address?.city ||
-            data[0]?.address?.town ||
-            data[0]?.address?.village ||
-            data[0]?.address?.state_district ||
-            ''
-          ).trim();
-          if (formData.city?.trim() && resolvedCity && !citiesRoughlyMatch(formData.city, resolvedCity)) {
-            setGeocodeCityMismatch(`Address looks like ${resolvedCity}, but city is ${formData.city}`);
-            setMapCenter(null);
-            setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
-            return;
-          }
-          setGeocodeCityMismatch(null);
-          const lat = parseFloat(data[0].lat);
-          const lng = parseFloat(data[0].lon);
-          updateDeliveryFromCoordinates(lat, lng);
-        } else {
-          setGeocodeCityMismatch(null);
-          setMapCenter(null);
-        }
-      } catch {
-        setGeocodeCityMismatch(null);
-        setMapCenter(null);
-      } finally {
-        setGeocodeLoading(false);
-      }
-    }, 600);
-    return () => {
-      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
-    };
-  }, [formData.address, formData.city, formData.zipCode, warehouses]);
-
-  const handleUseCurrentLocation = () => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      toast.error('Location not supported on this device', {
-        description: 'Please enter your address manually.',
-      });
-      return;
-    }
-    setGeocodeLoading(true);
-    const PERMISSION_DENIED = 1;
-    const POSITION_UNAVAILABLE = 2;
-    const TIMEOUT = 3;
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const { latitude, longitude } = position.coords;
-          updateDeliveryFromCoordinates(latitude, longitude);
-          toast.success('Location detected', {
-            description: 'Distance and delivery time updated from your location.',
-            icon: <MapPin className="w-4 h-4 text-emerald-500" />,
-          });
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`,
-              { headers: { 'Accept-Language': 'en', 'User-Agent': 'TheFruitTribe-Checkout/1.0' } }
-            );
-            const data = await res.json();
-            const city =
-              data?.address?.city ||
-              data?.address?.town ||
-              data?.address?.village ||
-              data?.address?.state_district ||
-              formData.city;
-            const postcode = data?.address?.postcode || formData.zipCode;
-            const road = data?.address?.road || '';
-            const houseNumber = data?.address?.house_number || '';
-            const displayAddress = data?.display_name || formData.address;
-            setFormData((prev) => ({
-              ...prev,
-              address: displayAddress || `${houseNumber} ${road}`.trim() || prev.address,
-              city,
-              zipCode: postcode || prev.zipCode,
-            }));
-          } catch {
-            // ignore reverse geocode failure; we already updated map + stats
-          }
-        } finally {
-          setGeocodeLoading(false);
-        }
-      },
-      (error) => {
-        setGeocodeLoading(false);
-        const code = error?.code ?? 0;
-        if (code === PERMISSION_DENIED) {
-          toast.error('Location permission denied', {
-            description: 'Allow location in browser settings or enter your address manually below.',
-          });
-        } else if (code === TIMEOUT) {
-          toast.error('Location request timed out', {
-            description: 'Your device took too long to get a fix. Try again or enter your address manually.',
-          });
-        } else if (code === POSITION_UNAVAILABLE) {
-          toast.error('Location unavailable', {
-            description: 'Your device could not determine position. Enter your address manually below.',
-          });
-        } else {
-          toast.error('Could not detect your current location', {
-            description: 'Try again or enter your address manually below.',
-          });
-        }
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 20000,
-        maximumAge: 0,
-      }
-    );
-  };
+  }, [warehouses, mapCenter]);
 
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;
@@ -434,16 +1001,20 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }, [deliveryStats.estimatedMins]);
   const configuredDeliverySlots = Array.isArray(preferences.deliverySlots) ? preferences.deliverySlots : [];
   const hasConfiguredDeliverySlots = configuredDeliverySlots.length > 0;
+  const deliverySlotsConfigKey = useMemo(
+    () => JSON.stringify(Array.isArray(preferences.deliverySlots) ? preferences.deliverySlots : []),
+    [preferences.deliverySlots],
+  );
   const deliverySlotOptions = hasConfiguredDeliverySlots
     ? configuredDeliverySlots
     : [`Today · in ${etaLabel}`, 'Today · 6pm – 8pm', 'Tomorrow · 8am – 10am'];
 
   useEffect(() => {
     if (deliverySlot) return;
-    if (deliverySlotOptions.length === 1) {
-      setDeliverySlot(deliverySlotOptions[0]);
-    }
-  }, [deliverySlot, deliverySlotOptions]);
+    if (!hasConfiguredDeliverySlots) return;
+    if (configuredDeliverySlots.length !== 1) return;
+    setDeliverySlot(configuredDeliverySlots[0]);
+  }, [deliverySlot, hasConfiguredDeliverySlots, deliverySlotsConfigKey, configuredDeliverySlots]);
 
   const groupedItems = useMemo(() => {
     return items.reduce((acc: Record<string, CartItem[]>, item: CartItem) => {
@@ -460,13 +1031,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const shippingFeeForDistance = useMemo(() => {
     if (!isAddressResolvedForPricing) return 0;
-    if (effectiveAddressMismatch) return 0;
     const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
     const rules = preferences.deliveryFeeRules || [];
     const mode = preferences.deliveryFeeMode || 'SLAB';
     const perKmRate = Number(preferences.deliveryPerKmRate) || 0;
     return computeDeliveryFeeByDistanceKm(
-      deliveryDistance ?? null,
+      deliveryDistance ?? 0,
       rules,
       fallbackDeliveryCharge,
       mode,
@@ -476,7 +1046,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     );
   }, [
     isAddressResolvedForPricing,
-    effectiveAddressMismatch,
     deliveryDistance,
     subtotalOnly,
     preferences.deliveryCharge,
@@ -512,18 +1081,16 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     });
   }, [groupedItems, products, taxRates, shippingFeeForDistance]);
 
-  const totalTax = useMemo(() => {
-    return vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0);
-  }, [vendorSummaries]);
-
   const totalShipping = useMemo(() => {
     return vendorSummaries.reduce((sum: number, s: any) => sum + s.shipping, 0);
   }, [vendorSummaries]);
 
   const platformFee = Number(preferences.platformFee) || 0;
+  /** Must match `OrderService.create`: `taxAmount = subtotal * 0.05` (flat GST, not per-category). */
+  const orderTaxAmount = useMemo(() => subtotalOnly * 0.05, [subtotalOnly]);
   const baseBillBeforeDiscount = useMemo(() => {
-    return subtotalOnly + totalTax + totalShipping + platformFee;
-  }, [subtotalOnly, totalTax, totalShipping, platformFee]);
+    return subtotalOnly + orderTaxAmount + totalShipping + platformFee;
+  }, [subtotalOnly, orderTaxAmount, totalShipping, platformFee]);
 
   const discountAmount = useMemo(() => {
     if (!appliedCoupon) return 0;
@@ -538,6 +1105,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const grandTotal = Math.max(0, baseBillBeforeDiscount - discountAmount);
 
+  /** Set synchronously before clearCart so empty-cart redirect cannot beat React state batching. */
+  const orderJustPlacedRef = useRef(false);
   const [orderPlacedOptimistically, setOrderPlacedOptimistically] = useState(false);
   const [paymentAwaiting, setPaymentAwaiting] = useState(false);
   const [optimisticOrderId, setOptimisticOrderId] = useState<string | null>(null);
@@ -623,13 +1192,36 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     setFormData((prev) => ({
       ...prev,
       ...savedAddressToCheckoutForm(row, user.email || prev.email || ''),
+      city: DELIVERY_CITY_FIXED,
+      state: DELIVERY_STATE_FIXED,
     }));
     setSelectedSavedAddressId(id);
     setSaveNewAddressToAccount(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateField = useCallback((name: keyof typeof formData, value: string): string => {
+    const trimmed = String(value || '').trim();
+    if (
+      ['firstName', 'lastName', 'flatHouse', 'address', 'city', 'state', 'zipCode', 'phone', 'email'].includes(name) &&
+      !trimmed
+    ) {
+      return 'This field is required.';
+    }
+    if (name === 'zipCode') {
+      const d = trimmed.replace(/\D/g, '');
+      if (d.length !== 6) return 'Enter a valid 6-digit PIN code.';
+    }
+    if (name === 'email' && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return 'Enter a valid email address.';
+    }
+    if (name === 'phone') {
+      const digits = trimmed.replace(/\D/g, '');
+      if (digits.length < 10) return 'Enter a valid 10-digit phone number.';
+    }
+    return '';
+  }, []);
+
+  const submitCheckout = async () => {
     const nextErrors: Partial<Record<keyof typeof formData, string>> = {};
     (Object.keys(formData) as Array<keyof typeof formData>).forEach((key) => {
       const message = validateField(key, String(formData[key] ?? ''));
@@ -640,73 +1232,28 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       toast.error('Please fix the highlighted fields before placing the order.');
       return;
     }
+
+    let deferSubmittingResetInFinally = false;
+
     setSubmitting(true);
-    
-    // Give fixed UI time to register 'submitting' state before sync validation might reset it
-    await new Promise(resolve => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 20));
 
     try {
       if (!user) {
         toast.error('Please log in to place an order', { description: 'Your order will be saved to your account.' });
-        setSubmitting(false);
         navigate('/login', { state: { from: '/checkout' } });
         return;
       }
-      // ── Serviceability validation ─────────────────────────────────────────
-      // 1. City check (name-based)
-      if (serviceableCities.length > 0 && formData.city?.trim() && !isCityServiceable(formData.city)) {
-        toast.error('We don\'t deliver to this city yet.', {
-          description: `We currently deliver only to: ${serviceableCities.join(', ')}. Please use an address in one of these cities.`,
-        });
-        return;
-      }
-      // 2. Pincode check — REQUIRED when admin has configured serviceable pincodes
-      if (serviceablePincodes.length > 0) {
-        const pinDigits = formData.zipCode.replace(/\D/g, '');
-        if (pinDigits.length !== 6) {
-          toast.error('Enter a valid 6-digit PIN code for your delivery address.');
-          return;
-        }
-        if (!isPincodeServiceable(formData.zipCode)) {
-          toast.error('We don\'t deliver to this PIN code.', {
-            description: `PIN ${pinDigits} is outside our delivery area. Please use an address within our serviceable zones.`,
-          });
-          return;
-        }
-      }
-      // 3. Even without pincode list: if city is serviceable but the pincode prefix implies a different state, warn.
-      // (This is a soft-block: only fires when pincodes are NOT configured but city IS.)
-      if (serviceablePincodes.length === 0 && serviceableCities.length > 0) {
-        const pinDigits = formData.zipCode.replace(/\D/g, '');
-        if (pinDigits.length === 6 && formData.city?.trim() && isCityServiceable(formData.city)) {
-          // All good — city matches, no pincode list restriction.
-        } else if (pinDigits.length === 6 && formData.city?.trim() && !isCityServiceable(formData.city)) {
-          toast.error('We don\'t deliver to this city yet.', {
-            description: `We currently deliver only to: ${serviceableCities.join(', ')}.`,
-          });
-          return;
-        }
-      }
-
-      // 4. Address Consistency Check (Cross-city mismatch)
-      if (effectiveAddressMismatch) {
-        toast.error('Address Inconsistency Detected', {
-          description: `${effectiveAddressMismatch}. Please correct your address to proceed.`,
-          duration: 5000,
-        });
-        setSubmitting(false);
-        return;
-      }
-
       if (hasConfiguredDeliverySlots && !deliverySlot) {
         toast.error('Please choose a delivery slot', {
           description: 'Select a convenient time window for your delivery.',
         });
         return;
       }
-  
+
       const orderItems: Array<{ productId: string; variantId: string; quantity: number }> = [];
-      const uuidLike = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
+      const uuidLike = (s: string) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(s).trim());
       for (const item of items) {
         const product = products.find((p: any) => p.id === item.id || String(p.id) === String(item.id));
         if (!product) {
@@ -720,13 +1267,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           const skuMatched = item.selectedVariantSku
             ? variants.find((v: any) => String(v.sku) === String(item.selectedVariantSku))
             : null;
-          // Prefer a variant matching cart unit price and enough available quantity.
-          const priceMatched = variants.find((v: any) =>
-            Number(v.price) === Number(item.price) &&
-            Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+          const priceMatched = variants.find(
+            (v: any) =>
+              Number(v.price) === Number(item.price) &&
+              Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
           );
-          const firstAvailable = variants.find((v: any) =>
-            Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+          const firstAvailable = variants.find(
+            (v: any) => Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
           );
           pickedVariant = skuMatched || priceMatched || firstAvailable || variants[0];
         }
@@ -746,34 +1293,56 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           quantity: requestedQty,
         });
       }
-  
+
       const shippingAddress = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
-        address: formData.address,
+        address: [formData.flatHouse, formData.address, formData.landmark].filter(Boolean).join(', '),
         city: formData.city,
         zipCode: formData.zipCode,
         state: formData.state?.trim() || 'Karnataka',
+        latitude: mapCenter?.lat ?? null,
+        longitude: mapCenter?.lng ?? null,
+        locationSource: locationMeta.source,
+        locationAccuracyMeters: locationMeta.accuracyMeters,
+        deliveryInstructions: formData.deliveryInstructions || null,
       };
-  
-      // --- Truly Optimistic UI Start ---
-      // --- Order Creation Step ---
-      setSubmitting(true);
+
       setOptimisticAmount(grandTotal);
-      
+
       const created = await createOrder({
         items: orderItems,
         shippingAddress,
         billingAddress: shippingAddress,
         couponCode: appliedCoupon?.code || undefined,
         deliverySlot: deliverySlot || undefined,
-        distanceKm: deliveryStats.distanceKm,
+        distanceKm: deliveryStats.distanceKm ?? undefined,
         paymentMethod: paymentMethod,
         savedAddressId: selectedSavedAddressId || undefined,
       });
-      
+
+      if (saveNewAddressToAccount && user) {
+        try {
+          await createUserAddress({
+            label: addressType === 'home' ? 'Home' : addressType === 'work' ? 'Work' : 'Other',
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+            phone: formData.phone.trim(),
+            addressLine1: [formData.flatHouse, formData.address].filter(Boolean).join(', ') || formData.address.trim(),
+            addressLine2: formData.landmark?.trim() || null,
+            city: formData.city.trim(),
+            state: (formData.state || 'Karnataka').trim(),
+            pincode: formData.zipCode.replace(/\D/g, '').slice(0, 6),
+            isDefault: setAsDefaultAddress,
+          });
+          toast.success('Address saved to your account');
+        } catch (addrErr: unknown) {
+          const msg = addrErr instanceof Error ? addrErr.message : 'Could not save address';
+          toast.error('Order placed, but saving this address failed', { description: msg });
+        }
+      }
+
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const payableAmount = Number((created as any).payableAmount ?? optimisticAmount);
@@ -782,13 +1351,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       setOptimisticOrderId(orderId);
       setOptimisticOrderNumber(orderNumber);
       setOptimisticAmount(payableAmount);
-      setOrderPlacedOptimistically(true); 
-      
-      // Clear cart immediately: the items are now successfully converted into a pending/confirmed order record.
+
+      orderJustPlacedRef.current = true;
+      flushSync(() => {
+        setOrderPlacedOptimistically(true);
+      });
+
       clearCart();
 
       if (paymentMethod === 'cod') {
-        setSubmitting(false);
         toast.success('Order placed. Pay when you receive.', {
           description: `Order #${orderNumber} — Cash on Delivery`,
           icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
@@ -796,11 +1367,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         return;
       }
 
-      // --- Payment Step ---
+      deferSubmittingResetInFinally = true;
       setPaymentAwaiting(true);
-      setSubmitting(false); 
+      setSubmitting(false);
 
-      
       try {
         const [{ razorpayOrderId, keyId }] = await Promise.all([
           createRazorpayOrder(orderId, amountInPaise, 'INR'),
@@ -834,17 +1404,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
               });
               navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
-            } catch (err: any) {
+            } catch (err: unknown) {
               setPaymentAwaiting(false);
-              toast.error(err?.message || 'Payment verification failed. Order is placed; contact support with your order number.');
+              toast.error(
+                err instanceof Error ? err.message : 'Payment verification failed. Order is placed; contact support with your order number.',
+              );
               navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
             }
           },
           modal: {
             ondismiss: () => {
               setPaymentAwaiting(false);
-              // Fallback: Razorpay SDK may log "Refused to get unsafe header x-rtb-fingerprint-id" and
-              // in some environments the success handler might not run. Check backend for payment status.
+              clearCart();
+              orderJustPlacedRef.current = false;
+              setOrderPlacedOptimistically(false);
+              navigate('/cart', { replace: true });
+
               const PAYMENT_POLL_DELAY_MS = 2500;
               setTimeout(async () => {
                 try {
@@ -862,22 +1437,20 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   /* ignore */
                 }
                 toast.info('Payment step not completed.', {
-                  description: `Order #${orderNumber} is pending payment.`,
+                  description: `Order #${orderNumber} is still pending. Your cart is empty for this order — pay anytime from My Orders.`,
                 });
-                navigate('/profile', { state: { highlightOrders: true } });
               }, PAYMENT_POLL_DELAY_MS);
             },
           },
         });
         rzp.open();
-      } catch (razorpayErr: any) {
-        const msg = razorpayErr?.message || '';
+      } catch (razorpayErr: unknown) {
+        const msg = razorpayErr instanceof Error ? razorpayErr.message : '';
         if (msg.includes('Razorpay is not configured') || msg.includes('not configured')) {
           toast.success('Order placed. Razorpay is not set up; pay later from My Orders.', {
             description: `Order #${orderNumber}`,
             icon: <ShieldCheck className="w-4 h-4 text-emerald-500" />,
           });
-          clearCart();
         } else {
           toast.warning('Order placed. Payment step failed: ' + (msg || 'Unknown error'), {
             description: `Order #${orderNumber}. You can pay from My Orders.`,
@@ -885,15 +1458,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         }
         navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
       }
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to place order. Please try again.');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to place order. Please try again.');
     } finally {
-      setSubmitting(false);
+      if (!deferSubmittingResetInFinally) {
+        setSubmitting(false);
+      }
     }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void submitCheckout();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (name === 'city' || name === 'state') return;
     setSelectedSavedAddressId('');
     setFormData({ ...formData, [name]: value });
     if (fieldErrors[name as keyof typeof formData]) {
@@ -901,21 +1482,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }
   };
 
-  const validateField = (name: keyof typeof formData, value: string): string => {
-    const trimmed = String(value || '').trim();
-    if (['firstName', 'lastName', 'address', 'city', 'state'].includes(name) && !trimmed) {
-      return 'This field is required.';
+  const handleFullNameChange = (value: string) => {
+    const parts = value.trim().split(/\s+/).filter(Boolean);
+    setSelectedSavedAddressId('');
+    setFormData((prev) => ({
+      ...prev,
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' '),
+    }));
+    if (fieldErrors.firstName || fieldErrors.lastName) {
+      setFieldErrors((prev) => ({ ...prev, firstName: '', lastName: '' }));
     }
-    if (name === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      return 'Enter a valid email address.';
-    }
-    if (name === 'phone' && trimmed.replace(/\D/g, '').length < 10) {
-      return 'Enter a valid 10-digit phone number.';
-    }
-    if (name === 'zipCode' && serviceablePincodes.length > 0 && trimmed.replace(/\D/g, '').length !== 6) {
-      return 'Enter a valid 6-digit PIN code.';
-    }
-    return '';
   };
 
   const handleFieldBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -927,14 +1504,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   // Redirect to cart when empty unless an order was just placed successfully
   useEffect(() => {
-    if (items.length === 0 && !orderPlacedOptimistically) {
+    if (items.length === 0 && !orderPlacedOptimistically && !orderJustPlacedRef.current) {
       navigate('/cart');
     }
   }, [items.length, navigate, orderPlacedOptimistically]);
 
   const isCheckoutFormReady = useMemo(() => {
-    const requiredKeys: Array<keyof typeof formData> = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state'];
-    if (serviceablePincodes.length > 0) requiredKeys.push('zipCode');
+    const requiredKeys: Array<keyof typeof formData> = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'flatHouse',
+      'address',
+      'city',
+      'state',
+      'zipCode',
+    ];
 
     const hasMissingRequired = requiredKeys.some((key) => {
       const raw = String(formData[key] ?? '').trim();
@@ -945,28 +1531,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const hasValidationError = requiredKeys.some((key) => Boolean(validateField(key, String(formData[key] ?? ''))));
     if (hasValidationError) return false;
 
-    if (serviceableCities.length > 0 && formData.city.trim() && !isCityServiceable(formData.city)) return false;
-    if (serviceablePincodes.length > 0 && !isPincodeServiceable(formData.zipCode)) return false;
-    if (effectiveAddressMismatch) return false;
-    // Do not allow payment until address is geocoded to a concrete location.
-    if (hasAddressInputs && !mapCenter) return false;
     if (hasConfiguredDeliverySlots && !deliverySlot) return false;
 
     return true;
-  }, [
-    formData,
-    serviceablePincodes.length,
-    serviceableCities.length,
-    isCityServiceable,
-    isPincodeServiceable,
-    effectiveAddressMismatch,
-    hasAddressInputs,
-    mapCenter,
-    hasConfiguredDeliverySlots,
-    deliverySlot,
-  ]);
+  }, [formData, hasConfiguredDeliverySlots, deliverySlot, validateField]);
 
-  if (items.length === 0 && !orderPlacedOptimistically) {
+  if (items.length === 0 && !orderPlacedOptimistically && !orderJustPlacedRef.current) {
     return null;
   }
 
@@ -1016,14 +1586,14 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         </motion.div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid lg:grid-cols-12 gap-6 min-w-0">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-6 min-w-0">
             {/* Left Column - Forms */}
-            <div className="lg:col-span-8 space-y-10 min-w-0">
+            <div className="w-full space-y-10 min-w-0">
               {/* Shipping Information */}
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl overflow-hidden"
+                className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl overflow-hidden lg:h-[calc(100vh-8rem)] lg:overflow-y-auto custom-scrollbar"
               >
                 <div className="flex items-center gap-3 mb-8">
                   <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center">
@@ -1031,6 +1601,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   </div>
                   <h2 className="text-xl font-black text-slate-900 tracking-tighter uppercase">Delivery address</h2>
                 </div>
+                <p className="text-[10px] font-bold text-slate-500 mb-6 -mt-4">
+                  Delivery area: <span className="text-slate-800">{DELIVERY_CITY_FIXED}</span>, {DELIVERY_STATE_FIXED}{' '}
+                  only.
+                </p>
 
                 {user && savedAddresses.length > 0 && (
                   <div className="space-y-1.5 mb-6">
@@ -1051,251 +1625,242 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                   </div>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-5">
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">First Name</label>
-                    <input
-                      type="text"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                    className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.firstName && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.firstName}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
-                      Last Name<span className="text-red-500 ml-0.5">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.lastName && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.lastName}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      placeholder="you@email.com"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.email && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.email}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Phone number</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      placeholder="e.g. 9876543210"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.phone && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.phone}</p>}
-                  </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Street address</label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      placeholder="Street address"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.address && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.address}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">City</label>
-                    <input
-                      type="text"
-                      name="city"
-                      value={formData.city}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      placeholder="e.g. Bangalore"
-                      className={cn(
-                        "w-full px-4 py-3 rounded-xl border-2 bg-slate-50 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400",
-                        formData.city?.trim() && serviceableCities.length > 0 && !isCityServiceable(formData.city)
-                          ? "border-amber-400 focus:border-amber-500"
-                          : "border-slate-100 focus:border-orange-500"
-                      )}
-                    />
-                    {fieldErrors.city && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.city}</p>}
-                    {serviceableCities.length > 0 && (
-                      <p className="text-[9px] font-bold text-slate-400 pl-2 flex items-center gap-1">
-                        <MapPin className="w-2.5 h-2.5 text-emerald-500" />
-                        Delivers to: {serviceableCities.join(', ')}
-                      </p>
-                    )}
-                    {formData.city?.trim() && serviceableCities.length > 0 && !isCityServiceable(formData.city) && (
-                      <p className="text-[10px] text-amber-600 pl-2 font-bold">⚠️ Not in our delivery area</p>
-                    )}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">State / UT</label>
-                    <input
-                      type="text"
-                      name="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required
-                      placeholder="e.g. Karnataka"
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
-                    />
-                    {fieldErrors.state && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.state}</p>}
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
-                      ZIP / Postal code
-                      {serviceablePincodes.length > 0 && <span className="text-red-500 ml-0.5">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      name="zipCode"
-                      value={formData.zipCode}
-                      onChange={handleChange}
-                      onBlur={handleFieldBlur}
-                      required={serviceablePincodes.length > 0}
-                      placeholder={serviceablePincodes.length > 0 ? 'Must be in our delivery area' : 'e.g. 560001'}
-                      inputMode="numeric"
-                      maxLength={8}
-                      className={cn(
-                        'w-full px-4 py-3 rounded-xl border-2 bg-slate-50 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400',
-                        serviceablePincodes.length > 0 &&
-                          formData.zipCode.replace(/\D/g, '').length >= 6 &&
-                          !isPincodeServiceable(formData.zipCode)
-                          ? 'border-red-400 focus:border-red-500'
-                          : serviceablePincodes.length > 0 &&
-                            formData.zipCode.replace(/\D/g, '').length >= 6 &&
-                            isPincodeServiceable(formData.zipCode)
-                          ? 'border-emerald-400 focus:border-emerald-500'
-                          : 'border-slate-100 focus:border-orange-500'
-                      )}
-                    />
-                    {fieldErrors.zipCode && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.zipCode}</p>}
-                    {serviceablePincodes.length > 0 && (
-                      <div className="pl-1">
-                        <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
-                      </div>
-                    )}
-                    {serviceablePincodes.length > 0 &&
-                      formData.zipCode.replace(/\D/g, '').length >= 6 &&
-                      !isPincodeServiceable(formData.zipCode) && (
-                        <div className="flex items-center gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2 py-1.5">
-                          <span className="text-sm">🚫</span>
-                          <p className="text-[9px] text-red-600 font-bold">Outside our delivery area.</p>
-                        </div>
-                      )}
-                    {serviceablePincodes.length > 0 &&
-                      formData.zipCode.replace(/\D/g, '').length >= 6 &&
-                      isPincodeServiceable(formData.zipCode) && (
-                        <div className="flex flex-col gap-1">
-                          <p className={cn(
-                            "text-[9px] font-bold pl-1 flex items-center gap-1",
-                            effectiveAddressMismatch ? "text-amber-600" : "text-emerald-600"
-                          )}>
-                            {effectiveAddressMismatch ? '⚠️ Potential area mismatch' : '✅ In delivery area'}
-                          </p>
-                          {effectiveAddressMismatch && (
-                            <p className="text-[8px] text-amber-500 font-bold pl-1 leading-tight">
-                              {effectiveAddressMismatch}.
-                            </p>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Address type</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: 'home' as const, icon: '🏠', label: 'Home' },
+                        { key: 'work' as const, icon: '🏢', label: 'Work' },
+                        { key: 'other' as const, icon: '📍', label: 'Other' },
+                      ].map((type) => (
+                        <button
+                          key={type.key}
+                          type="button"
+                          onClick={() => setAddressType(type.key)}
+                          className={cn(
+                            'rounded-xl border px-3 py-2 text-left transition-all',
+                            addressType === type.key
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
                           )}
-                        </div>
-                      )}
+                        >
+                          <p className="text-base">{type.icon}</p>
+                          <p className="text-[10px] font-black uppercase tracking-widest">{type.label}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
+
+                  <div>
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Delivery details</p>
+                    <div className="grid md:grid-cols-2 gap-5">
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Full name<span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={`${formData.firstName} ${formData.lastName}`.trim()}
+                          onChange={(e) => handleFullNameChange(e.target.value)}
+                          onBlur={() => {
+                            const firstError = validateField('firstName', formData.firstName);
+                            const lastError = validateField('lastName', formData.lastName);
+                            setFieldErrors((prev) => ({ ...prev, firstName: firstError, lastName: lastError }));
+                          }}
+                          required
+                          placeholder="Priya Sharma"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {(fieldErrors.firstName || fieldErrors.lastName) && (
+                          <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.firstName || fieldErrors.lastName}</p>
+                        )}
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Phone number<span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          required
+                          placeholder="+91 98765 43210"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.phone && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.phone}</p>}
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Flat / House no. &amp; Building name<span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="flatHouse"
+                          value={formData.flatHouse}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          required
+                          placeholder="Flat 4B, Green Towers"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.flatHouse && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.flatHouse}</p>}
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Street / Area / Locality<span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="address"
+                          value={formData.address}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          required
+                          placeholder="HSR Layout Sector 2"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.address && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.address}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          City<span className="text-red-500 ml-0.5">*</span>
+                          <span className="font-semibold normal-case text-slate-400 ml-1">(fixed)</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={formData.city}
+                          readOnly
+                          aria-readonly="true"
+                          title="Delivery is only available in Bengaluru"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-100 text-slate-700 cursor-not-allowed text-sm font-bold"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Pincode
+                        </label>
+                        <input
+                          type="text"
+                          name="zipCode"
+                          value={formData.zipCode}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          placeholder="560102"
+                          inputMode="numeric"
+                          maxLength={8}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.zipCode && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.zipCode}</p>}
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Landmark (optional)</label>
+                        <input
+                          type="text"
+                          name="landmark"
+                          value={formData.landmark}
+                          onChange={handleChange}
+                          placeholder="Near Linking Road metro"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">Delivery instructions (optional)</label>
+                        <input
+                          type="text"
+                          name="deliveryInstructions"
+                          value={formData.deliveryInstructions}
+                          onChange={handleChange}
+                          placeholder="Leave at the door, ring the bell twice..."
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                      </div>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          Email<span className="text-red-500 ml-0.5">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          required
+                          placeholder="you@email.com"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.email && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.email}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-2">
+                          State / UT<span className="text-red-500 ml-0.5">*</span>
+                          <span className="font-semibold normal-case text-slate-400 ml-1">(fixed)</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="state"
+                          value={formData.state}
+                          readOnly
+                          aria-readonly="true"
+                          title="Delivery is only in Karnataka"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-100 text-slate-700 cursor-not-allowed text-sm font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  {serviceableCities.length > 0 && (
+                    <p className="text-[10px] font-bold text-slate-400 pl-2 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-emerald-500" />
+                      Delivers to: {serviceableCities.join(', ')}
+                    </p>
+                  )}
+                  {serviceablePincodes.length > 0 && (
+                    <div className="pl-1">
+                      <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
+                    </div>
+                  )}
                 </div>
 
-                {(effectiveAddressMismatch || (hasAddressInputs && !isAddressResolvedForPricing && !geocodeLoading)) && (
-                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                    <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">
-                      Please enter the correct street address
-                    </p>
-                    <p className="mt-1 text-[11px] font-bold text-amber-700">
-                      {effectiveAddressMismatch
-                        ? `${effectiveAddressMismatch}. Update street, city and PIN so delivery fee and ETA can be calculated correctly.`
-                        : 'We could not resolve this address yet. Please correct street name/area details so delivery fee and ETA can be calculated.'}
-                    </p>
-                  </div>
-                )}
-
-                {user && !selectedSavedAddressId && (
-                  <div className="mt-6 flex items-start gap-3 pl-1">
+                <div className="mt-6 space-y-3">
+                  <label htmlFor="setDefaultAddress" className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      id="saveAddressToAccount"
-                      checked={saveNewAddressToAccount}
-                      onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                      id="setDefaultAddress"
+                      checked={setAsDefaultAddress}
+                      onChange={(e) => setSetAsDefaultAddress(e.target.checked)}
                       className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
                     />
-                    <label htmlFor="saveAddressToAccount" className="text-sm font-bold text-slate-600 leading-snug cursor-pointer">
-                      Save this delivery address to my account for next time (checkout and subscription).
-                    </label>
-                  </div>
-                )}
-
-                {/* Map & delivery slot */}
-                <div className="mt-8 space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-4">Delivery location</p>
-                    <button
-                      type="button"
-                      onClick={handleUseCurrentLocation}
-                      className="self-start sm:self-auto px-3.5 py-1.5 rounded-lg bg-emerald-50 text-[9px] font-black uppercase tracking-widest text-emerald-700 flex items-center gap-1.5 hover:bg-emerald-100 border border-emerald-200/50 transition-colors"
-                    >
-                      <Navigation className="w-3 h-3" />
-                      Use current location
-                    </button>
-                  </div>
-                  {geocodeLoading && (
-                    <div className="h-48 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center gap-2">
-                      <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
-                      <span className="text-sm font-medium text-slate-500">Detecting location…</span>
-                    </div>
-                  )}
-                  {!geocodeLoading && checkoutMapEmbedSrc && (
-                    <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner">
-                      <OpenStreetMapEmbed
-                        title="Delivery area map"
-                        src={checkoutMapEmbedSrc}
-                        className="w-full h-56 sm:h-64 border-0"
+                    <span>
+                      <span className="text-sm font-bold text-slate-700 leading-snug block">Set as default address</span>
+                      <span className="text-xs font-semibold text-slate-500">Used automatically at checkout</span>
+                    </span>
+                  </label>
+                  {user && !selectedSavedAddressId && (
+                    <label htmlFor="saveAddressToAccount" className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        id="saveAddressToAccount"
+                        checked={saveNewAddressToAccount}
+                        onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500"
                       />
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-2 pl-1">
-                        Pin shows your delivery address. Delivery area, on-time rate and ETA above update from this address.
-                      </p>
-                    </div>
+                      <span className="text-sm font-bold text-slate-600 leading-snug">
+                        Save this delivery address to my account for next time.
+                      </span>
+                    </label>
                   )}
-                  {!geocodeLoading && !mapCenter && (formData.address || formData.city || formData.zipCode) && (
-                    <div className="h-32 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center">
-                      <span className="text-sm text-slate-500">Enter street, city and PIN for map and delivery estimate</span>
-                    </div>
-                  )}
-                  {!mapCenter && !formData.address && !formData.city && !formData.zipCode && (
-                    <div className="h-32 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center">
-                      <span className="text-sm text-slate-400">Map will appear when you enter your address</span>
-                    </div>
-                  )}
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Save &amp; continue
+                  </p>
+                  </div>
+                
 
+                {/* Delivery slot */}
+                <div className="mt-8 space-y-6">
                   {/* Delivery slot selection */}
                   <div className="pt-4 border-t border-slate-100 mt-4">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 pl-1">Choose delivery slot</p>
@@ -1332,14 +1897,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
 
             {/* Right Column - Order Summary */}
-            <div className="lg:col-span-4 min-w-0">
+            <div className="w-full min-w-0">
               <div className="lg:sticky lg:top-28 space-y-6">
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl relative overflow-hidden"
+                  className="w-full max-w-full bg-white rounded-3xl p-6 border border-slate-100 shadow-2xl relative overflow-hidden lg:h-[calc(100vh-8rem)] flex flex-col"
                 >
                   <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full -mr-16 -mt-16" />
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
 
                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 sm:mb-8 uppercase tracking-tight">Order summary</h2>
 
@@ -1360,7 +1926,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                                   <>
                               {/* Product Image */}
                               <div className="w-10 h-10 bg-slate-50 rounded-lg overflow-hidden shrink-0 border border-slate-100/50">
-                                <img src={item.image} className="w-full h-full object-cover" />
+                                <img
+                                  src={getImageDisplayUrl(item.image || '')}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                />
                               </div>
 
                               {/* Info & Quantity Controls */}
@@ -1438,9 +2008,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         {isAddressResolvedForPricing && (
                           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                             <span>Delivery Fee ({deliveryDistance == null ? '—' : `${deliveryDistance} km`})</span>
-                            {effectiveAddressMismatch ? (
-                              <span className="text-amber-600 font-black px-2 py-0.5 bg-amber-50 rounded-md">Fix address</span>
-                            ) : shippingFeeForDistance === 0 ? (
+                            {shippingFeeForDistance === 0 ? (
                               <span className="text-slate-900 font-black">₹0</span>
                             ) : (
                               <span className="text-slate-900 font-black">₹{shippingFeeForDistance}</span>
@@ -1448,8 +2016,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           </div>
                         )}
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          <span>Tax & Charges</span>
-                          <span className="text-slate-900 font-black">₹{vendorSummaries.reduce((sum: number, s: any) => sum + s.tax, 0).toFixed(2)}</span>
+                          <span>GST (5%)</span>
+                          <span className="text-slate-900 font-black">₹{orderTaxAmount.toFixed(2)}</span>
                         </div>
                         {platformFee > 0 && (
                           <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -1759,36 +2327,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       </div>
                     </div>
                   </div>
+                  </div>
 
-                  <button type="submit" ref={submitRef} className="hidden" aria-hidden="true" />
-                  
-                  <div className="mt-8 sm:mt-10">
-                      <SwipeToPay 
-                        onSuccess={() => submitRef.current?.click()} 
+                  <div className="mt-4 pt-4 border-t border-slate-100 bg-white">
+                      <SwipeToPay
+                        onSuccess={() => void submitCheckout()}
                         submitting={submitting} 
                         disabled={!isCheckoutFormReady || submitting}
-                        disabledLabel={
-                          effectiveAddressMismatch || (hasAddressInputs && !isAddressResolvedForPricing && !geocodeLoading)
-                            ? 'Give correct street address to pay'
-                            : 'Complete required fields to pay'
-                        }
+                        disabledLabel="Complete required fields to pay"
                         themeStyle={theme.buttonStyle} 
                       />
                   </div>
                 </motion.div>
-
-                <div className="p-6 bg-orange-50 rounded-[2rem] border border-orange-100 flex items-center gap-4">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-8 h-8 rounded-full border-2 border-orange-50 bg-slate-200 overflow-hidden">
-                        <img src={`https://i.pravatar.cc/100?img=${i + 10}`} className="w-full h-full object-cover" />
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-[9px] font-black text-orange-700 uppercase tracking-widest leading-tight">
-                    3 customers in your area just received their orders.
-                  </p>
-                </div>
               </div>
             </div>
           </div>
@@ -1801,7 +2351,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           orderNumber={optimisticOrderNumber} 
           subtotal={optimisticAmount} 
           isAwaitingPayment={paymentAwaiting}
-          onDismiss={() => setOrderPlacedOptimistically(false)} 
+          onDismiss={() => {
+            orderJustPlacedRef.current = false;
+            setOrderPlacedOptimistically(false);
+          }} 
         />
       )}
     </div>

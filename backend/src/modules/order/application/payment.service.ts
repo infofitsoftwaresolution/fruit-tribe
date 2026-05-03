@@ -130,8 +130,17 @@ export class PaymentService {
             const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
 
             const receipt = String(order.orderNumber).slice(0, 40);
+            const payablePaise = Math.round(Number(order.payableAmount) * 100);
+            if (
+                Number.isFinite(amountInPaise) &&
+                Math.round(amountInPaise) !== payablePaise
+            ) {
+                this.logger.warn(
+                    `createRazorpayOrder: client sent ${Math.round(amountInPaise)} paise but order payable is ${payablePaise}; using payable.`,
+                );
+            }
             const options = {
-                amount: Math.round(amountInPaise),
+                amount: payablePaise,
                 currency,
                 receipt,
                 notes: { orderId, orderNumber: order.orderNumber },
@@ -149,7 +158,7 @@ export class PaymentService {
                         ...existingMetadata,
                         paymentContext: {
                             razorpayOrderId: razorpayOrder.id,
-                            amountInPaise: Math.round(amountInPaise),
+                            amountInPaise: payablePaise,
                             currency,
                         },
                     },

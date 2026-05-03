@@ -11,6 +11,7 @@ import { CreateOrderDto } from '../interface/dtos/create-order.dto';
 import { CreateSubscriptionOrderDto } from '../interface/dtos/create-subscription-order.dto';
 import { CreateManualOrderDto } from '../interface/dtos/create-manual-order.dto';
 import * as crypto from 'crypto';
+import { userCityMatchesServiceList } from '../../../common/utils/indian-city-aliases';
 
 @Injectable()
 export class OrderService {
@@ -353,7 +354,7 @@ export class OrderService {
 
         const serviceableCities = await this.settingsService.getServiceableCities();
         if (serviceableCities.length > 0 && city) {
-            const cityOk = serviceableCities.some((c) => c.toLowerCase() === city.toLowerCase());
+            const cityOk = userCityMatchesServiceList(city, serviceableCities);
             if (!cityOk) {
                 throw new BadRequestException(
                     `We do not deliver to "${city}". Available cities: ${serviceableCities.join(', ')}.`,
@@ -556,7 +557,7 @@ export class OrderService {
 
         const serviceableCities = await this.settingsService.getServiceableCities();
         if (serviceableCities.length > 0 && city) {
-            const cityOk = serviceableCities.some((c) => c.toLowerCase() === city.toLowerCase());
+            const cityOk = userCityMatchesServiceList(city, serviceableCities);
             if (!cityOk) {
                 throw new BadRequestException(
                     `We do not deliver to "${city}". Available cities: ${serviceableCities.join(', ')}.`,

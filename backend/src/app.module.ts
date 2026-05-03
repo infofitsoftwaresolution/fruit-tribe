@@ -13,6 +13,7 @@ import { UploadsModule } from './common/uploads/uploads.module';
 import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { DeliveryPartnerModule } from './modules/delivery-partner/delivery-partner.module';
 import { AddressModule } from './modules/address/address.module';
+import { GeocodeModule } from './common/geocode/geocode.module';
 import { MailService } from './common/mail/mail.service';
 import { SmsService } from './common/sms/sms.service';
 
@@ -37,6 +38,7 @@ import { SmsService } from './common/sms/sms.service';
         WarehouseModule,
         DeliveryPartnerModule,
         AddressModule,
+        GeocodeModule,
     ],
     providers: [
         MailService,

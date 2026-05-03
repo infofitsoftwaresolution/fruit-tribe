@@ -18,6 +18,34 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
+      /** Same-origin `/v1/*` in dev — required when not opened as localhost (LAN IP, 127.0.0.1). */
+      "/v1": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      // Same-origin /api/v1 when frontend uses getEffectiveApiBase() over HTTPS (avoids CORS to :3000).
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      "/uploads": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      "/v1": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      "/api": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
     },
   },
   resolve: {

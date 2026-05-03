@@ -31,8 +31,19 @@ export function useServiceableAreas() {
 
   const isCityServiceable = (city: string) => {
     if (!city?.trim()) return false;
-    const normalized = city.trim().toLowerCase();
-    return cities.some((c) => c.toLowerCase() === normalized);
+    if (!cities.length) return true;
+    const normalized = city.trim().toLowerCase().replace(/\s+/g, ' ');
+    const aliases: Record<string, string[]> = {
+      bangalore: ['bengaluru', 'banglore', 'bengalooru', 'bengalore'],
+      bengaluru: ['bangalore', 'banglore', 'bengalooru', 'bengalore'],
+    };
+    return cities.some((c) => {
+      const cn = c.trim().toLowerCase();
+      if (cn === normalized) return true;
+      const a = aliases[cn] || [];
+      const b = aliases[normalized] || [];
+      return a.includes(normalized) || b.includes(cn);
+    });
   };
 
   /** When the admin list is non-empty, checkout PIN (6 digits) must match. */
