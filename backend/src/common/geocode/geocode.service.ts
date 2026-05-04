@@ -136,46 +136,51 @@ export class GeocodeService {
      * Heavy parallel use may hit Nominatim rate limits — prefer own geocoder in production.
      */
     async searchIndia(q: string, limit: number): Promise<unknown[]> {
-        const trimmed = q.trim();
-        if (!trimmed) return [];
-        const lim = Math.min(12, Math.max(1, Math.floor(limit) || 12));
-        const ck = this.qCacheKey(trimmed, lim);
-        const cached = this.cacheGet(ck);
-        if (cached !== undefined) return cached;
+        try {
+            const trimmed = q.trim();
+            if (!trimmed) return [];
+            const lim = Math.min(12, Math.max(1, Math.floor(limit) || 12));
+            const ck = this.qCacheKey(trimmed, lim);
+            const cached = this.cacheGet(ck);
+            if (cached !== undefined) return cached;
 
-        /** `postalcode=` resolves Indian PINs much more reliably than `q=5600xx, India`. */
-        const pinOnly = trimmed.match(/^(\d{6})(\s*,\s*India)?$/i);
-        if (pinOnly) {
-            const pc = pinOnly[1];
-            const mb = await this.mapboxForwardIndia(pc, lim);
-            if (mb.length > 0) {
-                this.cacheSet(ck, mb);
-                return mb;
-            }
-            const urlPc = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&postalcode=${encodeURIComponent(pc)}&countrycodes=in&limit=${lim}`;
-            const resPc = await fetch(urlPc, { headers: this.nominatimHeaders() });
-            if (resPc.ok) {
-                const dataPc = await resPc.json();
-                if (Array.isArray(dataPc) && dataPc.length > 0) {
-                    this.cacheSet(ck, dataPc);
-                    return dataPc;
+            /** `postalcode=` resolves Indian PINs much more reliably than `q=5600xx, India`. */
+            const pinOnly = trimmed.match(/^(\d{6})(\s*,\s*India)?$/i);
+            if (pinOnly) {
+                const pc = pinOnly[1];
+                const mb = await this.mapboxForwardIndia(pc, lim);
+                if (mb.length > 0) {
+                    this.cacheSet(ck, mb);
+                    return mb;
+                }
+                const urlPc = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&postalcode=${encodeURIComponent(pc)}&countrycodes=in&limit=${lim}`;
+                const resPc = await fetch(urlPc, { headers: this.nominatimHeaders() });
+                if (resPc.ok) {
+                    const dataPc = await resPc.json();
+                    if (Array.isArray(dataPc) && dataPc.length > 0) {
+                        this.cacheSet(ck, dataPc);
+                        return dataPc;
+                    }
                 }
             }
-        }
-        const url = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&q=${encodeURIComponent(trimmed)}&limit=${lim}&countrycodes=in`;
-        const res = await fetch(url, { headers: this.nominatimHeaders() });
-        if (!res.ok) {
-            this.cacheSet(ck, []);
+            const url = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&q=${encodeURIComponent(trimmed)}&limit=${lim}&countrycodes=in`;
+            const res = await fetch(url, { headers: this.nominatimHeaders() });
+            if (!res.ok) {
+                this.cacheSet(ck, []);
+                return [];
+            }
+            const data = await res.json();
+            let out = Array.isArray(data) ? data : [];
+            if (out.length === 0) {
+                const mb = await this.mapboxForwardIndia(trimmed, lim);
+                out = mb;
+            }
+            this.cacheSet(ck, out);
+            return out;
+        } catch (e) {
+            this.logger.warn(`searchIndia failed: ${e instanceof Error ? e.message : String(e)}`);
             return [];
         }
-        const data = await res.json();
-        let out = Array.isArray(data) ? data : [];
-        if (out.length === 0) {
-            const mb = await this.mapboxForwardIndia(trimmed, lim);
-            out = mb;
-        }
-        this.cacheSet(ck, out);
-        return out;
     }
 
     /**
@@ -183,47 +188,57 @@ export class GeocodeService {
      * Prefer this over embedding the PIN only inside `q=`.
      */
     async searchIndiaByPostalCode(postalcode: string, limit: number): Promise<unknown[]> {
-        const pc = postalcode.replace(/\D/g, '').slice(0, 6);
-        if (pc.length !== 6) return [];
-        const lim = Math.min(12, Math.max(1, Math.floor(limit) || 12));
-        const ck = `pc:${pc}:${lim}`;
-        const cached = this.cacheGet(ck);
-        if (cached !== undefined) return cached;
+        try {
+            const pc = postalcode.replace(/\D/g, '').slice(0, 6);
+            if (pc.length !== 6) return [];
+            const lim = Math.min(12, Math.max(1, Math.floor(limit) || 12));
+            const ck = `pc:${pc}:${lim}`;
+            const cached = this.cacheGet(ck);
+            if (cached !== undefined) return cached;
 
-        const mb = await this.mapboxForwardIndia(pc, lim);
-        if (mb.length > 0) {
-            this.cacheSet(ck, mb);
-            return mb;
-        }
+            const mb = await this.mapboxForwardIndia(pc, lim);
+            if (mb.length > 0) {
+                this.cacheSet(ck, mb);
+                return mb;
+            }
 
-        const urlPc = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&postalcode=${encodeURIComponent(pc)}&countrycodes=in&limit=${lim}`;
-        const resPc = await fetch(urlPc, { headers: this.nominatimHeaders() });
-        if (!resPc.ok) {
-            this.cacheSet(ck, []);
+            const urlPc = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&postalcode=${encodeURIComponent(pc)}&countrycodes=in&limit=${lim}`;
+            const resPc = await fetch(urlPc, { headers: this.nominatimHeaders() });
+            if (!resPc.ok) {
+                this.cacheSet(ck, []);
+                return [];
+            }
+            const dataPc = await resPc.json();
+            if (Array.isArray(dataPc) && dataPc.length > 0) {
+                this.cacheSet(ck, dataPc);
+                return dataPc;
+            }
+            const urlQ = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&q=${encodeURIComponent(`${pc}, India`)}&limit=${lim}&countrycodes=in`;
+            const resQ = await fetch(urlQ, { headers: this.nominatimHeaders() });
+            if (!resQ.ok) {
+                this.cacheSet(ck, []);
+                return [];
+            }
+            const dataQ = await resQ.json();
+            const out = Array.isArray(dataQ) ? dataQ : [];
+            this.cacheSet(ck, out);
+            return out;
+        } catch (e) {
+            this.logger.warn(`searchIndiaByPostalCode failed: ${e instanceof Error ? e.message : String(e)}`);
             return [];
         }
-        const dataPc = await resPc.json();
-        if (Array.isArray(dataPc) && dataPc.length > 0) {
-            this.cacheSet(ck, dataPc);
-            return dataPc;
-        }
-        const urlQ = `${NOMINATIM_BASE}/search?format=json&addressdetails=1&q=${encodeURIComponent(`${pc}, India`)}&limit=${lim}&countrycodes=in`;
-        const resQ = await fetch(urlQ, { headers: this.nominatimHeaders() });
-        if (!resQ.ok) {
-            this.cacheSet(ck, []);
-            return [];
-        }
-        const dataQ = await resQ.json();
-        const out = Array.isArray(dataQ) ? dataQ : [];
-        this.cacheSet(ck, out);
-        return out;
     }
 
     async reverse(lat: number, lon: number): Promise<unknown> {
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
-        const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
-        const res = await fetch(url, { headers: this.nominatimHeaders() });
-        if (!res.ok) return {};
-        return res.json();
+        try {
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return {};
+            const url = `${NOMINATIM_BASE}/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+            const res = await fetch(url, { headers: this.nominatimHeaders() });
+            if (!res.ok) return {};
+            return res.json();
+        } catch (e) {
+            this.logger.warn(`reverse geocode failed: ${e instanceof Error ? e.message : String(e)}`);
+            return {};
+        }
     }
 }
