@@ -15,6 +15,7 @@ import {
   verifyPayment,
   getOrders,
   getWarehouses,
+  getDrivingDistanceKm,
   getAvailableOffers,
   getUserAddresses,
   createUserAddress,
@@ -26,6 +27,7 @@ import { savedAddressToCheckoutForm, type SavedDeliveryAddress } from '@/lib/del
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
+import { getUserErrorMessage } from '@/lib/userError';
 import { toast } from 'sonner';
 import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
 
@@ -99,17 +101,6 @@ function citiesRoughlyMatch(a: string, b: string): boolean {
     bombay: ['mumbai'],
   };
   return (aliases[x] || []).includes(y) || (aliases[y] || []).includes(x);
-}
-
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
 }
 
 /** Tokens from flat + street used to pick the best Nominatim hit (e.g. HSR, layout, sector). */
@@ -549,6 +540,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const pinProvisionalBlockRef = useRef(false);
   /** Flat + street + city (no PIN): when this changes, clear the pin until the new address resolves — avoids showing the previous street's location. */
   const lastSuccessfulGeocodeShapeKeyRef = useRef<string>('');
+  /** Clears stale km when the resolved 6-digit PIN changes while waiting for live postal geocode. */
+  const lastDistancePinRef = useRef<string>('');
+  /** Cancels in-flight Mapbox driving-distance when coordinates or warehouses change again. */
+  const drivingDistanceSeqRef = useRef(0);
 
   useEffect(() => {
     // Hydrate last-used address from this device (only if not logged in or as initial fallback)
@@ -646,6 +641,35 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     getAvailableOffers({ cartProductIds, cartCategoryNames }).then(setAvailableOffers).catch(() => setAvailableOffers([]));
   }, [items, products]);
 
+  /** Driving distance only (Mapbox via backend). Keep last good km while refreshing to avoid flicker. */
+  const applyDrivingDistanceForCoords = useCallback(async (lat: number, lng: number) => {
+    const seq = ++drivingDistanceSeqRef.current;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const whList =
+      warehousesRef.current.length > 0 ? warehousesRef.current : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
+    const sources = whList
+      .map((w) => ({ latitude: Number(w.latitude), longitude: Number(w.longitude) }))
+      .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude));
+    if (sources.length === 0) return;
+
+    try {
+      const { distanceKm: roadKm } = await getDrivingDistanceKm(sources, { latitude: lat, longitude: lng });
+      if (seq !== drivingDistanceSeqRef.current) return;
+      if (roadKm != null && Number.isFinite(roadKm)) {
+        const distanceKm = Math.round(roadKm * 10) / 10;
+        const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
+        const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
+        setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+        return;
+      }
+    } catch {
+      /* Mapbox / network error */
+    }
+    if (seq !== drivingDistanceSeqRef.current) return;
+    // Keep previous distance on transient API failure; explicit field resets handle true invalid/empty states.
+  }, []);
+
+  /** Map pin + meta only — driving km comes from `mapCenter` + Mapbox Matrix effect. */
   const updateDeliveryFromCoordinates = useCallback(
     (
       lat: number,
@@ -655,22 +679,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         accuracyMeters?: number | null;
       },
     ) => {
-      setMapCenter({ lat, lng });
-      setLocationMeta({
-        source: opts?.source ?? null,
-        accuracyMeters: opts?.accuracyMeters ?? null,
+      setMapCenter((prev) => {
+        if (prev && Math.abs(prev.lat - lat) < 1e-6 && Math.abs(prev.lng - lng) < 1e-6) {
+          return prev;
+        }
+        return { lat, lng };
       });
-      const whList =
-        warehousesRef.current.length > 0 ? warehousesRef.current : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
-      let minDistance = Infinity;
-      for (const wh of whList) {
-        const d = haversineKm(Number(wh.latitude), Number(wh.longitude), lat, lng);
-        if (d < minDistance) minDistance = d;
-      }
-      const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
-      const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
-      const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
-      setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+      setLocationMeta((prev) => {
+        const next = {
+          source: opts?.source ?? null,
+          accuracyMeters: opts?.accuracyMeters ?? null,
+        };
+        if (prev.source === next.source && prev.accuracyMeters === next.accuracyMeters) {
+          return prev;
+        }
+        return next;
+      });
     },
     [],
   );
@@ -701,21 +725,29 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const zipImm = formData.zipCode.replace(/\D/g, '');
     const pinImm =
       zipImm.length === 6 ? zipImm : extractIndiaPinDigitsFromText(flatImm, streetImm, formData.zipCode);
+    if (pinImm.length === 6) {
+      if (pinImm !== lastDistancePinRef.current) {
+        lastDistancePinRef.current = pinImm;
+        setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+      }
+    } else {
+      lastDistancePinRef.current = '';
+      setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+    }
     const cityImm =
       formData.city.trim() ||
       inferCityFromAddressBlob(flatImm, streetImm) ||
       inferCityHintFromIndianPin(pinImm) ||
       DELIVERY_CITY_FIXED;
-    const geocodeShapeKeyImm = `${flatImm}\u001f${streetImm}\u001f${cityImm}`;
     const cityForScoringImm = (cityLabelForNominatim(cityImm).trim() || cityImm.trim()).trim();
     const hintsImm = tokenizeLocationHints(formData.flatHouse, formData.address);
 
-    /** Instant distance/ETA from PIN lookup table — refined when OSM responds (same or better coords). */
-    const pinPreview = approximateLatLngForBengaluruServicePin(pinImm);
-    if (pinPreview) {
-      updateDeliveryFromCoordinates(pinPreview.lat, pinPreview.lng, { source: 'postcode_area' });
-      lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKeyImm;
-    }
+    /**
+     * Do **not** apply `approximateLatLngForBengaluruServicePin` here — it made many PINs share one
+     * generic centroid (~16.9 km) before Nominatim returned. Distance/ETA should reflect live
+     * `/geocode/search?postalcode=` (and street/city picks below); approximate fallback runs only
+     * when those responses have no usable hit.
+     */
 
     let pinFetchShared: Promise<NominatimHit[]> | null = null;
     if (pinImm.length === 6) {
@@ -731,20 +763,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         if (pinLive !== pinImm) return;
         if (pinProvisionalBlockRef.current) return;
         const pinHits = dedupeNominatimHits(raw);
-        let lat: number;
-        let lng: number;
-        if (pinHits.length === 0) {
-          const fb = approximateLatLngForBengaluruServicePin(pinImm);
-          if (!fb) return;
-          lat = fb.lat;
-          lng = fb.lng;
-        } else {
-          const pinPick =
-            pickBestNominatimHit(pinHits, cityForScoringImm, hintsImm, pinImm) ?? pinHits[0];
-          lat = parseFloat(pinPick.lat);
-          lng = parseFloat(pinPick.lon);
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-        }
+        /**
+         * If postalcode search returns nothing, do **not** apply the generic Bengaluru centroid here.
+         * That raced ahead of the debounced street/city pipeline (~50ms) and pinned many users to ~16.9 km
+         * even when "HSR layout" + full address would geocode correctly moments later.
+         * Approximate fallback runs only after street + PIN-area + city attempts in the debounced block.
+         */
+        if (pinHits.length === 0) return;
+        const pinPick =
+          pickBestNominatimHit(pinHits, cityForScoringImm, hintsImm, pinImm) ?? pinHits[0];
+        const lat = parseFloat(pinPick.lat);
+        const lng = parseFloat(pinPick.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
         updateDeliveryFromCoordinates(lat, lng, { source: 'postcode_area' });
         const flatR = fd.flatHouse.trim();
         const streetR = fd.address.trim();
@@ -794,12 +824,25 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const syncFormFromHit = () => {
           const patch = extractFormSyncFromNominatimForwardHit(hit);
           if (Object.keys(patch).length > 0) {
-            setFormData((prev) => ({
-              ...prev,
-              ...patch,
-              city: DELIVERY_CITY_FIXED,
-              state: DELIVERY_STATE_FIXED,
-            }));
+            setFormData((prev) => {
+              const next = {
+                ...prev,
+                ...patch,
+                city: DELIVERY_CITY_FIXED,
+                state: DELIVERY_STATE_FIXED,
+              };
+              if (
+                next.flatHouse === prev.flatHouse &&
+                next.address === prev.address &&
+                next.landmark === prev.landmark &&
+                next.city === prev.city &&
+                next.state === prev.state &&
+                next.zipCode === prev.zipCode
+              ) {
+                return prev;
+              }
+              return next;
+            });
           }
           void (async () => {
             try {
@@ -813,12 +856,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               const data = (await res.json()) as NominatimReverseJson;
               if (requestSeq !== geocodeRequestSeqRef.current) return;
               const parsed = parseNominatimReverseForCheckout(data);
-              setFormData((prev) => ({
-                ...prev,
-                ...(parsed.zipCode.length === 6 ? { zipCode: parsed.zipCode } : {}),
-                city: DELIVERY_CITY_FIXED,
-                state: DELIVERY_STATE_FIXED,
-              }));
+              setFormData((prev) => {
+                const next = {
+                  ...prev,
+                  ...(parsed.zipCode.length === 6 ? { zipCode: parsed.zipCode } : {}),
+                  city: DELIVERY_CITY_FIXED,
+                  state: DELIVERY_STATE_FIXED,
+                };
+                if (
+                  next.zipCode === prev.zipCode &&
+                  next.city === prev.city &&
+                  next.state === prev.state
+                ) {
+                  return prev;
+                }
+                return next;
+              });
             } catch {
               /* ignore */
             }
@@ -827,7 +880,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
         updateDeliveryFromCoordinates(lat, lng, { source });
         lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKey;
-        syncFormFromHit();
+        if (source === 'geocode' && hasStreet) {
+          syncFormFromHit();
+        }
         return true;
       };
 
@@ -930,6 +985,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             updateDeliveryFromCoordinates(fbPin.lat, fbPin.lng, { source: 'postcode_area' });
             lastSuccessfulGeocodeShapeKeyRef.current = geocodeShapeKey;
           } else if (geocodeShapeKey !== lastSuccessfulGeocodeShapeKeyRef.current) {
+            if (pinDigits.length === 6) return;
             setMapCenter(null);
             setLocationMeta({ source: null, accuracyMeters: null });
             setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
@@ -955,6 +1011,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             return;
           }
           if (geocodeShapeKey && geocodeShapeKey !== lastSuccessfulGeocodeShapeKeyRef.current) {
+            if (pinDigitsErr.length === 6) return;
             setMapCenter(null);
             setLocationMeta({ source: null, accuracyMeters: null });
             setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
@@ -975,20 +1032,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     isCityServiceable,
   ]);
 
-  // When warehouse list loads after delivery coordinates are set, recompute distance/ETA without re-running Nominatim.
+  /** When map center or warehouses change, recompute driving km (warehouses → drop-off via Mapbox) only. */
   useEffect(() => {
     if (!mapCenter) return;
-    const whList = warehouses.length > 0 ? warehouses : [{ latitude: DEFAULT_WAREHOUSE_LAT, longitude: DEFAULT_WAREHOUSE_LNG }];
-    let minDistance = Infinity;
-    for (const wh of whList) {
-      const d = haversineKm(Number(wh.latitude), Number(wh.longitude), mapCenter.lat, mapCenter.lng);
-      if (d < minDistance) minDistance = d;
-    }
-    const distanceKm = Math.round((minDistance === Infinity ? 4.8 : minDistance) * 10) / 10;
-    const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
-    const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
-    setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
-  }, [warehouses, mapCenter]);
+    void applyDrivingDistanceForCoords(mapCenter.lat, mapCenter.lng);
+  }, [warehouses, mapCenter, applyDrivingDistanceForCoords]);
 
   // Hyperlocal Logic (Mocked) - now driven by address
   const deliveryDistance = deliveryStats.distanceKm;
@@ -1150,7 +1198,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         setAppliedCoupon(null);
       }
     } catch (e: any) {
-      toast.error(e?.message || 'Could not validate promo code');
+      toast.error(getUserErrorMessage(e, 'Could not validate promo code'));
       setAppliedCoupon(null);
     } finally {
       setApplyingPromo(false);
@@ -1210,6 +1258,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     if (name === 'zipCode') {
       const d = trimmed.replace(/\D/g, '');
       if (d.length !== 6) return 'Enter a valid 6-digit PIN code.';
+      if (serviceablePincodes.length > 0 && !serviceablePincodes.includes(d)) {
+        return 'Not deliverable — this PIN is not in our service area.';
+      }
     }
     if (name === 'email' && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
       return 'Enter a valid email address.';
@@ -1219,7 +1270,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       if (digits.length < 10) return 'Enter a valid 10-digit phone number.';
     }
     return '';
-  }, []);
+  }, [serviceablePincodes]);
 
   const submitCheckout = async () => {
     const nextErrors: Partial<Record<keyof typeof formData, string>> = {};
@@ -1338,7 +1389,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           });
           toast.success('Address saved to your account');
         } catch (addrErr: unknown) {
-          const msg = addrErr instanceof Error ? addrErr.message : 'Could not save address';
+          const msg = getUserErrorMessage(addrErr, 'Could not save address');
           toast.error('Order placed, but saving this address failed', { description: msg });
         }
       }
@@ -1407,7 +1458,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             } catch (err: unknown) {
               setPaymentAwaiting(false);
               toast.error(
-                err instanceof Error ? err.message : 'Payment verification failed. Order is placed; contact support with your order number.',
+                getUserErrorMessage(err, 'Payment verification failed. Order is placed; contact support with your order number.'),
               );
               navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
             }
@@ -1445,7 +1496,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         });
         rzp.open();
       } catch (razorpayErr: unknown) {
-        const msg = razorpayErr instanceof Error ? razorpayErr.message : '';
+        const msg = getUserErrorMessage(razorpayErr, '');
         if (msg.includes('Razorpay is not configured') || msg.includes('not configured')) {
           toast.success('Order placed. Razorpay is not set up; pay later from My Orders.', {
             description: `Order #${orderNumber}`,
@@ -1459,7 +1510,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         navigate('/order-confirmation', { state: { orderId, orderNumber, allOrders: [orderId] } });
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Failed to place order. Please try again.');
+      toast.error(getUserErrorMessage(err, 'Failed to place order. Please try again.'));
     } finally {
       if (!deferSubmittingResetInFinally) {
         setSubmitting(false);
@@ -1477,6 +1528,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     if (name === 'city' || name === 'state') return;
     setSelectedSavedAddressId('');
     setFormData({ ...formData, [name]: value });
+
+    if (name === 'zipCode') {
+      const d = value.replace(/\D/g, '');
+      const zipMsg =
+        serviceablePincodes.length > 0 && d.length === 6 && !serviceablePincodes.includes(d)
+          ? 'Not deliverable — this PIN is not in our service area.'
+          : '';
+      setFieldErrors((prev) => ({ ...prev, zipCode: zipMsg }));
+      return;
+    }
+
     if (fieldErrors[name as keyof typeof formData]) {
       setFieldErrors((prev) => ({ ...prev, [name]: '' }));
     }
@@ -1752,7 +1814,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           placeholder="560102"
                           inputMode="numeric"
                           maxLength={8}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400"
+                          className={cn(
+                            'w-full px-4 py-3 rounded-xl border-2 bg-slate-50 focus:border-orange-500 focus:bg-white transition-all text-sm font-bold placeholder:text-slate-400',
+                            fieldErrors.zipCode ? 'border-red-300 focus:border-red-400' : 'border-slate-100',
+                          )}
                         />
                         {fieldErrors.zipCode && <p className="text-[10px] text-red-600 pl-2 font-bold">{fieldErrors.zipCode}</p>}
                       </div>

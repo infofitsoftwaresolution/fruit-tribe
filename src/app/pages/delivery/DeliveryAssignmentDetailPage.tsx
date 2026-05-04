@@ -4,6 +4,9 @@ import {
     ArrowLeft,
     MapPin,
     Phone,
+    QrCode,
+    Copy,
+    ExternalLink,
     Package,
     CheckCircle,
     Truck,
@@ -16,6 +19,7 @@ import { getEffectiveApiBase } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface DeliveryOrderItem {
     id: string;
@@ -36,6 +40,7 @@ interface DeliveryAssignmentDetail {
         orderNumber: string;
         payableAmount: number;
         paymentStatus: string;
+        paymentMethod?: string | null;
         deliverySlot: string | null;
         shippingAddress: any;
         user: { firstName: string | null; lastName: string | null; phone: string | null };
@@ -84,6 +89,8 @@ export function DeliveryAssignmentDetailPage() {
         active: false,
     });
     const [otpCode, setOtpCode] = useState('');
+    const [collectingOnline, setCollectingOnline] = useState(false);
+    const [paymentLink, setPaymentLink] = useState<string>('');
 
     useEffect(() => {
         if (!id) return;
@@ -102,7 +109,7 @@ export function DeliveryAssignmentDetailPage() {
                     active: !!detail?.hasActiveOtp,
                 });
             } catch (e: any) {
-                toast.error(e?.message || 'Unable to load assignment');
+                toast.error(getUserErrorMessage(e, 'Unable to load assignment'));
             } finally {
                 setLoading(false);
             }
@@ -139,7 +146,7 @@ export function DeliveryAssignmentDetailPage() {
                 setOtpCode('');
                 toast.success(body?.message || 'Delivery completed successfully.');
             } catch (e: any) {
-                toast.error(e?.message || 'Unable to verify OTP');
+                toast.error(getUserErrorMessage(e, 'Unable to verify OTP'));
             } finally {
                 setUpdating(false);
                 setPendingStatusAction(null);
@@ -176,7 +183,7 @@ export function DeliveryAssignmentDetailPage() {
             setAssignment((prev) => (prev ? { ...prev, status: json.status } : prev));
             toast.success(`Status updated to ${status}`);
         } catch (e: any) {
-            toast.error(e?.message || 'Unable to update status');
+            toast.error(getUserErrorMessage(e, 'Unable to update status'));
         } finally {
             setUpdating(false);
             setPendingStatusAction(null);
@@ -203,9 +210,46 @@ export function DeliveryAssignmentDetailPage() {
             });
             toast.success(body?.message || 'OTP generated successfully.');
         } catch (e: any) {
-            toast.error(e?.message || 'Unable to generate OTP');
+            toast.error(getUserErrorMessage(e, 'Unable to generate OTP'));
         } finally {
             setGeneratingOtp(false);
+        }
+    };
+
+    const handleCollectOnline = async () => {
+        if (!assignment) return;
+        setCollectingOnline(true);
+        try {
+            const token = localStorage.getItem('token');
+            const name =
+                [assignment.order.user.firstName, assignment.order.user.lastName].filter(Boolean).join(' ') ||
+                'Customer';
+            const contact = String(assignment.order.user.phone || '').replace(/\D/g, '').slice(-10);
+            const amountInPaise = Math.round(Number(assignment.order.payableAmount) * 100);
+            const res = await fetch(`${getEffectiveApiBase()}/orders/${assignment.order.id}/payment-link`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: token ? `Bearer ${token}` : '',
+                },
+                body: JSON.stringify({
+                    amountInPaise,
+                    customerDetails: {
+                        name,
+                        contact: contact || undefined,
+                    },
+                }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body?.message || 'Unable to generate payment link');
+            const link = String(body?.paymentLink || '').trim();
+            if (!link) throw new Error('Payment link not returned');
+            setPaymentLink(link);
+            toast.success('Payment QR is ready. Ask customer to scan and pay.');
+        } catch (e: any) {
+            toast.error(getUserErrorMessage(e, 'Unable to generate payment link'));
+        } finally {
+            setCollectingOnline(false);
         }
     };
 
@@ -249,6 +293,13 @@ export function DeliveryAssignmentDetailPage() {
         rawAddress?.pincode || rawAddress?.zipCode || '',
     ].filter((v: string) => v && v.trim());
     const address = addressParts.length ? addressParts.join(', ') : 'Address not available';
+    const customerPhoneRaw =
+        assignment.order.user.phone ||
+        rawAddress?.phone ||
+        rawAddress?.mobile ||
+        rawAddress?.contact ||
+        '';
+    const customerPhone = String(customerPhoneRaw).replace(/[^\d+]/g, '').trim();
     const encodedDestination = encodeURIComponent(address === 'Address not available' ? '' : address);
     const currentStatus = assignment.status || 'ASSIGNED';
     const normalizedCurrentStatus = String(currentStatus).toUpperCase();
@@ -265,6 +316,30 @@ export function DeliveryAssignmentDetailPage() {
     const isTerminalStatus =
         ['DELIVERED', 'FAILED', 'CANCELLED', 'RETURNED'].includes(normalizedCurrentStatus) ||
         ['DELIVERED', 'CANCELLED'].includes(normalizedOrderStatus);
+    const isPendingPayment = String(assignment.order.paymentStatus || '').toUpperCase() !== 'PAID';
+    const canCollectByQr = isPendingPayment && !isTerminalStatus;
+    const handleCallNow = async () => {
+        if (!customerPhone) {
+            toast.error('Customer phone number is not available.');
+            return;
+        }
+        const isMobileDevice =
+            /Android|iPhone|iPad|iPod|Windows Phone|Opera Mini|IEMobile/i.test(navigator.userAgent || '');
+
+        if (isMobileDevice) {
+            window.location.href = `tel:${customerPhone}`;
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(customerPhone);
+            toast.info(`Call customer: ${customerPhone}`, {
+                description: 'Phone number copied. Call from your phone or dialer app.',
+            });
+        } catch {
+            toast.info(`Call customer: ${customerPhone}`);
+        }
+    };
 
     return (
         <div className="space-y-10 pb-20">
@@ -327,16 +402,108 @@ export function DeliveryAssignmentDetailPage() {
                     <MapPin className="w-5 h-5 text-emerald-500" />
                     Open in Maps
                 </a>
-                {assignment.order.user.phone && (
-                    <a
-                        href={`tel:${assignment.order.user.phone}`}
+                {customerPhone && (
+                    <button
+                        type="button"
+                        onClick={handleCallNow}
                         className="flex items-center justify-center gap-3 h-14 rounded-2xl bg-white border border-slate-200 text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all"
                     >
                         <Phone className="w-5 h-5 text-slate-500" />
-                        Call customer
-                    </a>
+                        Call now
+                    </button>
                 )}
             </div>
+
+            {canCollectByQr && (
+                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
+                    <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between gap-4">
+                        <div>
+                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                                Collect online payment
+                            </h3>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                                For unpaid delivery orders
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCollectOnline}
+                            disabled={collectingOnline}
+                            className="h-11 px-5 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all disabled:opacity-50"
+                        >
+                            {collectingOnline ? 'Generating...' : 'Generate QR link'}
+                        </button>
+                    </div>
+                    <div className="p-8">
+                        {paymentLink ? (
+                            <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6 items-start">
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 flex items-center justify-center">
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(paymentLink)}`}
+                                        alt="Payment QR code"
+                                        className="h-[220px] w-[220px] rounded-xl"
+                                    />
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                                            Ask customer to scan this QR and pay
+                                        </p>
+                                        <p className="text-xs text-emerald-700 mt-1">
+                                            Amount: ₹{Number(assignment.order.payableAmount).toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 break-all text-xs text-slate-700">
+                                        {paymentLink}
+                                    </div>
+                                    <div className="flex flex-wrap gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                try {
+                                                    await navigator.clipboard.writeText(paymentLink);
+                                                    toast.success('Payment link copied');
+                                                } catch {
+                                                    toast.error('Unable to copy payment link');
+                                                }
+                                            }}
+                                            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <Copy className="w-4 h-4" />
+                                            Copy link
+                                        </button>
+                                        <a
+                                            href={paymentLink}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-2 h-10 px-4 rounded-xl border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 hover:bg-slate-50"
+                                        >
+                                            <ExternalLink className="w-4 h-4" />
+                                            Open payment page
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-5 py-6">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+                                        <QrCode className="w-5 h-5 text-slate-500" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">
+                                            No QR generated yet
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Tap "Generate QR link" when customer wants to pay online at doorstep.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Items - same card as Admin list rows */}
             <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">

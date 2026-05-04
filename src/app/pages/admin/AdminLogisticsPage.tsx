@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface Delivery {
     id: string;
@@ -182,7 +183,7 @@ export function AdminLogisticsPage() {
             setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true });
             void getWarehouses(false).then(setWarehouses).catch(() => {});
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to save warehouse');
+            toast.error(getUserErrorMessage(e, 'Failed to save warehouse'));
         } finally {
             setIsSavingWarehouse(false);
         }
@@ -207,14 +208,7 @@ export function AdminLogisticsPage() {
             setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' });
             void refreshDeliveryPartners();
         } catch (e: any) {
-            const raw = String(e?.message || '');
-            let msg = raw;
-            try {
-                const parsed = JSON.parse(raw);
-                msg = String(parsed?.message || parsed?.error || raw);
-            } catch {
-                // raw message is plain text
-            }
+            const msg = getUserErrorMessage(e, 'Failed to save');
             const normalized = msg.toLowerCase();
             if (normalized.includes('phone number is already') || normalized.includes('phone already')) {
                 toast.error('This phone number is already used. Please enter a different phone.');
@@ -245,7 +239,7 @@ export function AdminLogisticsPage() {
                         toast.success('Warehouse removed');
                         void getWarehouses(false).then(setWarehouses);
                     } catch (e: any) {
-                        toast.error(e?.message || 'Failed to remove warehouse');
+                        toast.error(getUserErrorMessage(e, 'Failed to remove warehouse'));
                     }
                 },
             },
@@ -263,7 +257,7 @@ export function AdminLogisticsPage() {
                         toast.success('Delivery partner removed');
                         void refreshDeliveryPartners();
                     } catch (e: any) {
-                        toast.error(e?.message || 'Failed to remove');
+                        toast.error(getUserErrorMessage(e, 'Failed to remove'));
                     }
                 },
             },

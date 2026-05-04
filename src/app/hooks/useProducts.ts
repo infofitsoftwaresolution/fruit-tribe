@@ -8,6 +8,7 @@ import {
     type Product,
 } from '@/lib/api';
 import { dedupeSimilarCatalogProducts } from '@/lib/catalogDedupe';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export function useProducts(filters: ProductFilters = {}) {
     const [data, setData] = useState<Product[]>([]);
@@ -34,7 +35,7 @@ export function useProducts(filters: ProductFilters = {}) {
             setData(dedupeSimilarCatalogProducts(idDeduped));
             setMeta(res.meta ?? null);
         } catch (e: any) {
-            setError(e?.message ?? 'Failed to load products');
+            setError(getUserErrorMessage(e, 'Failed to load products'));
             setData([]);
         } finally {
             setLoading(false);
@@ -64,7 +65,7 @@ export function useProduct(id: string | null) {
     getProduct(id)
       .then((api) => (api ? setProduct(mapApiProductToProduct(api)) : setProduct(null)))
       .catch((e: any) => {
-        setError(e?.message ?? 'Failed to load product');
+        setError(getUserErrorMessage(e, 'Failed to load product'));
         setProduct(null);
       })
       .finally(() => setLoading(false));

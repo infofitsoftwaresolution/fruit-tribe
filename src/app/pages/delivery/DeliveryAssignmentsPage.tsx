@@ -6,6 +6,7 @@ import { getEffectiveApiBase } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface Assignment {
     id: string;
@@ -43,7 +44,7 @@ export function DeliveryAssignmentsPage() {
                 const json = await res.json();
                 setAssignments(json);
             } catch (e: any) {
-                toast.error(e?.message || 'Unable to load assignments');
+                toast.error(getUserErrorMessage(e, 'Unable to load assignments'));
             } finally {
                 setLoading(false);
             }

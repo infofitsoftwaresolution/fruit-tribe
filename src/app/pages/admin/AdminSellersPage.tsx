@@ -18,6 +18,7 @@ import {
     reactivateSeller as reactivateSellerApi,
 } from '@/lib/api';
 import { useAdminData } from '@/app/context/AdminDataContext';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface Seller {
     id: string;
@@ -85,7 +86,7 @@ export function AdminSellersPage() {
             toast.success('Merchant partnership activated successfully!');
             setSelectedSeller(null);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to approve');
+            toast.error(getUserErrorMessage(e, 'Failed to approve'));
         }
     };
 
@@ -537,7 +538,7 @@ export function AdminSellersPage() {
                                                 toast.success('Node reactivated successfully.');
                                                 setSelectedSeller(null);
                                             } catch (e: any) {
-                                                toast.error(e?.message || 'Protocol restoration failed');
+                                                toast.error(getUserErrorMessage(e, 'Protocol restoration failed'));
                                             }
                                         }}
                                         className="w-full h-18 bg-emerald-600 text-white rounded-3xl font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-4 active:scale-95 shadow-[0_20px_50px_rgba(16,185,129,0.3)] hover:bg-emerald-500 transition-all duration-500"
@@ -555,7 +556,7 @@ export function AdminSellersPage() {
                                                     toast.success('Node suspended.');
                                                     setSelectedSeller(null);
                                                 } catch (e: any) {
-                                                    toast.error(e?.message || 'Suspension protocol failed');
+                                                    toast.error(getUserErrorMessage(e, 'Suspension protocol failed'));
                                                 }
                                             }
                                         } }

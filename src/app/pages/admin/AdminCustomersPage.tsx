@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { postBulkCustomerAnnouncement } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 const STOCK_CLEARANCE_PRESET = {
     title: 'Stock clearance sale',
@@ -227,7 +228,7 @@ export function AdminCustomersPage() {
             }
             setBulkOpen(false);
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : 'Failed to send bulk message');
+            toast.error(getUserErrorMessage(e, 'Failed to send bulk message'));
         } finally {
             setBulkLoading(false);
         }

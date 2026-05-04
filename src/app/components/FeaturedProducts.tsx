@@ -15,11 +15,17 @@ interface FeaturedProductsProps {
 
 export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     const { theme } = useStore();
-    const { products, loading, error } = useProducts({ limit: 8 });
+    const { products, loading, error } = useProducts({ limit: 100, showOutOfSeason: true });
     const [productTab, setProductTab] = useState<'all' | 'bulk' | 'seasonal'>('all');
 
     const featuredProducts = useMemo(() => {
-        let next = products.filter(p => p.status === 'Active' && p.availableStock > 0);
+        const now = Date.now();
+        let next = products.filter((p) => {
+            if (!(p.status === 'Active' && p.availableStock > 0)) return false;
+            if (!p.expiryDate) return true;
+            const t = new Date(p.expiryDate).getTime();
+            return !Number.isFinite(t) || t >= now;
+        });
         if (productTab === 'bulk') {
             next = next.filter((p) => productHasBulkPricing(p));
         } else if (productTab === 'seasonal') {

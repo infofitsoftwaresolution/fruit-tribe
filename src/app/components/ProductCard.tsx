@@ -1,4 +1,4 @@
-import { memo, useState, useEffect, useMemo } from 'react';
+import { memo, useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingCart, MapPin, Leaf, CalendarDays, Tag, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -103,6 +103,7 @@ export const ProductCard = memo(({
 }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [isPackSelectOpen, setIsPackSelectOpen] = useState(false);
+  const packSelectRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveFarmName       = farmName       ?? (product as any)?.farmName       ?? product?.vendor ?? null;
   const effectiveFarmState      = farmState      ?? (product as any)?.farmState      ?? null;
@@ -198,6 +199,16 @@ export const ProductCard = memo(({
       setPackKind(bulkDealMode && hasBulk ? 'bulk' : 'retail');
     }
   }, [packKind, variantOptions, bulkDealMode, hasBulk]);
+  useEffect(() => {
+    const onDocPointerDown = (ev: MouseEvent) => {
+      if (!packSelectRef.current) return;
+      if (!packSelectRef.current.contains(ev.target as Node)) {
+        setIsPackSelectOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocPointerDown);
+    return () => document.removeEventListener('mousedown', onDocPointerDown);
+  }, []);
 
   const selectedVariant   = packKind.startsWith('variant:')
     ? variantOptions.find((v) => v.key === packKind) || null
@@ -243,6 +254,10 @@ export const ProductCard = memo(({
     )
     .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const cleanDescription = useMemo(() => sanitizeCardDescription(description), [description]);
+  const selectedPackLabel = useMemo(() => {
+    const effective = bulkDealMode ? 'bulk' : packKind;
+    return sortedPackSelectOptions.find((opt) => opt.value === effective)?.label || sortedPackSelectOptions[0]?.label || '';
+  }, [bulkDealMode, packKind, sortedPackSelectOptions]);
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -425,28 +440,46 @@ export const ProductCard = memo(({
         {/* Pack selector if bulk */}
         {!isOutOfStock && (hasBulk || variantOptions.length > 0) && (
           <div className="mt-2">
-            <div className="relative">
-            <select
-              value={bulkDealMode ? 'bulk' : packKind}
-              onChange={(e) => { if (bulkDealMode) return; setPackKind(e.target.value); setIsPackSelectOpen(false); }}
-              onFocus={() => setIsPackSelectOpen(true)}
-              onBlur={() => setIsPackSelectOpen(false)}
-              onClick={() => setIsPackSelectOpen((prev) => !prev)}
-              disabled={!!bulkDealMode}
-              className="w-full h-8 pl-2.5 pr-8 text-[11px] text-slate-900 border border-slate-200 rounded-lg bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 appearance-none"
-            >
-              {sortedPackSelectOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className={cn(
-                'pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform',
-                isPackSelectOpen && 'rotate-180'
+            <div ref={packSelectRef} className="relative">
+              <button
+                type="button"
+                onClick={() => { if (!bulkDealMode) setIsPackSelectOpen((prev) => !prev); }}
+                className={cn(
+                  "w-full h-9 pl-3 pr-9 text-left text-[11px] font-semibold text-slate-800 border border-slate-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all",
+                  bulkDealMode && "cursor-not-allowed opacity-90"
+                )}
+              >
+                <span className="line-clamp-1">{selectedPackLabel}</span>
+                <ChevronDown
+                  className={cn(
+                    'pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500 transition-transform',
+                    isPackSelectOpen && 'rotate-180'
+                  )}
+                />
+              </button>
+              {!bulkDealMode && isPackSelectOpen && (
+                <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+                  {sortedPackSelectOptions.map((opt) => {
+                    const active = (bulkDealMode ? 'bulk' : packKind) === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => {
+                          setPackKind(opt.value);
+                          setIsPackSelectOpen(false);
+                        }}
+                        className={cn(
+                          "w-full px-3 py-2 text-left text-[11px] transition-colors",
+                          active ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            />
             </div>
           </div>
         )}

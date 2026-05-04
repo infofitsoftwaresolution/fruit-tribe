@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, KeyboardEvent, useEffect, useRef } from 'react';
 import { getAdminContactSubmissions, type AdminContactSubmission } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface AdminHeaderProps {
     onOpenSidebar?: () => void;
@@ -37,7 +38,7 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
             const items = await getAdminContactSubmissions(12);
             setContactNotifications(items);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to load notifications');
+            toast.error(getUserErrorMessage(e, 'Failed to load notifications'));
         } finally {
             setNotificationLoading(false);
         }

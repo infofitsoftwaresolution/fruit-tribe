@@ -5,6 +5,7 @@ import { ShieldCheck, Mail, KeyRound, Loader2, RefreshCw } from 'lucide-react';
 import { verifyEmailCode, resendEmailCode } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAuth } from '@/app/context/AuthContext';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export function VerifyEmailPage() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export function VerifyEmailPage() {
 
       navigate(`/login?next=${encodeURIComponent(next || '/')}`);
     } catch (err: any) {
-      toast.error(err?.message || 'Verification failed. Please check the code and try again.');
+      toast.error(getUserErrorMessage(err, 'Verification failed. Please check the code and try again.'));
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export function VerifyEmailPage() {
                 const res = await resendEmailCode(email.trim());
                 toast.success(res.message || 'Verification code resent.');
               } catch (err: any) {
-                toast.error(err?.message || 'Could not resend code. Please try again later.');
+                toast.error(getUserErrorMessage(err, 'Could not resend code. Please try again later.'));
               } finally {
                 setResending(false);
               }

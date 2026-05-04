@@ -3,6 +3,7 @@ import { changePassword } from '@/lib/api';
 import { useAuth } from '@/app/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export function ChangePasswordPage() {
   const { logout } = useAuth();
@@ -33,7 +34,7 @@ export function ChangePasswordPage() {
       logout();
       navigate('/login', { replace: true });
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to change password.');
+      toast.error(getUserErrorMessage(e, 'Failed to change password.'));
     } finally {
       setLoading(false);
     }

@@ -3,7 +3,6 @@ import {
     Activity,
     ArrowRight,
     Package,
-    IndianRupee,
     Truck,
     Clock,
     MapPin,
@@ -16,6 +15,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface DeliveryDashboardData {
     partnerId: string;
@@ -24,7 +24,6 @@ interface DeliveryDashboardData {
     assignedToday: number;
     deliveredToday: number;
     pendingToday: number;
-    earningsToday: number;
     codCollectedToday: number;
     distanceTodayKm: number;
 }
@@ -86,7 +85,7 @@ export function DeliveryDashboard() {
                 setData(json);
                 setOnline(json.onlineStatus === 'ONLINE');
             } catch (e: any) {
-                toast.error(e?.message || 'Unable to load delivery dashboard');
+                toast.error(getUserErrorMessage(e, 'Unable to load delivery dashboard'));
             } finally {
                 setLoading(false);
             }
@@ -199,7 +198,7 @@ export function DeliveryDashboard() {
                                 );
                                 toast.success(next ? 'You are now ONLINE' : 'You are now OFFLINE');
                             } catch (e: any) {
-                                toast.error(e?.message || 'Unable to change status');
+                                toast.error(getUserErrorMessage(e, 'Unable to change status'));
                             } finally {
                                 setToggling(false);
                             }
@@ -241,37 +240,16 @@ export function DeliveryDashboard() {
                     icon={Clock}
                 />
                 <MetricGlassCard
-                    label="Earnings today"
-                    value={`₹${data.earningsToday.toFixed(2)}`}
-                    sub="Delivery pay"
-                    color="emerald"
-                    icon={IndianRupee}
+                    label="COD collected"
+                    value={`₹${data.codCollectedToday.toFixed(2)}`}
+                    sub="Today's collections"
+                    color="blue"
+                    icon={MapPin}
                 />
             </div>
 
-            {/* Second row: COD, Distance - match admin grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <motion.div
-                    whileHover={{ y: -2 }}
-                    className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group"
-                >
-                    <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="p-4 rounded-[1.5rem] border bg-sky-50 text-sky-600 border-sky-100 transition-all duration-500 group-hover:scale-110">
-                                <IndianRupee className="w-6 h-6" />
-                            </div>
-                        </div>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-                            COD collected today
-                        </p>
-                        <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1 leading-none">
-                            ₹{data.codCollectedToday.toFixed(2)}
-                        </p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">
-                            Cash on delivery
-                        </p>
-                    </div>
-                </motion.div>
+            {/* Second row: Distance - match admin grid */}
+            <div className="grid grid-cols-1 gap-4">
                 <motion.div
                     whileHover={{ y: -2 }}
                     className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group"
@@ -356,15 +334,15 @@ export function DeliveryDashboard() {
                                 <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
                             </Link>
                             <Link
-                                to="/delivery/earnings"
+                                to="/delivery/assignments"
                                 className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-3xl hover:bg-white/10 transition-all group"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className="h-10 w-10 bg-blue-500/20 rounded-2xl flex items-center justify-center border border-blue-500/20">
-                                        <IndianRupee className="h-5 w-5 text-blue-500" />
+                                        <MapPin className="h-5 w-5 text-blue-500" />
                                     </div>
                                     <span className="text-sm font-black uppercase tracking-tight">
-                                        Earnings & COD
+                                        Navigate to address
                                     </span>
                                 </div>
                                 <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />

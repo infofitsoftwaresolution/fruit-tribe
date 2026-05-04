@@ -19,6 +19,8 @@ interface DeliveryContextType {
   isLoading: boolean;
   isServiceable: boolean | null;
   setAndConfirmPincode: (pin: string) => Promise<boolean>;
+  /** Persist PIN and mark serviceable without a network call (caller already validated against the service list). */
+  applyConfirmedPincodeSync: (pin: string) => void;
   clearPincode: () => void;
 }
 
@@ -180,13 +182,21 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
         const ok = pins.length === 0 || pins.includes(saved);
         setIsServiceable(ok);
       } catch {
-        // Soft fail
+        // Network / server error: keep prior UX for hydrated PIN; confirmation flow uses strict failure below.
         setIsServiceable(true);
       } finally {
         setIsLoading(false);
       }
     };
     fetchAndVerify();
+  }, []);
+
+  const applyConfirmedPincodeSync = useCallback((pin: string) => {
+    const cleaned = pin.replace(/\D/g, '').slice(0, 6);
+    if (cleaned.length !== 6) return;
+    localStorage.setItem(PINCODE_KEY, cleaned);
+    setPincode(cleaned);
+    setIsServiceable(true);
   }, []);
 
   const setAndConfirmPincode = async (pin: string) => {
@@ -198,14 +208,13 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
       const pins = data.pincodes ?? [];
       const ok = pins.length === 0 || pins.includes(cleaned);
       if (ok) {
-        localStorage.setItem(PINCODE_KEY, cleaned);
-        setPincode(cleaned);
+        applyConfirmedPincodeSync(cleaned);
       }
       setIsServiceable(ok);
       return ok;
     } catch {
-      setIsServiceable(true);
-      return true;
+      setIsServiceable(false);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -219,7 +228,9 @@ export function DeliveryProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DeliveryContext.Provider value={{ pincode, slot, isLoading, isServiceable, setAndConfirmPincode, clearPincode }}>
+    <DeliveryContext.Provider
+      value={{ pincode, slot, isLoading, isServiceable, setAndConfirmPincode, applyConfirmedPincodeSync, clearPincode }}
+    >
       {children}
     </DeliveryContext.Provider>
   );

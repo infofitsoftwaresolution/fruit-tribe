@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { getServiceableAreas, updateServiceableAreas, getStoreSettings, updateStoreSettings, getEffectiveApiBase } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 /**
  * Fetch all 6-digit pincodes for an area name using the free postalpincode.in API.
@@ -55,7 +56,7 @@ async function saveRazorpayToBackend(razorpayKeyId: string, razorpayKeySecret: s
         }
         return { ok: true };
     } catch (e: any) {
-        return { ok: false, message: e?.message || 'Backend unreachable.' };
+        return { ok: false, message: getUserErrorMessage(e, 'Backend unreachable.') };
     }
 }
 
@@ -227,7 +228,7 @@ export function AdminSettingsPage() {
                 platformFee: previousDeliveryPrefs.platformFee,
                 deliverySlots: previousDeliveryPrefs.deliverySlots,
             });
-            toast.error(e?.message || 'Failed to save');
+            toast.error(getUserErrorMessage(e, 'Failed to save'));
         } finally {
             setDeliverySaving(false);
         }
@@ -309,7 +310,7 @@ export function AdminSettingsPage() {
                     : 'Delivery cities updated. PIN list is empty — any 6-digit PIN is allowed (city rules still apply).',
             );
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to save');
+            toast.error(getUserErrorMessage(e, 'Failed to save'));
         }
         setCitiesSaving(false);
     };

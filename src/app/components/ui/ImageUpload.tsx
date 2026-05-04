@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getEffectiveApiBase, getImageDisplayUrl } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface ImageUploadProps {
     value: string[];
@@ -78,7 +79,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Product Im
         } catch (error) {
             console.error('Upload error:', error);
             toast.error('Image upload failed', {
-                description: error instanceof Error ? error.message : 'Upload was interrupted. Please check backend status and try again.'
+                description: getUserErrorMessage(error, 'Upload was interrupted. Please check backend status and try again.')
             });
         } finally {
             setIsUploading(false);

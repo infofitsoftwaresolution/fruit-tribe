@@ -23,6 +23,7 @@ import {
 } from '@/lib/deliveryAddressUtils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
+import { getUserErrorMessage } from '@/lib/userError';
 
 const BENEFIT_ICONS: Record<string, LucideIcon> = {
   gift: Gift,
@@ -157,10 +158,20 @@ export function SubscriptionPage() {
     );
   };
 
+  const zipDeliverabilityHint = useMemo(() => {
+    if (serviceablePincodes.length === 0) return '';
+    const d = addressForm.zipCode.replace(/\D/g, '');
+    if (d.length !== 6) return '';
+    if (!serviceablePincodes.includes(d)) return 'Not deliverable — this PIN is not in our service area.';
+    return '';
+  }, [addressForm.zipCode, serviceablePincodes]);
+
   const addressFieldChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSelectedSavedAddressId('');
-    setAddressForm((prev) => ({ ...prev, [name]: value }));
+    const next =
+      name === 'zipCode' ? value.replace(/\D/g, '').slice(0, 6) : value;
+    setAddressForm((prev) => ({ ...prev, [name]: next }));
   };
 
   const handleSavedAddressPick = (id: string) => {
@@ -341,7 +352,7 @@ export function SubscriptionPage() {
                 selectedSavedAddressId,
               );
             } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : 'Verification failed';
+              const msg = getUserErrorMessage(err, 'Verification failed');
               toast.error(msg + ' If money was debited, contact support with your order number.');
             }
           },
@@ -395,7 +406,7 @@ export function SubscriptionPage() {
         setIsCustomizing(false);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not start subscription.';
+      const message = getUserErrorMessage(err, 'Could not start subscription.');
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -725,9 +736,22 @@ export function SubscriptionPage() {
                           className="h-9 rounded-xl border border-slate-200 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/20" />
                       ))}
                     </div>
-                    <input name="zipCode" value={addressForm.zipCode}
-                      onChange={addressFieldChange} placeholder="PIN code"
-                      className="w-full h-9 rounded-xl border border-slate-200 px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/20" />
+                    <input
+                      name="zipCode"
+                      value={addressForm.zipCode}
+                      onChange={addressFieldChange}
+                      placeholder="PIN code"
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      maxLength={6}
+                      className={cn(
+                        'w-full h-9 rounded-xl border px-3 text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-500/20',
+                        zipDeliverabilityHint ? 'border-red-300 bg-red-50/40' : 'border-slate-200',
+                      )}
+                    />
+                    {zipDeliverabilityHint ? (
+                      <p className="text-[11px] font-bold text-red-600 -mt-1">{zipDeliverabilityHint}</p>
+                    ) : null}
                     {serviceablePincodes.length > 0 && (
                       <ServiceablePincodesHint pincodes={serviceablePincodes} variant="compact" />
                     )}

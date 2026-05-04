@@ -89,7 +89,6 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
       return [
         { path: '/delivery', label: 'Delivery dashboard' },
         { path: '/delivery/assignments', label: 'Assignments' },
-        { path: '/delivery/earnings', label: 'Earnings' },
         { path: '/?from=delivery', label: 'View store' },
       ];
     }

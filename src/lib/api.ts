@@ -1066,6 +1066,24 @@ export async function getWarehouses(activeOnly = true): Promise<Array<{
   return res.json();
 }
 
+/** Road distance (km) from warehouses to drop-off via server-side Mapbox Matrix. Returns null if unavailable. */
+export async function getDrivingDistanceKm(
+  sources: Array<{ latitude: number; longitude: number }>,
+  destination: { latitude: number; longitude: number },
+): Promise<{ distanceKm: number | null }> {
+  const res = await fetch(`${getEffectiveApiBase()}/geocode/driving-distance`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sources, destination }),
+  });
+  if (!res.ok) return { distanceKm: null };
+  const data = (await res.json()) as { distanceKm?: unknown };
+  const v = data?.distanceKm;
+  return {
+    distanceKm: typeof v === 'number' && Number.isFinite(v) ? v : null,
+  };
+}
+
 /** Create warehouse (admin only). */
 export async function createWarehouse(data: { name: string; address: string; latitude: number; longitude: number; isActive?: boolean }): Promise<{ id: string }> {
   const res = await fetch(`${getEffectiveApiBase()}/warehouses`, {

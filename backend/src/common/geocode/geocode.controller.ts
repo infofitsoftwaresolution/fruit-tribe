@@ -1,7 +1,9 @@
-import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, ParseFloatPipe } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Get, HttpCode, ParseFloatPipe, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
+import { DrivingDistanceDto } from './dto/driving-distance.dto';
 import { GeocodeService } from './geocode.service';
+import { GeoapifyService } from './geoapify.service';
 
 /**
  * Checkout debounces but still fires bursts of forward/reverse lookups while the user types.
@@ -12,7 +14,10 @@ import { GeocodeService } from './geocode.service';
 @ApiTags('Geocode')
 @Controller('geocode')
 export class GeocodeController {
-    constructor(private readonly geocodeService: GeocodeService) {}
+    constructor(
+        private readonly geocodeService: GeocodeService,
+        private readonly geoapifyService: GeoapifyService,
+    ) {}
 
     @Get('search')
     @ApiOperation({ summary: 'Forward geocode (India), proxied from Nominatim for browser CORS' })
@@ -35,5 +40,15 @@ export class GeocodeController {
         @Query('lon', ParseFloatPipe) lon: number,
     ) {
         return this.geocodeService.reverse(lat, lon);
+    }
+
+    @Post('driving-distance')
+    @HttpCode(200)
+    @ApiOperation({
+        summary: 'Road distance (km) from nearest warehouse to destination via Mapbox Matrix',
+    })
+    async drivingDistance(@Body() body: DrivingDistanceDto) {
+        const km = await this.geoapifyService.minDrivingDistanceKm(body.sources, body.destination);
+        return { distanceKm: km };
     }
 }

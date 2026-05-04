@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Share2, Minus, Plus, ChevronRight, ShieldCheck, Truck, Star } from 'lucide-react';
+import { Share2, Minus, Plus, ChevronRight, ChevronDown, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { humanizePackLabelString, parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, formatInr } from '@/lib/utils';
 import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
@@ -96,6 +97,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const [activeVariant, setActiveVariant] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [pincode, setPincode] = useState('');
+  const [pinDeliveryCheck, setPinDeliveryCheck] = useState<'idle' | 'ok' | 'fail' | 'no_list'>('idle');
+  const { pincodes: serviceablePincodes, isPincodeServiceable } = useServiceableAreas();
   const [tab, setTab] = useState<InfoTab>('details');
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [reviewRating, setReviewRating] = useState(5);
@@ -403,18 +406,21 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select option</p>
               <div className="flex flex-wrap gap-2 items-center">
-                <select
-                  value={activeVariant ?? ''}
-                  onChange={(e) => setActiveVariant(e.target.value || null)}
-                  className="h-10 min-w-[180px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-emerald-400"
-                >
-                  <option value="">Default</option>
-                  {sortedSelectableVariants.map((variant: any) => (
-                    <option key={variant.sku} value={variant.sku}>
-                      {humanizePackLabelString(String(variant.name || ''))}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={activeVariant ?? ''}
+                    onChange={(e) => setActiveVariant(e.target.value || null)}
+                    className="h-10 min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-semibold text-slate-800 shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                  >
+                    <option value="">Default</option>
+                    {sortedSelectableVariants.map((variant: any) => (
+                      <option key={variant.sku} value={variant.sku}>
+                        {humanizePackLabelString(String(variant.name || ''))}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                </div>
                 <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>Default</button>
                 {sortedSelectableVariants.map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
@@ -463,12 +469,64 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           <div className="border-t border-slate-200 pt-4">
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Check delivery availability</p>
             <div className="flex gap-2">
-              <input value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter pincode" className="flex-1 h-10 rounded-xl border border-slate-200 px-3 text-sm bg-white" />
-              <button className="h-10 px-4 rounded-xl bg-emerald-900 text-white text-sm font-semibold">Check</button>
+              <input
+                value={pincode}
+                onChange={(e) => {
+                  const next = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setPincode(next);
+                  if (serviceablePincodes.length === 0) {
+                    setPinDeliveryCheck('idle');
+                    return;
+                  }
+                  if (next.length < 6) {
+                    setPinDeliveryCheck('idle');
+                    return;
+                  }
+                  setPinDeliveryCheck(isPincodeServiceable(next) ? 'ok' : 'fail');
+                }}
+                placeholder="Enter pincode"
+                className="flex-1 h-10 rounded-xl border border-slate-200 px-3 text-sm bg-white"
+              />
+              <button
+                type="button"
+                className="h-10 px-4 rounded-xl bg-emerald-900 text-white text-sm font-semibold shrink-0"
+                onClick={() => {
+                  const d = pincode.replace(/\D/g, '');
+                  if (d.length !== 6) {
+                    toast.error('Enter a 6-digit PIN code.');
+                    setPinDeliveryCheck('idle');
+                    return;
+                  }
+                  if (serviceablePincodes.length === 0) {
+                    setPinDeliveryCheck('no_list');
+                    return;
+                  }
+                  setPinDeliveryCheck(isPincodeServiceable(d) ? 'ok' : 'fail');
+                }}
+              >
+                Check
+              </button>
             </div>
-            <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 inline-flex items-center gap-1">
-              <Truck className="w-3.5 h-3.5" /> Free delivery above configured threshold
-            </p>
+            {pinDeliveryCheck === 'ok' && (
+              <p className="mt-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 inline-flex items-center gap-1">
+                <Truck className="w-3.5 h-3.5 shrink-0" /> Deliverable to this PIN. Free delivery may apply above the store threshold.
+              </p>
+            )}
+            {pinDeliveryCheck === 'fail' && (
+              <p className="mt-2 text-xs text-red-800 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                Not deliverable — this PIN is not in our current service list.
+              </p>
+            )}
+            {pinDeliveryCheck === 'no_list' && (
+              <p className="mt-2 text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                Delivery area is confirmed at checkout. Add serviceable PINs in admin settings to check availability here.
+              </p>
+            )}
+            {pinDeliveryCheck === 'idle' && (
+              <p className="mt-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 inline-flex items-center gap-1">
+                <Truck className="w-3.5 h-3.5" /> Free delivery above configured threshold
+              </p>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-2">

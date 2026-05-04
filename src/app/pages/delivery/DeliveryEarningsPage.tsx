@@ -10,6 +10,7 @@ import { getEffectiveApiBase } from '@/lib/api';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 interface EarningsSummary {
     today: { earnings: number; deliveries: number };
@@ -43,7 +44,7 @@ export function DeliveryEarningsPage() {
                 setEarnings(await earningsRes.json());
                 setCod(await codRes.json());
             } catch (e: any) {
-                toast.error(e?.message || 'Unable to load earnings data');
+                toast.error(getUserErrorMessage(e, 'Unable to load earnings data'));
             } finally {
                 setLoading(false);
             }

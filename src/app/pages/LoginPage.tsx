@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { cn, pressableSurfaceClass } from '@/lib/utils';
 import { getEffectiveApiBase } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 const AUTH_BG_IMAGE =
   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&q=80';
@@ -80,7 +81,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       await login(formData.email, formData.password);
       redirectAfterLogin();
     } catch (err: any) {
-      const msg = String(err?.message || '');
+      const msg = getUserErrorMessage(err, 'Invalid email, mobile, or password. Please try again.');
       if (msg.includes('not verified') || msg.includes('verification code')) {
         toast.info('Enter the OTP we sent to your phone or email.');
         const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
@@ -120,7 +121,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
         });
       }, 1000);
     } catch (err: any) {
-      setError(err?.message || 'Could not send WhatsApp OTP. Please try again.');
+      setError(getUserErrorMessage(err, 'Could not send WhatsApp OTP. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -174,7 +175,7 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       toast.success(`Welcome back, ${userData.name}! 🎉`);
       redirectAfterLogin();
     } catch (err: any) {
-      setError(err?.message || 'OTP verification failed. Please try again.');
+      setError(getUserErrorMessage(err, 'OTP verification failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }

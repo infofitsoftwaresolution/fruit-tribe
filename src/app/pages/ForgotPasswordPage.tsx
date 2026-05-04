@@ -5,6 +5,7 @@ import { Mail, ArrowLeft, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { requestPasswordReset, resetPasswordWithCode } from '@/lib/api';
 import { motionTapTransition } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -36,7 +37,7 @@ export function ForgotPasswordPage() {
         setStep('done');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Something went wrong. Please try again.');
+      toast.error(getUserErrorMessage(err, 'Something went wrong. Please try again.'));
     } finally {
       setIsLoading(false);
     }

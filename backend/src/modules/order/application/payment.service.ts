@@ -274,11 +274,21 @@ export class PaymentService {
                 throw new BadRequestException('Razorpay is not configured.');
             }
 
+            const normalizedRole = String(requesterRole || 'CUSTOMER').toUpperCase();
             const order = await this.prisma.order.findFirst({
                 where:
-                    String(requesterRole).toUpperCase() === 'ADMIN'
+                    normalizedRole === 'ADMIN'
                         ? { id: orderId }
-                        : { id: orderId, userId },
+                        : normalizedRole === 'DELIVERY_PARTNER'
+                            ? {
+                                id: orderId,
+                                deliveries: {
+                                    some: {
+                                        deliveryPartner: { userId },
+                                    },
+                                },
+                            }
+                            : { id: orderId, userId },
                 include: {
                     user: {
                         select: { firstName: true, lastName: true },
@@ -287,17 +297,18 @@ export class PaymentService {
             });
             if (!order) {
                 throw new BadRequestException(
-                    String(requesterRole).toUpperCase() === 'ADMIN'
+                    normalizedRole === 'ADMIN'
                         ? 'Order not found.'
+                        : normalizedRole === 'DELIVERY_PARTNER'
+                            ? 'Order not found for this delivery assignment.'
                         : 'Order not found for this user.',
                 );
             }
 
-            // If order is already confirmed or paid, do not allow generating a new link
-            const isConfirmed = String(order.status).toUpperCase() === 'CONFIRMED';
+            // If order is already paid, do not allow generating a new link
             const isPaid = String(order.paymentStatus).toUpperCase() === 'PAID';
-            if (isConfirmed || isPaid) {
-                throw new BadRequestException('This order is already confirmed or paid. No payment link needed.');
+            if (isPaid) {
+                throw new BadRequestException('This order is already paid. No payment link needed.');
             }
 
             const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);

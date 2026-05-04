@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -211,7 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error(error?.message || 'Login failed. Please check your email or mobile and password.');
+      toast.error(getUserErrorMessage(error, 'Login failed. Please check your email or mobile and password.'));
       throw error;
     }
   };

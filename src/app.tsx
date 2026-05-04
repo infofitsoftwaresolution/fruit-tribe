@@ -62,7 +62,6 @@ const SellerDashboard = lazy(() => import('@/app/pages/seller/SellerDashboard').
 const DeliveryDashboard = lazy(() => import('@/app/pages/delivery/DeliveryDashboard').then(m => ({ default: m.DeliveryDashboard })));
 const DeliveryAssignmentsPage = lazy(() => import('@/app/pages/delivery/DeliveryAssignmentsPage').then(m => ({ default: m.DeliveryAssignmentsPage })));
 const DeliveryAssignmentDetailPage = lazy(() => import('@/app/pages/delivery/DeliveryAssignmentDetailPage').then(m => ({ default: m.DeliveryAssignmentDetailPage })));
-const DeliveryEarningsPage = lazy(() => import('@/app/pages/delivery/DeliveryEarningsPage').then(m => ({ default: m.DeliveryEarningsPage })));
 
 function PageFallback() {
   return (
@@ -294,7 +293,6 @@ function AppRoutes() {
               <Route index element={<DeliveryDashboard />} />
               <Route path="assignments" element={<DeliveryAssignmentsPage />} />
               <Route path="assignments/:id" element={<DeliveryAssignmentDetailPage />} />
-              <Route path="earnings" element={<DeliveryEarningsPage />} />
             </Route>
           </Route>
 

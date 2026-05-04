@@ -77,6 +77,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
     categoryId: selectedCategoryId || undefined,
     sortBy: 'createdAt',
     sortOrder: 'desc',
+    showOutOfSeason: true,
   });
   const { products: allCatalogProducts } = useProducts({
     limit: 200,
@@ -84,7 +85,12 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
   });
 
   const filteredProducts = useMemo(() => {
-    let next = storeProducts;
+    const now = Date.now();
+    let next = storeProducts.filter((p) => {
+      if (!p.expiryDate) return true;
+      const t = new Date(p.expiryDate).getTime();
+      return !Number.isFinite(t) || t >= now;
+    });
     if (selectedCategoryId) {
       const selectedCategory = categories.find((c) => String(c.id) === String(selectedCategoryId));
       const selectedCategoryName = selectedCategory?.name?.trim().toLowerCase();
@@ -254,7 +260,7 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
               <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value as typeof sortOption)}
-                className="appearance-none h-full px-4 py-3 text-sm font-medium text-slate-600 bg-transparent border-0 outline-none cursor-pointer pr-8 hover:bg-slate-50 transition-colors"
+                className="appearance-none h-full px-4 py-3 text-sm font-semibold text-slate-700 bg-transparent border-0 outline-none cursor-pointer pr-8 hover:bg-slate-50 transition-colors"
               >
                 <option value="relevance">Relevance</option>
                 <option value="newest">Newest</option>
@@ -294,27 +300,33 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                 className="overflow-hidden border-t border-slate-100"
               >
                 <div className="px-4 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <select
-                    value={availabilityFilter}
-                    onChange={(e) => setAvailabilityFilter(e.target.value as typeof availabilityFilter)}
-                    className="h-10 px-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                  >
-                    <option value="all">Availability: All</option>
-                    <option value="in_stock">In stock only</option>
-                    <option value="out_of_stock">Out of stock</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={availabilityFilter}
+                      onChange={(e) => setAvailabilityFilter(e.target.value as typeof availabilityFilter)}
+                      className="h-10 w-full px-3 pr-9 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-white shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                    >
+                      <option value="all">Availability: All</option>
+                      <option value="in_stock">In stock only</option>
+                      <option value="out_of_stock">Out of stock</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
 
-                  <select
-                    value={priceFilter}
-                    onChange={(e) => setPriceFilter(e.target.value as typeof priceFilter)}
-                    className="h-10 px-3 border border-slate-200 rounded-xl text-sm text-slate-700 bg-white outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
-                  >
-                    <option value="all">Price: All</option>
-                    <option value="under_100">Under ₹100</option>
-                    <option value="100_250">₹100 – ₹250</option>
-                    <option value="250_500">₹250 – ₹500</option>
-                    <option value="500_plus">Above ₹500</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={priceFilter}
+                      onChange={(e) => setPriceFilter(e.target.value as typeof priceFilter)}
+                      className="h-10 w-full px-3 pr-9 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 bg-white shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
+                    >
+                      <option value="all">Price: All</option>
+                      <option value="under_100">Under ₹100</option>
+                      <option value="100_250">₹100 – ₹250</option>
+                      <option value="250_500">₹250 – ₹500</option>
+                      <option value="500_plus">Above ₹500</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  </div>
 
                   {/* Toggle chips */}
                   <div className="flex flex-wrap gap-2 sm:col-span-2 items-center">

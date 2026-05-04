@@ -9,6 +9,7 @@ import { AboutPage } from '@/app/pages/AboutPage';
 import { LoginPage } from '@/app/pages/LoginPage';
 import { SignUpPage } from '@/app/pages/SignUpPage';
 import { cn } from '@/lib/utils';
+import { getUserErrorMessage } from '@/lib/userError';
 
 // --- Premium Helper Components for the Theme Editor ---
 
@@ -128,7 +129,7 @@ export function AdminThemeEditor() {
             setIsDirty(false);
             toast.success('Theme saved. Changes will persist after refresh.');
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to save theme');
+            toast.error(getUserErrorMessage(e, 'Failed to save theme'));
         } finally {
             setIsSaving(false);
         }

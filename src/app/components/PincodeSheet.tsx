@@ -26,12 +26,19 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'fail'>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
-  const { setAndConfirmPincode, slot } = useDeliverySlot();
-  const { pincodes: serviceablePincodes, cities: serviceableCities } = useServiceableAreas();
+  const pendingResolveAfterAreasLoadRef = useRef(false);
+  const { setAndConfirmPincode, slot, applyConfirmedPincodeSync } = useDeliverySlot();
+  const {
+    pincodes: serviceablePincodes,
+    cities: serviceableCities,
+    isPincodeServiceable,
+    loading: areasLoading,
+  } = useServiceableAreas();
 
   // Focus input when sheet opens
   useEffect(() => {
     if (isOpen) {
+      pendingResolveAfterAreasLoadRef.current = false;
       setTimeout(() => inputRef.current?.focus(), 350);
       setInput('');
       setStatus('idle');
@@ -53,11 +60,55 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
     }
   }, [setAndConfirmPincode]);
 
+  /** When service areas were still loading, finish validation the moment the list is ready (no extra delay). */
+  useEffect(() => {
+    if (!isOpen || areasLoading || !pendingResolveAfterAreasLoadRef.current) return;
+    if (input.length !== 6) {
+      pendingResolveAfterAreasLoadRef.current = false;
+      return;
+    }
+    pendingResolveAfterAreasLoadRef.current = false;
+    if (serviceablePincodes.length > 0) {
+      if (!isPincodeServiceable(input)) setStatus('fail');
+      else {
+        setStatus('ok');
+        applyConfirmedPincodeSync(input);
+      }
+    } else {
+      void handleCheck(input);
+    }
+  }, [
+    areasLoading,
+    isOpen,
+    input,
+    serviceablePincodes,
+    isPincodeServiceable,
+    applyConfirmedPincodeSync,
+    handleCheck,
+  ]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value.replace(/\D/g, '').slice(0, 6);
     setInput(v);
-    setStatus('idle');
-    if (v.length === 6) handleCheck(v);
+    pendingResolveAfterAreasLoadRef.current = false;
+    if (v.length < 6) {
+      setStatus('idle');
+      return;
+    }
+    if (areasLoading) {
+      setStatus('loading');
+      pendingResolveAfterAreasLoadRef.current = true;
+      return;
+    }
+    if (serviceablePincodes.length > 0) {
+      if (!isPincodeServiceable(v)) setStatus('fail');
+      else {
+        setStatus('ok');
+        applyConfirmedPincodeSync(v);
+      }
+      return;
+    }
+    void handleCheck(v);
   };
 
   const handleConfirm = () => {
@@ -166,9 +217,9 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
                 >
                   <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
                   <div>
-                    <p className="text-sm font-black text-red-700">Not serviceable yet</p>
+                    <p className="text-sm font-black text-red-700">Not deliverable</p>
                     <p className="text-[11px] font-bold text-red-500 mt-0.5">
-                      We're expanding fast — try a nearby pincode or check back soon.
+                      This PIN is not in our service list. Try a listed pincode or check back when we expand.
                     </p>
                   </div>
                 </motion.div>
@@ -209,7 +260,8 @@ export function PincodeSheet({ isOpen, onClose, onConfirmed }: PincodeSheetProps
                       key={pin}
                       onClick={() => {
                         setInput(pin);
-                        handleCheck(pin);
+                        setStatus('ok');
+                        applyConfirmedPincodeSync(pin);
                       }}
                       className="px-3 py-1.5 text-[10px] font-black text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 transition-colors tracking-wider"
                     >

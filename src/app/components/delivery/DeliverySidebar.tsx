@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
     Package,
-    Wallet,
     Truck,
     LogOut,
     ExternalLink,
@@ -17,7 +16,6 @@ import { getEffectiveApiBase } from '@/lib/api';
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/delivery' },
     { icon: Package, label: 'Assignments', href: '/delivery/assignments', badgeKey: 'assignments' as const },
-    { icon: Wallet, label: 'Earnings', href: '/delivery/earnings' },
 ];
 
 export function DeliverySidebar() {

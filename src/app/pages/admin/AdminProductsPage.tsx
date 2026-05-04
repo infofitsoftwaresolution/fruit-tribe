@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleton';
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
+import { getUserErrorMessage } from '@/lib/userError';
 
 const PDP_META_PREFIX = '[PDP_META]';
 type PdpMeta = {
@@ -74,6 +75,31 @@ function toDateInputValue(value?: string | null): string {
     return date.toISOString().slice(0, 10);
 }
 
+function getVariantQuantityMultiplier(label?: string | null): number {
+    const text = String(label || '').trim().toLowerCase();
+    if (!text) return 1;
+    // Prefer explicit unit-based quantities first (e.g. "5kg", "500 g").
+    const withUnit = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+    if (withUnit) {
+        const amount = Number(withUnit[1]);
+        const unit = withUnit[2];
+        if (Number.isFinite(amount) && amount > 0) {
+            if (unit === 'g' || unit === 'gm' || unit === 'grams') {
+                return amount / 1000;
+            }
+            return amount;
+        }
+    }
+
+    // Fallback: use the largest numeric token, so labels like "1 pack 5 kg"
+    // resolve to 5 instead of 1.
+    const nums = Array.from(text.matchAll(/\d+(?:\.\d+)?/g))
+        .map((m) => Number(m[0]))
+        .filter((n) => Number.isFinite(n) && n > 0);
+    if (!nums.length) return 1;
+    return Math.max(...nums);
+}
+
 export function AdminProductsPage() {
     const { user } = useAuth();
     const location = useLocation();
@@ -119,6 +145,7 @@ export function AdminProductsPage() {
         bulkDiscountQty: '',
         bulkDiscountPrice: '',
         allowCashOnDelivery: true,
+        isActive: true,
         freshnessScore: '' as string,
         ripenessStage: '',
         farmName: '',
@@ -152,7 +179,7 @@ export function AdminProductsPage() {
             setNewCategoryName('');
             toast.success(`Category "${created.name}" created.`);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to create category');
+            toast.error(getUserErrorMessage(e, 'Failed to create category'));
         } finally {
             setIsCreatingCategory(false);
         }
@@ -320,7 +347,7 @@ export function AdminProductsPage() {
                             delete next[key];
                             return next;
                         });
-                        toast.error(e?.message || 'Failed to archive');
+                        toast.error(getUserErrorMessage(e, 'Failed to archive'));
                     }
                 }
             },
@@ -344,7 +371,7 @@ export function AdminProductsPage() {
                                         void refreshProducts();
                                         toast.success(`${name} permanently deleted`);
                                     } catch (e: any) {
-                                        toast.error(e?.message || 'Failed to permanently delete');
+                                        toast.error(getUserErrorMessage(e, 'Failed to permanently delete'));
                                     }
                                 },
                             },
@@ -396,6 +423,7 @@ export function AdminProductsPage() {
             bulkDiscountQty: product.bulkDiscountQty?.toString() || '',
             bulkDiscountPrice: product.bulkDiscountPrice?.toString() || '',
             allowCashOnDelivery: (product as any).allowCashOnDelivery !== false,
+            isActive: product.status === 'Active',
             freshnessScore: product.freshnessScore != null ? String(product.freshnessScore) : '',
             ripenessStage: product.ripenessStage || '',
             farmName: product.farmName || '',
@@ -403,8 +431,16 @@ export function AdminProductsPage() {
             variants: product.variants?.map((v: any) => ({ 
                 id: v.id, 
                 name: v.name || v.attributeValue, 
-                price: String(v.price), 
-                stock: String(v.stockQuantity ?? v.stock), 
+                price: (() => {
+                    const basePrice = Number(product.price) || 0;
+                    const variantPrice = Number(v.price) || 0;
+                    const multiplier = getVariantQuantityMultiplier(v.name || v.attributeValue);
+                    const baseTotal = basePrice * multiplier;
+                    if (baseTotal <= 0 || variantPrice <= 0 || variantPrice >= baseTotal) return '';
+                    const discountPct = ((baseTotal - variantPrice) / baseTotal) * 100;
+                    return String(Math.round(discountPct * 100) / 100);
+                })(),
+                stock: String(Math.max(0, Number(v.stockQuantity ?? v.stock ?? 0))), 
                 sku: v.sku || '',
                 lowStockThreshold: String(v.lowStockThreshold ?? 5)
             })) || []
@@ -445,6 +481,7 @@ export function AdminProductsPage() {
             toast.error('Please select a category');
             return;
         }
+        const parsedBasePrice = parseFloat(formData.price) || 0;
         setIsSavingProduct(true);
         try {
             const imagePaths = formData.images.filter(Boolean).map((url) => {
@@ -468,16 +505,23 @@ export function AdminProductsPage() {
                 .map((v, index) => {
                     const rawName = String(v.name || '').trim();
                     const rawSku = String(v.sku || '').trim().toUpperCase();
-                    const rawPrice = String(v.price || '').trim();
+                    const rawDiscountPct = String(v.price || '').trim();
                     const rawStock = String(v.stock || '').trim();
-                    const hasUserInput = !!(rawName || rawSku || rawPrice || rawStock);
+                    const hasUserInput = !!(rawName || rawSku || rawDiscountPct || rawStock);
                     if (!hasUserInput) return null;
+                    const discountPct = Math.max(0, Math.min(100, parseFloat(rawDiscountPct) || 0));
+                    const multiplier = getVariantQuantityMultiplier(rawName || `Option ${index + 1}`);
+                    const baseTotal = parsedBasePrice * multiplier;
+                    const variantPriceOverride =
+                        baseTotal > 0 && discountPct > 0
+                            ? Math.max(0, Number((baseTotal * (1 - discountPct / 100)).toFixed(2)))
+                            : undefined;
                     return {
                         id: v.id,
                         sku: rawSku || `${skuSeed}-${index + 1}`,
                         attributeValue: rawName || `Option ${index + 1}`,
-                        priceOverride: parseFloat(v.price) || undefined,
-                        stockQuantity: parseInt(v.stock, 10) || 0,
+                        priceOverride: variantPriceOverride,
+                        stockQuantity: Math.max(0, parseInt(v.stock, 10) || 0),
                         lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
                     };
                 })
@@ -548,6 +592,12 @@ export function AdminProductsPage() {
                     images: imagePaths.length ? imagePaths : (editingProduct.images || []),
                     stock: parsedStock,
                     availableStock: parsedStock,
+                    status: formData.isActive ? 'Active' : 'Draft',
+                    expiryDate: formData.expiryDate || undefined,
+                    harvestDate: formData.harvestDate || undefined,
+                    isSeasonal: formData.isSeasonal,
+                    seasonalStart: formData.seasonalStart || undefined,
+                    seasonalEnd: formData.seasonalEnd || undefined,
                 } as Product;
                 setProductOverrides((prev) => ({ ...prev, [String(editingProduct.id)]: optimisticProduct }));
                 const updated = await updateProductApi(String(editingProduct.id), {
@@ -569,7 +619,7 @@ export function AdminProductsPage() {
                     ripenessStage: formData.ripenessStage || undefined,
                     farmName: formData.farmName || undefined,
                     farmState: formData.farmState || undefined,
-                    isActive: editingProduct.status === 'Active',
+                    isActive: formData.isActive,
                     images: imagesPayload,
                     variants: variantsPayload,
                 });
@@ -583,7 +633,12 @@ export function AdminProductsPage() {
                         : 'Product details updated successfully',
                 });
                 setIsModalOpen(false);
-                void refreshProducts();
+                await refreshProducts();
+                setProductOverrides((prev) => {
+                    const next = { ...prev };
+                    delete next[String(editingProduct.id)];
+                    return next;
+                });
             } else {
                 await createProductApi({
                     name: formData.name,
@@ -625,7 +680,7 @@ export function AdminProductsPage() {
                     return next;
                 });
             }
-            toast.error(err?.message || 'Failed to save product');
+            toast.error(getUserErrorMessage(err, 'Failed to save product'));
         } finally {
             setIsSavingProduct(false);
         }
@@ -674,6 +729,7 @@ export function AdminProductsPage() {
                                 harvestDate: '', isOrganic: false, grade: 'A', isSeasonal: false,
                                 seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '',
                                 allowCashOnDelivery: true,
+                                isActive: true,
                                 freshnessScore: '', ripenessStage: '', farmName: '', farmState: '',
                                 variants: []
                             });
@@ -806,6 +862,15 @@ export function AdminProductsPage() {
                             ) : (
                                 <AnimatePresence mode='popLayout'>
                                     {filteredProducts.map((product, idx) => (
+                                        (() => {
+                                            const nowMs = Date.now();
+                                            const expiryMs = product.expiryDate ? new Date(product.expiryDate).getTime() : NaN;
+                                            const hasExpiry = Number.isFinite(expiryMs);
+                                            const isExpired = hasExpiry && expiryMs < nowMs;
+                                            const daysToExpiry = hasExpiry ? Math.ceil((expiryMs - nowMs) / 86400000) : null;
+                                            const marketStatusLabel = isExpired ? 'Expired' : product.status;
+                                            const isMarketActive = !isExpired && product.status === 'Active';
+                                            return (
                                         <motion.tr
                                             key={product.id}
                                             initial={{ opacity: 0, y: 10 }}
@@ -880,9 +945,12 @@ export function AdminProductsPage() {
                                             <td className="px-10 py-10 text-right">
                                                 <div className="flex flex-col items-end">
                                                     {!product.isSeasonal ? (
-                                                        <span className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-emerald-100">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                                            Stable Supply
+                                                        <span className={cn(
+                                                            "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border",
+                                                            isExpired ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                        )}>
+                                                            <div className={cn("h-1.5 w-1.5 rounded-full", isExpired ? 'bg-red-500' : 'bg-emerald-500')} />
+                                                            {isExpired ? 'Expired' : 'Stable Supply'}
                                                         </span>
                                                     ) : (() => {
                                                         const now = new Date();
@@ -893,23 +961,31 @@ export function AdminProductsPage() {
                                                         const afterStart = !start || now >= start;
                                                         const beforeEnd = !end || now <= end;
                                                         const isInSeason = afterStart && beforeEnd;
+                                                        if (isExpired) {
+                                                            return (
+                                                                <span className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border bg-red-50 text-red-700 border-red-100">
+                                                                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                                    Expired
+                                                                </span>
+                                                            );
+                                                        }
                                                         return (
                                                             <span className={cn(
                                                                 "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                                                                isInSeason ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'
+                                                                isInSeason ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-50 text-slate-700 border-slate-200'
                                                             )}>
-                                                                <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", isInSeason ? 'bg-blue-500' : 'bg-amber-500')} />
-                                                                {isInSeason ? 'In Peak Season' : 'Cycle Paused'}
+                                                                <div className={cn("h-1.5 w-1.5 rounded-full", isInSeason ? 'bg-blue-500 animate-pulse' : 'bg-slate-500')} />
+                                                                {isInSeason ? 'In Peak Season' : 'Seasonal'}
                                                             </span>
                                                         );
                                                     })()}
                                                     {product.expiryDate && (
                                                         <span className={cn(
                                                             "text-[9px] font-black uppercase tracking-[0.15em] mt-3 italic flex items-center gap-1.5",
-                                                            new Date(product.expiryDate).getTime() - new Date().getTime() < 86400000 * 3 ? 'text-red-500' : 'text-slate-400'
+                                                            isExpired || (daysToExpiry != null && daysToExpiry < 3) ? 'text-red-500' : 'text-slate-400'
                                                         )}>
                                                             <AlertCircle className="h-3 w-3" />
-                                                            {Math.ceil((new Date(product.expiryDate).getTime() - new Date().getTime()) / 86400000)}d till expiration
+                                                            {isExpired ? 'Expired' : `${daysToExpiry}d till expiration`}
                                                         </span>
                                                     )}
                                                 </div>
@@ -930,11 +1006,13 @@ export function AdminProductsPage() {
                                                 <div className="flex justify-center">
                                                     <span className={cn(
                                                         "px-5 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-                                                        product.status === 'Active' 
+                                                        isMarketActive
                                                             ? 'bg-white text-emerald-700 border-emerald-100 shadow-sm' 
-                                                            : 'bg-slate-50 text-slate-400 border-slate-200'
+                                                            : isExpired
+                                                                ? 'bg-red-50 text-red-700 border-red-100'
+                                                                : 'bg-slate-50 text-slate-400 border-slate-200'
                                                     )}>
-                                                        {product.status}
+                                                        {marketStatusLabel}
                                                     </span>
                                                 </div>
                                             </td>
@@ -955,6 +1033,8 @@ export function AdminProductsPage() {
                                                 </div>
                                             </td>
                                         </motion.tr>
+                                            );
+                                        })()
                                     ))}
                                 </AnimatePresence>
                             )}
@@ -1167,6 +1247,12 @@ export function AdminProductsPage() {
                                                     onChange={(v: boolean) => setFormData({ ...formData, allowCashOnDelivery: v })}
                                                     color="emerald"
                                                 />
+                                                <ToggleItem
+                                                    label="Publish to Storefront"
+                                                    checked={formData.isActive}
+                                                    onChange={(v: boolean) => setFormData({ ...formData, isActive: v })}
+                                                    color="emerald"
+                                                />
                                             </div>
                                         </div>
                                         <div className="space-y-8">
@@ -1365,15 +1451,19 @@ export function AdminProductsPage() {
                                                             placeholder="Auto"
                                                         />
                                                         <FormInput
-                                                            label="Variant Price (₹)"
+                                                            label="Variant Discount (%)"
                                                             type="number"
                                                             value={variant.price}
                                                             onChange={(v: string) => {
                                                                 const n = [...formData.variants];
-                                                                n[i].price = v;
+                                                                if (v === '') {
+                                                                    n[i].price = '';
+                                                                } else {
+                                                                    n[i].price = String(Math.max(0, Math.min(100, Number(v))));
+                                                                }
                                                                 setFormData({ ...formData, variants: n });
                                                             }}
-                                                            placeholder="Final pack price (e.g. 220)"
+                                                            placeholder="Discount on base price (e.g. 10)"
                                                         />
                                                         <div className="grid grid-cols-2 gap-8">
                                                             <FormInput
@@ -1382,7 +1472,7 @@ export function AdminProductsPage() {
                                                                 value={variant.stock}
                                                                 onChange={(v: string) => {
                                                                     const n = [...formData.variants];
-                                                                    n[i].stock = v;
+                                                                    n[i].stock = v === '' ? '' : String(Math.max(0, Number(v)));
                                                                     setFormData({ ...formData, variants: n });
                                                                 }}
                                                                 placeholder="0"

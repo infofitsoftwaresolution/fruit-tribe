@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleton';
+import { getUserErrorMessage } from '@/lib/userError';
 
 export function AdminOrdersPage() {
     const { updateOrder, theme } = useStore();
@@ -250,7 +251,7 @@ export function AdminOrdersPage() {
                 fulfillment: current.fulfillment,
                 payment: current.payment,
             });
-            toast.error(e?.message || 'Failed to update order status');
+            toast.error(getUserErrorMessage(e, 'Failed to update order status'));
         }
     }, [orders, patchLocalOrder, refreshOrders]);
 
@@ -268,7 +269,7 @@ export function AdminOrdersPage() {
             toast.success(`Payment status updated to ${newPaymentStatus}`);
         } catch (e: any) {
             patchLocalOrder(id, { payment: current.payment });
-            toast.error(e?.message || 'Failed to update payment status');
+            toast.error(getUserErrorMessage(e, 'Failed to update payment status'));
         }
     }, [orders, patchLocalOrder, refreshOrders]);
 
@@ -293,7 +294,7 @@ export function AdminOrdersPage() {
                     status: current.status,
                 });
             }
-            toast.error(e?.message || 'Failed to assign delivery partner');
+            toast.error(getUserErrorMessage(e, 'Failed to assign delivery partner'));
         }
     }, [deliveryPartners, orders, patchLocalOrder, refreshOrders]);
 
@@ -513,7 +514,7 @@ export function AdminOrdersPage() {
 
             setIsModalOpen(false);
         } catch (err: any) {
-            toast.error(err.message || 'Failed to create manual order');
+            toast.error(getUserErrorMessage(err, 'Failed to create manual order'));
         }
     };
 

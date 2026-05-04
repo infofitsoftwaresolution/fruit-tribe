@@ -12,6 +12,7 @@ import {
     type CouponScopeRule,
 } from '@/lib/api';
 import { useAdminData } from '@/app/context/AdminDataContext';
+import { getUserErrorMessage } from '@/lib/userError';
 
 type FormState = {
     code: string;
@@ -62,7 +63,7 @@ export function AdminDiscountsPage() {
             setCoupons(couponData);
             setScopes(scopeData);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to load discount data');
+            toast.error(getUserErrorMessage(e, 'Failed to load discount data'));
         } finally {
             if (!silent) setLoading(false);
         }
@@ -143,7 +144,7 @@ export function AdminDiscountsPage() {
             toast.success(`Coupon ${coupon.code} disabled`);
             await loadData(true);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to disable coupon');
+            toast.error(getUserErrorMessage(e, 'Failed to disable coupon'));
         }
     };
 
@@ -153,7 +154,7 @@ export function AdminDiscountsPage() {
             toast.success(`Coupon ${coupon.code} enabled`);
             await loadData(true);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to enable coupon');
+            toast.error(getUserErrorMessage(e, 'Failed to enable coupon'));
         }
     };
 
@@ -164,7 +165,7 @@ export function AdminDiscountsPage() {
             toast.success(`Coupon ${coupon.code} deleted`);
             await loadData(true);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to delete coupon');
+            toast.error(getUserErrorMessage(e, 'Failed to delete coupon'));
         }
     };
 
@@ -208,7 +209,7 @@ export function AdminDiscountsPage() {
             toast.success(editing ? 'Coupon updated' : 'Coupon created');
             void Promise.allSettled([updateCouponScopes(nextScopes), loadData(true)]);
         } catch (e: any) {
-            toast.error(e?.message || 'Failed to save coupon');
+            toast.error(getUserErrorMessage(e, 'Failed to save coupon'));
         } finally {
             setIsSavingCoupon(false);
         }

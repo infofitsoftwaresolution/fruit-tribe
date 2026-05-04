@@ -25,9 +25,11 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { buildOpenStreetMapEmbedSrc, OpenStreetMapEmbed } from '@/app/components/OpenStreetMapEmbed';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
+import { getUserErrorMessage } from '@/lib/userError';
 
 /** Map backend order to Profile order-history shape (includes product details per item) */
 function mapApiOrderToProfileOrder(api: any, userName: string) {
@@ -131,6 +133,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
 export function ProfilePage() {
   const navigate = useNavigate();
   const { user, logout, updateUser } = useAuth();
+  const { pincodes: serviceablePincodes, isPincodeServiceable } = useServiceableAreas();
   const { subscription, preferences } = useStore();
   const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
   const [apiOrders, setApiOrders] = useState<any[]>([]);
@@ -156,6 +159,14 @@ export function ProfilePage() {
     makeDefault: false,
   });
   const [savingAddr, setSavingAddr] = useState(false);
+
+  const newAddressPinHint = useMemo(() => {
+    if (serviceablePincodes.length === 0) return '';
+    const pin = newAddr.pincode.replace(/\D/g, '');
+    if (pin.length !== 6) return '';
+    if (!isPincodeServiceable(pin)) return 'Not deliverable — this PIN is not in our service area.';
+    return '';
+  }, [newAddr.pincode, serviceablePincodes, isPincodeServiceable]);
   const [visibleOrderCount, setVisibleOrderCount] = useState(12);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
@@ -364,7 +375,7 @@ export function ProfilePage() {
             toast.success('Payment successful.');
             await loadOrders();
           } catch (err: any) {
-            toast.error(err?.message || 'Payment verification failed.');
+            toast.error(getUserErrorMessage(err, 'Payment verification failed.'));
           }
         },
         modal: {
@@ -375,7 +386,7 @@ export function ProfilePage() {
       });
       rzp.open();
     } catch (err: any) {
-      toast.error(err?.message || 'Unable to start payment.');
+      toast.error(getUserErrorMessage(err, 'Unable to start payment.'));
     }
   }, [loadOrders]);
 
@@ -615,7 +626,7 @@ export function ProfilePage() {
                                 toast.success('Default address updated');
                                 await loadSavedAddresses();
                               } catch (e: unknown) {
-                                toast.error(e instanceof Error ? e.message : 'Could not update');
+                                toast.error(getUserErrorMessage(e, 'Could not update'));
                               }
                             }}
                             className="px-3 py-2 rounded-xl bg-slate-900 text-white text-[9px] font-medium text-xs text-slate-500"
@@ -632,7 +643,7 @@ export function ProfilePage() {
                               toast.success('Address removed');
                               await loadSavedAddresses();
                             } catch (e: unknown) {
-                              toast.error(e instanceof Error ? e.message : 'Could not remove');
+                              toast.error(getUserErrorMessage(e, 'Could not remove'));
                             }
                           }}
                           className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 text-[9px] font-medium text-xs text-slate-500 flex items-center gap-1"
@@ -689,9 +700,23 @@ export function ProfilePage() {
                 <input
                   placeholder="PIN (6 digits)"
                   value={newAddr.pincode}
-                  onChange={(e) => setNewAddr((p) => ({ ...p, pincode: e.target.value }))}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 bg-slate-50 text-sm font-bold"
+                  onChange={(e) =>
+                    setNewAddr((p) => ({
+                      ...p,
+                      pincode: e.target.value.replace(/\D/g, '').slice(0, 6),
+                    }))
+                  }
+                  inputMode="numeric"
+                  autoComplete="postal-code"
+                  maxLength={6}
+                  className={cn(
+                    'w-full px-4 py-3 rounded-xl border-2 bg-slate-50 text-sm font-bold',
+                    newAddressPinHint ? 'border-red-300 bg-red-50/50' : 'border-slate-100',
+                  )}
                 />
+                {newAddressPinHint ? (
+                  <p className="text-[11px] font-bold text-red-600 -mt-2">{newAddressPinHint}</p>
+                ) : null}
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
                   <input
                     type="checkbox"
@@ -708,6 +733,10 @@ export function ProfilePage() {
                     const pin = newAddr.pincode.replace(/\D/g, '');
                     if (!newAddr.name.trim() || !newAddr.phone.trim() || !newAddr.line1.trim() || !newAddr.city.trim() || pin.length !== 6) {
                       toast.error('Fill name, phone, street, city, and 6-digit PIN.');
+                      return;
+                    }
+                    if (serviceablePincodes.length > 0 && !isPincodeServiceable(pin)) {
+                      toast.error('Not deliverable — this PIN is not in our service area.');
                       return;
                     }
                     setSavingAddr(true);
@@ -736,7 +765,7 @@ export function ProfilePage() {
                       });
                       await loadSavedAddresses();
                     } catch (e: unknown) {
-                      toast.error(e instanceof Error ? e.message : 'Could not save');
+                      toast.error(getUserErrorMessage(e, 'Could not save'));
                     } finally {
                       setSavingAddr(false);
                     }
@@ -932,6 +961,26 @@ export function ProfilePage() {
                           <p className="text-slate-500 mt-2 font-medium">
                             Placed on {trackingOrder.date} · Total ₹{trackingOrder.total}
                           </p>
+                          {(() => {
+                            const rawStatus = String(trackingOrder.rawStatus ?? '').toUpperCase();
+                            const paymentMethod = String(trackingOrder.paymentMethod ?? '').toUpperCase();
+                            const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
+                            const canShowPayNow =
+                              String(trackingOrder.payment ?? '').toUpperCase() !== 'PAID' &&
+                              !isFinal &&
+                              paymentMethod !== 'COD';
+                            if (!canShowPayNow) return null;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => { void handlePayNow(trackingOrder); }}
+                                className="mt-4 inline-flex h-11 px-6 bg-amber-500 text-white rounded-xl font-semibold text-[11px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-600/20 items-center justify-center gap-2"
+                              >
+                                <Zap className="w-4 h-4" />
+                                Pay now
+                              </button>
+                            );
+                          })()}
                           {typeof trackingOrder.platformFee === 'number' && trackingOrder.platformFee > 0 && (
                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-1">
                               Platform fee (2%): ₹{trackingOrder.platformFee.toFixed(2)}
@@ -975,33 +1024,6 @@ export function ProfilePage() {
               )}
 
               <div className="mb-12">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Delivery map</p>
-                {trackingMapLoading && (
-                  <div className="h-48 rounded-2xl border-2 border-slate-200 bg-slate-50 flex items-center justify-center gap-2 mb-6">
-                    <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
-                    <span className="text-xs font-medium text-slate-500">Loading map…</span>
-                  </div>
-                )}
-                {!trackingMapLoading && trackingMapEmbedSrc && (
-                  <div className="rounded-2xl overflow-hidden border-2 border-slate-200 shadow-inner mb-8">
-                    <OpenStreetMapEmbed
-                      title="Order delivery map"
-                      src={trackingMapEmbedSrc}
-                      className="w-full h-52 border-0"
-                    />
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mt-2 pl-1 pb-2">
-                      Pin shows the delivery location from your shipping address.
-                    </p>
-                  </div>
-                )}
-                {!trackingMapLoading && !trackingMapCenter && trackingOrder.shippingAddress && (
-                  <div className="h-32 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 flex items-center justify-center mb-8">
-                    <span className="text-xs text-slate-400 text-center px-4">
-                      Map will appear here when we can locate your delivery address.
-                    </span>
-                  </div>
-                )}
-
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Order roadmap</p>
                 {((trackingOrder.statusTimeline || []) as any[]).length > 0 ? (
                   <div className="space-y-0 relative ml-2 md:ml-4 py-4">
@@ -1099,41 +1121,45 @@ export function ProfilePage() {
                     </p>
                   </div>
                 </div>
-                {(() => {
-                  const rawStatus = String(trackingOrder.rawStatus ?? '').toUpperCase();
-                  const paymentMethod = String(trackingOrder.paymentMethod ?? '').toUpperCase();
-                  const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
-                  const isDeliveredCod = rawStatus === 'DELIVERED' && paymentMethod === 'COD';
-                  const showTrackingActions = !isFinal;
+                  {(() => {
+                    const rawStatus = String(trackingOrder.rawStatus ?? '').toUpperCase();
+                    const paymentMethod = String(trackingOrder.paymentMethod ?? '').toUpperCase();
+                    const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
+                    const isDeliveredCod = rawStatus === 'DELIVERED' && paymentMethod === 'COD';
+                    const canShowPayNow =
+                      String(trackingOrder.payment ?? '').toUpperCase() !== 'PAID' &&
+                      !isFinal &&
+                      paymentMethod !== 'COD';
+                    const showTrackingActions = !isFinal;
 
-                  if (!showTrackingActions) {
+                    if (!showTrackingActions) {
+                      return (
+                        <div className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-semibold uppercase tracking-widest text-center">
+                          {isDeliveredCod ? 'Order delivered successfully (COD)' : 'Order is in final state'}
+                        </div>
+                      );
+                    }
+
                     return (
-                      <div className="w-full sm:w-auto px-5 py-4 rounded-2xl bg-emerald-600/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-semibold uppercase tracking-widest text-center">
-                        {isDeliveredCod ? 'Order delivered successfully (COD)' : 'Order is in final state'}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-                      <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
+                      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
+                        <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
                         <Phone className="w-4 h-4" />
                         Call driver
-                      </button>
-                      <button
-                        className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
-                        onClick={() => {
-                          toast.info('Your latest order status is shown above.', {
-                            description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
-                          });
-                        }}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Track order
-                      </button>
-                    </div>
-                  );
-                })()}
+                        </button>
+                        <button
+                          className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
+                          onClick={() => {
+                            toast.info('Your latest order status is shown above.', {
+                              description: `Order #${trackingOrder.id} is currently ${trackingOrder.status}.`,
+                            });
+                          }}
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          Track order
+                        </button>
+                      </div>
+                    );
+                  })()}
               </div>
             </motion.div>
           </div>
