@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { flushSync } from 'react-dom';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Truck, MapPin, User, Mail, Phone, Zap, Activity, Navigation, Globe, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, Trash2, ChevronRight, Info, FileText } from 'lucide-react';
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
@@ -473,10 +473,20 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     landmark: '',
     deliveryInstructions: '',
   });
+  const [fullNameInput, setFullNameInput] = useState(() => `${user?.name || ''}`.trim());
   /** Always latest form values for debounced geocode (avoids stale closure inside setTimeout). */
   const checkoutFormRef = useRef(formData);
   checkoutFormRef.current = formData;
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
+  useEffect(() => {
+    const canonical = `${formData.firstName} ${formData.lastName}`.replace(/\s+/g, ' ').trim();
+    setFullNameInput((prev) => {
+      const prevCanonical = String(prev || '').replace(/\s+/g, ' ').trim();
+      if (prevCanonical === canonical) return prev;
+      return canonical;
+    });
+  }, [formData.firstName, formData.lastName]);
+
   const [savedAddresses, setSavedAddresses] = useState<SavedDeliveryAddress[]>([]);
   const [selectedSavedAddressId, setSelectedSavedAddressId] = useState('');
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState(false);
@@ -1083,8 +1093,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const rules = preferences.deliveryFeeRules || [];
     const mode = preferences.deliveryFeeMode || 'SLAB';
     const perKmRate = Number(preferences.deliveryPerKmRate) || 0;
+    const distanceForPricing =
+      typeof deliveryDistance === 'number' && Number.isFinite(deliveryDistance)
+        ? deliveryDistance
+        : Number.NaN;
     return computeDeliveryFeeByDistanceKm(
-      deliveryDistance ?? 0,
+      distanceForPricing,
       rules,
       fallbackDeliveryCharge,
       mode,
@@ -1162,6 +1176,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }, [appliedCoupon, subtotalOnly]);
 
   const grandTotal = Math.max(0, baseBillBeforeDiscount - discountAmount);
+  const [persistedGrandTotal, setPersistedGrandTotal] = useState<number | null>(null);
+  const payableGrandTotal = persistedGrandTotal ?? grandTotal;
 
   /** Set synchronously before clearCart so empty-cart redirect cannot beat React state batching. */
   const orderJustPlacedRef = useRef(false);
@@ -1170,6 +1186,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [optimisticOrderId, setOptimisticOrderId] = useState<string | null>(null);
   const [optimisticOrderNumber, setOptimisticOrderNumber] = useState<string | null>(null);
   const [optimisticAmount, setOptimisticAmount] = useState(0);
+  useEffect(() => {
+    if (!orderPlacedOptimistically) {
+      setPersistedGrandTotal(null);
+    }
+  }, [grandTotal, orderPlacedOptimistically]);
 
   const applyPromoCode = async (rawCode: string) => {
     const code = rawCode.trim();
@@ -1260,7 +1281,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const validateField = useCallback((name: keyof typeof formData, value: string): string => {
     const trimmed = String(value || '').trim();
     if (
-      ['firstName', 'lastName', 'flatHouse', 'address', 'city', 'state', 'zipCode', 'phone', 'email'].includes(name) &&
+      ['firstName', 'flatHouse', 'address', 'city', 'state', 'zipCode', 'phone', 'email'].includes(name) &&
       !trimmed
     ) {
       return 'This field is required.';
@@ -1309,6 +1330,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         toast.error('Please choose a delivery slot', {
           description: 'Select a convenient time window for your delivery.',
         });
+        return;
+      }
+      if (!(typeof deliveryDistance === 'number' && Number.isFinite(deliveryDistance) && deliveryDistance >= 0)) {
+        toast.error('Calculating delivery amount. Please wait a moment and try again.');
         return;
       }
 
@@ -1372,6 +1397,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       };
 
       setOptimisticAmount(grandTotal);
+      setPersistedGrandTotal(null);
 
       const created = await createOrder({
         items: orderItems,
@@ -1379,7 +1405,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         billingAddress: shippingAddress,
         couponCode: appliedCoupon?.code || undefined,
         deliverySlot: deliverySlot || undefined,
-        distanceKm: deliveryStats.distanceKm ?? undefined,
+        distanceKm: deliveryDistance,
         paymentMethod: paymentMethod,
         savedAddressId: selectedSavedAddressId || undefined,
       });
@@ -1406,8 +1432,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
-      const payableAmount = Number((created as any).payableAmount ?? optimisticAmount);
+      const serverPayable = Number((created as any).payableAmount);
+      const payableAmount = Number.isFinite(serverPayable) && serverPayable >= 0
+        ? serverPayable
+        : Number(optimisticAmount);
       const amountInPaise = Math.round(payableAmount * 100);
+      setPersistedGrandTotal(payableAmount);
+      if (Math.abs(payableAmount - grandTotal) >= 0.5) {
+        toast.info('Final payable amount updated from server pricing rules.', {
+          description: `Updated total: ₹${payableAmount.toFixed(2)}`,
+        });
+      }
 
       setOptimisticOrderId(orderId);
       setOptimisticOrderNumber(orderNumber);
@@ -1555,7 +1590,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   };
 
   const handleFullNameChange = (value: string) => {
-    const parts = value.trim().split(/\s+/).filter(Boolean);
+    setFullNameInput(value);
+    const parts = value
+      .replace(/^\s+/, '')
+      .split(/\s+/)
+      .filter(Boolean);
     setSelectedSavedAddressId('');
     setFormData((prev) => ({
       ...prev,
@@ -1574,17 +1613,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     setFieldErrors((prev) => ({ ...prev, [key]: message }));
   };
 
-  // Redirect to cart when empty unless an order was just placed successfully
-  useEffect(() => {
-    if (items.length === 0 && !orderPlacedOptimistically && !orderJustPlacedRef.current) {
-      navigate('/cart');
-    }
-  }, [items.length, navigate, orderPlacedOptimistically]);
-
   const isCheckoutFormReady = useMemo(() => {
     const requiredKeys: Array<keyof typeof formData> = [
       'firstName',
-      'lastName',
       'email',
       'phone',
       'flatHouse',
@@ -1603,13 +1634,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const hasValidationError = requiredKeys.some((key) => Boolean(validateField(key, String(formData[key] ?? ''))));
     if (hasValidationError) return false;
 
+    if (!(typeof deliveryDistance === 'number' && Number.isFinite(deliveryDistance) && deliveryDistance >= 0)) {
+      return false;
+    }
+
     if (hasConfiguredDeliverySlots && !deliverySlot) return false;
 
     return true;
-  }, [formData, hasConfiguredDeliverySlots, deliverySlot, validateField]);
+  }, [formData, hasConfiguredDeliverySlots, deliverySlot, validateField, deliveryDistance]);
 
   if (items.length === 0 && !orderPlacedOptimistically && !orderJustPlacedRef.current) {
-    return null;
+    return <Navigate to="/cart" replace />;
   }
 
   return (
@@ -1733,7 +1768,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         </label>
                         <input
                           type="text"
-                          value={`${formData.firstName} ${formData.lastName}`.trim()}
+                          value={fullNameInput}
                           onChange={(e) => handleFullNameChange(e.target.value)}
                           onBlur={() => {
                             const firstError = validateField('firstName', formData.firstName);
@@ -2071,7 +2106,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Bill Details</span>
                          </div>
                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-emerald-600 group-open:hidden">₹{grandTotal.toFixed(2)}</span>
+                            <span className="text-[10px] font-black text-emerald-600 group-open:hidden">₹{payableGrandTotal.toFixed(2)}</span>
                             <ChevronRight className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:rotate-90" />
                          </div>
                       </summary>
@@ -2336,7 +2371,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           {discountAmount > 0 && (
                             <p className="text-[11px] font-black text-slate-400 line-through">₹{baseBillBeforeDiscount.toFixed(2)}</p>
                           )}
-                          <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none">₹{grandTotal.toFixed(2)}</p>
+                          <p className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none">₹{payableGrandTotal.toFixed(2)}</p>
                         </div>
                       </div>
                     </div>
@@ -2424,7 +2459,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         <CheckoutSuccessOverlay 
           orderId={optimisticOrderId} 
           orderNumber={optimisticOrderNumber} 
-          subtotal={optimisticAmount} 
+          subtotal={payableGrandTotal}
           isAwaitingPayment={paymentAwaiting}
           onDismiss={() => {
             orderJustPlacedRef.current = false;
