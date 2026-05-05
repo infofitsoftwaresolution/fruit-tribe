@@ -106,7 +106,8 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                 <div className="space-y-4">
                   {vendorItems.map((item: CartItem, index: number) => (
                     (() => {
-                      const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                      const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
+                      const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
                       return (
                     <motion.div
                       key={`${item.id}-${item.selectedVariantSku || 'default'}`}
@@ -151,8 +152,11 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                           </motion.button>
                         </div>
 
-                        <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-4">
+                        <p className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-1">
                           ₹{item.price.toFixed(2)}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500 mb-4">
+                          per unit · Line total ₹{lineTotal.toFixed(2)}
                         </p>
 
                         <div className="flex flex-wrap items-center justify-between gap-4 mt-auto">

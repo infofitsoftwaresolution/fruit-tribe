@@ -272,6 +272,8 @@ export class OrderService {
             sellerId: string;
             basePrice: number | string;
             priceOverride: number | string | null;
+            attributeValue: string | null;
+            isBulkVariant: boolean | null;
         }>>(
             `SELECT
                 pv.id,
@@ -281,13 +283,75 @@ export class OrderService {
                 pv.product_id as "productId",
                 p.seller_id as "sellerId",
                 p.base_price as "basePrice",
-                pv.price_override as "priceOverride"
+                pv.price_override as "priceOverride",
+                pv.attribute_value as "attributeValue",
+                pv.is_bulk_variant as "isBulkVariant"
              FROM product_variants pv
              JOIN products p ON p.id = pv.product_id
              WHERE pv.id = ANY($1::uuid[]) FOR UPDATE`,
             variantIds,
         );
         const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
+        const parsePackQtyKg = (rawValue: string | null | undefined): number => {
+            const raw = String(rawValue || '').trim().toLowerCase();
+            if (!raw) return 1;
+            const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+            if (!m) {
+                if (raw === 'default' || raw.includes('default')) return 1;
+                return 1;
+            }
+            const q = Number(m[1]);
+            if (!Number.isFinite(q) || q <= 0) return 1;
+            const u = String(m[2]).toLowerCase();
+            return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
+        };
+        const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
+        const pricingRows = await this.prisma.$queryRawUnsafe<Array<{
+            productId: string;
+            attributeValue: string | null;
+            isBulkVariant: boolean | null;
+            priceOverride: number | string | null;
+            basePrice: number | string;
+        }>>(
+            `SELECT
+                pv.product_id as "productId",
+                pv.attribute_value as "attributeValue",
+                pv.is_bulk_variant as "isBulkVariant",
+                pv.price_override as "priceOverride",
+                p.base_price as "basePrice"
+             FROM product_variants pv
+             JOIN products p ON p.id = pv.product_id
+             WHERE pv.product_id = ANY($1::uuid[])`,
+            productIds,
+        );
+        const tiersByProduct = new Map<string, Array<{ qty: number; unitPrice: number }>>();
+        for (const row of pricingRows) {
+            const pid = String(row.productId);
+            const qty = parsePackQtyKg(row.attributeValue);
+            const basePrice = Number(row.basePrice);
+            const totalPrice = row.priceOverride != null ? Number(row.priceOverride) : Number.NaN;
+            if (!(Number.isFinite(qty) && qty > 0 && Number.isFinite(basePrice) && basePrice > 0 && Number.isFinite(totalPrice) && totalPrice > 0)) continue;
+            const retailTotal = basePrice * qty;
+            const isDiscountTier = totalPrice < retailTotal;
+            if (!Boolean(row.isBulkVariant) && !isDiscountTier) continue;
+            const unitPrice = totalPrice / qty;
+            const list = tiersByProduct.get(pid) || [];
+            if (!list.some((t) => Math.abs(t.qty - qty) < 1e-6)) list.push({ qty, unitPrice });
+            tiersByProduct.set(pid, list);
+        }
+        for (const [pid, list] of tiersByProduct.entries()) {
+            list.sort((a, b) => a.qty - b.qty);
+            tiersByProduct.set(pid, list);
+        }
+        const totalBaseQtyByProduct = new Map<string, number>();
+        for (const item of dto.items) {
+            const variant = variantMap.get(item.variantId);
+            if (!variant) continue;
+            const pid = String(variant.productId);
+            const packQty = parsePackQtyKg(variant.attributeValue);
+            const prev = totalBaseQtyByProduct.get(pid) || 0;
+            totalBaseQtyByProduct.set(pid, prev + (Math.max(1, Number(item.quantity) || 1) * packQty));
+        }
         const canonicalItems = dto.items.map((item) => {
             const variant = variantMap.get(item.variantId);
             if (!variant) {
@@ -301,8 +365,31 @@ export class OrderService {
                     `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
                 );
             }
-            const unitPrice =
-                variant.priceOverride != null ? Number(variant.priceOverride) : Number(variant.basePrice);
+            const basePrice = Number(variant.basePrice);
+            const overridePrice = variant.priceOverride != null ? Number(variant.priceOverride) : Number.NaN;
+            const label = String(variant.attributeValue || '').trim().toLowerCase();
+            const qtyMatch = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+            const parsedQtyKg = qtyMatch
+                ? (['g', 'gm', 'grams'].includes(String(qtyMatch[2]).toLowerCase()) ? Number(qtyMatch[1]) / 1000 : Number(qtyMatch[1]))
+                : (label === '' || label === 'default' || label.includes('default') ? 1 : Number.NaN);
+            const isRetailLike = !Boolean(variant.isBulkVariant) && Number.isFinite(parsedQtyKg) && Math.abs(parsedQtyKg - 1) < 1e-6;
+            const packQty = Number.isFinite(parsedQtyKg) && parsedQtyKg > 0 ? parsedQtyKg : 1;
+            const fallbackPackPrice =
+                isRetailLike && Number.isFinite(basePrice) && basePrice > 0
+                    ? basePrice
+                    : (Number.isFinite(overridePrice) && overridePrice > 0 ? overridePrice : basePrice);
+            const fallbackBaseUnitPrice = fallbackPackPrice / packQty;
+            const totalBaseQty = totalBaseQtyByProduct.get(String(variant.productId)) || (item.quantity * packQty);
+            const tiers = tiersByProduct.get(String(variant.productId)) || [];
+            let bestTierUnitPrice: number | null = null;
+            for (const t of tiers) {
+                if (totalBaseQty >= t.qty) bestTierUnitPrice = t.unitPrice;
+            }
+            const effectiveBaseUnitPrice =
+                bestTierUnitPrice != null && Number.isFinite(bestTierUnitPrice) && bestTierUnitPrice > 0
+                    ? bestTierUnitPrice
+                    : fallbackBaseUnitPrice;
+            const unitPrice = effectiveBaseUnitPrice * packQty;
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
@@ -606,6 +693,175 @@ export class OrderService {
             this.logger.log(`Order ${order.orderNumber} created for user ${userId}`);
             return order;
         }, { timeout: 15000 });
+    }
+
+    async simulatePricing(
+        userId: string,
+        dto: {
+            items: Array<{ productId: string; variantId: string; quantity: number }>;
+            couponCode?: string;
+            distanceKm?: number;
+        },
+    ) {
+        if (!Array.isArray(dto.items) || dto.items.length === 0) {
+            throw new BadRequestException('At least one item is required.');
+        }
+        const variantIds = dto.items.map((i) => i.variantId);
+        const lockedVariants = await this.prisma.$queryRawUnsafe<Array<{
+            id: string;
+            sku: string | null;
+            availableQuantity: number;
+            productId: string;
+            sellerId: string;
+            basePrice: number | string;
+            priceOverride: number | string | null;
+            attributeValue: string | null;
+            isBulkVariant: boolean | null;
+        }>>(
+            `SELECT
+                pv.id,
+                pv.sku,
+                pv.available_quantity as "availableQuantity",
+                pv.product_id as "productId",
+                p.seller_id as "sellerId",
+                p.base_price as "basePrice",
+                pv.price_override as "priceOverride",
+                pv.attribute_value as "attributeValue",
+                pv.is_bulk_variant as "isBulkVariant"
+             FROM product_variants pv
+             JOIN products p ON p.id = pv.product_id
+             WHERE pv.id = ANY($1::uuid[])`,
+            variantIds,
+        );
+        const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
+        const parsePackQtyKg = (rawValue: string | null | undefined): number => {
+            const raw = String(rawValue || '').trim().toLowerCase();
+            const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+            if (!m) return 1;
+            const q = Number(m[1]);
+            if (!Number.isFinite(q) || q <= 0) return 1;
+            return ['g', 'gm', 'grams'].includes(String(m[2]).toLowerCase()) ? q / 1000 : q;
+        };
+        const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
+        const pricingRows = await this.prisma.$queryRawUnsafe<Array<{
+            productId: string;
+            attributeValue: string | null;
+            isBulkVariant: boolean | null;
+            priceOverride: number | string | null;
+            basePrice: number | string;
+        }>>(
+            `SELECT
+                pv.product_id as "productId",
+                pv.attribute_value as "attributeValue",
+                pv.is_bulk_variant as "isBulkVariant",
+                pv.price_override as "priceOverride",
+                p.base_price as "basePrice"
+             FROM product_variants pv
+             JOIN products p ON p.id = pv.product_id
+             WHERE pv.product_id = ANY($1::uuid[])`,
+            productIds,
+        );
+        const tiersByProduct = new Map<string, Array<{ qty: number; unitPrice: number }>>();
+        for (const row of pricingRows) {
+            const pid = String(row.productId);
+            const qty = parsePackQtyKg(row.attributeValue);
+            const basePrice = Number(row.basePrice);
+            const totalPrice = row.priceOverride != null ? Number(row.priceOverride) : Number.NaN;
+            if (!(Number.isFinite(qty) && qty > 0 && Number.isFinite(basePrice) && basePrice > 0 && Number.isFinite(totalPrice) && totalPrice > 0)) continue;
+            const retailTotal = basePrice * qty;
+            const isDiscountTier = totalPrice < retailTotal;
+            if (!Boolean(row.isBulkVariant) && !isDiscountTier) continue;
+            const unitPrice = totalPrice / qty;
+            const list = tiersByProduct.get(pid) || [];
+            if (!list.some((t) => Math.abs(t.qty - qty) < 1e-6)) list.push({ qty, unitPrice });
+            tiersByProduct.set(pid, list);
+        }
+        const totalBaseQtyByProduct = new Map<string, number>();
+        for (const item of dto.items) {
+            const variant = variantMap.get(item.variantId);
+            if (!variant) continue;
+            const pid = String(variant.productId);
+            const packQty = parsePackQtyKg(variant.attributeValue);
+            const prev = totalBaseQtyByProduct.get(pid) || 0;
+            totalBaseQtyByProduct.set(pid, prev + (Math.max(1, Number(item.quantity) || 1) * packQty));
+        }
+        const canonicalItems = dto.items.map((item) => {
+            const variant = variantMap.get(item.variantId);
+            if (!variant) throw new BadRequestException(`Product variant ${item.variantId} not found`);
+            if (String(item.productId) !== String(variant.productId)) {
+                throw new BadRequestException(`Variant ${item.variantId} does not belong to product ${item.productId}`);
+            }
+            if (variant.availableQuantity < item.quantity) {
+                throw new BadRequestException(
+                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
+                );
+            }
+            const basePrice = Number(variant.basePrice);
+            const overridePrice = variant.priceOverride != null ? Number(variant.priceOverride) : Number.NaN;
+            const packQty = parsePackQtyKg(variant.attributeValue);
+            const fallbackBaseUnitPrice = (Number.isFinite(overridePrice) && overridePrice > 0 ? overridePrice : basePrice) / Math.max(1, packQty);
+            const totalBaseQty = totalBaseQtyByProduct.get(String(variant.productId)) || (item.quantity * packQty);
+            const tiers = tiersByProduct.get(String(variant.productId)) || [];
+            let bestTierUnitPrice: number | null = null;
+            for (const t of tiers) if (totalBaseQty >= t.qty) bestTierUnitPrice = t.unitPrice;
+            const effectiveBaseUnitPrice = bestTierUnitPrice && bestTierUnitPrice > 0 ? bestTierUnitPrice : fallbackBaseUnitPrice;
+            const unitPrice = effectiveBaseUnitPrice * Math.max(1, packQty);
+            return {
+                productId: String(variant.productId),
+                variantId: String(variant.id),
+                quantity: item.quantity,
+                pricePerUnit: unitPrice,
+                subtotal: unitPrice * item.quantity,
+            };
+        });
+        const subtotal = canonicalItems.reduce((sum, i) => sum + i.subtotal, 0);
+        let discountAmount = 0;
+        if (dto.couponCode) {
+            const couponContextItems = await this.prisma.product.findMany({
+                where: { id: { in: canonicalItems.map((i) => i.productId) } },
+                select: { id: true, category: { select: { name: true } } },
+            });
+            const couponContext = {
+                cartProductIds: couponContextItems.map((p) => p.id),
+                cartCategoryNames: couponContextItems.map((p) => p.category?.name).filter((name): name is string => !!name),
+            };
+            const validation = await this.settingsService.validateCouponWithContext(dto.couponCode, couponContext);
+            if (validation.valid) {
+                const coupon = await this.prisma.coupon.findUnique({ where: { code: dto.couponCode } });
+                if (coupon?.isActive && (!coupon.expiryDate || coupon.expiryDate >= new Date()) && (!coupon.minOrderValue || subtotal >= Number(coupon.minOrderValue))) {
+                    discountAmount =
+                        coupon.discountType === 'PERCENTAGE'
+                            ? (subtotal * Number(coupon.discountValue)) / 100
+                            : Number(coupon.discountValue);
+                    if (coupon.maxDiscount) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount));
+                }
+            }
+        }
+        const platformFee = await this.settingsService.getPlatformFee();
+        const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null, subtotal);
+        const products = await this.prisma.product.findMany({
+            where: { id: { in: canonicalItems.map((i) => i.productId) } },
+            select: { id: true, category: { select: { name: true } } },
+        });
+        const productCategoryById = new Map(products.map((p) => [String(p.id), p.category?.name ?? null]));
+        const taxRates = await this.getAdminTaxRates();
+        const taxAmount = this.calculateTaxAmountFromLines(
+            canonicalItems.map((item) => ({ subtotal: item.subtotal, categoryName: productCategoryById.get(String(item.productId)) ?? null })),
+            taxRates,
+        );
+        const payableAmount = subtotal - discountAmount + shippingFee + taxAmount + platformFee;
+        return {
+            items: canonicalItems,
+            subtotal,
+            discountAmount,
+            shippingFee,
+            taxAmount,
+            platformFee,
+            payableAmount,
+            currency: 'INR',
+            amountInPaise: Math.round(Math.max(0, payableAmount) * 100),
+            simulatedForUserId: userId,
+        };
     }
 
     /**

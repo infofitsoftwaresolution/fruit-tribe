@@ -11,6 +11,7 @@ import { SwipeToPay } from '@/app/components/SwipeToPay';
 import {
   createOrder,
   createRazorpayOrder,
+  simulateOrderPricing,
   validateCoupon,
   verifyPayment,
   getOrders,
@@ -1447,33 +1448,24 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         }
         const requestedQty = Number(item.quantity) || 1;
         const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
-        let pickedVariant = variants[0];
-        if (variants.length > 0) {
-          const normalizedSelectedName = String((item as any).selectedVariantName || '').trim().toLowerCase();
-          const defaultLike = (v: any) => {
-            const label = String(v?.name || v?.attributeValue || '').trim().toLowerCase();
-            return label === '' || label === 'default' || label.includes('default');
-          };
-          const skuMatched = item.selectedVariantSku
-            ? variants.find((v: any) => String(v.sku) === String(item.selectedVariantSku))
-            : null;
-          const nameMatched = normalizedSelectedName
-            ? variants.find((v: any) => String(v?.name || v?.attributeValue || '').trim().toLowerCase() === normalizedSelectedName)
-            : null;
-          const priceMatched = variants.find(
-            (v: any) =>
-              Number(v.price) === Number(item.price) &&
-              Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
-          );
-          const defaultMatched = variants.find(
-            (v: any) =>
-              defaultLike(v) &&
-              Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
-          );
-          const firstAvailable = variants.find(
-            (v: any) => Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
-          );
-          pickedVariant = skuMatched || nameMatched || priceMatched || defaultMatched || firstAvailable || variants[0];
+        if (variants.length === 0) {
+          toast.error(`No variants available for "${item.name}".`);
+          return;
+        }
+        const selectedVariantIdRaw = String((item as any).selectedVariantId || '').trim();
+        if (!selectedVariantIdRaw) {
+          toast.error(`Please reselect pack for "${item.name}" and try again.`);
+          return;
+        }
+        const pickedVariant = variants.find((v: any) => String(v.id || '') === selectedVariantIdRaw);
+        if (!pickedVariant) {
+          toast.error(`Selected pack for "${item.name}" is no longer available. Please refresh your cart.`);
+          return;
+        }
+        const available = Number((pickedVariant as any).availableStock ?? (pickedVariant as any).availableQuantity ?? (pickedVariant as any).stock ?? 0);
+        if (available < requestedQty) {
+          toast.error(`Only ${available} units available for selected pack in "${item.name}".`);
+          return;
         }
         const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
         if (!variantId) {
@@ -1508,7 +1500,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         deliveryInstructions: formData.deliveryInstructions || null,
       };
 
-      const checkoutPayableAmount = Math.max(0, Math.round(grandTotal * 100) / 100);
+      let checkoutPayableAmount = Math.max(0, Math.round(grandTotal * 100) / 100);
+      try {
+        const simulated = await simulateOrderPricing({
+          items: orderItems,
+          couponCode: appliedCoupon?.code || undefined,
+          distanceKm: deliveryDistance ?? undefined,
+          shippingAddress,
+        });
+        const simulatedPayable = Number((simulated as any)?.payableAmount);
+        if (Number.isFinite(simulatedPayable) && simulatedPayable >= 0) {
+          checkoutPayableAmount = Math.round(simulatedPayable * 100) / 100;
+        }
+      } catch (simErr: any) {
+        toast.error(getUserErrorMessage(simErr, 'Unable to verify final price. Please review cart and try again.'));
+        return;
+      }
       setOptimisticAmount(checkoutPayableAmount);
       setPersistedGrandTotal(null);
 
@@ -1546,12 +1553,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const serverPayable = Number((created as any).payableAmount);
-      const payableAmount = checkoutPayableAmount;
+      const payableAmount =
+        Number.isFinite(serverPayable) && serverPayable > 0
+          ? Math.round(serverPayable * 100) / 100
+          : checkoutPayableAmount;
       const amountInPaise = Math.round(payableAmount * 100);
       setPersistedGrandTotal(payableAmount);
-      if (Number.isFinite(serverPayable) && Math.abs(serverPayable - payableAmount) >= 0.5) {
-        toast.info('Final payable amount updated from server pricing rules.', {
-          description: `Checkout ₹${payableAmount.toFixed(2)}; server had ₹${serverPayable.toFixed(2)}. Using checkout amount for payment.`,
+      if (Number.isFinite(serverPayable) && Math.abs(serverPayable - checkoutPayableAmount) >= 0.5) {
+        toast.info(`Payment amount confirmed: ₹${payableAmount.toFixed(2)}`, {
+          description: 'Your payable amount has been synced with the latest checkout total.',
         });
       }
 
@@ -2140,9 +2150,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         </div>
                         <div className="space-y-4">
                           {summary.items.map((item: CartItem) => (
-                            <div key={`${item.id}-${item.selectedVariantSku || 'default'}`} className="flex items-center gap-3">
+                            <div key={`${item.id}-${item.selectedVariantSku || item.selectedVariantId || 'default'}`} className="flex items-center gap-3">
                               {(() => {
-                                const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                                const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
                                 return (
                                   <>
                               {/* Product Image */}

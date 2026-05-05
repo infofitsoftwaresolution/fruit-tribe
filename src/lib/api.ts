@@ -307,7 +307,7 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     nutritionalInfo: p.nutritionalInfo ?? undefined,
     variants: p.variants?.map((v) => ({
       id: v.id,
-      name: v.attributeValue || v.sku,
+      name: String(v.attributeValue || '').trim(),
       price: v.priceOverride != null ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : v.priceOverride)) : price,
       stock: v.stockQuantity ?? 0,
       availableStock: v.availableQuantity ?? v.stockQuantity,
@@ -317,6 +317,8 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     })),
     bulkDiscountTiers: (p.variants || [])
       .map((v) => {
+        const availableQty = Number((v as any).availableQuantity ?? (v as any).stockQuantity ?? 0);
+        if (!(availableQty > 0)) return null;
         const labelRaw = String(v.attributeValue || v.sku || '');
         const label = labelRaw.toLowerCase();
         if (label.includes('(archived)')) return null;
@@ -566,6 +568,44 @@ export async function createOrder(body: {
   savedAddressId?: string;
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => res.statusText);
+    let message = text;
+    try {
+      const data = JSON.parse(text) as { message?: string | string[] };
+      if (data?.message != null) {
+        message = Array.isArray(data.message) ? data.message.join('; ') : data.message;
+      }
+    } catch {
+      /* use text as message */
+    }
+    throw new Error(message || res.statusText);
+  }
+  return res.json();
+}
+
+/** Canonical backend pricing simulation (no order creation). */
+export async function simulateOrderPricing(body: {
+  items: Array<{ productId: string; variantId: string; quantity: number }>;
+  couponCode?: string;
+  distanceKm?: number;
+  shippingAddress?: Record<string, unknown>;
+}): Promise<{
+  items: Array<{ productId: string; variantId: string; quantity: number; pricePerUnit: number; subtotal: number }>;
+  subtotal: number;
+  discountAmount: number;
+  shippingFee: number;
+  taxAmount: number;
+  platformFee: number;
+  payableAmount: number;
+  amountInPaise: number;
+  currency: string;
+}> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/pricing/simulate`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),

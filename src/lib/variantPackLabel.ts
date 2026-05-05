@@ -36,7 +36,7 @@ export function parseVariantPackDescriptor(
   const humanized = humanizePackLabelString(cleaned);
 
   const parseCore = (source: string): { label: string; packQty: number; packUnit: string } | null => {
-    const matched = source.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
+    const matched = source.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|gram|grams|l|liter|litre|ml|pc|pcs|piece|pieces|unit|units)\b/i);
     if (!matched) return null;
     const qty = Number(matched[1]);
     const unit = String(matched[2] || fallback).toLowerCase();
@@ -50,13 +50,12 @@ export function parseVariantPackDescriptor(
   const fromHuman = humanized !== cleaned ? parseCore(humanized) : null;
   if (fromHuman) return fromHuman;
 
-  if (/\d/.test(cleaned)) {
-    const nMatch = cleaned.match(/(\d+(?:\.\d+)?)/);
-    if (nMatch) {
-      const qty = Number(nMatch[1]);
-      const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
-      return { label: `${normalizedQty} ${fallback}`, packQty: normalizedQty, packUnit: fallback };
-    }
+  // Avoid deriving pack size from SKU-like strings (e.g. SKU-1776-...-30).
+  const startsWithQty = cleaned.match(/^\s*(\d+(?:\.\d+)?)(?:\s|$)/);
+  if (startsWithQty) {
+    const qty = Number(startsWithQty[1]);
+    const normalizedQty = Number.isFinite(qty) && qty > 0 ? qty : 1;
+    return { label: `${normalizedQty} ${fallback}`, packQty: normalizedQty, packUnit: fallback };
   }
 
   return {

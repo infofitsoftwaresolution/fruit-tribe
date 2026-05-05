@@ -17,6 +17,7 @@ import { CreateSubscriptionOrderDto } from './dtos/create-subscription-order.dto
 import { CreateManualOrderDto } from './dtos/create-manual-order.dto';
 import { CreateRazorpayOrderDto } from './dtos/create-razorpay-order.dto';
 import { VerifyPaymentDto } from './dtos/verify-payment.dto';
+import { SimulatePricingDto } from './dtos/simulate-pricing.dto';
 import { JwtAuthGuard } from '../../auth/interface/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/interface/guards/roles.guard';
 import { Roles } from '../../auth/interface/decorators/roles.decorator';
@@ -35,6 +36,12 @@ export class OrderController {
     @Post()
     async create(@Request() req: any, @Body() dto: CreateOrderDto) {
         return this.orderService.create(req.user.id, dto);
+    }
+
+    @ApiOperation({ summary: 'Simulate canonical checkout pricing (no order created)' })
+    @Post('pricing/simulate')
+    async simulatePricing(@Request() req: any, @Body() dto: SimulatePricingDto) {
+        return this.orderService.simulatePricing(req.user.id, dto);
     }
 
     @ApiOperation({ summary: 'Create subscription signup order (complete payment via Razorpay)' })

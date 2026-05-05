@@ -10,6 +10,7 @@ interface CartItem {
   price: number;
   quantity: number;
   image: string;
+  selectedVariantId?: string;
   selectedVariantSku?: string;
   selectedVariantName?: string;
   selectedVariantPackQty?: number;
@@ -140,7 +141,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
               ) : (
                 <div className="space-y-4">
                   {items.map((item, index) => {
-                    const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || '')}`;
+                    const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
+                    const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
                     return (
                     <motion.div
                       key={`${item.id}-${item.selectedVariantSku || 'default'}`}
@@ -172,8 +174,11 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                             1 pack = {item.selectedVariantPackQty} {item.selectedVariantPackUnit || 'kg'}
                           </p>
                         )}
-                        <p className="text-lg font-bold text-slate-900 mb-2">
-                          ₹{item.price.toFixed(2)}
+                        <p className="text-lg font-bold text-slate-900 mb-0.5">
+                          ₹{item.price.toFixed(2)} <span className="text-xs font-semibold text-slate-500">per unit</span>
+                        </p>
+                        <p className="text-xs font-semibold text-emerald-700 mb-2">
+                          Line total: ₹{lineTotal.toFixed(2)}
                         </p>
 
                         {/* Quantity Controls */}

@@ -132,11 +132,13 @@ export const ProductCard = memo(({
     const rows = (product?.variants || [])
       .filter((v: any) => {
         const label = String(v?.name || '').trim().toLowerCase();
-        return label !== 'default' && !label.includes('(archived)');
+        const avail = Number(v?.availableStock ?? v?.stock ?? 0);
+        return label !== 'default' && !label.includes('(archived)') && avail > 0;
       })
       .map((v: any) => {
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
         return {
+          id: String((v as any).id || ''),
           ...parsed,
           key: `variant:${v.sku}`,
           label: `${parsed.label} pack · ${formatInr(Number(v.price || retailRef))}`,
@@ -175,6 +177,12 @@ export const ProductCard = memo(({
     () => (bulkVariantOptions.length > 0 ? bulkVariantOptions : discountedVariantOptions),
     [bulkVariantOptions, discountedVariantOptions],
   );
+  const hasLegacyBulkPack = useMemo(() => {
+    const q = Number(bulkQty);
+    const p = Number(bulkPriceVal);
+    const hasRealVariants = variantOptions.length > 0;
+    return Number.isFinite(q) && q > 0 && Number.isFinite(p) && p > 0 && !hasRealVariants;
+  }, [bulkQty, bulkPriceVal, variantOptions.length]);
   const defaultBulkVariantKey = useMemo(() => {
     if (!dealVariantOptions.length) return null;
     const best = [...dealVariantOptions]
@@ -198,7 +206,7 @@ export const ProductCard = memo(({
           sortQty: v.packQty,
         }));
       }
-      if (hasBulk && bulkQty != null && bulkPriceVal != null) {
+      if (hasLegacyBulkPack) {
         return [
           {
             value: 'bulk',
@@ -214,7 +222,7 @@ export const ProductCard = memo(({
       label: `1 ${unitLabel} · ${formatInr(retailRef)}`,
       sortQty: 1,
     });
-    if (bulkQty != null && bulkPriceVal != null) {
+    if (hasLegacyBulkPack) {
       rows.push({
         value: 'bulk',
         label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
@@ -232,6 +240,7 @@ export const ProductCard = memo(({
     bulkDealMode,
     dealVariantOptions,
     hasBulk,
+    hasLegacyBulkPack,
     bulkQty,
     bulkPriceVal,
     unitLabel,
@@ -241,19 +250,19 @@ export const ProductCard = memo(({
 
   const [packKind, setPackKind] = useState<string>(() =>
     bulkDealMode
-      ? (defaultBulkVariantKey || (hasBulk ? 'bulk' : 'retail'))
+      ? (defaultBulkVariantKey || (hasLegacyBulkPack ? 'bulk' : 'retail'))
       : 'retail'
   );
   useEffect(() => {
     if (!bulkDealMode) return;
-    setPackKind(defaultBulkVariantKey || (hasBulk ? 'bulk' : 'retail'));
-  }, [bulkDealMode, hasBulk, defaultBulkVariantKey]);
+    setPackKind(defaultBulkVariantKey || (hasLegacyBulkPack ? 'bulk' : 'retail'));
+  }, [bulkDealMode, hasLegacyBulkPack, defaultBulkVariantKey]);
   useEffect(() => {
     if (packKind.startsWith('variant:') && !variantOptions.some((v) => v.key === packKind)) {
-      setPackKind(bulkDealMode && hasBulk ? 'bulk' : 'retail');
+      setPackKind(bulkDealMode && hasLegacyBulkPack ? 'bulk' : 'retail');
     }
-  }, [packKind, variantOptions, bulkDealMode, hasBulk]);
-  useEffect(() => {
+  }, [packKind, variantOptions, bulkDealMode, hasLegacyBulkPack]);
+    useEffect(() => {
     const onDocPointerDown = (ev: MouseEvent) => {
       if (!packSelectRef.current) return;
       if (!packSelectRef.current.contains(ev.target as Node)) {
@@ -267,13 +276,31 @@ export const ProductCard = memo(({
   const selectedVariant   = packKind.startsWith('variant:')
     ? variantOptions.find((v) => v.key === packKind) || null
     : null;
-  const effectiveQty      = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0
+  const retailVariantForCart = useMemo(() => {
+    if (packKind !== 'retail') return null;
+    const all = (variantOptions || []).filter((v: any) => !Boolean(v?.isBulkVariant));
+    if (!all.length) return null;
+    const oneUnitLike = all.filter((v: any) => {
+      const q = Number(v?.packQty || 0);
+      return Number.isFinite(q) && Math.abs(q - 1) < 1e-6;
+    });
+    if (!oneUnitLike.length) return null;
+    const best = [...oneUnitLike].sort((a: any, b: any) => {
+      const da = Math.abs(Number(a?.price || 0) - Number(retailRef || 0));
+      const db = Math.abs(Number(b?.price || 0) - Number(retailRef || 0));
+      if (da !== db) return da - db;
+      return Number(a?.availableStock || 0) - Number(b?.availableStock || 0);
+    })[0];
+    return best || null;
+  }, [packKind, variantOptions, retailRef]);
+  const selectedVariantForCart = selectedVariant || retailVariantForCart || null;
+  const effectiveQty      = hasLegacyBulkPack && packKind === 'bulk' && bulkQty && bulkQty > 0
     ? bulkQty
     : Math.max(1, quantity);
-  const bulkPackTotal     = hasBulk && bulkPriceVal != null ? Number(bulkPriceVal) : null;
+  const bulkPackTotal     = hasLegacyBulkPack && bulkPriceVal != null ? Number(bulkPriceVal) : null;
   const displayUnitPrice  = selectedVariant
     ? selectedVariant.price
-    : hasBulk && packKind === 'bulk' && bulkPackTotal != null
+    : hasLegacyBulkPack && packKind === 'bulk' && bulkPackTotal != null
       ? bulkPackTotal
       : retailRef;
   const bulkDerivedUnit   = bulkPackTotal != null && bulkQty && bulkQty > 0 ? bulkPackTotal / bulkQty : null;
@@ -320,13 +347,16 @@ export const ProductCard = memo(({
   const isOutOfStock = avail <= 0;
   const lowStock     = !isOutOfStock && avail <= (product?.lowStockThreshold ?? 10);
   const isOrganicProduct = Boolean(product?.isOrganic ?? isOrganic);
-  const selectedVariantSku = selectedVariant?.sku || '';
-  const lineKey = `${String(id)}::${selectedVariantSku}`;
+  const selectedVariantSku = String((selectedVariantForCart as any)?.sku || '').trim();
+  const selectedVariantId = String((selectedVariantForCart as any)?.id || '').trim();
+  const lineKey = `${String(id)}::${selectedVariantSku || selectedVariantId}`;
   const cartQty = cartItems
     .filter(
       (item) =>
         String(item.id) === String(id) &&
-        String((item as any).selectedVariantSku || '') === String(selectedVariantSku || '')
+        (selectedVariantId
+          ? String((item as any).selectedVariantId || '') === String(selectedVariantId)
+          : String((item as any).selectedVariantSku || '') === String(selectedVariantSku || ''))
     )
     .reduce((sum, item) => sum + Number(item.quantity || 0), 0);
   const cleanDescription = useMemo(() => sanitizeCardDescription(description), [description]);
@@ -343,21 +373,30 @@ export const ProductCard = memo(({
   const handleAddToCart = () => {
     if (isOutOfStock) return;
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([20, 30, 20]);
+    const chosenVariant = selectedVariantForCart || null;
+    const chosenPack = chosenVariant
+      ? parseVariantPackDescriptor(String(chosenVariant?.name || ''), unitLabel)
+      : null;
     const payload = product
       ? {
           ...product,
-          ...(selectedVariant
+          ...(chosenVariant
             ? {
-                price: selectedVariant.price,
-                sku: selectedVariant.sku,
-                stock: selectedVariant.stock,
-                availableStock: selectedVariant.availableStock,
-                __selectedVariantSku: selectedVariant.sku,
-                __selectedVariantName: selectedVariant.name,
-                __selectedVariantPackQty: selectedVariant.packQty,
-                __selectedVariantPackUnit: selectedVariant.packUnit,
+                price: Number((chosenVariant as any).price ?? displayUnitPrice),
+                sku: String((chosenVariant as any).sku || product?.sku || ''),
+                stock: Number((chosenVariant as any).stock ?? product?.stock ?? stock),
+                availableStock: Number((chosenVariant as any).availableStock ?? (chosenVariant as any).stock ?? product?.availableStock ?? stock),
+                __selectedVariantId: (chosenVariant as any).id ? String((chosenVariant as any).id) : undefined,
+                __selectedVariantSku: String((chosenVariant as any).sku || ''),
+                __selectedVariantName: String((chosenVariant as any).name || chosenPack?.label || ''),
+                __selectedVariantPackQty: Number(chosenPack?.packQty || 1),
+                __selectedVariantPackUnit: String(chosenPack?.packUnit || unitLabel),
               }
-            : {}),
+            : {
+                __selectedVariantName: `1 ${unitLabel}`,
+                __selectedVariantPackQty: 1,
+                __selectedVariantPackUnit: String(unitLabel || 'kg'),
+              }),
         }
       : id;
     const finalQty = effectiveQty;
@@ -654,7 +693,7 @@ export const ProductCard = memo(({
             <p className="text-[10px] text-slate-400 mt-0">
               {selectedVariant
                 ? `${selectedVariant.name}`
-                : hasBulk && packKind === 'bulk' && bulkQty
+                : hasLegacyBulkPack && packKind === 'bulk' && bulkQty
                   ? `for ${bulkQty} ${unitLabel}`
                   : `per ${unitLabel}`}
             </p>

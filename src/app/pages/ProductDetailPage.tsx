@@ -120,7 +120,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     return (apiProduct.variants || [])
       .filter((v) => {
         const label = String(v.name || '').trim().toLowerCase();
-        return label !== 'default' && !label.includes('(archived)');
+        const avail = Number((v as any).availableStock ?? (v as any).stock ?? 0);
+        return label !== 'default' && !label.includes('(archived)') && avail > 0;
       })
       .slice()
       .sort((a, b) => {
@@ -215,16 +216,36 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const hasBulk = productHasBulkPricing(apiProduct);
   const bulkQty = product.bulkDiscountQty;
   const bulkPriceVal = product.bulkDiscountPrice;
+  const hasLegacyBulkPack = (() => {
+    const q = Number(bulkQty);
+    const p = Number(bulkPriceVal);
+    const hasRealVariants = Number((apiProduct.variants || []).length) > 0;
+    return Number.isFinite(q) && q > 0 && Number.isFinite(p) && p > 0 && !hasRealVariants;
+  })();
   const activeVariantData =
     activeVariant && apiProduct.variants
       ? apiProduct.variants.find((v) => v.sku === activeVariant)
       : null;
+  const retailVariantChoice = (() => {
+    const all = (apiProduct.variants || []) as any[];
+    if (!all.length) return null;
+    const defaultLike = all.find((v: any) => String(v?.name || '').trim().toLowerCase().includes('default'));
+    if (defaultLike) return defaultLike;
+    const sorted = all
+      .map((v: any) => ({
+        v,
+        qty: parseVariantPackDescriptor(String(v?.name || ''), String(apiProduct.unit || 'kg')).packQty,
+      }))
+      .filter((x) => Number.isFinite(x.qty) && x.qty > 0)
+      .sort((a, b) => a.qty - b.qty || Number(a.v?.price ?? Number.POSITIVE_INFINITY) - Number(b.v?.price ?? Number.POSITIVE_INFINITY));
+    return sorted[0]?.v || all[0];
+  })();
   const activeVariantPackQty = activeVariantData
     ? parseVariantPackDescriptor(String(activeVariantData.name || ''), String(product.unit || 'kg')).packQty
     : 1;
   const selectedPackQty = Math.max(1, Number.isFinite(activeVariantPackQty) ? activeVariantPackQty : 1);
-  const effectiveQty = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : quantity;
-  const totalTierQty = hasBulk && packKind === 'bulk'
+  const effectiveQty = hasLegacyBulkPack && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : quantity;
+  const totalTierQty = hasLegacyBulkPack && packKind === 'bulk'
     ? Math.max(1, Number(bulkQty || 1))
     : Math.max(1, quantity * selectedPackQty);
   const tierUnitPrice = getEffectiveUnitPrice(
@@ -237,34 +258,31 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     },
     totalTierQty,
   );
-  const currentPrice = hasBulk && packKind === 'bulk' && bulkPriceVal != null ? Number(bulkPriceVal) : Number(product.sellPrice);
-  const displayTotalPrice = hasBulk && packKind === 'bulk'
+  const currentPrice = hasLegacyBulkPack && packKind === 'bulk' && bulkPriceVal != null ? Number(bulkPriceVal) : Number(product.sellPrice);
+  const displayTotalPrice = hasLegacyBulkPack && packKind === 'bulk'
     ? Math.max(0, Number(bulkPriceVal ?? currentPrice))
     : tierUnitPrice * totalTierQty;
   const defaultOptionLabel = `1 ${product.unit || 'kg'}`;
-  const recommendedTier = useMemo(() => {
-    const tiers = ((apiProduct as any)?.bulkDiscountTiers || (product as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
-    const retail = getRetailUnitReference(apiProduct);
-    return [...tiers]
-      .map((t) => {
-        const qty = Number(t.qty);
-        const unit = Number(t.unitPrice ?? (Number(t.totalPrice) / qty));
-        if (!(qty > 1) || !(unit > 0) || !(retail > 0)) return null;
-        const discountPct = ((retail - unit) / retail) * 100;
-        return { ...t, qty, unitPrice: unit, discountPct };
-      })
-      .filter((t): t is { qty: number; totalPrice: number; unitPrice: number; discountPct: number } => Boolean(t))
-      .filter((t) => t.discountPct > 0)
-      .sort((a, b) => b.discountPct - a.discountPct || b.qty - a.qty)
-      .at(0) || null;
-  }, [apiProduct, product]);
-  const recommendedSavingPct = useMemo(() => {
+  const tiers = ((apiProduct as any)?.bulkDiscountTiers || (product as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+  const retailForRecommendation = getRetailUnitReference(apiProduct);
+  const recommendedTier = [...tiers]
+    .map((t) => {
+      const qty = Number(t.qty);
+      const unit = Number(t.unitPrice ?? (Number(t.totalPrice) / qty));
+      if (!(qty > 1) || !(unit > 0) || !(retailForRecommendation > 0)) return null;
+      const discountPct = ((retailForRecommendation - unit) / retailForRecommendation) * 100;
+      return { ...t, qty, unitPrice: unit, discountPct };
+    })
+    .filter((t): t is { qty: number; totalPrice: number; unitPrice: number; discountPct: number } => Boolean(t))
+    .filter((t) => t.discountPct > 0)
+    .sort((a, b) => b.discountPct - a.discountPct || b.qty - a.qty)
+    .at(0) || null;
+  const recommendedSavingPct = (() => {
     if (!recommendedTier) return 0;
-    const retail = getRetailUnitReference(apiProduct);
     const unit = Number(recommendedTier.unitPrice ?? (Number(recommendedTier.totalPrice) / Number(recommendedTier.qty)));
-    if (!(retail > 0) || !Number.isFinite(unit) || unit <= 0) return 0;
-    return Math.max(0, Math.round(((retail - unit) / retail) * 100));
-  }, [recommendedTier, apiProduct]);
+    if (!(retailForRecommendation > 0) || !Number.isFinite(unit) || unit <= 0) return 0;
+    return Math.max(0, Math.round(((retailForRecommendation - unit) / retailForRecommendation) * 100));
+  })();
   const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
   const reviewAverage = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
@@ -277,7 +295,11 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     }
     const safeQty = Math.max(1, Math.min(effectiveQty, product.stock));
     const selectedVariant =
-      apiProduct.variants?.find((variant) => String(variant.sku) === String(product.sku)) ?? null;
+      (activeVariant
+        ? apiProduct.variants?.find((variant) => String(variant.sku) === String(activeVariant))
+        : null) ||
+      retailVariantChoice ||
+      null;
     const packInfo = selectedVariant
       ? parseVariantPackDescriptor(String(selectedVariant.name || ''), String(apiProduct.unit || 'kg'))
       : null;
@@ -288,10 +310,11 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           stock: product.stock,
           availableStock: product.availableStock,
           sku: product.sku,
-          price: hasBulk && packKind === 'bulk' ? Number(product.sellPrice) : Number(tierUnitPrice),
+          price: hasLegacyBulkPack && packKind === 'bulk' ? Number(product.sellPrice) : Number(tierUnitPrice),
           ...(selectedVariant
             ? {
                 __selectedVariantSku: selectedVariant.sku,
+                __selectedVariantId: selectedVariant.id ? String(selectedVariant.id) : undefined,
                 __selectedVariantName: packInfo?.label || selectedVariant.name,
                 __selectedVariantPackQty: packInfo?.packQty,
                 __selectedVariantPackUnit: packInfo?.packUnit,
@@ -451,7 +474,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-end gap-4">
             <div>
               <p className="text-4xl font-serif font-bold text-emerald-900">{formatInr(displayTotalPrice)}</p>
-              <p className="text-xs text-slate-500">per {hasBulk && packKind === 'bulk' ? `${bulkQty || 1} ${product.unit || 'unit'} pack` : `${product.unit || 'unit'}`}</p>
+              <p className="text-xs text-slate-500">per {hasLegacyBulkPack && packKind === 'bulk' ? `${bulkQty || 1} ${product.unit || 'unit'} pack` : `${product.unit || 'unit'}`}</p>
               {recommendedTier && recommendedSavingPct > 0 && (
                 <p className="text-xs font-semibold text-emerald-700 mt-1">
                   {`${Number(recommendedTier.qty)} ${product.unit || 'kg'} pack has ${recommendedSavingPct}% discount`}
@@ -516,7 +539,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             </div>
           )}
 
-          {hasBulk && (
+          {hasLegacyBulkPack && (
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select box size</p>
               <div className="flex flex-wrap gap-2">
@@ -536,7 +559,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               <div className="flex items-center rounded-xl border border-slate-200 overflow-hidden bg-white">
                 <button className="h-10 w-10 flex items-center justify-center text-emerald-900 hover:bg-emerald-50" onClick={() => setQuantity((q) => Math.max(1, q - 1))}><Minus className="w-4 h-4" /></button>
                 <span className="w-10 text-center text-sm font-semibold">{effectiveQty}</span>
-                <button className="h-10 w-10 flex items-center justify-center text-emerald-900 hover:bg-emerald-50" onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))} disabled={hasBulk && packKind === 'bulk'}><Plus className="w-4 h-4" /></button>
+                <button className="h-10 w-10 flex items-center justify-center text-emerald-900 hover:bg-emerald-50" onClick={() => setQuantity((q) => Math.min(product.stock, q + 1))} disabled={hasLegacyBulkPack && packKind === 'bulk'}><Plus className="w-4 h-4" /></button>
               </div>
               <span className="text-xs text-slate-500">Stock: {product.stock}</span>
             </div>

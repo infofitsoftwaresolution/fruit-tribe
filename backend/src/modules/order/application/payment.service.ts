@@ -142,15 +142,11 @@ export class PaymentService {
             const receipt = String(order.orderNumber).slice(0, 40);
             const persistedPaise = Math.round(Number(order.payableAmount) * 100);
             const requestedPaise = Number.isFinite(amountInPaise) ? Math.max(1, Math.round(amountInPaise)) : persistedPaise;
-            const finalPaise = requestedPaise;
+            const finalPaise = persistedPaise > 0 ? persistedPaise : requestedPaise;
             if (requestedPaise !== persistedPaise) {
                 this.logger.warn(
-                    `createRazorpayOrder: syncing order payable from ${persistedPaise} to client checkout ${requestedPaise} paise for ${order.orderNumber}.`,
+                    `createRazorpayOrder: ignored client amount ${requestedPaise} paise; using persisted ${finalPaise} paise for ${order.orderNumber}.`,
                 );
-                await this.prisma.order.update({
-                    where: { id: order.id },
-                    data: { payableAmount: requestedPaise / 100 },
-                });
             }
             const options = {
                 amount: finalPaise,

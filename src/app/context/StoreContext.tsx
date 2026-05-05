@@ -215,6 +215,7 @@ export interface CartItem {
     bulkDiscountQty?: number;
     bulkDiscountPrice?: number;
     bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number; sku?: string; label?: string }>;
+    selectedVariantId?: string;
     selectedVariantSku?: string;
     selectedVariantName?: string;
     selectedVariantPackQty?: number;
@@ -306,11 +307,11 @@ interface StoreContextType {
     setSubscription: (sub: TribeSubscription | null) => void;
 }
 
-function parseCartLineTarget(target: string | number): { id: string; sku?: string } {
+function parseCartLineTarget(target: string | number): { id: string; variantKey?: string } {
     const raw = String(target);
     if (!raw.includes('::')) return { id: raw };
-    const [id, sku] = raw.split('::');
-    return { id, sku: sku || undefined };
+    const [id, variantKey] = raw.split('::');
+    return { id, variantKey: variantKey || undefined };
 }
 
 // --- Initial Data: products come from API (database), not hardcoded ---
@@ -609,6 +610,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         const selectedVariantSku = String((product as any).__selectedVariantSku || '').trim();
+        const selectedVariantId = String((product as any).__selectedVariantId || '').trim();
         const selectedVariantName = String((product as any).__selectedVariantName || '').trim();
         const selectedVariantPackQtyRaw = Number((product as any).__selectedVariantPackQty);
         const selectedVariantPackQty = Number.isFinite(selectedVariantPackQtyRaw) && selectedVariantPackQtyRaw > 0
@@ -631,10 +633,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     return { ...i, price: nextPrice };
                 });
             };
+            const selectedVariantKey = selectedVariantId || selectedVariantSku;
             const existingItem = prevItems.find(
                 item =>
                     String(item.id) === String(product.id) &&
-                    String(item.selectedVariantSku || '') === selectedVariantSku
+                    (
+                        selectedVariantKey
+                            ? (
+                                String(item.selectedVariantId || '') === selectedVariantKey ||
+                                String(item.selectedVariantSku || '') === selectedVariantKey
+                            )
+                            : (!item.selectedVariantId && !item.selectedVariantSku)
+                    )
             );
             const currentQty = existingItem?.quantity ?? 0;
             const maxStock = product.availableStock ?? product.stock;
@@ -645,11 +655,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 return prevItems;
             }
 
-            const matchedVariant = selectedVariantSku
-                ? (product.variants || []).find((v: any) => String(v?.sku || '') === selectedVariantSku)
-                : null;
-            const explicitSelectedPrice = selectedVariantSku ? Number((product as any).price) : NaN;
-            const variantRetailRef = selectedVariantSku
+            const matchedVariant = selectedVariantId
+                ? (product.variants || []).find((v: any) => String((v as any)?.id || '') === selectedVariantId)
+                : selectedVariantSku
+                    ? (product.variants || []).find((v: any) => String(v?.sku || '') === selectedVariantSku)
+                    : null;
+            const hasExplicitVariant = Boolean(selectedVariantId || selectedVariantSku);
+            const explicitSelectedPrice = hasExplicitVariant ? Number((product as any).price) : NaN;
+            const variantRetailRef = hasExplicitVariant
                 ? (Number.isFinite(explicitSelectedPrice) && explicitSelectedPrice > 0
                     ? explicitSelectedPrice
                     : Number((matchedVariant as any)?.price ?? NaN))
@@ -666,7 +679,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (existingItem) {
                 const updatedItems = prevItems.map(item =>
                     String(item.id) === String(product.id) &&
-                    String(item.selectedVariantSku || '') === selectedVariantSku
+                    (
+                        selectedVariantKey
+                            ? (
+                                String(item.selectedVariantId || '') === selectedVariantKey ||
+                                String(item.selectedVariantSku || '') === selectedVariantKey
+                            )
+                            : (!item.selectedVariantId && !item.selectedVariantSku)
+                    )
                         ? {
                             ...item,
                             quantity: newQty,
@@ -675,7 +695,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                             bulkDiscountQty: product.bulkDiscountQty,
                             bulkDiscountPrice: product.bulkDiscountPrice,
                             bulkDiscountTiers: (product as any).bulkDiscountTiers,
-                            selectedVariantSku: selectedVariantSku || undefined,
+                            selectedVariantId: selectedVariantId || (matchedVariant?.id ? String((matchedVariant as any).id) : undefined),
+                            selectedVariantSku: selectedVariantSku || (matchedVariant?.sku ? String((matchedVariant as any).sku) : undefined),
                             selectedVariantName: resolvedVariantName || undefined,
                             selectedVariantPackQty,
                             selectedVariantPackUnit,
@@ -700,7 +721,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     bulkDiscountQty: product.bulkDiscountQty,
                     bulkDiscountPrice: product.bulkDiscountPrice,
                     bulkDiscountTiers: (product as any).bulkDiscountTiers,
-                    selectedVariantSku: selectedVariantSku || undefined,
+                    selectedVariantId: selectedVariantId || (matchedVariant?.id ? String((matchedVariant as any).id) : undefined),
+                    selectedVariantSku: selectedVariantSku || (matchedVariant?.sku ? String((matchedVariant as any).sku) : undefined),
                     selectedVariantName: resolvedVariantName || undefined,
                     selectedVariantPackQty,
                     selectedVariantPackUnit,
@@ -714,9 +736,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCartItems(prevItems => {
             const nextItems = prevItems.map(item => {
             const sameId = String(item.id) === target.id;
-            const sameVariant = target.sku == null
+            const sameVariant = target.variantKey == null
                 ? true
-                : String(item.selectedVariantSku || '') === String(target.sku || '');
+                : (
+                    String(item.selectedVariantId || '') === String(target.variantKey || '') ||
+                    String(item.selectedVariantSku || '') === String(target.variantKey || '')
+                );
             if (sameId && sameVariant) {
                 const newQuantity = item.quantity + change;
                 const maxStock = item.stock ?? 999;
@@ -748,17 +773,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setCartItems(prevItems => {
             const item = prevItems.find((i) => {
                 const sameId = String(i.id) === target.id;
-                const sameVariant = target.sku == null
+                const sameVariant = target.variantKey == null
                     ? true
-                    : String(i.selectedVariantSku || '') === String(target.sku || '');
+                    : (
+                        String(i.selectedVariantId || '') === String(target.variantKey || '') ||
+                        String(i.selectedVariantSku || '') === String(target.variantKey || '')
+                    );
                 return sameId && sameVariant;
             });
             if (item) toast.error(`${item.name} removed from cart`);
             return prevItems.filter((i) => {
                 const sameId = String(i.id) === target.id;
-                const sameVariant = target.sku == null
+                const sameVariant = target.variantKey == null
                     ? true
-                    : String(i.selectedVariantSku || '') === String(target.sku || '');
+                    : (
+                        String(i.selectedVariantId || '') === String(target.variantKey || '') ||
+                        String(i.selectedVariantSku || '') === String(target.variantKey || '')
+                    );
                 return !(sameId && sameVariant);
             });
         });
@@ -771,14 +802,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const mapped = items.map((item) => {
                 const p = byId.get(String(item.id));
                 if (!p) return item;
-                const matchedVariant = item.selectedVariantSku
-                    ? (p.variants || []).find((v: any) => String(v.sku) === String(item.selectedVariantSku))
-                    : null;
+                const matchedVariant = item.selectedVariantId
+                    ? (p.variants || []).find((v: any) => String((v as any).id || '') === String(item.selectedVariantId))
+                    : item.selectedVariantSku
+                        ? (p.variants || []).find((v: any) => String(v.sku) === String(item.selectedVariantSku))
+                        : null;
                 const maxStock = matchedVariant
                     ? Number((matchedVariant as any).availableStock ?? (matchedVariant as any).stock ?? item.stock ?? 999)
                     : (p.availableStock ?? p.stock ?? item.stock ?? 999);
                 const q = Math.min(Math.max(0, Math.floor(item.quantity)), Math.max(0, maxStock));
-                const unitPrice = item.selectedVariantSku
+                const unitPrice = (item.selectedVariantId || item.selectedVariantSku)
                     ? (matchedVariant
                         ? Number((matchedVariant as any).price ?? item.price)
                         : Number(item.price))
@@ -795,7 +828,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     ...item,
                     quantity: q,
                     price: unitPrice,
-                    retailUnitPrice: item.selectedVariantSku
+                    retailUnitPrice: (item.selectedVariantId || item.selectedVariantSku)
                         ? (matchedVariant ? Number((matchedVariant as any).price ?? item.retailUnitPrice ?? item.price) : (item.retailUnitPrice ?? item.price))
                         : getRetailUnitReference(p),
                     bulkDiscountQty: p.bulkDiscountQty,
@@ -803,6 +836,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     bulkDiscountTiers: (p as any).bulkDiscountTiers,
                     stock: maxStock,
                     selectedVariantName: matchedVariant?.name || item.selectedVariantName,
+                    selectedVariantId: (matchedVariant as any)?.id ? String((matchedVariant as any).id) : item.selectedVariantId,
+                    selectedVariantSku: (matchedVariant as any)?.sku ? String((matchedVariant as any).sku) : item.selectedVariantSku,
                 };
             });
             return mapped.map((item) => {

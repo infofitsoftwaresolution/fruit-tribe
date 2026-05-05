@@ -242,6 +242,13 @@ export class ProductService {
         const bulk = this.parseBulkTier(mergedBulkQty, mergedBulkPrice);
 
         return this.prisma.$transaction(async (tx) => {
+            const variantSyncStats = {
+                created: 0,
+                updated: 0,
+                reusedBySku: 0,
+                deleted: 0,
+                archived: 0,
+            };
             const nextSlug =
                 dto.name != null && dto.name !== ''
                     ? await this.resolveUniqueSlug(tx, dto.name, id)
@@ -313,6 +320,7 @@ export class ProductService {
                     }
                     if (deletableIds.length > 0) {
                         await tx.productVariant.deleteMany({ where: { id: { in: deletableIds } } });
+                        variantSyncStats.deleted += deletableIds.length;
                     }
                     if (blockedIds.length > 0) {
                         // Preserve referential integrity for historical rows by archiving instead of deleting.
@@ -336,13 +344,20 @@ export class ProductService {
                         this.logger.warn(
                             `Product ${id}: archived ${blockedIds.length} variant(s) instead of deleting due to historical references.`,
                         );
+                        variantSyncStats.archived += blockedIds.length;
                     }
                 }
 
                 // 2. Update or Create
+                const existingBySku = new Map(
+                    existingVariants
+                        .map((ev) => [String(ev.sku || '').trim(), ev] as const)
+                        .filter(([sku]) => sku.length > 0),
+                );
                 for (const v of incomingVariants) {
+                    const normalizedSku = String(v.sku || '').trim();
                     const data = {
-                        sku: v.sku || `SKU-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+                        sku: normalizedSku || `SKU-${Date.now()}-${Math.random().toString(36).substring(7)}`,
                         attributeName: v.attributeName || 'Quantity',
                         attributeValue: v.attributeValue,
                         isBulkVariant: Boolean(v.isBulkVariant),
@@ -366,7 +381,24 @@ export class ProductService {
                                 availableQuantity: { increment: stockDiff }
                             }
                         });
+                        variantSyncStats.updated += 1;
                     } else {
+                        const skuMatchedExisting = normalizedSku ? existingBySku.get(normalizedSku) : null;
+                        if (skuMatchedExisting) {
+                            // SKU already exists (often archived/historical row). Reuse it instead of creating duplicate SKU.
+                            const stockDiff = (v.stockQuantity || 0) - (skuMatchedExisting.stockQuantity || 0);
+                            const currentAvailable = Number(skuMatchedExisting.availableQuantity || 0);
+                            const nextAvailable = Math.max(0, currentAvailable + stockDiff);
+                            await tx.productVariant.update({
+                                where: { id: skuMatchedExisting.id },
+                                data: {
+                                    ...data,
+                                    availableQuantity: nextAvailable,
+                                },
+                            });
+                            variantSyncStats.reusedBySku += 1;
+                            continue;
+                        }
                         // New variant
                         await tx.productVariant.create({
                             data: {
@@ -375,6 +407,7 @@ export class ProductService {
                                 availableQuantity: v.stockQuantity || 0
                             }
                         });
+                        variantSyncStats.created += 1;
                     }
                 }
             }
@@ -392,7 +425,13 @@ export class ProductService {
                 include: { images: true, variants: true },
             });
 
-            return result ? this.mapStats(result) : null;
+            if (!result) return null;
+            const mapped = this.mapStats(result) as any;
+            mapped.variantSync = variantSyncStats;
+            this.logger.log(
+                `Product ${id} variant sync -> created:${variantSyncStats.created}, updated:${variantSyncStats.updated}, reusedBySku:${variantSyncStats.reusedBySku}, deleted:${variantSyncStats.deleted}, archived:${variantSyncStats.archived}`,
+            );
+            return mapped;
         }, { timeout: 30000, maxWait: 10000 });
     }
 
