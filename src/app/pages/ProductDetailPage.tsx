@@ -121,7 +121,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       .filter((v) => {
         const label = String(v.name || '').trim().toLowerCase();
         const avail = Number((v as any).availableStock ?? (v as any).stock ?? 0);
-        return label !== 'default' && !label.includes('(archived)') && avail > 0;
+        return !label.includes('(archived)') && avail > 0;
       })
       .slice()
       .sort((a, b) => {
@@ -180,6 +180,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     setQuantity(1);
     setActiveVariant(null);
   }, [id]);
+  useEffect(() => {
+    const current = String(activeVariant || '');
+    const allSkus = sortedSelectableVariants.map((v: any) => String(v?.sku || '')).filter(Boolean);
+    if (!allSkus.length) return;
+    if (current && allSkus.includes(current)) return;
+    const preferred = normalSelectableVariants[0]?.sku || sortedSelectableVariants[0]?.sku || null;
+    if (preferred) setActiveVariant(String(preferred));
+  }, [activeVariant, normalSelectableVariants, sortedSelectableVariants]);
 
   useEffect(() => {
     if (!id) return;
@@ -226,20 +234,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     activeVariant && apiProduct.variants
       ? apiProduct.variants.find((v) => v.sku === activeVariant)
       : null;
-  const retailVariantChoice = (() => {
-    const all = (apiProduct.variants || []) as any[];
-    if (!all.length) return null;
-    const defaultLike = all.find((v: any) => String(v?.name || '').trim().toLowerCase().includes('default'));
-    if (defaultLike) return defaultLike;
-    const sorted = all
-      .map((v: any) => ({
-        v,
-        qty: parseVariantPackDescriptor(String(v?.name || ''), String(apiProduct.unit || 'kg')).packQty,
-      }))
-      .filter((x) => Number.isFinite(x.qty) && x.qty > 0)
-      .sort((a, b) => a.qty - b.qty || Number(a.v?.price ?? Number.POSITIVE_INFINITY) - Number(b.v?.price ?? Number.POSITIVE_INFINITY));
-    return sorted[0]?.v || all[0];
-  })();
   const activeVariantPackQty = activeVariantData
     ? parseVariantPackDescriptor(String(activeVariantData.name || ''), String(product.unit || 'kg')).packQty
     : 1;
@@ -262,7 +256,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const displayTotalPrice = hasLegacyBulkPack && packKind === 'bulk'
     ? Math.max(0, Number(bulkPriceVal ?? currentPrice))
     : tierUnitPrice * totalTierQty;
-  const defaultOptionLabel = `1 ${product.unit || 'kg'}`;
   const tiers = ((apiProduct as any)?.bulkDiscountTiers || (product as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
   const retailForRecommendation = getRetailUnitReference(apiProduct);
   const recommendedTier = [...tiers]
@@ -297,9 +290,11 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     const selectedVariant =
       (activeVariant
         ? apiProduct.variants?.find((variant) => String(variant.sku) === String(activeVariant))
-        : null) ||
-      retailVariantChoice ||
-      null;
+        : null) || null;
+    if (!selectedVariant) {
+      toast.error('Please select the correct pack.');
+      return;
+    }
     const packInfo = selectedVariant
       ? parseVariantPackDescriptor(String(selectedVariant.name || ''), String(apiProduct.unit || 'kg'))
       : null;
@@ -495,11 +490,10 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
                   <select
-                    value={activeVariant ?? ''}
+                    value={activeVariant ?? (normalSelectableVariants[0]?.sku || '')}
                     onChange={(e) => setActiveVariant(e.target.value || null)}
                     className="h-10 min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-semibold text-slate-800 shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                   >
-                    <option value="">{defaultOptionLabel}</option>
                     {normalSelectableVariants.map((variant: any) => (
                       <option key={variant.sku} value={variant.sku}>
                         {humanizePackLabelString(String(variant.name || ''))}
@@ -508,7 +502,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 </div>
-                <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>{defaultOptionLabel}</button>
                 {normalSelectableVariants.map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
                     {humanizePackLabelString(String(variant.name || ''))}

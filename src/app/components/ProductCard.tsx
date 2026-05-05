@@ -133,7 +133,7 @@ export const ProductCard = memo(({
       .filter((v: any) => {
         const label = String(v?.name || '').trim().toLowerCase();
         const avail = Number(v?.availableStock ?? v?.stock ?? 0);
-        return label !== 'default' && !label.includes('(archived)') && avail > 0;
+        return !label.includes('(archived)') && avail > 0;
       })
       .map((v: any) => {
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
@@ -217,11 +217,6 @@ export const ProductCard = memo(({
       }
     }
     const rows: Array<{ value: string; label: string; sortQty: number }> = [];
-    rows.push({
-      value: 'retail',
-      label: `1 ${unitLabel} · ${formatInr(retailRef)}`,
-      sortQty: 1,
-    });
     if (hasLegacyBulkPack) {
       rows.push({
         value: 'bulk',
@@ -251,7 +246,7 @@ export const ProductCard = memo(({
   const [packKind, setPackKind] = useState<string>(() =>
     bulkDealMode
       ? (defaultBulkVariantKey || (hasLegacyBulkPack ? 'bulk' : 'retail'))
-      : 'retail'
+      : (normalVariantOptions[0]?.key || variantOptions[0]?.key || 'retail')
   );
   useEffect(() => {
     if (!bulkDealMode) return;
@@ -259,9 +254,13 @@ export const ProductCard = memo(({
   }, [bulkDealMode, hasLegacyBulkPack, defaultBulkVariantKey]);
   useEffect(() => {
     if (packKind.startsWith('variant:') && !variantOptions.some((v) => v.key === packKind)) {
-      setPackKind(bulkDealMode && hasLegacyBulkPack ? 'bulk' : 'retail');
+      setPackKind(
+        bulkDealMode && hasLegacyBulkPack
+          ? 'bulk'
+          : (normalVariantOptions[0]?.key || variantOptions[0]?.key || 'retail'),
+      );
     }
-  }, [packKind, variantOptions, bulkDealMode, hasLegacyBulkPack]);
+  }, [packKind, variantOptions, normalVariantOptions, bulkDealMode, hasLegacyBulkPack]);
     useEffect(() => {
     const onDocPointerDown = (ev: MouseEvent) => {
       if (!packSelectRef.current) return;
@@ -276,24 +275,7 @@ export const ProductCard = memo(({
   const selectedVariant   = packKind.startsWith('variant:')
     ? variantOptions.find((v) => v.key === packKind) || null
     : null;
-  const retailVariantForCart = useMemo(() => {
-    if (packKind !== 'retail') return null;
-    const all = (variantOptions || []).filter((v: any) => !Boolean(v?.isBulkVariant));
-    if (!all.length) return null;
-    const oneUnitLike = all.filter((v: any) => {
-      const q = Number(v?.packQty || 0);
-      return Number.isFinite(q) && Math.abs(q - 1) < 1e-6;
-    });
-    if (!oneUnitLike.length) return null;
-    const best = [...oneUnitLike].sort((a: any, b: any) => {
-      const da = Math.abs(Number(a?.price || 0) - Number(retailRef || 0));
-      const db = Math.abs(Number(b?.price || 0) - Number(retailRef || 0));
-      if (da !== db) return da - db;
-      return Number(a?.availableStock || 0) - Number(b?.availableStock || 0);
-    })[0];
-    return best || null;
-  }, [packKind, variantOptions, retailRef]);
-  const selectedVariantForCart = selectedVariant || retailVariantForCart || null;
+  const selectedVariantForCart = selectedVariant || null;
   const effectiveQty      = hasLegacyBulkPack && packKind === 'bulk' && bulkQty && bulkQty > 0
     ? bulkQty
     : Math.max(1, quantity);
@@ -374,6 +356,10 @@ export const ProductCard = memo(({
     if (isOutOfStock) return;
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate([20, 30, 20]);
     const chosenVariant = selectedVariantForCart || null;
+    if (!chosenVariant) {
+      toast.error('Please select the correct pack.');
+      return;
+    }
     const chosenPack = chosenVariant
       ? parseVariantPackDescriptor(String(chosenVariant?.name || ''), unitLabel)
       : null;
@@ -393,7 +379,7 @@ export const ProductCard = memo(({
                 __selectedVariantPackUnit: String(chosenPack?.packUnit || unitLabel),
               }
             : {
-                __selectedVariantName: `1 ${unitLabel}`,
+                __selectedVariantName: '',
                 __selectedVariantPackQty: 1,
                 __selectedVariantPackUnit: String(unitLabel || 'kg'),
               }),

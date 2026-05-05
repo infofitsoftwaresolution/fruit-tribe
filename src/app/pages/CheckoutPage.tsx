@@ -1454,12 +1454,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         }
         const selectedVariantIdRaw = String((item as any).selectedVariantId || '').trim();
         if (!selectedVariantIdRaw) {
-          toast.error(`Please reselect pack for "${item.name}" and try again.`);
+          toast.error(`Cart data is outdated for "${item.name}". Please clear cart and add again.`);
           return;
         }
         const pickedVariant = variants.find((v: any) => String(v.id || '') === selectedVariantIdRaw);
         if (!pickedVariant) {
-          toast.error(`Selected pack for "${item.name}" is no longer available. Please refresh your cart.`);
+          toast.error(`Selected pack for "${item.name}" is no longer available. Please clear cart and add again.`);
           return;
         }
         const available = Number((pickedVariant as any).availableStock ?? (pickedVariant as any).availableQuantity ?? (pickedVariant as any).stock ?? 0);
@@ -1518,7 +1518,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       }
       setOptimisticAmount(checkoutPayableAmount);
       setPersistedGrandTotal(null);
-
       const created = await createOrder({
         items: orderItems,
         shippingAddress,
@@ -2561,7 +2560,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
                   <div className="mt-4 pt-4 border-t border-slate-100 bg-white">
                       <SwipeToPay
-                        onSuccess={() => void submitCheckout()}
+                        onSuccess={() => { void submitCheckout(); }}
                         submitting={submitting} 
                         disabled={!isCheckoutFormReady || submitting}
                         disabledLabel="Complete required fields to pay"

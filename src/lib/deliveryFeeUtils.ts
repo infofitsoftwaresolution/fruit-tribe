@@ -28,7 +28,7 @@ export function computeDeliveryFeeByDistanceKm(
             if (legacyOneKm) rate = Number(legacyOneKm.fee);
         }
         if (Number.isFinite(rate) && rate > 0) {
-            return Math.ceil(d * rate);
+            return Math.round(d * rate * 100) / 100;
         }
         return flatFallback;
     }

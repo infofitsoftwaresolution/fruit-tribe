@@ -486,7 +486,7 @@ export class SettingsService {
                 }
             }
             if (rate > 0) {
-                return Math.ceil(d * rate);
+                return Math.round(d * rate * 100) / 100;
             }
             return flat;
         }

@@ -611,6 +611,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         const selectedVariantSku = String((product as any).__selectedVariantSku || '').trim();
         const selectedVariantId = String((product as any).__selectedVariantId || '').trim();
+        const hasVariants = Array.isArray((product as any).variants) && (product as any).variants.length > 0;
+        if (hasVariants && !selectedVariantId) {
+            toast.error(`Please select a valid pack for ${product.name}`);
+            return;
+        }
         const selectedVariantName = String((product as any).__selectedVariantName || '').trim();
         const selectedVariantPackQtyRaw = Number((product as any).__selectedVariantPackQty);
         const selectedVariantPackQty = Number.isFinite(selectedVariantPackQtyRaw) && selectedVariantPackQtyRaw > 0
