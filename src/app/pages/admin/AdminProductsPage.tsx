@@ -428,7 +428,12 @@ export function AdminProductsPage() {
             ripenessStage: product.ripenessStage || '',
             farmName: product.farmName || '',
             farmState: product.farmState || '',
-            variants: product.variants?.map((v: any) => ({ 
+            variants: (product.variants || [])
+                .filter((v: any) => {
+                    const label = String(v?.name || v?.attributeValue || '').toLowerCase();
+                    return !label.includes('(archived)');
+                })
+                .map((v: any) => ({
                 id: v.id, 
                 name: v.name || v.attributeValue, 
                 price: (() => {
@@ -444,7 +449,7 @@ export function AdminProductsPage() {
                 sku: v.sku || '',
                 lowStockThreshold: String(v.lowStockThreshold ?? 5),
                 isBulkVariant: Boolean(v.isBulkVariant),
-            })) || []
+            }))
         });
         setIsModalOpen(true);
     };
@@ -539,17 +544,7 @@ export function AdminProductsPage() {
             // - No variants: create one default variant from stock field.
             // - Single variant: stock field controls that variant's stock.
             let variantsPayload =
-                normalizedVariants.length === 0
-                    ? [{
-                        id: undefined,
-                        sku: formData.sku || `SKU-${Date.now()}`,
-                        attributeValue: 'Default',
-                        isBulkVariant: false,
-                        priceOverride: undefined,
-                        stockQuantity: parsedStock,
-                        lowStockThreshold: 5,
-                    }]
-                    : normalizedVariants.length === 1
+                normalizedVariants.length === 1
                         ? normalizedVariants.map(v => ({ ...v, stockQuantity: parsedStock }))
                         : normalizedVariants;
 
