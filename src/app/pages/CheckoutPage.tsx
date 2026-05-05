@@ -17,6 +17,7 @@ import {
   getWarehouses,
   getDrivingDistanceKm,
   getAvailableOffers,
+  getStoreSettings,
   getUserAddresses,
   createUserAddress,
   getEffectiveApiBase,
@@ -478,6 +479,65 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const checkoutFormRef = useRef(formData);
   checkoutFormRef.current = formData;
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof formData, string>>>({});
+  const [pricingSnapshot, setPricingSnapshot] = useState<{
+    deliveryCharge: number;
+    deliveryFeeRules: Array<{ upToKm: number; fee: number }>;
+    deliveryFeeMode: 'SLAB' | 'PER_KM';
+    deliveryPerKmRate: number;
+    freeDeliveryThreshold: number;
+    platformFee: number;
+    taxRates: Record<string, number>;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const pullPricing = async () => {
+      try {
+        const data = await getStoreSettings();
+        if (cancelled) return;
+        const rawTaxRates = (data?.preferences as any)?.taxRates;
+        const normalizedTaxRates: Record<string, number> = {};
+        if (rawTaxRates && typeof rawTaxRates === 'object') {
+          for (const [k, v] of Object.entries(rawTaxRates as Record<string, unknown>)) {
+            const n = Number(v);
+            if (!Number.isFinite(n) || n < 0) continue;
+            normalizedTaxRates[String(k)] = n;
+          }
+        }
+        setPricingSnapshot({
+          deliveryCharge: Number(data?.deliveryCharge ?? 0) || 0,
+          deliveryFeeRules: Array.isArray(data?.deliveryFeeRules) ? data.deliveryFeeRules : [],
+          deliveryFeeMode: String((data as any)?.deliveryFeeMode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB',
+          deliveryPerKmRate: Number((data as any)?.deliveryPerKmRate ?? 0) || 0,
+          freeDeliveryThreshold: Number((data as any)?.freeDeliveryThreshold ?? 0) || 0,
+          platformFee: Number((data as any)?.platformFee ?? 0) || 0,
+          taxRates: normalizedTaxRates,
+        });
+      } catch {
+        // Keep in-memory settings when live pull fails.
+      }
+    };
+    void pullPricing();
+    const onFocus = () => { void pullPricing(); };
+    window.addEventListener('focus', onFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
+  const effectivePricing = useMemo(() => ({
+    deliveryCharge: pricingSnapshot?.deliveryCharge ?? (Number(preferences.deliveryCharge) || 0),
+    deliveryFeeRules: pricingSnapshot?.deliveryFeeRules ?? (preferences.deliveryFeeRules || []),
+    deliveryFeeMode: pricingSnapshot?.deliveryFeeMode ?? (preferences.deliveryFeeMode || 'SLAB'),
+    deliveryPerKmRate: pricingSnapshot?.deliveryPerKmRate ?? (Number(preferences.deliveryPerKmRate) || 0),
+    freeDeliveryThreshold: pricingSnapshot?.freeDeliveryThreshold ?? (Number(preferences.freeDeliveryThreshold) || 0),
+    platformFee: pricingSnapshot?.platformFee ?? (Number(preferences.platformFee) || 0),
+    taxRates:
+      pricingSnapshot?.taxRates && Object.keys(pricingSnapshot.taxRates).length > 0
+        ? pricingSnapshot.taxRates
+        : taxRates,
+  }), [pricingSnapshot, preferences, taxRates]);
   useEffect(() => {
     const canonical = `${formData.firstName} ${formData.lastName}`.replace(/\s+/g, ' ').trim();
     setFullNameInput((prev) => {
@@ -1089,10 +1149,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   const shippingFeeForDistance = useMemo(() => {
     if (!isAddressResolvedForPricing) return 0;
-    const fallbackDeliveryCharge = Number(preferences.deliveryCharge) || 0;
-    const rules = preferences.deliveryFeeRules || [];
-    const mode = preferences.deliveryFeeMode || 'SLAB';
-    const perKmRate = Number(preferences.deliveryPerKmRate) || 0;
+    const fallbackDeliveryCharge = effectivePricing.deliveryCharge;
+    const rules = effectivePricing.deliveryFeeRules;
+    const mode = effectivePricing.deliveryFeeMode;
+    const perKmRate = effectivePricing.deliveryPerKmRate;
     const distanceForPricing =
       typeof deliveryDistance === 'number' && Number.isFinite(deliveryDistance)
         ? deliveryDistance
@@ -1104,17 +1164,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       mode,
       perKmRate,
       subtotalOnly,
-      Number(preferences.freeDeliveryThreshold) || 0,
+      effectivePricing.freeDeliveryThreshold,
     );
   }, [
     isAddressResolvedForPricing,
     deliveryDistance,
     subtotalOnly,
-    preferences.deliveryCharge,
-    preferences.deliveryFeeRules,
-    preferences.deliveryFeeMode,
-    preferences.deliveryPerKmRate,
-    preferences.freeDeliveryThreshold,
+    effectivePricing,
   ]);
 
   const vendorSummaries = useMemo(() => {
@@ -1127,7 +1183,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         );
         const category = String(product?.category || '').trim();
         const rate = category
-          ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0)
+          ? Number(
+            effectivePricing.taxRates[category] ??
+            effectivePricing.taxRates[category.toLowerCase()] ??
+            effectivePricing.taxRates[category.toUpperCase()] ??
+            0,
+          )
           : 0;
         return totalTax + (item.price * item.quantity * (rate / 100));
       }, 0);
@@ -1141,13 +1202,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         total: vSubtotal + vTax + shipping,
       };
     });
-  }, [groupedItems, products, taxRates, shippingFeeForDistance]);
+  }, [groupedItems, products, effectivePricing, shippingFeeForDistance]);
 
   const totalShipping = useMemo(() => {
     return vendorSummaries.reduce((sum: number, s: any) => sum + s.shipping, 0);
   }, [vendorSummaries]);
 
-  const platformFee = Number(preferences.platformFee) || 0;
+  const platformFee = effectivePricing.platformFee;
   const orderTaxAmount = useMemo(() => {
     return items.reduce((totalTax, item) => {
       const product = products.find((p: any) =>
@@ -1155,11 +1216,16 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       );
       const category = String(product?.category || '').trim();
       const rate = category
-        ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0)
+        ? Number(
+          effectivePricing.taxRates[category] ??
+          effectivePricing.taxRates[category.toLowerCase()] ??
+          effectivePricing.taxRates[category.toUpperCase()] ??
+          0,
+        )
         : 0;
       return totalTax + (item.price * item.quantity * (rate / 100));
     }, 0);
-  }, [items, products, taxRates]);
+  }, [items, products, effectivePricing]);
   const baseBillBeforeDiscount = useMemo(() => {
     return subtotalOnly + orderTaxAmount + totalShipping + platformFee;
   }, [subtotalOnly, orderTaxAmount, totalShipping, platformFee]);
@@ -1396,7 +1462,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         deliveryInstructions: formData.deliveryInstructions || null,
       };
 
-      setOptimisticAmount(grandTotal);
+      const checkoutPayableAmount = Math.max(0, Math.round(grandTotal * 100) / 100);
+      setOptimisticAmount(checkoutPayableAmount);
       setPersistedGrandTotal(null);
 
       const created = await createOrder({
@@ -1433,14 +1500,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       const orderId = created.id as string;
       const orderNumber = (created.orderNumber as string) || orderId;
       const serverPayable = Number((created as any).payableAmount);
-      const payableAmount = Number.isFinite(serverPayable) && serverPayable >= 0
-        ? serverPayable
-        : Number(optimisticAmount);
+      const payableAmount = checkoutPayableAmount;
       const amountInPaise = Math.round(payableAmount * 100);
       setPersistedGrandTotal(payableAmount);
-      if (Math.abs(payableAmount - grandTotal) >= 0.5) {
+      if (Number.isFinite(serverPayable) && Math.abs(serverPayable - payableAmount) >= 0.5) {
         toast.info('Final payable amount updated from server pricing rules.', {
-          description: `Updated total: ₹${payableAmount.toFixed(2)}`,
+          description: `Checkout ₹${payableAmount.toFixed(2)}; server had ₹${serverPayable.toFixed(2)}. Using checkout amount for payment.`,
         });
       }
 
@@ -2140,7 +2205,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
 
                     {(() => {
-                        const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+                        const threshold = effectivePricing.freeDeliveryThreshold;
                         if (threshold > 0 && subtotalOnly > 0 && subtotalOnly < threshold) {
                             return (
                                 <motion.div
@@ -2365,7 +2430,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                       <div className="flex justify-between items-end">
                         <div className="space-y-1">
                           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Grand Total</span>
-                          <span className="text-[8px] font-bold text-orange-500 uppercase px-1.5 py-0.5 bg-orange-50 rounded">Split Order</span>
                         </div>
                         <div className="text-right">
                           {discountAmount > 0 && (

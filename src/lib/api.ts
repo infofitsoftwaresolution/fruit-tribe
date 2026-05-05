@@ -1019,7 +1019,11 @@ export async function getStoreSettings(): Promise<{
   deliveryPerKmRate?: number;
   freeDeliveryThreshold?: number;
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/store`);
+  const bust = Date.now();
+  const res = await fetch(`${getEffectiveApiBase()}/settings/store?_=${bust}`, {
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache' },
+  });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }

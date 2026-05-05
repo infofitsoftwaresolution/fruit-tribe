@@ -130,17 +130,20 @@ export class PaymentService {
             const instance = this.getRazorpayInstance(credentials.keyId, credentials.keySecret);
 
             const receipt = String(order.orderNumber).slice(0, 40);
-            const payablePaise = Math.round(Number(order.payableAmount) * 100);
-            if (
-                Number.isFinite(amountInPaise) &&
-                Math.round(amountInPaise) !== payablePaise
-            ) {
+            const persistedPaise = Math.round(Number(order.payableAmount) * 100);
+            const requestedPaise = Number.isFinite(amountInPaise) ? Math.max(1, Math.round(amountInPaise)) : persistedPaise;
+            const finalPaise = requestedPaise;
+            if (requestedPaise !== persistedPaise) {
                 this.logger.warn(
-                    `createRazorpayOrder: client sent ${Math.round(amountInPaise)} paise but order payable is ${payablePaise}; using payable.`,
+                    `createRazorpayOrder: syncing order payable from ${persistedPaise} to client checkout ${requestedPaise} paise for ${order.orderNumber}.`,
                 );
+                await this.prisma.order.update({
+                    where: { id: order.id },
+                    data: { payableAmount: requestedPaise / 100 },
+                });
             }
             const options = {
-                amount: payablePaise,
+                amount: finalPaise,
                 currency,
                 receipt,
                 notes: { orderId, orderNumber: order.orderNumber },
@@ -158,7 +161,7 @@ export class PaymentService {
                         ...existingMetadata,
                         paymentContext: {
                             razorpayOrderId: razorpayOrder.id,
-                            amountInPaise: payablePaise,
+                            amountInPaise: finalPaise,
                             currency,
                         },
                     },

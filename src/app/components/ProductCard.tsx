@@ -470,8 +470,10 @@ export const ProductCard = memo(({
                           setIsPackSelectOpen(false);
                         }}
                         className={cn(
-                          "w-full px-3 py-2 text-left text-[11px] transition-colors",
-                          active ? "bg-emerald-50 text-emerald-700 font-semibold" : "text-slate-700 hover:bg-slate-50"
+                          "w-full px-3 py-2 text-left text-[11px] transition-colors duration-150 cursor-pointer",
+                          active
+                            ? "bg-slate-100 text-slate-900 font-semibold cursor-default"
+                            : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:font-semibold"
                         )}
                       >
                         {opt.label}
