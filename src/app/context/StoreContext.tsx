@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, ReactNode, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { getStoreSettings } from '@/lib/api';
 import { getEffectiveUnitPrice, getEffectiveUnitPriceFromCartItem, getRetailUnitReference } from '@/lib/pricing';
@@ -517,46 +517,74 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
-    // Hydrate theme, preferences, delivery settings from backend so admin updates persist
-    useEffect(() => {
-        let cancelled = false;
-        getStoreSettings()
-            .then((data) => {
-                if (cancelled) return;
-                if (data.theme && typeof data.theme === 'object') {
-                    setTheme((prev) => ({
-                        ...INITIAL_THEME,
-                        ...prev,
-                        ...data.theme as Partial<ThemeSettings>,
-                        seasonal: { ...INITIAL_THEME.seasonal, ...(prev.seasonal ?? {}), ...((data.theme as any)?.seasonal ?? {}) },
-                    }));
-                }
-                if (data.preferences && typeof data.preferences === 'object') {
-                    setPreferences((prev) => ({ ...INITIAL_PREFERENCES, ...prev, ...data.preferences as Partial<StorePreferences> }));
-                }
-                if (typeof data.deliveryCharge === 'number' && data.deliveryCharge >= 0) {
-                    setPreferences((prev) => ({ ...prev, deliveryCharge: data.deliveryCharge }));
-                }
-                if (Array.isArray((data as any).deliveryFeeRules)) {
-                    setPreferences((prev) => ({ ...prev, deliveryFeeRules: (data as any).deliveryFeeRules }));
-                }
-                if (typeof (data as any).deliveryFeeMode === 'string') {
-                    const mode = String((data as any).deliveryFeeMode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB';
-                    setPreferences((prev) => ({ ...prev, deliveryFeeMode: mode }));
-                }
-                if (typeof (data as any).deliveryPerKmRate === 'number' && (data as any).deliveryPerKmRate >= 0) {
-                    setPreferences((prev) => ({ ...prev, deliveryPerKmRate: (data as any).deliveryPerKmRate }));
-                }
-                if (typeof (data as any).freeDeliveryThreshold === 'number' && (data as any).freeDeliveryThreshold >= 0) {
-                    setPreferences((prev) => ({ ...prev, freeDeliveryThreshold: (data as any).freeDeliveryThreshold }));
-                }
-                if (typeof (data as any).platformFee === 'number' && (data as any).platformFee >= 0) {
-                    setPreferences((prev) => ({ ...prev, platformFee: (data as any).platformFee }));
-                }
-            })
-            .catch(() => {});
-        return () => { cancelled = true; };
+    const lastStoreSettingsRefreshRef = useRef(0);
+
+    const refreshStoreSettings = useCallback(async () => {
+        const data = await getStoreSettings();
+        if (data.theme && typeof data.theme === 'object') {
+            setTheme((prev) => ({
+                ...INITIAL_THEME,
+                ...prev,
+                ...data.theme as Partial<ThemeSettings>,
+                seasonal: { ...INITIAL_THEME.seasonal, ...(prev.seasonal ?? {}), ...((data.theme as any)?.seasonal ?? {}) },
+            }));
+        }
+        setPreferences((prev) => {
+            const next = { ...INITIAL_PREFERENCES, ...prev };
+            if (data.preferences && typeof data.preferences === 'object') {
+                Object.assign(next, data.preferences as Partial<StorePreferences>);
+            }
+            if (typeof data.deliveryCharge === 'number' && data.deliveryCharge >= 0) {
+                next.deliveryCharge = data.deliveryCharge;
+            }
+            if (Array.isArray((data as any).deliveryFeeRules)) {
+                next.deliveryFeeRules = (data as any).deliveryFeeRules;
+            }
+            if (typeof (data as any).deliveryFeeMode === 'string') {
+                next.deliveryFeeMode = String((data as any).deliveryFeeMode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB';
+            }
+            if (typeof (data as any).deliveryPerKmRate === 'number' && (data as any).deliveryPerKmRate >= 0) {
+                next.deliveryPerKmRate = (data as any).deliveryPerKmRate;
+            }
+            if (typeof (data as any).freeDeliveryThreshold === 'number' && (data as any).freeDeliveryThreshold >= 0) {
+                next.freeDeliveryThreshold = (data as any).freeDeliveryThreshold;
+            }
+            if (typeof (data as any).platformFee === 'number' && (data as any).platformFee >= 0) {
+                next.platformFee = (data as any).platformFee;
+            }
+            return next;
+        });
     }, []);
+
+    // Hydrate once and refresh on tab focus/visibility so admin delivery updates propagate.
+    useEffect(() => {
+        const throttledRefresh = async () => {
+            const now = Date.now();
+            if (now - lastStoreSettingsRefreshRef.current < 15_000) return;
+            lastStoreSettingsRefreshRef.current = now;
+            try {
+                await refreshStoreSettings();
+            } catch {
+                // Silent failure: existing local snapshot remains usable.
+            }
+        };
+
+        void throttledRefresh();
+
+        const onFocus = () => { void throttledRefresh(); };
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                void throttledRefresh();
+            }
+        };
+
+        window.addEventListener('focus', onFocus);
+        document.addEventListener('visibilitychange', onVisibility);
+        return () => {
+            window.removeEventListener('focus', onFocus);
+            document.removeEventListener('visibilitychange', onVisibility);
+        };
+    }, [refreshStoreSettings]);
 
     const handleAddToCart = useCallback((product: Product, quantity: number = 1) => {
         const desiredQty = Math.max(1, Math.floor(quantity));
