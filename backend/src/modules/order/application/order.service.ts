@@ -23,6 +23,47 @@ export class OrderService {
         private readonly settingsService: SettingsService,
     ) { }
 
+    private normalizeTaxRates(raw: unknown): Record<string, number> {
+        if (!raw || typeof raw !== 'object') return {};
+        const out: Record<string, number> = {};
+        for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+            const n = Number(v);
+            if (!Number.isFinite(n) || n < 0) continue;
+            out[String(k)] = n;
+        }
+        return out;
+    }
+
+    private resolveTaxRateForCategory(categoryName: string | null | undefined, rates: Record<string, number>): number {
+        const key = String(categoryName ?? '').trim();
+        if (!key) return 0;
+        const exact = rates[key];
+        if (Number.isFinite(exact)) return Number(exact);
+        const lowerKey = key.toLowerCase();
+        for (const [k, v] of Object.entries(rates)) {
+            if (String(k).toLowerCase() === lowerKey) return Number(v);
+        }
+        return 0;
+    }
+
+    private calculateTaxAmountFromLines(
+        lines: Array<{ subtotal: number; categoryName?: string | null }>,
+        rates: Record<string, number>,
+    ): number {
+        const total = lines.reduce((sum, line) => {
+            const subtotal = Number(line.subtotal);
+            if (!Number.isFinite(subtotal) || subtotal <= 0) return sum;
+            const rate = this.resolveTaxRateForCategory(line.categoryName, rates);
+            return sum + (subtotal * rate) / 100;
+        }, 0);
+        return Math.round(total * 100) / 100;
+    }
+
+    private async getAdminTaxRates(): Promise<Record<string, number>> {
+        const preferences = await this.settingsService.getStorePreferences();
+        return this.normalizeTaxRates((preferences as any)?.taxRates);
+    }
+
     /** Keep fiscal state consistent for already delivered orders. */
     private async reconcileDeliveredFiscalState(): Promise<void> {
         await this.prisma.order.updateMany({
@@ -83,8 +124,22 @@ export class OrderService {
             0,
         );
 
+        const productRows = await this.prisma.product.findMany({
+            where: { id: { in: dto.items.map((item) => String(item.productId)) } },
+            select: { id: true, category: { select: { name: true } } },
+        });
+        const productCategoryById = new Map(
+            productRows.map((p) => [String(p.id), p.category?.name ?? null]),
+        );
+        const taxRates = await this.getAdminTaxRates();
+        const taxAmount = this.calculateTaxAmountFromLines(
+            dto.items.map((item) => ({
+                subtotal: item.pricePerUnit * item.quantity,
+                categoryName: productCategoryById.get(String(item.productId)) ?? null,
+            })),
+            taxRates,
+        );
         const shippingFee = 0; // Manual orders usually have specific shipping or included
-        const taxAmount = subtotal * 0.05; // 5% GST
         const payableAmount = subtotal + shippingFee + taxAmount + platformFee;
 
         const orderNumber = `FT-MN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -331,10 +386,17 @@ export class OrderService {
         // Server-side COD enforcement: if any cart product disables COD, order must be paid online.
         const products = await this.prisma.product.findMany({
             where: { id: { in: canonicalItems.map((i) => i.productId) } },
-            select: { id: true, allowCashOnDelivery: true },
+            select: {
+                id: true,
+                allowCashOnDelivery: true,
+                category: { select: { name: true } },
+            },
         });
         const codBlocked = new Set(
             products.filter((p) => p.allowCashOnDelivery === false).map((p) => p.id),
+        );
+        const productCategoryById = new Map(
+            products.map((p) => [String(p.id), p.category?.name ?? null]),
         );
         const requestedCod = String(dto.paymentMethod || 'online').toLowerCase() === 'cod';
         const hasCodBlockedItem = canonicalItems.some((i) => codBlocked.has(i.productId));
@@ -345,7 +407,14 @@ export class OrderService {
 
         const platformFee = await this.settingsService.getPlatformFee();
         const shippingFee = await this.settingsService.calculateDeliveryFeeByDistance(dto.distanceKm ?? null, subtotal);
-        const taxAmount = subtotal * 0.05; // 5% GST
+        const taxRates = await this.getAdminTaxRates();
+        const taxAmount = this.calculateTaxAmountFromLines(
+            canonicalItems.map((item) => ({
+                subtotal: item.subtotal,
+                categoryName: productCategoryById.get(String(item.productId)) ?? null,
+            })),
+            taxRates,
+        );
         const payableAmount = subtotal - discountAmount + shippingFee + taxAmount + platformFee;
 
         const addr = dto.shippingAddress as Record<string, unknown>;

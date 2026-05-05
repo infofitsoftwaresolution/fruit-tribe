@@ -10,6 +10,7 @@ import { useAdminData } from '@/app/context/AdminDataContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { updateStoreSettings } from '@/lib/api';
 
 const TAX_CHANGELOG_KEY = 'tax_rate_changelog_v1';
 
@@ -37,7 +38,7 @@ function appendTaxChangelog(entry: TaxChangelogEntry) {
 }
 
 export function AdminTaxPage() {
-    const { taxRates, updateTaxRate } = useStore();
+    const { taxRates, updateTaxRate, preferences } = useStore();
     const { orders, products } = useAdminData();
     const [editingRates, setEditingRates] = useState<Record<string, string>>(
         Object.keys(taxRates).reduce((acc, cat) => ({ ...acc, [cat]: taxRates[cat].toString() }), {})
@@ -51,13 +52,14 @@ export function AdminTaxPage() {
         }
     }, []);
 
-    const handleSave = useCallback((category: string) => {
+    const handleSave = useCallback(async (category: string) => {
         const numValue = parseFloat(editingRates[category]);
         if (isNaN(numValue)) {
             toast.error('Numerical input required');
             return;
         }
         const prev = taxRates[category] ?? 0;
+        const nextTaxRates = { ...taxRates, [category]: numValue };
         if (prev !== numValue) {
             appendTaxChangelog({
                 ts: new Date().toISOString(),
@@ -68,8 +70,19 @@ export function AdminTaxPage() {
             setChangelog(readTaxChangelog());
         }
         updateTaxRate(category, numValue);
-        toast.success(`Tax rate updated for ${category}`);
-    }, [editingRates, updateTaxRate, taxRates]);
+        try {
+            await updateStoreSettings({
+                preferences: {
+                    ...preferences,
+                    taxRates: nextTaxRates,
+                },
+            });
+            toast.success(`Tax rate updated for ${category}`);
+        } catch {
+            updateTaxRate(category, prev);
+            toast.error('Failed to persist tax rate. Reverted local change.');
+        }
+    }, [editingRates, updateTaxRate, taxRates, preferences]);
 
     const escapeCsvValue = (value: unknown) => {
         const str = value == null ? '' : String(value);

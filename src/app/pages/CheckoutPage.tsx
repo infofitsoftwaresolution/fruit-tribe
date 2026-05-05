@@ -1134,8 +1134,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }, [vendorSummaries]);
 
   const platformFee = Number(preferences.platformFee) || 0;
-  /** Must match `OrderService.create`: `taxAmount = subtotal * 0.05` (flat GST, not per-category). */
-  const orderTaxAmount = useMemo(() => subtotalOnly * 0.05, [subtotalOnly]);
+  const orderTaxAmount = useMemo(() => {
+    return items.reduce((totalTax, item) => {
+      const product = products.find((p: any) =>
+        String(p.id) === String((item as any).productId ?? item.id)
+      );
+      const category = String(product?.category || '').trim();
+      const rate = category
+        ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0)
+        : 0;
+      return totalTax + (item.price * item.quantity * (rate / 100));
+    }, 0);
+  }, [items, products, taxRates]);
   const baseBillBeforeDiscount = useMemo(() => {
     return subtotalOnly + orderTaxAmount + totalShipping + platformFee;
   }, [subtotalOnly, orderTaxAmount, totalShipping, platformFee]);
@@ -2081,7 +2091,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           </div>
                         )}
                         <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          <span>GST (5%)</span>
+                          <span>Tax</span>
                           <span className="text-slate-900 font-black">₹{orderTaxAmount.toFixed(2)}</span>
                         </div>
                         {platformFee > 0 && (

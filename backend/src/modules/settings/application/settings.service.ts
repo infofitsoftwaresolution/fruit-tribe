@@ -477,8 +477,8 @@ export class SettingsService {
         if (mode === 'PER_KM') {
             let rate = await this.getDeliveryPerKmRate();
             // Backward compatibility: if legacy "1 km => ₹X" slab exists, treat that as per-km rate
-            // when saved per-km rate is missing/incorrectly low.
-            if (!(rate > 0) || rate <= 1) {
+            // only when saved per-km rate is missing or non-positive.
+            if (!Number.isFinite(rate) || rate <= 0) {
                 const legacyRules = await this.getDeliveryFeeRules();
                 const oneKmRule = legacyRules.find((r) => r.upToKm === 1 && r.fee > 0);
                 if (oneKmRule && oneKmRule.fee > rate) {

@@ -20,8 +20,8 @@ export function computeDeliveryFeeByDistanceKm(
     if (normalizedMode === 'PER_KM') {
         let rate = Number(perKmRate);
         // Backward compatibility for legacy admin input: when a "1 km => ₹X" slab exists,
-        // use it as per-km rate if explicit rate is missing/too low.
-        if (!Number.isFinite(rate) || rate <= 1) {
+        // use it only if explicit rate is missing or non-positive.
+        if (!Number.isFinite(rate) || rate <= 0) {
             const legacyOneKm = (rules ?? []).find(
                 (r) => Number(r?.upToKm) === 1 && Number.isFinite(Number(r?.fee)) && Number(r?.fee) > 0,
             );

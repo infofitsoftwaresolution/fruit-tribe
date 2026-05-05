@@ -534,6 +534,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (data.preferences && typeof data.preferences === 'object') {
                 Object.assign(next, data.preferences as Partial<StorePreferences>);
             }
+            const rawTaxRates = (data.preferences as any)?.taxRates;
+            if (rawTaxRates && typeof rawTaxRates === 'object') {
+                const normalizedTaxRates: Record<string, number> = {};
+                for (const [category, rate] of Object.entries(rawTaxRates as Record<string, unknown>)) {
+                    const parsedRate = Number(rate);
+                    if (!Number.isFinite(parsedRate) || parsedRate < 0) continue;
+                    normalizedTaxRates[String(category)] = parsedRate;
+                }
+                if (Object.keys(normalizedTaxRates).length > 0) {
+                    setTaxRates((prevRates) => ({ ...prevRates, ...normalizedTaxRates }));
+                }
+            }
             if (typeof data.deliveryCharge === 'number' && data.deliveryCharge >= 0) {
                 next.deliveryCharge = data.deliveryCharge;
             }
