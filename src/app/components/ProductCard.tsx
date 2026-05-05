@@ -457,7 +457,7 @@ export const ProductCard = memo(({
   const DesktopCard = (
     <div className="hidden sm:flex sm:flex-col sm:h-full">
       {/* Image */}
-      <Link to={`/product/${id}`} className="relative aspect-square overflow-hidden bg-slate-50 block shrink-0">
+      <Link to={`/product/${id}`} className="relative aspect-[5/3] overflow-hidden bg-slate-50 block shrink-0">
         <ProductImage src={image} alt={name} isOutOfStock={isOutOfStock} />
 
         {/* Gradient for bottom overlap */}
@@ -506,52 +506,29 @@ export const ProductCard = memo(({
       </Link>
 
       {/* Info panel */}
-      <div className="p-3 flex flex-col flex-1">
-
-        {/* Tags row */}
-        <div className="flex flex-wrap gap-1.5 mb-2 min-h-[18px]">
-          {effectiveRipenessStage && (
-            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-full">
-              {effectiveRipenessStage}
-            </span>
-          )}
-          {isOrganicProduct && (
-            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-              Organic
-            </span>
-          )}
-          {effectiveHarvestDate && <HarvestAge harvestDate={effectiveHarvestDate} />}
-        </div>
+      <div className="p-4 flex flex-col flex-1 gap-2.5">
 
         {/* Product name */}
         <Link to={`/product/${id}`} className="flex-1">
-          <h3 className="text-sm font-semibold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5">
+          <h3 className="text-base font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5">
             {name}
           </h3>
           {cleanDescription && (
-            <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-1">
+            <p className="text-xs text-slate-500 leading-relaxed line-clamp-1">
               {cleanDescription}
             </p>
           )}
         </Link>
 
-        {/* Farm source */}
-        {effectiveFarmName && (
-          <div className="flex items-center gap-1 mt-1.5 text-[11px] text-slate-400">
-            <MapPin className="h-3 w-3 text-emerald-500 shrink-0" />
-            <span className="truncate">{effectiveFarmName}{effectiveFarmState ? `, ${effectiveFarmState}` : ''}</span>
-          </div>
-        )}
-
         {/* Pack selector if bulk */}
         {!isOutOfStock && (hasBulk || variantOptions.length > 0) && (
-          <div className="mt-2">
+          <div>
             <div ref={packSelectRef} className="relative">
               <button
                 type="button"
                 onClick={() => { if (!bulkDealMode) setIsPackSelectOpen((prev) => !prev); }}
                 className={cn(
-                  "w-full h-9 pl-3 pr-9 text-left text-[11px] font-semibold text-slate-800 border border-slate-200 rounded-xl bg-white shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all",
+                  "w-full h-10 pl-3 pr-9 text-left text-xs font-semibold text-slate-800 border border-slate-200 rounded-xl bg-slate-50 shadow-sm outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all",
                   bulkDealMode && "cursor-not-allowed opacity-90"
                 )}
               >
@@ -616,15 +593,15 @@ export const ProductCard = memo(({
 
         {/* Quantity selector (retail) */}
         {!isOutOfStock && (!hasBulk || packKind !== 'bulk') && (
-          <div className="flex items-center justify-between mt-2">
-            <span className="text-[11px] text-slate-400 font-medium">Qty</span>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-slate-600 font-medium">Quantity</span>
+            <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1">
               <button type="button"
                 onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                className="h-6 w-6 rounded-lg border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors flex items-center justify-center">
+                className="h-7 w-7 rounded-full text-slate-600 text-lg font-semibold hover:bg-slate-200 transition-colors flex items-center justify-center">
                 −
               </button>
-              <span className="w-5 text-center text-sm font-semibold text-slate-900">{quantity}</span>
+              <span className="w-6 text-center text-sm font-semibold text-slate-900">{quantity}</span>
               <button type="button"
                 onClick={() => setQuantity((q) => {
                   const next = q + 1;
@@ -632,7 +609,7 @@ export const ProductCard = memo(({
                   if (max && next > max) { toast.error(`Only ${max} units available`); return max; }
                   return next;
                 })}
-                className="h-6 w-6 rounded-lg border border-slate-200 bg-slate-900 text-white text-sm font-semibold hover:bg-emerald-600 hover:border-emerald-600 transition-colors flex items-center justify-center">
+                className="h-7 w-7 rounded-full text-slate-600 text-lg font-semibold hover:bg-slate-200 transition-colors flex items-center justify-center">
                 +
               </button>
             </div>
@@ -641,7 +618,7 @@ export const ProductCard = memo(({
 
         {/* Offer hint */}
         {liveOfferHint && !isOutOfStock && (
-          <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-lg">
+          <div className="flex items-center gap-1.5 mt-1 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-lg">
             <Tag className="h-3 w-3 text-emerald-600 shrink-0" />
             <span className="text-[10px] font-medium text-emerald-700 line-clamp-1">{liveOfferHint}</span>
           </div>
@@ -654,20 +631,12 @@ export const ProductCard = memo(({
           </div>
         )}
 
-        {/* Bulk quantity help */}
-        <Link
-          to={`/contact?topic=bulk-order&product=${encodeURIComponent(name)}`}
-          className="mt-3 inline-flex items-center text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 transition-colors"
-        >
-          Need more quantity? Contact us
-        </Link>
-
         {/* Price + Add to cart */}
-        <div className="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100">
+        <div className="flex items-center justify-between gap-2.5 pt-3 border-t border-slate-100">
           <div>
             <div className="flex items-baseline gap-1.5">
               <span className={cn(
-                'text-base font-bold transition-colors',
+                'text-xl font-bold transition-colors',
                 isOutOfStock ? 'text-slate-300' : 'text-slate-900'
               )}>
                 {formatInr(displayUnitPrice)}
@@ -676,12 +645,12 @@ export const ProductCard = memo(({
                 <span className="text-xs text-slate-400 line-through">{formatInr(retailRef)}</span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 mt-0">
+            <p className="text-xs text-slate-500 mt-0.5">
               {selectedVariant
                 ? `${selectedVariant.name}`
                 : hasLegacyBulkPack && packKind === 'bulk' && bulkQty
                   ? `for ${bulkQty} ${unitLabel}`
-                  : `per ${unitLabel}`}
+                  : `Inclusive of all taxes`}
             </p>
           </div>
 
@@ -702,14 +671,14 @@ export const ProductCard = memo(({
               disabled={isOutOfStock}
               onClick={handleAddToCart}
               className={cn(
-                'flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors shrink-0',
+                'flex items-center gap-1.5 h-10 px-4 rounded-full text-xs font-semibold transition-colors shrink-0',
                 isOutOfStock
                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+                  : 'bg-black text-white hover:bg-slate-800 shadow-sm'
               )}
             >
               <ShoppingCart className="h-3.5 w-3.5" />
-              {isOutOfStock ? 'Sold out' : 'Add'}
+              {isOutOfStock ? 'Sold out' : 'Add to Cart'}
             </motion.button>
           )}
         </div>
@@ -721,7 +690,7 @@ export const ProductCard = memo(({
     <motion.div
       whileHover={{ y: -3 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-      className="relative bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-300 group flex flex-col h-full"
+      className="relative bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl transition-all duration-300 group flex flex-col h-full"
     >
       {MobileCard}
       {DesktopCard}
