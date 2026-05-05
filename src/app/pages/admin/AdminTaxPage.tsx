@@ -155,6 +155,75 @@ export function AdminTaxPage() {
 
     const categories = useMemo(() => Object.keys(taxRates), [taxRates]);
 
+    const handleBulkUpdateRates = useCallback(() => {
+        const raw = window.prompt('Enter tax rate (%) to apply to all categories');
+        if (raw == null) return;
+        const trimmed = raw.trim();
+        if (!trimmed.length) {
+            toast.error('Tax rate is required.');
+            return;
+        }
+        const value = Number(trimmed);
+        if (!Number.isFinite(value) || value < 0) {
+            toast.error('Enter a valid non-negative number.');
+            return;
+        }
+        const normalized = String(value);
+        setEditingRates((prev) => {
+            const next = { ...prev };
+            for (const category of categories) next[category] = normalized;
+            return next;
+        });
+        toast.success('Applied rate to all categories. Click Save All Rates to persist.');
+    }, [categories]);
+
+    const handleSaveAllRates = useCallback(async () => {
+        const parsedRates: Record<string, number> = {};
+        for (const category of categories) {
+            const parsed = Number(editingRates[category]);
+            if (!Number.isFinite(parsed) || parsed < 0) {
+                toast.error(`Invalid rate for ${category}.`);
+                return;
+            }
+            parsedRates[category] = parsed;
+        }
+
+        const previousTaxRates = { ...taxRates };
+        for (const category of categories) {
+            updateTaxRate(category, parsedRates[category]);
+        }
+
+        try {
+            await updateStoreSettings({
+                preferences: {
+                    ...preferences,
+                    taxRates: parsedRates,
+                },
+            });
+
+            let changeLogged = false;
+            for (const category of categories) {
+                const from = previousTaxRates[category] ?? 0;
+                const to = parsedRates[category];
+                if (from === to) continue;
+                appendTaxChangelog({
+                    ts: new Date().toISOString(),
+                    category,
+                    from,
+                    to,
+                });
+                changeLogged = true;
+            }
+            if (changeLogged) setChangelog(readTaxChangelog());
+            toast.success('All tax rates saved.');
+        } catch {
+            for (const category of categories) {
+                updateTaxRate(category, previousTaxRates[category] ?? 0);
+            }
+            toast.error('Failed to persist all tax rates. Reverted local changes.');
+        }
+    }, [categories, editingRates, taxRates, updateTaxRate, preferences]);
+
     return (
         <div className="space-y-10 pb-20 max-w-5xl">
             {/* Premium Header */}
@@ -276,10 +345,18 @@ export function AdminTaxPage() {
                 </div>
 
                 <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-center gap-4">
-                    <button className="w-full sm:w-auto px-10 h-14 bg-white border border-slate-200 rounded-[2rem] text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all">
+                    <button
+                        type="button"
+                        onClick={handleBulkUpdateRates}
+                        className="w-full sm:w-auto px-10 h-14 bg-white border border-slate-200 rounded-[2rem] text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all"
+                    >
                         Bulk Update Rates
                     </button>
-                    <button className="w-full sm:w-auto px-10 h-14 bg-emerald-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20">
+                    <button
+                        type="button"
+                        onClick={handleSaveAllRates}
+                        className="w-full sm:w-auto px-10 h-14 bg-emerald-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20"
+                    >
                         Save All Rates
                     </button>
                 </div>
