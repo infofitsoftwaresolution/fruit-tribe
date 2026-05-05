@@ -247,6 +247,7 @@ jobs:
             PORT=$BACKEND_PORT
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             JWT_SECRET=${{ secrets.JWT_SECRET }}
+            MAPBOX_API_KEY=${{ secrets.MAPBOX_API_KEY }}
             ALLOWED_ORIGINS=$ALLOWED_ORIGINS
             FRONTEND_URL=$FRONTEND_URL
             # Email (SMTP) configuration for verification emails
