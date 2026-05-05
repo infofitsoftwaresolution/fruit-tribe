@@ -1416,18 +1416,31 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const variants = Array.isArray((product as any).variants) ? (product as any).variants : [];
         let pickedVariant = variants[0];
         if (variants.length > 0) {
+          const normalizedSelectedName = String((item as any).selectedVariantName || '').trim().toLowerCase();
+          const defaultLike = (v: any) => {
+            const label = String(v?.name || v?.attributeValue || '').trim().toLowerCase();
+            return label === '' || label === 'default' || label.includes('default');
+          };
           const skuMatched = item.selectedVariantSku
             ? variants.find((v: any) => String(v.sku) === String(item.selectedVariantSku))
+            : null;
+          const nameMatched = normalizedSelectedName
+            ? variants.find((v: any) => String(v?.name || v?.attributeValue || '').trim().toLowerCase() === normalizedSelectedName)
             : null;
           const priceMatched = variants.find(
             (v: any) =>
               Number(v.price) === Number(item.price) &&
               Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
           );
+          const defaultMatched = variants.find(
+            (v: any) =>
+              defaultLike(v) &&
+              Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
+          );
           const firstAvailable = variants.find(
             (v: any) => Number(v.availableStock ?? v.availableQuantity ?? v.stock ?? 0) >= requestedQty,
           );
-          pickedVariant = skuMatched || priceMatched || firstAvailable || variants[0];
+          pickedVariant = skuMatched || nameMatched || priceMatched || defaultMatched || firstAvailable || variants[0];
         }
         const variantId = pickedVariant?.id != null ? String(pickedVariant.id) : '';
         if (!variantId) {

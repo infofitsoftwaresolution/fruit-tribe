@@ -54,6 +54,16 @@ export class PaymentService {
                 where: { id: orderId },
                 data: { paymentStatus: 'PAID', status: 'CONFIRMED' },
             });
+            if (String(order.status).toUpperCase() !== 'CONFIRMED') {
+                await tx.orderStatusLog.create({
+                    data: {
+                        orderId,
+                        status: 'CONFIRMED',
+                        changedByRole: 'SYSTEM',
+                        changedByName: 'Payment Gateway',
+                    },
+                });
+            }
 
             const reservations = await tx.stockReservation.findMany({
                 where: { orderId, status: 'PENDING' },

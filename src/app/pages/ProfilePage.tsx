@@ -102,6 +102,19 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     }));
   }
 
+  // Heal legacy orders: if current order status moved ahead but statusLogs
+  // missed that transition, append current status so tracking stays consistent.
+  const timelineLast = timeline[timeline.length - 1];
+  if (String(timelineLast?.rawStatus || '').toUpperCase() !== String(rawStatus || '').toUpperCase()) {
+    timeline.push({
+      rawStatus,
+      label: statusMap[rawStatus] || rawStatus || 'Created',
+      at: null,
+      byRole: null,
+      byName: null,
+    });
+  }
+
   return {
     id: api.orderNumber ?? api.id,
     orderId: api.id,
