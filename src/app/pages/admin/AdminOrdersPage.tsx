@@ -828,7 +828,7 @@ export function AdminOrdersPage() {
                                                             )}
                                                         </div>
                                                         {user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
-                                                            <div className="relative group/rider w-full">
+                                                            <div className="relative group/rider w-full min-w-[260px]">
                                                                 {deliveryPartners.length > 0 ? (
                                                                     <select
                                                                         defaultValue=""
@@ -837,7 +837,7 @@ export function AdminOrdersPage() {
                                                                             if (!partnerId) return;
                                                                             handleAssignDelivery(order.id, partnerId);
                                                                         }}
-                                                                        className="w-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                        className="w-full min-w-[260px] bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
                                                                     >
                                                                         <option value="">Deploy Rider (Online)</option>
                                                                         {deliveryPartners.map((p) => (
