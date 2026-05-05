@@ -614,6 +614,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const lastDistancePinRef = useRef<string>('');
   /** Cancels in-flight Mapbox driving-distance when coordinates or warehouses change again. */
   const drivingDistanceSeqRef = useRef(0);
+  /** Session cache to avoid repeat Mapbox calls for same source/destination pair. */
+  const drivingDistanceCacheRef = useRef(
+    new Map<string, { distanceKm: number; onTimeRate: number; estimatedMins: number }>(),
+  );
 
   useEffect(() => {
     // Hydrate last-used address from this device (only if not logged in or as initial fallback)
@@ -721,6 +725,18 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       .map((w) => ({ latitude: Number(w.latitude), longitude: Number(w.longitude) }))
       .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude));
     if (sources.length === 0) return;
+    const roundedDest = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+    const roundedSources = sources
+      .map((s) => `${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`)
+      .sort()
+      .join('|');
+    const cacheKey = `${roundedDest}__${roundedSources}`;
+    const cached = drivingDistanceCacheRef.current.get(cacheKey);
+    if (cached) {
+      if (seq !== drivingDistanceSeqRef.current) return;
+      setDeliveryStats(cached);
+      return;
+    }
 
     try {
       const { distanceKm: roadKm } = await getDrivingDistanceKm(sources, { latitude: lat, longitude: lng });
@@ -729,7 +745,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const distanceKm = Math.round(roadKm * 10) / 10;
         const onTimeRate = Math.min(99, Math.max(85, 95 - Math.floor(distanceKm / 2)));
         const estimatedMins = Math.min(90, Math.max(25, 30 + Math.round(distanceKm * 4)));
-        setDeliveryStats({ distanceKm, onTimeRate, estimatedMins });
+        const next = { distanceKm, onTimeRate, estimatedMins };
+        drivingDistanceCacheRef.current.set(cacheKey, next);
+        setDeliveryStats(next);
         return;
       }
     } catch {
@@ -778,7 +796,22 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     const pinDigitsEarly = zipField.length === 6 ? zipField : pinFromBlob;
     const inferredPinCity = inferCityHintFromIndianPin(pinDigitsEarly);
     const city = formData.city.trim() || inferredCity || inferredPinCity;
+    const isAddressCompleteForGeocode =
+      street.length >= 5 &&
+      city.length >= 2 &&
+      pinDigitsEarly.length === 6;
     const query = [flat, street, city, formData.zipCode].filter(Boolean).join(', ');
+    if (!isAddressCompleteForGeocode) {
+      if (geocodeTimeoutRef.current) clearTimeout(geocodeTimeoutRef.current);
+      geocodeRequestSeqRef.current += 1;
+      pinProvisionalBlockRef.current = false;
+      if (!query.trim()) {
+        setMapCenter(null);
+        setLocationMeta({ source: null, accuracyMeters: null });
+        setDeliveryStats({ distanceKm: null, onTimeRate: null, estimatedMins: null });
+      }
+      return;
+    }
     if (!query.trim()) {
       setMapCenter(null);
       setLocationMeta({ source: null, accuracyMeters: null });

@@ -150,7 +150,7 @@ export function AdminProductsPage() {
         ripenessStage: '',
         farmName: '',
         farmState: '',
-        variants: [] as { id?: string; name: string; price: string; stock: string; sku: string; lowStockThreshold?: string }[]
+        variants: [] as { id?: string; name: string; price: string; stock: string; sku: string; lowStockThreshold?: string; isBulkVariant?: boolean }[]
     });
 
     const isSeller = user?.role === 'seller';
@@ -442,7 +442,8 @@ export function AdminProductsPage() {
                 })(),
                 stock: String(Math.max(0, Number(v.stockQuantity ?? v.stock ?? 0))), 
                 sku: v.sku || '',
-                lowStockThreshold: String(v.lowStockThreshold ?? 5)
+                lowStockThreshold: String(v.lowStockThreshold ?? 5),
+                isBulkVariant: Boolean(v.isBulkVariant),
             })) || []
         });
         setIsModalOpen(true);
@@ -520,6 +521,7 @@ export function AdminProductsPage() {
                         id: v.id,
                         sku: rawSku || `${skuSeed}-${index + 1}`,
                         attributeValue: rawName || `Option ${index + 1}`,
+                        isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: variantPriceOverride,
                         stockQuantity: Math.max(0, parseInt(v.stock, 10) || 0),
                         lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
@@ -542,6 +544,7 @@ export function AdminProductsPage() {
                         id: undefined,
                         sku: formData.sku || `SKU-${Date.now()}`,
                         attributeValue: 'Default',
+                        isBulkVariant: false,
                         priceOverride: undefined,
                         stockQuantity: parsedStock,
                         lowStockThreshold: 5,
@@ -662,6 +665,7 @@ export function AdminProductsPage() {
                     variants: variantsPayload.map(v => ({
                         sku: v.sku || `SKU-${Date.now()}`,
                         attributeValue: v.attributeValue,
+                        isBulkVariant: Boolean((v as any).isBulkVariant),
                         priceOverride: v.priceOverride,
                         stockQuantity: v.stockQuantity,
                         lowStockThreshold: v.lowStockThreshold,
@@ -1401,7 +1405,7 @@ export function AdminProductsPage() {
                                                 type="button"
                                                 onClick={() => setFormData({
                                                     ...formData,
-                                                    variants: [...formData.variants, { name: '', price: '', stock: '', sku: '', lowStockThreshold: '5' }]
+                                                    variants: [...formData.variants, { name: '', price: '', stock: '', sku: '', lowStockThreshold: '5', isBulkVariant: false }]
                                                 })}
                                                 className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-3 shadow-xl shadow-slate-900/10"
                                             >
@@ -1488,6 +1492,28 @@ export function AdminProductsPage() {
                                                                 }}
                                                                 placeholder="5"
                                                             />
+                                                        </div>
+                                                        <div className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                                                            <div>
+                                                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.15em]">Bulk Variant</p>
+                                                                <p className="text-[10px] text-emerald-600">Enable to show under bulk section and tier pricing.</p>
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const n = [...formData.variants];
+                                                                    n[i].isBulkVariant = !n[i].isBulkVariant;
+                                                                    setFormData({ ...formData, variants: n });
+                                                                }}
+                                                                className={cn(
+                                                                    'h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all',
+                                                                    variant.isBulkVariant
+                                                                        ? 'bg-emerald-600 text-white'
+                                                                        : 'bg-white border border-emerald-200 text-emerald-700',
+                                                                )}
+                                                            >
+                                                                {variant.isBulkVariant ? 'ON' : 'OFF'}
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </motion.div>

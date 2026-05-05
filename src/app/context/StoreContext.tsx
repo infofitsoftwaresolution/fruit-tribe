@@ -38,6 +38,7 @@ export interface Product {
     seasonalMonths?: string[];
     bulkDiscountQty?: number;
     bulkDiscountPrice?: number;
+    bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number; sku?: string; label?: string }>;
     allowCashOnDelivery?: boolean;
     isOrganic?: boolean;
     grade?: 'A' | 'B' | 'Premium';
@@ -48,6 +49,7 @@ export interface Product {
         availableStock: number;
         reservedStock: number;
         sku: string;
+        isBulkVariant?: boolean;
     }[];
 }
 
@@ -212,6 +214,7 @@ export interface CartItem {
     retailUnitPrice?: number;
     bulkDiscountQty?: number;
     bulkDiscountPrice?: number;
+    bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number; sku?: string; label?: string }>;
     selectedVariantSku?: string;
     selectedVariantName?: string;
     selectedVariantPackQty?: number;
@@ -614,6 +617,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const selectedVariantPackUnit = String((product as any).__selectedVariantPackUnit || '').trim().toLowerCase() || undefined;
 
         setCartItems(prevItems => {
+            const recalcProductUnitPrices = (items: CartItem[], productId: string | number): CartItem[] => {
+                const pid = String(productId);
+                const totalQtyForProduct = items
+                    .filter((i) => String(i.id) === pid)
+                    .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
+                return items.map((i) => {
+                    if (String(i.id) !== pid) return i;
+                    const nextPrice =
+                        i.retailUnitPrice != null || i.bulkDiscountQty != null || (i.bulkDiscountTiers?.length || 0) > 0
+                            ? getEffectiveUnitPriceFromCartItem(i, totalQtyForProduct)
+                            : i.price;
+                    return { ...i, price: nextPrice };
+                });
+            };
             const existingItem = prevItems.find(
                 item =>
                     String(item.id) === String(product.id) &&
@@ -657,6 +674,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                             retailUnitPrice: retailRef,
                             bulkDiscountQty: product.bulkDiscountQty,
                             bulkDiscountPrice: product.bulkDiscountPrice,
+                            bulkDiscountTiers: (product as any).bulkDiscountTiers,
                             selectedVariantSku: selectedVariantSku || undefined,
                             selectedVariantName: resolvedVariantName || undefined,
                             selectedVariantPackQty,
@@ -666,10 +684,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 );
                 const added = newQty - currentQty;
                 toast.success(`Updated ${existingItem.name} quantity to ${newQty} (added ${added})`);
-                return updatedItems;
+                return recalcProductUnitPrices(updatedItems, product.id);
             } else {
                 toast.success(`${product.name} added to cart (${newQty} units)!`);
-                return [...prevItems, {
+                return recalcProductUnitPrices([...prevItems, {
                     id: product.id,
                     productId: product.id,
                     name: product.name,
@@ -681,18 +699,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     retailUnitPrice: retailRef,
                     bulkDiscountQty: product.bulkDiscountQty,
                     bulkDiscountPrice: product.bulkDiscountPrice,
+                    bulkDiscountTiers: (product as any).bulkDiscountTiers,
                     selectedVariantSku: selectedVariantSku || undefined,
                     selectedVariantName: resolvedVariantName || undefined,
                     selectedVariantPackQty,
                     selectedVariantPackUnit,
-                }];
+                }], product.id);
             }
         });
     }, []);
 
     const handleUpdateQuantity = useCallback((productId: string | number, change: number) => {
         const target = parseCartLineTarget(productId);
-        setCartItems(prevItems => prevItems.map(item => {
+        setCartItems(prevItems => {
+            const nextItems = prevItems.map(item => {
             const sameId = String(item.id) === target.id;
             const sameVariant = target.sku == null
                 ? true
@@ -705,14 +725,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     return item;
                 }
                 const q = Math.max(0, newQuantity);
-                const nextPrice =
-                    item.retailUnitPrice != null || item.bulkDiscountQty != null
-                        ? getEffectiveUnitPriceFromCartItem(item, q)
-                        : item.price;
-                return { ...item, quantity: q, price: nextPrice };
+                return { ...item, quantity: q };
             }
             return item;
-        }).filter(item => item.quantity > 0));
+        }).filter(item => item.quantity > 0);
+            const totalQtyForProduct = nextItems
+                .filter((i) => String(i.id) === target.id)
+                .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
+            return nextItems.map((i) => {
+                if (String(i.id) !== target.id) return i;
+                const nextPrice =
+                    i.retailUnitPrice != null || i.bulkDiscountQty != null || (i.bulkDiscountTiers?.length || 0) > 0
+                        ? getEffectiveUnitPriceFromCartItem(i, totalQtyForProduct)
+                        : i.price;
+                return { ...i, price: nextPrice };
+            });
+        });
     }, []);
 
     const handleRemoveItem = useCallback((productId: string | number) => {
@@ -739,8 +767,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const syncCartPricingFromCatalog = useCallback((catalog: CatalogProduct[]) => {
         if (!catalog?.length) return;
         const byId = new Map(catalog.map((p) => [String(p.id), p]));
-        setCartItems((items) =>
-            items.map((item) => {
+        setCartItems((items) => {
+            const mapped = items.map((item) => {
                 const p = byId.get(String(item.id));
                 if (!p) return item;
                 const matchedVariant = item.selectedVariantSku
@@ -772,11 +800,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                         : getRetailUnitReference(p),
                     bulkDiscountQty: p.bulkDiscountQty,
                     bulkDiscountPrice: p.bulkDiscountPrice,
+                    bulkDiscountTiers: (p as any).bulkDiscountTiers,
                     stock: maxStock,
                     selectedVariantName: matchedVariant?.name || item.selectedVariantName,
                 };
-            }),
-        );
+            });
+            return mapped.map((item) => {
+                const pid = String(item.id);
+                const totalQtyForProduct = mapped
+                    .filter((i) => String(i.id) === pid)
+                    .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
+                if (!(item.retailUnitPrice != null || item.bulkDiscountQty != null || (item.bulkDiscountTiers?.length || 0) > 0)) {
+                    return item;
+                }
+                return { ...item, price: getEffectiveUnitPriceFromCartItem(item, totalQtyForProduct) };
+            });
+        });
     }, []);
 
     const clearCart = useCallback(() => setCartItems([]), []);

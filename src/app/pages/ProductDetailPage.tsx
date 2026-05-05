@@ -10,7 +10,7 @@ import { useProduct } from '@/app/hooks/useProducts';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, formatInr } from '@/lib/utils';
-import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
+import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice } from '@/lib/pricing';
 import type { Product } from '@/lib/api';
 import { NotFoundPage } from './NotFoundPage';
 
@@ -118,7 +118,10 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     if (!apiProduct) return [];
     const unit = apiProduct.unit || 'kg';
     return (apiProduct.variants || [])
-      .filter((v) => String(v.name || '').trim().toLowerCase() !== 'default')
+      .filter((v) => {
+        const label = String(v.name || '').trim().toLowerCase();
+        return label !== 'default' && !label.includes('(archived)');
+      })
       .slice()
       .sort((a, b) => {
         const wa = parseVariantPackDescriptor(String(a.name || ''), unit).packQty;
@@ -127,6 +130,14 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
         return String(a.sku).localeCompare(String(b.sku));
       });
   }, [apiProduct]);
+  const normalSelectableVariants = useMemo(
+    () => sortedSelectableVariants.filter((v: any) => !Boolean(v?.isBulkVariant)),
+    [sortedSelectableVariants],
+  );
+  const bulkSelectableVariants = useMemo(
+    () => sortedSelectableVariants.filter((v: any) => Boolean(v?.isBulkVariant)),
+    [sortedSelectableVariants],
+  );
 
   const product = useMemo(() => {
     if (!apiProduct) return null;
@@ -204,8 +215,56 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const hasBulk = productHasBulkPricing(apiProduct);
   const bulkQty = product.bulkDiscountQty;
   const bulkPriceVal = product.bulkDiscountPrice;
+  const activeVariantData =
+    activeVariant && apiProduct.variants
+      ? apiProduct.variants.find((v) => v.sku === activeVariant)
+      : null;
+  const activeVariantPackQty = activeVariantData
+    ? parseVariantPackDescriptor(String(activeVariantData.name || ''), String(product.unit || 'kg')).packQty
+    : 1;
+  const selectedPackQty = Math.max(1, Number.isFinite(activeVariantPackQty) ? activeVariantPackQty : 1);
   const effectiveQty = hasBulk && packKind === 'bulk' && bulkQty && bulkQty > 0 ? bulkQty : quantity;
+  const totalTierQty = hasBulk && packKind === 'bulk'
+    ? Math.max(1, Number(bulkQty || 1))
+    : Math.max(1, quantity * selectedPackQty);
+  const tierUnitPrice = getEffectiveUnitPrice(
+    {
+      price: getRetailUnitReference(apiProduct),
+      bulkDiscountQty: product.bulkDiscountQty,
+      bulkDiscountPrice: product.bulkDiscountPrice,
+      bulkDiscountTiers: (apiProduct as any).bulkDiscountTiers || (product as any).bulkDiscountTiers || [],
+      variants: apiProduct.variants,
+    },
+    totalTierQty,
+  );
   const currentPrice = hasBulk && packKind === 'bulk' && bulkPriceVal != null ? Number(bulkPriceVal) : Number(product.sellPrice);
+  const displayTotalPrice = hasBulk && packKind === 'bulk'
+    ? Math.max(0, Number(bulkPriceVal ?? currentPrice))
+    : tierUnitPrice * totalTierQty;
+  const defaultOptionLabel = `1 ${product.unit || 'kg'}`;
+  const recommendedTier = useMemo(() => {
+    const tiers = ((apiProduct as any)?.bulkDiscountTiers || (product as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+    const retail = getRetailUnitReference(apiProduct);
+    return [...tiers]
+      .map((t) => {
+        const qty = Number(t.qty);
+        const unit = Number(t.unitPrice ?? (Number(t.totalPrice) / qty));
+        if (!(qty > 1) || !(unit > 0) || !(retail > 0)) return null;
+        const discountPct = ((retail - unit) / retail) * 100;
+        return { ...t, qty, unitPrice: unit, discountPct };
+      })
+      .filter((t): t is { qty: number; totalPrice: number; unitPrice: number; discountPct: number } => Boolean(t))
+      .filter((t) => t.discountPct > 0)
+      .sort((a, b) => b.discountPct - a.discountPct || b.qty - a.qty)
+      .at(0) || null;
+  }, [apiProduct, product]);
+  const recommendedSavingPct = useMemo(() => {
+    if (!recommendedTier) return 0;
+    const retail = getRetailUnitReference(apiProduct);
+    const unit = Number(recommendedTier.unitPrice ?? (Number(recommendedTier.totalPrice) / Number(recommendedTier.qty)));
+    if (!(retail > 0) || !Number.isFinite(unit) || unit <= 0) return 0;
+    return Math.max(0, Math.round(((retail - unit) / retail) * 100));
+  }, [recommendedTier, apiProduct]);
   const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
   const reviewAverage = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
@@ -229,7 +288,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           stock: product.stock,
           availableStock: product.availableStock,
           sku: product.sku,
-          price: Number(product.sellPrice),
+          price: hasBulk && packKind === 'bulk' ? Number(product.sellPrice) : Number(tierUnitPrice),
           ...(selectedVariant
             ? {
                 __selectedVariantSku: selectedVariant.sku,
@@ -391,8 +450,13 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-end gap-4">
             <div>
-              <p className="text-4xl font-serif font-bold text-emerald-900">{formatInr(currentPrice)}</p>
+              <p className="text-4xl font-serif font-bold text-emerald-900">{formatInr(displayTotalPrice)}</p>
               <p className="text-xs text-slate-500">per {hasBulk && packKind === 'bulk' ? `${bulkQty || 1} ${product.unit || 'unit'} pack` : `${product.unit || 'unit'}`}</p>
+              {recommendedTier && recommendedSavingPct > 0 && (
+                <p className="text-xs font-semibold text-emerald-700 mt-1">
+                  {`${Number(recommendedTier.qty)} ${product.unit || 'kg'} pack has ${recommendedSavingPct}% discount`}
+                </p>
+              )}
             </div>
             {product.discountPrice && (
               <div className="ml-auto text-right">
@@ -412,8 +476,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                     onChange={(e) => setActiveVariant(e.target.value || null)}
                     className="h-10 min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-semibold text-slate-800 shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                   >
-                    <option value="">Default</option>
-                    {sortedSelectableVariants.map((variant: any) => (
+                    <option value="">{defaultOptionLabel}</option>
+                    {normalSelectableVariants.map((variant: any) => (
                       <option key={variant.sku} value={variant.sku}>
                         {humanizePackLabelString(String(variant.name || ''))}
                       </option>
@@ -421,13 +485,34 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 </div>
-                <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>Default</button>
-                {sortedSelectableVariants.map((variant: any) => (
+                <button onClick={() => setActiveVariant(null)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === null ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>{defaultOptionLabel}</button>
+                {normalSelectableVariants.map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
                     {humanizePackLabelString(String(variant.name || ''))}
                   </button>
                 ))}
               </div>
+              {bulkSelectableVariants.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-2">Bulk variants</p>
+                  <div className="flex flex-wrap gap-2">
+                    {bulkSelectableVariants.map((variant: any) => (
+                      <button
+                        key={variant.sku}
+                        onClick={() => setActiveVariant(variant.sku)}
+                        className={cn(
+                          'px-4 h-10 rounded-xl border text-sm',
+                          activeVariant === variant.sku
+                            ? 'bg-emerald-900 text-white border-emerald-900'
+                            : 'bg-white border-emerald-200 text-emerald-700',
+                        )}
+                      >
+                        {humanizePackLabelString(String(variant.name || ''))}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -459,7 +544,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
           <div className="grid sm:grid-cols-2 gap-3">
             <button onClick={handleAddToCart} disabled={product.stock <= 0} className={cn('h-12 rounded-xl font-semibold', product.stock <= 0 ? 'bg-slate-200 text-slate-500' : 'bg-emerald-900 text-white hover:bg-emerald-800')}>
-              {product.stock <= 0 ? 'Out of stock' : `Add to cart • ${formatInr(currentPrice)}`}
+              {product.stock <= 0 ? 'Out of stock' : `Add to cart • ${formatInr(displayTotalPrice)}`}
             </button>
             <button onClick={() => { handleAddToCart(); navigate('/cart'); }} disabled={product.stock <= 0} className="h-12 rounded-xl font-semibold bg-white border border-emerald-200 text-emerald-900 hover:bg-emerald-50">
               Buy now

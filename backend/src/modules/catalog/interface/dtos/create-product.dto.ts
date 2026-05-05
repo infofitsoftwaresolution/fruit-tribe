@@ -37,6 +37,11 @@ export class ProductVariantDto {
     @IsNumber()
     @Min(0)
     lowStockThreshold?: number;
+
+    @ApiProperty({ example: false, required: false })
+    @IsOptional()
+    @IsBoolean()
+    isBulkVariant?: boolean;
 }
 
 export class CreateProductDto {

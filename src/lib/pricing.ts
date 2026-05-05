@@ -3,6 +3,8 @@ export type ProductPricingInput = {
   price: number;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
+  bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+  variants?: Array<{ name?: string; attributeValue?: string; price?: number; isBulkVariant?: boolean }>;
 };
 
 /** Cart line fields for recalculating unit price when quantity changes. */
@@ -11,6 +13,7 @@ export type CartPricingInput = {
   retailUnitPrice?: number;
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
+  bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
 };
 
 /** Product shape for bulk display & pricing (includes variants + stock when available). */
@@ -19,6 +22,68 @@ export type ProductLikeForBulk = ProductPricingInput & {
   stock?: number;
   variants?: { price: number; availableStock?: number; stock?: number }[];
 };
+
+function normalizeBulkTiers(input: {
+  bulkDiscountQty?: number;
+  bulkDiscountPrice?: number;
+  bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+  variants?: Array<{ name?: string; attributeValue?: string; price?: number; isBulkVariant?: boolean }>;
+  price?: number;
+}): Array<{ qty: number; totalPrice: number; unitPrice: number }> {
+  const tiers: Array<{ qty: number; totalPrice: number; unitPrice: number }> = [];
+  for (const t of input.bulkDiscountTiers || []) {
+    const qty = Number(t.qty);
+    const totalPrice = Number(t.totalPrice);
+    const unitPrice = Number.isFinite(Number(t.unitPrice)) && Number(t.unitPrice) > 0 ? Number(t.unitPrice) : (totalPrice / qty);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(totalPrice) || totalPrice <= 0 || !Number.isFinite(unitPrice) || unitPrice <= 0) continue;
+    tiers.push({ qty, totalPrice, unitPrice });
+  }
+  const legacyQty = Number(input.bulkDiscountQty);
+  const legacyTotal = Number(input.bulkDiscountPrice);
+  if (Number.isFinite(legacyQty) && legacyQty > 0 && Number.isFinite(legacyTotal) && legacyTotal > 0) {
+    const hasSame = tiers.some((t) => t.qty === legacyQty);
+    if (!hasSame) tiers.push({ qty: legacyQty, totalPrice: legacyTotal, unitPrice: legacyTotal / legacyQty });
+  }
+  // Fallback derivation from variant rows so bulk tab still works
+  // even when precomputed tiers are absent in cached payloads.
+  const retailUnit = Number(input.price ?? NaN);
+  for (const v of input.variants || []) {
+    const labelRaw = String(v?.name || v?.attributeValue || '').trim();
+    const label = labelRaw.toLowerCase();
+    if (!labelRaw || label.includes('(archived)')) continue;
+    const m = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+    if (!m) continue;
+    const rawQty = Number(m[1]);
+    const qty = ['g', 'gm', 'grams'].includes(m[2]) ? rawQty / 1000 : rawQty;
+    const totalPrice = Number((v as any)?.price);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(totalPrice) || totalPrice <= 0) continue;
+    const retailTotal = Number.isFinite(retailUnit) && retailUnit > 0 ? retailUnit * qty : NaN;
+    const isDiscountTier = Number.isFinite(retailTotal) && retailTotal > 0 && totalPrice < retailTotal;
+    if (!Boolean((v as any)?.isBulkVariant) && !isDiscountTier) continue;
+    if (!tiers.some((t) => t.qty === qty)) {
+      tiers.push({ qty, totalPrice, unitPrice: totalPrice / qty });
+    }
+  }
+  tiers.sort((a, b) => a.qty - b.qty);
+  return tiers;
+}
+
+export function getBestEligibleBulkTier(
+  input: {
+    bulkDiscountQty?: number;
+    bulkDiscountPrice?: number;
+    bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+  },
+  quantity: number,
+): { qty: number; totalPrice: number; unitPrice: number } | null {
+  const q = Math.max(0, Number(quantity) || 0);
+  const tiers = normalizeBulkTiers(input);
+  let best: { qty: number; totalPrice: number; unitPrice: number } | null = null;
+  for (const t of tiers) {
+    if (q >= t.qty) best = t;
+  }
+  return best;
+}
 
 /**
  * Normal retail unit price for display and non-bulk lines.
@@ -49,11 +114,7 @@ export function getRetailUnitReference(
  */
 export function productHasAdminBulkOffer(product: ProductLikeForBulk | undefined | null): boolean {
   if (!product) return false;
-  const bulkQ = product.bulkDiscountQty;
-  const bulkP = product.bulkDiscountPrice;
-  const q = bulkQ != null ? Number(bulkQ) : 0;
-  const p = bulkP != null ? Number(bulkP) : NaN;
-  return q > 0 && Number.isFinite(p) && p > 0;
+  return normalizeBulkTiers(product).length > 0;
 }
 
 /** @alias Same as {@link productHasAdminBulkOffer} — bulk block visible whenever admin configured qty + price. */
@@ -79,23 +140,15 @@ export function isBulkTierValid(
  * Otherwise retail reference (cheapest normal unit).
  */
 export function getEffectiveUnitPrice(product: ProductLikeForBulk, quantity: number): number {
-  const q = Math.max(0, Math.floor(quantity));
-  const bulkQ = product.bulkDiscountQty;
-  const bulkP = product.bulkDiscountPrice;
-  if (bulkQ && bulkQ > 0 && q >= bulkQ && bulkP != null && Number(bulkP) > 0) {
-    return Number(bulkP) / Number(bulkQ);
-  }
+  const bestTier = getBestEligibleBulkTier(product, quantity);
+  if (bestTier) return bestTier.unitPrice;
   return getRetailUnitReference(product);
 }
 
 /** Recalculate unit price from cart line metadata. */
 export function getEffectiveUnitPriceFromCartItem(item: CartPricingInput, quantity: number): number {
-  const q = Math.max(0, Math.floor(quantity));
   const retail = item.retailUnitPrice ?? item.price;
-  const bulkQ = item.bulkDiscountQty;
-  const bulkP = item.bulkDiscountPrice;
-  if (bulkQ && bulkQ > 0 && q >= bulkQ && bulkP != null && Number(bulkP) > 0) {
-    return Number(bulkP) / Number(bulkQ);
-  }
+  const bestTier = getBestEligibleBulkTier(item, quantity);
+  if (bestTier) return bestTier.unitPrice;
   return Number(retail);
 }

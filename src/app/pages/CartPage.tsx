@@ -91,7 +91,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items grouped by Merchant */}
-          <div className="lg:col-span-2 space-y-12">
+          <div className="lg:col-span-2 space-y-12 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-2">
             {(Object.entries(groupedItems) as [string, CartItem[]][]).map(([vendor, vendorItems], vIdx) => (
               <div key={vendor} className="space-y-6">
                 <div className="flex items-center gap-3 pb-2 border-b border-orange-100">

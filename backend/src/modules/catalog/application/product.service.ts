@@ -200,6 +200,7 @@ export class ProductService {
                         sku: v.sku,
                         attributeName: v.attributeName,
                         attributeValue: v.attributeValue,
+                        isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: v.priceOverride,
                         stockQuantity: v.stockQuantity,
                         availableQuantity: v.stockQuantity,
@@ -292,10 +293,50 @@ export class ProductService {
                 const existingIds = existingVariants.map(v => v.id);
                 const incomingIds = incomingVariants.filter((v: any) => v.id).map((v: any) => v.id);
 
-                // 1. Delete removed variants
+                // 1. Delete removed variants (safe-delete only when not referenced by historical records).
                 const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
                 if (idsToDelete.length > 0) {
-                    await tx.productVariant.deleteMany({ where: { id: { in: idsToDelete } } });
+                    const deletableIds: string[] = [];
+                    const blockedIds: string[] = [];
+                    for (const variantId of idsToDelete) {
+                        const [orderItemsCount, inventoryLogsCount, reservationsCount] = await Promise.all([
+                            tx.orderItem.count({ where: { variantId } }),
+                            tx.inventoryLog.count({ where: { variantId } }),
+                            tx.stockReservation.count({ where: { variantId } }),
+                        ]);
+                        const hasReferences = orderItemsCount > 0 || inventoryLogsCount > 0 || reservationsCount > 0;
+                        if (hasReferences) {
+                            blockedIds.push(variantId);
+                        } else {
+                            deletableIds.push(variantId);
+                        }
+                    }
+                    if (deletableIds.length > 0) {
+                        await tx.productVariant.deleteMany({ where: { id: { in: deletableIds } } });
+                    }
+                    if (blockedIds.length > 0) {
+                        // Preserve referential integrity for historical rows by archiving instead of deleting.
+                        for (const variantId of blockedIds) {
+                            const existingVariant = existingVariants.find((v) => v.id === variantId);
+                            const reserved = Math.max(0, Number(existingVariant?.reservedQuantity || 0));
+                            const currentLabel = String(existingVariant?.attributeValue || existingVariant?.sku || 'Variant');
+                            const archivedLabel = currentLabel.toLowerCase().includes('(archived)')
+                                ? currentLabel
+                                : `${currentLabel} (Archived)`;
+                            await tx.productVariant.update({
+                                where: { id: variantId },
+                                data: {
+                                    attributeValue: archivedLabel,
+                                    stockQuantity: reserved,
+                                    availableQuantity: 0,
+                                    lowStockThreshold: 0,
+                                },
+                            });
+                        }
+                        this.logger.warn(
+                            `Product ${id}: archived ${blockedIds.length} variant(s) instead of deleting due to historical references.`,
+                        );
+                    }
                 }
 
                 // 2. Update or Create
@@ -304,6 +345,7 @@ export class ProductService {
                         sku: v.sku || `SKU-${Date.now()}-${Math.random().toString(36).substring(7)}`,
                         attributeName: v.attributeName || 'Quantity',
                         attributeValue: v.attributeValue,
+                        isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: v.priceOverride,
                         stockQuantity: v.stockQuantity,
                         lowStockThreshold: v.lowStockThreshold,

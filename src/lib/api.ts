@@ -216,6 +216,7 @@ export interface ApiProduct {
     sku: string;
     attributeName?: string | null;
     attributeValue?: string | null;
+    isBulkVariant?: boolean | null;
     priceOverride?: number | string | null;
     stockQuantity: number;
     availableQuantity: number;
@@ -252,7 +253,8 @@ export interface Product {
   harvestDate?: string;
   expiryDate?: string;
   isOrganic?: boolean;
-  variants?: { id: string; name: string; price: number; stock: number; availableStock: number; reservedStock: number; sku: string }[];
+  variants?: { id: string; name: string; price: number; stock: number; availableStock: number; reservedStock: number; sku: string; isBulkVariant?: boolean }[];
+  bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice: number; sku: string; label: string }>;
   badge?: string;
   /** 1–5 freshness intelligence score */
   freshnessScore?: number;
@@ -311,7 +313,28 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
       availableStock: v.availableQuantity ?? v.stockQuantity,
       reservedStock: v.reservedQuantity ?? 0,
       sku: v.sku,
+      isBulkVariant: Boolean(v.isBulkVariant),
     })),
+    bulkDiscountTiers: (p.variants || [])
+      .map((v) => {
+        const labelRaw = String(v.attributeValue || v.sku || '');
+        const label = labelRaw.toLowerCase();
+        if (label.includes('(archived)')) return null;
+        const m = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+        if (!m) return null;
+        const rawQty = Number(m[1]);
+        const qty = ['g', 'gm', 'grams'].includes(m[2]) ? rawQty / 1000 : rawQty;
+        const totalPrice = v.priceOverride != null
+          ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : Number(v.priceOverride)))
+          : NaN;
+        if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(totalPrice) || totalPrice <= 0) return null;
+        const retailTotal = price * qty;
+        const isDiscountTier = Number.isFinite(retailTotal) && retailTotal > 0 && totalPrice < retailTotal;
+        if (!Boolean(v.isBulkVariant) && !isDiscountTier) return null;
+        return { qty, totalPrice, unitPrice: totalPrice / qty, sku: String(v.sku), label: labelRaw };
+      })
+      .filter((t): t is { qty: number; totalPrice: number; unitPrice: number; sku: string; label: string } => Boolean(t))
+      .sort((a, b) => a.qty - b.qty),
   };
 }
 
@@ -898,7 +921,7 @@ export async function createProduct(body: {
   bulkDiscountQty?: number;
   bulkDiscountPrice?: number;
   allowCashOnDelivery?: boolean;
-  variants?: Array<{ sku: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity: number }>;
+  variants?: Array<{ sku: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity: number; isBulkVariant?: boolean }>;
   images?: Array<{ imageUrl: string; isPrimary?: boolean }>;
   lowStockThreshold?: number;
   freshnessScore?: number;
@@ -938,7 +961,7 @@ export async function updateProduct(
     allowCashOnDelivery: boolean;
     isActive: boolean;
     images: Array<{ imageUrl: string; isPrimary?: boolean }>;
-    variants?: Array<{ id?: string; sku?: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity?: number; lowStockThreshold?: number }>;
+    variants?: Array<{ id?: string; sku?: string; attributeName?: string; attributeValue?: string; priceOverride?: number; stockQuantity?: number; lowStockThreshold?: number; isBulkVariant?: boolean }>;
     lowStockThreshold?: number;
     freshnessScore?: number;
     ripenessStage?: string;

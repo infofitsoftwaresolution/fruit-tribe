@@ -7,7 +7,7 @@ import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { cn, formatInr } from '@/lib/utils';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
-import { productHasBulkPricing, getRetailUnitReference } from '@/lib/pricing';
+import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier } from '@/lib/pricing';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
@@ -115,11 +115,12 @@ export const ProductCard = memo(({
     price: product?.price ?? price,
     bulkDiscountQty: bulkDiscountQty ?? product?.bulkDiscountQty,
     bulkDiscountPrice: bulkDiscountPrice ?? product?.bulkDiscountPrice,
+    bulkDiscountTiers: (product as any)?.bulkDiscountTiers,
     availableStock: product?.availableStock ?? stock,
     stock,
     variants: product?.variants,
   }), [price, stock, bulkDiscountQty, bulkDiscountPrice, product?.price, product?.availableStock,
-       product?.bulkDiscountQty, product?.bulkDiscountPrice, product?.variants]);
+       product?.bulkDiscountQty, product?.bulkDiscountPrice, (product as any)?.bulkDiscountTiers, product?.variants]);
 
   const hasBulk      = productHasBulkPricing(productForBulk);
   const retailRef    = useMemo(() => getRetailUnitReference(productForBulk), [productForBulk]);
@@ -129,7 +130,10 @@ export const ProductCard = memo(({
 
   const variantOptions = useMemo(() => {
     const rows = (product?.variants || [])
-      .filter((v: any) => String(v?.name || '').trim().toLowerCase() !== 'default')
+      .filter((v: any) => {
+        const label = String(v?.name || '').trim().toLowerCase();
+        return label !== 'default' && !label.includes('(archived)');
+      })
       .map((v: any) => {
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
         return {
@@ -141,6 +145,7 @@ export const ProductCard = memo(({
           availableStock: Number(v.availableStock ?? v.stock ?? 0),
           sku: String(v.sku || ''),
           name: parsed.label,
+          isBulkVariant: Boolean((v as any).isBulkVariant),
         };
       });
     rows.sort((a, b) =>
@@ -148,17 +153,60 @@ export const ProductCard = memo(({
     );
     return rows;
   }, [product?.variants, retailRef, unitLabel]);
+  const normalVariantOptions = useMemo(
+    () => variantOptions.filter((v) => !v.isBulkVariant),
+    [variantOptions],
+  );
+  const bulkVariantOptions = useMemo(
+    () => variantOptions.filter((v) => v.isBulkVariant),
+    [variantOptions],
+  );
+  const discountedVariantOptions = useMemo(
+    () =>
+      variantOptions.filter((v) => {
+        const qty = Number(v.packQty || 0);
+        const total = Number(v.price || 0);
+        if (!(qty > 1) || !(total > 0) || !(retailRef > 0)) return false;
+        return (total / qty) < retailRef;
+      }),
+    [variantOptions, retailRef],
+  );
+  const dealVariantOptions = useMemo(
+    () => (bulkVariantOptions.length > 0 ? bulkVariantOptions : discountedVariantOptions),
+    [bulkVariantOptions, discountedVariantOptions],
+  );
+  const defaultBulkVariantKey = useMemo(() => {
+    if (!dealVariantOptions.length) return null;
+    const best = [...dealVariantOptions]
+      .sort((a, b) => {
+        const discountA = retailRef > 0 ? ((retailRef - Number(a.price) / Number(a.packQty || 1)) / retailRef) : 0;
+        const discountB = retailRef > 0 ? ((retailRef - Number(b.price) / Number(b.packQty || 1)) / retailRef) : 0;
+        if (discountA !== discountB) return discountB - discountA;
+        return Number(b.packQty || 0) - Number(a.packQty || 0);
+      })
+      .at(0) || null;
+    return best?.key || null;
+  }, [dealVariantOptions, retailRef]);
 
   /** Single sorted list: retail (1 unit), bulk slab, and variants — all ordered by pack weight. */
   const sortedPackSelectOptions = useMemo(() => {
-    if (bulkDealMode && hasBulk && bulkQty != null && bulkPriceVal != null) {
-      return [
-        {
-          value: 'bulk',
-          label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
-          sortQty: Number(bulkQty) || 0,
-        },
-      ];
+    if (bulkDealMode) {
+      if (dealVariantOptions.length > 0) {
+        return dealVariantOptions.map((v) => ({
+          value: v.key,
+          label: v.label,
+          sortQty: v.packQty,
+        }));
+      }
+      if (hasBulk && bulkQty != null && bulkPriceVal != null) {
+        return [
+          {
+            value: 'bulk',
+            label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
+            sortQty: Number(bulkQty) || 0,
+          },
+        ];
+      }
     }
     const rows: Array<{ value: string; label: string; sortQty: number }> = [];
     rows.push({
@@ -173,7 +221,7 @@ export const ProductCard = memo(({
         sortQty: Number(bulkQty) || 0,
       });
     }
-    for (const v of variantOptions) {
+    for (const v of normalVariantOptions) {
       rows.push({ value: v.key, label: v.label, sortQty: v.packQty });
     }
     rows.sort((a, b) =>
@@ -182,18 +230,24 @@ export const ProductCard = memo(({
     return rows;
   }, [
     bulkDealMode,
+    dealVariantOptions,
     hasBulk,
     bulkQty,
     bulkPriceVal,
     unitLabel,
     retailRef,
-    variantOptions,
+    normalVariantOptions,
   ]);
 
   const [packKind, setPackKind] = useState<string>(() =>
-    bulkDealMode && hasBulk ? 'bulk' : 'retail'
+    bulkDealMode
+      ? (defaultBulkVariantKey || (hasBulk ? 'bulk' : 'retail'))
+      : 'retail'
   );
-  useEffect(() => { if (bulkDealMode && hasBulk) setPackKind('bulk'); }, [bulkDealMode, hasBulk]);
+  useEffect(() => {
+    if (!bulkDealMode) return;
+    setPackKind(defaultBulkVariantKey || (hasBulk ? 'bulk' : 'retail'));
+  }, [bulkDealMode, hasBulk, defaultBulkVariantKey]);
   useEffect(() => {
     if (packKind.startsWith('variant:') && !variantOptions.some((v) => v.key === packKind)) {
       setPackKind(bulkDealMode && hasBulk ? 'bulk' : 'retail');
@@ -225,6 +279,28 @@ export const ProductCard = memo(({
   const bulkDerivedUnit   = bulkPackTotal != null && bulkQty && bulkQty > 0 ? bulkPackTotal / bulkQty : null;
   const bulkSavingPct     = bulkDerivedUnit != null && retailRef > 0
     ? Math.round(((retailRef - bulkDerivedUnit) / retailRef) * 100) : 0;
+  const recommendedTier = useMemo(() => {
+    const tiers = ((productForBulk as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+    if (!tiers.length) return getBestEligibleBulkTier(productForBulk as any, Number(bulkQty || 0));
+    const normalized = tiers
+      .map((t) => {
+        const qty = Number(t.qty);
+        const unit = Number(t.unitPrice ?? (Number(t.totalPrice) / qty));
+        if (!(qty > 1) || !(unit > 0) || !(retailRef > 0)) return null;
+        const discountPct = ((retailRef - unit) / retailRef) * 100;
+        return { ...t, qty, unitPrice: unit, discountPct };
+      })
+      .filter((t): t is { qty: number; totalPrice: number; unitPrice: number; discountPct: number } => Boolean(t))
+      .filter((t) => t.discountPct > 0)
+      .sort((a, b) => b.discountPct - a.discountPct || b.qty - a.qty);
+    return normalized[0] || null;
+  }, [productForBulk, bulkQty, retailRef]);
+  const recommendedSavingPct = useMemo(() => {
+    if (!recommendedTier || !(retailRef > 0)) return 0;
+    const unit = Number(recommendedTier.unitPrice ?? (Number(recommendedTier.totalPrice) / Number(recommendedTier.qty)));
+    if (!Number.isFinite(unit) || unit <= 0) return 0;
+    return Math.max(0, Math.round(((retailRef - unit) / retailRef) * 100));
+  }, [recommendedTier, retailRef]);
 
   const { user } = useAuth();
   const { cartItems, handleUpdateQuantity } = useStore();
@@ -256,8 +332,13 @@ export const ProductCard = memo(({
   const cleanDescription = useMemo(() => sanitizeCardDescription(description), [description]);
   const selectedPackLabel = useMemo(() => {
     const effective = bulkDealMode ? 'bulk' : packKind;
-    return sortedPackSelectOptions.find((opt) => opt.value === effective)?.label || sortedPackSelectOptions[0]?.label || '';
-  }, [bulkDealMode, packKind, sortedPackSelectOptions]);
+    return (
+      sortedPackSelectOptions.find((opt) => opt.value === effective)?.label ||
+      variantOptions.find((opt) => opt.key === effective)?.label ||
+      sortedPackSelectOptions[0]?.label ||
+      ''
+    );
+  }, [bulkDealMode, packKind, sortedPackSelectOptions, variantOptions]);
 
   const handleAddToCart = () => {
     if (isOutOfStock) return;
@@ -483,6 +564,28 @@ export const ProductCard = memo(({
                 </div>
               )}
             </div>
+            {bulkVariantOptions.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {bulkVariantOptions.map((opt) => {
+                  const active = packKind === opt.key;
+                  return (
+                    <button
+                      type="button"
+                      key={opt.key}
+                      onClick={() => setPackKind(opt.key)}
+                      className={cn(
+                        'px-2.5 h-7 rounded-lg border text-[10px] font-semibold transition-colors',
+                        active
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
+                      )}
+                    >
+                      {opt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -516,6 +619,13 @@ export const ProductCard = memo(({
           <div className="flex items-center gap-1.5 mt-2 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-lg">
             <Tag className="h-3 w-3 text-emerald-600 shrink-0" />
             <span className="text-[10px] font-medium text-emerald-700 line-clamp-1">{liveOfferHint}</span>
+          </div>
+        )}
+        {recommendedTier && recommendedSavingPct > 0 && !isOutOfStock && (
+          <div className="mt-2 px-2 py-1 rounded-lg bg-emerald-50/70 border border-emerald-100">
+            <span className="text-[10px] font-semibold text-emerald-700">
+              {`${Number(recommendedTier.qty)} ${unitLabel} pack has ${recommendedSavingPct}% discount`}
+            </span>
           </div>
         )}
 

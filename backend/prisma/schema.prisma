@@ -151,6 +151,7 @@ model ProductVariant {
   sku               String             @unique
   attributeName     String?            @map("attribute_name")
   attributeValue    String?            @map("attribute_value")
+  isBulkVariant     Boolean            @default(false) @map("is_bulk_variant")
   priceOverride     Decimal?           @map("price_override") @db.Decimal(10, 2)
   stockQuantity     Int                @default(0) @map("stock_quantity")
   createdAt         DateTime           @default(now()) @map("created_at")
