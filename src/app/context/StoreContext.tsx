@@ -631,6 +631,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                     .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
                 return items.map((i) => {
                     if (String(i.id) !== pid) return i;
+                    const isVariantLine = Boolean(i.selectedVariantId || i.selectedVariantSku);
+                    if (isVariantLine) return i;
                     const nextPrice =
                         i.retailUnitPrice != null || i.bulkDiscountQty != null || (i.bulkDiscountTiers?.length || 0) > 0
                             ? getEffectiveUnitPriceFromCartItem(i, totalQtyForProduct)
@@ -764,6 +766,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
             return nextItems.map((i) => {
                 if (String(i.id) !== target.id) return i;
+                const isVariantLine = Boolean(i.selectedVariantId || i.selectedVariantSku);
+                if (isVariantLine) return i;
                 const nextPrice =
                     i.retailUnitPrice != null || i.bulkDiscountQty != null || (i.bulkDiscountTiers?.length || 0) > 0
                         ? getEffectiveUnitPriceFromCartItem(i, totalQtyForProduct)
@@ -850,6 +854,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 const totalQtyForProduct = mapped
                     .filter((i) => String(i.id) === pid)
                     .reduce((sum, i) => sum + Math.max(0, Number(i.quantity) || 0), 0);
+                const isVariantLine = Boolean(item.selectedVariantId || item.selectedVariantSku);
+                if (isVariantLine) return item;
                 if (!(item.retailUnitPrice != null || item.bulkDiscountQty != null || (item.bulkDiscountTiers?.length || 0) > 0)) {
                     return item;
                 }

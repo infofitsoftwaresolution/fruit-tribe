@@ -1137,6 +1137,7 @@ export function ProfilePage() {
                   {(() => {
                     const rawStatus = String(trackingOrder.rawStatus ?? '').toUpperCase();
                     const paymentMethod = String(trackingOrder.paymentMethod ?? '').toUpperCase();
+                    const hasAssignedDriver = Boolean(String(trackingOrder.courierName || '').trim());
                     const isFinal = rawStatus === 'DELIVERED' || rawStatus === 'CANCELLED';
                     const isDeliveredCod = rawStatus === 'DELIVERED' && paymentMethod === 'COD';
                     const canShowPayNow =
@@ -1155,10 +1156,12 @@ export function ProfilePage() {
 
                     return (
                       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-                        <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        Call driver
-                        </button>
+                        {hasAssignedDriver && (
+                          <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
+                            <Phone className="w-4 h-4" />
+                            Call driver
+                          </button>
+                        )}
                         <button
                           className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-emerald-600 text-white rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2"
                           onClick={() => {

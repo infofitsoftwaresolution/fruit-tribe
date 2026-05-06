@@ -59,6 +59,20 @@ export class OrderService {
         return Math.round(total * 100) / 100;
     }
 
+    private parsePackQtyKg(rawValue: string | null | undefined): number {
+        const raw = String(rawValue || '').trim().toLowerCase();
+        if (!raw) return 1;
+        const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+        if (!m) {
+            if (raw === 'default' || raw.includes('default')) return 1;
+            return 1;
+        }
+        const q = Number(m[1]);
+        if (!Number.isFinite(q) || q <= 0) return 1;
+        const u = String(m[2]).toLowerCase();
+        return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
+    }
+
     private async getAdminTaxRates(): Promise<Record<string, number>> {
         const preferences = await this.settingsService.getStorePreferences();
         return this.normalizeTaxRates((preferences as any)?.taxRates);
@@ -292,21 +306,21 @@ export class OrderService {
             variantIds,
         );
         const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
-        const parsePackQtyKg = (rawValue: string | null | undefined): number => {
-            const raw = String(rawValue || '').trim().toLowerCase();
-            if (!raw) return 1;
-            const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
-            if (!m) {
-                if (raw === 'default' || raw.includes('default')) return 1;
-                return 1;
-            }
-            const q = Number(m[1]);
-            if (!Number.isFinite(q) || q <= 0) return 1;
-            const u = String(m[2]).toLowerCase();
-            return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
-        };
         const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
-        const pricingRows = await this.prisma.$queryRawUnsafe<Array<{
+        const tierRows = await this.prisma.$queryRawUnsafe<Array<{
+            productId: string;
+            minWeight: number | string;
+            discountPercentage: number | string;
+        }>>(
+            `SELECT
+                product_id as "productId",
+                min_weight as "minWeight",
+                discount_percentage as "discountPercentage"
+             FROM product_tier_pricing
+             WHERE product_id = ANY($1::uuid[])`,
+            productIds,
+        );
+        const fallbackPricingRows = await this.prisma.$queryRawUnsafe<Array<{
             productId: string;
             attributeValue: string | null;
             isBulkVariant: boolean | null;
@@ -324,35 +338,55 @@ export class OrderService {
              WHERE pv.product_id = ANY($1::uuid[])`,
             productIds,
         );
-        const tiersByProduct = new Map<string, Array<{ qty: number; unitPrice: number }>>();
-        for (const row of pricingRows) {
+        const tiersByProduct = new Map<string, Array<{ minWeight: number; discountPercentage: number }>>();
+        for (const row of tierRows) {
             const pid = String(row.productId);
-            const qty = parsePackQtyKg(row.attributeValue);
+            const minWeight = Number(row.minWeight);
+            const discountPercentage = Number(row.discountPercentage);
+            if (!(Number.isFinite(minWeight) && minWeight > 0 && Number.isFinite(discountPercentage) && discountPercentage > 0)) continue;
+            const list = tiersByProduct.get(pid) || [];
+            if (!list.some((t) => Math.abs(t.minWeight - minWeight) < 1e-6)) {
+                list.push({ minWeight, discountPercentage });
+            }
+            tiersByProduct.set(pid, list);
+        }
+        // Backward compatibility: if no explicit product tiers exist, derive discount tiers from variant rows.
+        for (const row of fallbackPricingRows) {
+            const pid = String(row.productId);
+            if ((tiersByProduct.get(pid) || []).length > 0) continue;
+            const qty = this.parsePackQtyKg(row.attributeValue);
             const basePrice = Number(row.basePrice);
             const totalPrice = row.priceOverride != null ? Number(row.priceOverride) : Number.NaN;
             if (!(Number.isFinite(qty) && qty > 0 && Number.isFinite(basePrice) && basePrice > 0 && Number.isFinite(totalPrice) && totalPrice > 0)) continue;
             const retailTotal = basePrice * qty;
-            const isDiscountTier = totalPrice < retailTotal;
-            if (!Boolean(row.isBulkVariant) && !isDiscountTier) continue;
-            const unitPrice = totalPrice / qty;
+            if (!(retailTotal > 0)) continue;
+            const discountPercentage = ((retailTotal - totalPrice) / retailTotal) * 100;
+            if (!(Number.isFinite(discountPercentage) && discountPercentage > 0)) continue;
             const list = tiersByProduct.get(pid) || [];
-            if (!list.some((t) => Math.abs(t.qty - qty) < 1e-6)) list.push({ qty, unitPrice });
+            if (!list.some((t) => Math.abs(t.minWeight - qty) < 1e-6)) {
+                list.push({ minWeight: qty, discountPercentage });
+            }
             tiersByProduct.set(pid, list);
         }
         for (const [pid, list] of tiersByProduct.entries()) {
-            list.sort((a, b) => a.qty - b.qty);
+            list.sort((a, b) => a.minWeight - b.minWeight);
             tiersByProduct.set(pid, list);
         }
-        const totalBaseQtyByProduct = new Map<string, number>();
+        const totalWeightByProduct = new Map<string, number>();
+        const grossSubtotalByProduct = new Map<string, number>();
         for (const item of dto.items) {
             const variant = variantMap.get(item.variantId);
             if (!variant) continue;
             const pid = String(variant.productId);
-            const packQty = parsePackQtyKg(variant.attributeValue);
-            const prev = totalBaseQtyByProduct.get(pid) || 0;
-            totalBaseQtyByProduct.set(pid, prev + (Math.max(1, Number(item.quantity) || 1) * packQty));
+            const packQty = this.parsePackQtyKg(variant.attributeValue);
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            const basePrice = Number(variant.basePrice);
+            const prevWeight = totalWeightByProduct.get(pid) || 0;
+            totalWeightByProduct.set(pid, prevWeight + (qty * packQty));
+            const prevSubtotal = grossSubtotalByProduct.get(pid) || 0;
+            grossSubtotalByProduct.set(pid, prevSubtotal + (basePrice * packQty * qty));
         }
-        const canonicalItems = dto.items.map((item) => {
+        const canonicalGrossItems = dto.items.map((item) => {
             const variant = variantMap.get(item.variantId);
             if (!variant) {
                 throw new BadRequestException(`Product variant ${item.variantId} not found`);
@@ -366,39 +400,66 @@ export class OrderService {
                 );
             }
             const basePrice = Number(variant.basePrice);
-            const overridePrice = variant.priceOverride != null ? Number(variant.priceOverride) : Number.NaN;
-            const label = String(variant.attributeValue || '').trim().toLowerCase();
-            const qtyMatch = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
-            const parsedQtyKg = qtyMatch
-                ? (['g', 'gm', 'grams'].includes(String(qtyMatch[2]).toLowerCase()) ? Number(qtyMatch[1]) / 1000 : Number(qtyMatch[1]))
-                : (label === '' || label === 'default' || label.includes('default') ? 1 : Number.NaN);
-            const isRetailLike = !Boolean(variant.isBulkVariant) && Number.isFinite(parsedQtyKg) && Math.abs(parsedQtyKg - 1) < 1e-6;
-            const packQty = Number.isFinite(parsedQtyKg) && parsedQtyKg > 0 ? parsedQtyKg : 1;
-            const fallbackPackPrice =
-                isRetailLike && Number.isFinite(basePrice) && basePrice > 0
-                    ? basePrice
-                    : (Number.isFinite(overridePrice) && overridePrice > 0 ? overridePrice : basePrice);
-            const fallbackBaseUnitPrice = fallbackPackPrice / packQty;
-            const totalBaseQty = totalBaseQtyByProduct.get(String(variant.productId)) || (item.quantity * packQty);
-            const tiers = tiersByProduct.get(String(variant.productId)) || [];
-            let bestTierUnitPrice: number | null = null;
-            for (const t of tiers) {
-                if (totalBaseQty >= t.qty) bestTierUnitPrice = t.unitPrice;
-            }
-            const effectiveBaseUnitPrice =
-                bestTierUnitPrice != null && Number.isFinite(bestTierUnitPrice) && bestTierUnitPrice > 0
-                    ? bestTierUnitPrice
-                    : fallbackBaseUnitPrice;
-            const unitPrice = effectiveBaseUnitPrice * packQty;
+            const packQty = this.parsePackQtyKg(variant.attributeValue);
+            const unitPrice = basePrice * packQty;
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
                 sellerId: String(variant.sellerId),
                 quantity: item.quantity,
-                pricePerUnit: unitPrice,
+                grossUnitPrice: unitPrice,
                 subtotal: unitPrice * item.quantity,
             };
         });
+        const discountPctByProduct = new Map<string, number>();
+        for (const productId of productIds) {
+            const totalWeight = totalWeightByProduct.get(productId) || 0;
+            const tiers = tiersByProduct.get(productId) || [];
+            let bestPct = 0;
+            for (const t of tiers) {
+                if (totalWeight >= t.minWeight) bestPct = t.discountPercentage;
+            }
+            discountPctByProduct.set(productId, bestPct);
+        }
+        const productTierDiscountAmount = new Map<string, number>();
+        for (const productId of productIds) {
+            const gross = grossSubtotalByProduct.get(productId) || 0;
+            const pct = discountPctByProduct.get(productId) || 0;
+            const discountAmount = Math.round(gross * (pct / 100) * 100) / 100;
+            productTierDiscountAmount.set(productId, Math.max(0, discountAmount));
+        }
+        const canonicalItems = canonicalGrossItems.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            sellerId: item.sellerId,
+            quantity: item.quantity,
+            pricePerUnit: item.grossUnitPrice,
+            subtotal: item.subtotal,
+        }));
+        const itemIndexesByProduct = new Map<string, number[]>();
+        canonicalItems.forEach((item, index) => {
+            const list = itemIndexesByProduct.get(item.productId) || [];
+            list.push(index);
+            itemIndexesByProduct.set(item.productId, list);
+        });
+        for (const [productId, indexes] of itemIndexesByProduct.entries()) {
+            const gross = grossSubtotalByProduct.get(productId) || 0;
+            const totalDiscount = productTierDiscountAmount.get(productId) || 0;
+            if (!(gross > 0 && totalDiscount > 0)) continue;
+            let allocated = 0;
+            for (let i = 0; i < indexes.length; i++) {
+                const idx = indexes[i];
+                const lineGross = canonicalItems[idx].subtotal;
+                const lineDiscount =
+                    i === indexes.length - 1
+                        ? Math.max(0, Math.round((totalDiscount - allocated) * 100) / 100)
+                        : Math.round(((lineGross / gross) * totalDiscount) * 100) / 100;
+                allocated += lineDiscount;
+                const lineNet = Math.max(0, Math.round((lineGross - lineDiscount) * 100) / 100);
+                canonicalItems[idx].subtotal = lineNet;
+                canonicalItems[idx].pricePerUnit = lineNet / Math.max(1, canonicalItems[idx].quantity);
+            }
+        }
         const subtotal = canonicalItems.reduce((sum, item) => sum + item.subtotal, 0);
 
         let discountAmount = 0;
@@ -734,16 +795,21 @@ export class OrderService {
             variantIds,
         );
         const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
-        const parsePackQtyKg = (rawValue: string | null | undefined): number => {
-            const raw = String(rawValue || '').trim().toLowerCase();
-            const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
-            if (!m) return 1;
-            const q = Number(m[1]);
-            if (!Number.isFinite(q) || q <= 0) return 1;
-            return ['g', 'gm', 'grams'].includes(String(m[2]).toLowerCase()) ? q / 1000 : q;
-        };
         const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
-        const pricingRows = await this.prisma.$queryRawUnsafe<Array<{
+        const tierRows = await this.prisma.$queryRawUnsafe<Array<{
+            productId: string;
+            minWeight: number | string;
+            discountPercentage: number | string;
+        }>>(
+            `SELECT
+                product_id as "productId",
+                min_weight as "minWeight",
+                discount_percentage as "discountPercentage"
+             FROM product_tier_pricing
+             WHERE product_id = ANY($1::uuid[])`,
+            productIds,
+        );
+        const fallbackPricingRows = await this.prisma.$queryRawUnsafe<Array<{
             productId: string;
             attributeValue: string | null;
             isBulkVariant: boolean | null;
@@ -761,31 +827,50 @@ export class OrderService {
              WHERE pv.product_id = ANY($1::uuid[])`,
             productIds,
         );
-        const tiersByProduct = new Map<string, Array<{ qty: number; unitPrice: number }>>();
-        for (const row of pricingRows) {
+        const tiersByProduct = new Map<string, Array<{ minWeight: number; discountPercentage: number }>>();
+        for (const row of tierRows) {
             const pid = String(row.productId);
-            const qty = parsePackQtyKg(row.attributeValue);
+            const minWeight = Number(row.minWeight);
+            const discountPercentage = Number(row.discountPercentage);
+            if (!(Number.isFinite(minWeight) && minWeight > 0 && Number.isFinite(discountPercentage) && discountPercentage > 0)) continue;
+            const list = tiersByProduct.get(pid) || [];
+            if (!list.some((t) => Math.abs(t.minWeight - minWeight) < 1e-6)) {
+                list.push({ minWeight, discountPercentage });
+            }
+            tiersByProduct.set(pid, list);
+        }
+        for (const row of fallbackPricingRows) {
+            const pid = String(row.productId);
+            if ((tiersByProduct.get(pid) || []).length > 0) continue;
+            const qty = this.parsePackQtyKg(row.attributeValue);
             const basePrice = Number(row.basePrice);
             const totalPrice = row.priceOverride != null ? Number(row.priceOverride) : Number.NaN;
             if (!(Number.isFinite(qty) && qty > 0 && Number.isFinite(basePrice) && basePrice > 0 && Number.isFinite(totalPrice) && totalPrice > 0)) continue;
             const retailTotal = basePrice * qty;
-            const isDiscountTier = totalPrice < retailTotal;
-            if (!Boolean(row.isBulkVariant) && !isDiscountTier) continue;
-            const unitPrice = totalPrice / qty;
+            if (!(retailTotal > 0)) continue;
+            const discountPercentage = ((retailTotal - totalPrice) / retailTotal) * 100;
+            if (!(Number.isFinite(discountPercentage) && discountPercentage > 0)) continue;
             const list = tiersByProduct.get(pid) || [];
-            if (!list.some((t) => Math.abs(t.qty - qty) < 1e-6)) list.push({ qty, unitPrice });
+            if (!list.some((t) => Math.abs(t.minWeight - qty) < 1e-6)) {
+                list.push({ minWeight: qty, discountPercentage });
+            }
             tiersByProduct.set(pid, list);
         }
-        const totalBaseQtyByProduct = new Map<string, number>();
+        const totalWeightByProduct = new Map<string, number>();
+        const grossSubtotalByProduct = new Map<string, number>();
         for (const item of dto.items) {
             const variant = variantMap.get(item.variantId);
             if (!variant) continue;
             const pid = String(variant.productId);
-            const packQty = parsePackQtyKg(variant.attributeValue);
-            const prev = totalBaseQtyByProduct.get(pid) || 0;
-            totalBaseQtyByProduct.set(pid, prev + (Math.max(1, Number(item.quantity) || 1) * packQty));
+            const packQty = this.parsePackQtyKg(variant.attributeValue);
+            const qty = Math.max(1, Number(item.quantity) || 1);
+            const basePrice = Number(variant.basePrice);
+            const prevWeight = totalWeightByProduct.get(pid) || 0;
+            totalWeightByProduct.set(pid, prevWeight + (qty * packQty));
+            const prevSubtotal = grossSubtotalByProduct.get(pid) || 0;
+            grossSubtotalByProduct.set(pid, prevSubtotal + (basePrice * packQty * qty));
         }
-        const canonicalItems = dto.items.map((item) => {
+        const canonicalGrossItems = dto.items.map((item) => {
             const variant = variantMap.get(item.variantId);
             if (!variant) throw new BadRequestException(`Product variant ${item.variantId} not found`);
             if (String(item.productId) !== String(variant.productId)) {
@@ -797,23 +882,64 @@ export class OrderService {
                 );
             }
             const basePrice = Number(variant.basePrice);
-            const overridePrice = variant.priceOverride != null ? Number(variant.priceOverride) : Number.NaN;
-            const packQty = parsePackQtyKg(variant.attributeValue);
-            const fallbackBaseUnitPrice = (Number.isFinite(overridePrice) && overridePrice > 0 ? overridePrice : basePrice) / Math.max(1, packQty);
-            const totalBaseQty = totalBaseQtyByProduct.get(String(variant.productId)) || (item.quantity * packQty);
-            const tiers = tiersByProduct.get(String(variant.productId)) || [];
-            let bestTierUnitPrice: number | null = null;
-            for (const t of tiers) if (totalBaseQty >= t.qty) bestTierUnitPrice = t.unitPrice;
-            const effectiveBaseUnitPrice = bestTierUnitPrice && bestTierUnitPrice > 0 ? bestTierUnitPrice : fallbackBaseUnitPrice;
-            const unitPrice = effectiveBaseUnitPrice * Math.max(1, packQty);
+            const packQty = this.parsePackQtyKg(variant.attributeValue);
+            const unitPrice = basePrice * Math.max(1, packQty);
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
                 quantity: item.quantity,
-                pricePerUnit: unitPrice,
+                grossUnitPrice: unitPrice,
                 subtotal: unitPrice * item.quantity,
             };
         });
+        const discountPctByProduct = new Map<string, number>();
+        for (const productId of productIds) {
+            const totalWeight = totalWeightByProduct.get(productId) || 0;
+            const tiers = tiersByProduct.get(productId) || [];
+            let bestPct = 0;
+            for (const t of tiers) {
+                if (totalWeight >= t.minWeight) bestPct = t.discountPercentage;
+            }
+            discountPctByProduct.set(productId, bestPct);
+        }
+        const productTierDiscountAmount = new Map<string, number>();
+        for (const productId of productIds) {
+            const gross = grossSubtotalByProduct.get(productId) || 0;
+            const pct = discountPctByProduct.get(productId) || 0;
+            const discountAmount = Math.round(gross * (pct / 100) * 100) / 100;
+            productTierDiscountAmount.set(productId, Math.max(0, discountAmount));
+        }
+        const canonicalItems = canonicalGrossItems.map((item) => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            pricePerUnit: item.grossUnitPrice,
+            subtotal: item.subtotal,
+        }));
+        const itemIndexesByProduct = new Map<string, number[]>();
+        canonicalItems.forEach((item, index) => {
+            const list = itemIndexesByProduct.get(item.productId) || [];
+            list.push(index);
+            itemIndexesByProduct.set(item.productId, list);
+        });
+        for (const [productId, indexes] of itemIndexesByProduct.entries()) {
+            const gross = grossSubtotalByProduct.get(productId) || 0;
+            const totalDiscount = productTierDiscountAmount.get(productId) || 0;
+            if (!(gross > 0 && totalDiscount > 0)) continue;
+            let allocated = 0;
+            for (let i = 0; i < indexes.length; i++) {
+                const idx = indexes[i];
+                const lineGross = canonicalItems[idx].subtotal;
+                const lineDiscount =
+                    i === indexes.length - 1
+                        ? Math.max(0, Math.round((totalDiscount - allocated) * 100) / 100)
+                        : Math.round(((lineGross / gross) * totalDiscount) * 100) / 100;
+                allocated += lineDiscount;
+                const lineNet = Math.max(0, Math.round((lineGross - lineDiscount) * 100) / 100);
+                canonicalItems[idx].subtotal = lineNet;
+                canonicalItems[idx].pricePerUnit = lineNet / Math.max(1, canonicalItems[idx].quantity);
+            }
+        }
         const subtotal = canonicalItems.reduce((sum, i) => sum + i.subtotal, 0);
         let discountAmount = 0;
         if (dto.couponCode) {

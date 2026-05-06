@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
+import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
@@ -22,7 +23,8 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
   const { products, taxRates, theme, preferences } = useStore();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  const pricingEstimate = estimateCartLineTotalsWithTierDiscount(items as any, products as any);
+  const subtotal = pricingEstimate.subtotal;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
   // Cart summary shows provisional shipping only; final shipping is calculated at checkout.
   const shipping = 0;
@@ -34,7 +36,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
     );
     const category = String(matchedProduct?.category || '').trim();
     const rate = category ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0) : 0;
-    return totalTax + (item.price * item.quantity * (rate / 100));
+    const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
+    const lineAmount = Number(pricingEstimate.lineTotals[lineKey] ?? (item.price * item.quantity));
+    return totalTax + (lineAmount * (rate / 100));
   }, 0);
 
   const total = subtotal + shipping + calculatedTax;
@@ -107,7 +111,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                   {vendorItems.map((item: CartItem, index: number) => (
                     (() => {
                       const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
-                      const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+                      const lineTotal = Number(
+                        pricingEstimate.lineTotals[lineKey] ?? (Number(item.price || 0) * Number(item.quantity || 0)),
+                      );
                       return (
                     <motion.div
                       key={`${item.id}-${item.selectedVariantSku || 'default'}`}
@@ -223,7 +229,7 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                           <div className="text-right">
                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Subtotal</p>
                             <p className="text-xl font-black text-gray-900">
-                              ₹{(item.price * item.quantity).toFixed(2)}
+                              ₹{lineTotal.toFixed(2)}
                             </p>
                           </div>
                         </div>

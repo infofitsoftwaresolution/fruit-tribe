@@ -137,12 +137,26 @@ model Product {
   orderItems          OrderItem[]
   images              ProductImage[]
   variants            ProductVariant[]
+  tierPricing         ProductTierPricing[]
   category            Category         @relation(fields: [categoryId], references: [id])
   seller              Seller           @relation(fields: [sellerId], references: [id])
   reviews             Review[]
   wishlistItems       WishlistItem[]
 
   @@map("products")
+}
+
+model ProductTierPricing {
+  id                 String   @id @default(uuid()) @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
+  minWeight          Decimal  @map("min_weight") @db.Decimal(10, 3)
+  discountPercentage Decimal  @map("discount_percentage") @db.Decimal(5, 2)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, minWeight])
+  @@map("product_tier_pricing")
 }
 
 model ProductVariant {

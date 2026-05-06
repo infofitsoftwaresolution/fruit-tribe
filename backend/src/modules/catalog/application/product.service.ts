@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { CreateProductDto } from '../interface/dtos/create-product.dto';
 import { ProductFilterDto } from '../interface/dtos/product-filter.dto';
@@ -31,6 +32,74 @@ export class ProductService {
             return { qty: Math.floor(q), price: price as any };
         }
         return { qty: null, price: null };
+    }
+
+    private parsePackQtyKg(rawValue: string | null | undefined): number {
+        const raw = String(rawValue || '').trim().toLowerCase();
+        if (!raw) return 1;
+        const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+        if (!m) {
+            if (raw === 'default' || raw.includes('default')) return 1;
+            return 1;
+        }
+        const q = Number(m[1]);
+        if (!Number.isFinite(q) || q <= 0) return 1;
+        const u = String(m[2]).toLowerCase();
+        return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
+    }
+
+    private deriveTierPricingRows(
+        basePrice: number,
+        variants: Array<{ attributeValue?: string | null; priceOverride?: number | null; isBulkVariant?: boolean | null }>,
+        productBulk?: { qty: number | null; price: number | null },
+    ): Array<{ minWeight: number; discountPercentage: number }> {
+        const byWeight = new Map<number, number>();
+        for (const variant of variants) {
+            const minWeight = this.parsePackQtyKg(variant.attributeValue);
+            const totalPrice = Number(variant.priceOverride);
+            if (!(Number.isFinite(minWeight) && minWeight > 0 && Number.isFinite(totalPrice) && totalPrice > 0 && Number.isFinite(basePrice) && basePrice > 0)) continue;
+            const retailTotal = basePrice * minWeight;
+            const discountPercentage = ((retailTotal - totalPrice) / retailTotal) * 100;
+            const eligible = Boolean(variant.isBulkVariant) || discountPercentage > 0;
+            if (!eligible) continue;
+            if (!(discountPercentage > 0)) continue;
+            const current = byWeight.get(minWeight);
+            if (current == null || discountPercentage > current) byWeight.set(minWeight, discountPercentage);
+        }
+        if (productBulk?.qty && productBulk.price && Number.isFinite(basePrice) && basePrice > 0) {
+            const minWeight = Number(productBulk.qty);
+            const retailTotal = basePrice * minWeight;
+            const discountPercentage = ((retailTotal - Number(productBulk.price)) / retailTotal) * 100;
+            if (Number.isFinite(discountPercentage) && discountPercentage > 0) {
+                const current = byWeight.get(minWeight);
+                if (current == null || discountPercentage > current) byWeight.set(minWeight, discountPercentage);
+            }
+        }
+        return Array.from(byWeight.entries())
+            .map(([minWeight, discountPercentage]) => ({
+                minWeight: Math.round(minWeight * 1000) / 1000,
+                discountPercentage: Math.round(discountPercentage * 100) / 100,
+            }))
+            .filter((row) => row.minWeight > 0 && row.discountPercentage > 0)
+            .sort((a, b) => a.minWeight - b.minWeight);
+    }
+
+    private async replaceTierPricingRows(
+        tx: Prisma.TransactionClient,
+        productId: string,
+        rows: Array<{ minWeight: number; discountPercentage: number }>,
+    ): Promise<void> {
+        await tx.$executeRawUnsafe(`DELETE FROM product_tier_pricing WHERE product_id = $1::uuid`, productId);
+        for (const row of rows) {
+            await tx.$executeRawUnsafe(
+                `INSERT INTO product_tier_pricing (id, product_id, min_weight, discount_percentage, created_at, updated_at)
+                 VALUES ($1::uuid, $2::uuid, $3::numeric, $4::numeric, NOW(), NOW())`,
+                randomUUID(),
+                productId,
+                row.minWeight,
+                row.discountPercentage,
+            );
+        }
     }
 
     async findAll(filters: ProductFilterDto) {
@@ -208,6 +277,16 @@ export class ProductService {
                     })),
                 });
             }
+            const tierRows = this.deriveTierPricingRows(
+                Number(dto.basePrice),
+                (dto.variants || []).map((v) => ({
+                    attributeValue: v.attributeValue,
+                    priceOverride: v.priceOverride,
+                    isBulkVariant: v.isBulkVariant,
+                })),
+                { qty: bulk.qty, price: bulk.price != null ? Number(bulk.price) : null },
+            );
+            await this.replaceTierPricingRows(tx, product.id, tierRows);
 
             if (dto.images && dto.images.length > 0) {
                 await tx.productImage.createMany({
@@ -411,6 +490,21 @@ export class ProductService {
                     }
                 }
             }
+
+            const refreshedVariants = await tx.productVariant.findMany({
+                where: { productId: id },
+                select: { attributeValue: true, priceOverride: true, isBulkVariant: true },
+            });
+            const tierRows = this.deriveTierPricingRows(
+                Number(dto.basePrice ?? existing.basePrice),
+                refreshedVariants.map((v) => ({
+                    attributeValue: v.attributeValue,
+                    priceOverride: v.priceOverride != null ? Number(v.priceOverride) : null,
+                    isBulkVariant: v.isBulkVariant,
+                })),
+                { qty: bulk.qty, price: bulk.price != null ? Number(bulk.price) : null },
+            );
+            await this.replaceTierPricingRows(tx, id, tierRows);
 
             // Sync total stock summary
             const allVariants = await tx.productVariant.findMany({ where: { productId: id } });

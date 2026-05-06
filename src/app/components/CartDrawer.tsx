@@ -3,6 +3,7 @@ import { X, Plus, Minus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
+import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 
 interface CartItem {
   id: string | number;
@@ -33,7 +34,8 @@ import { useStore } from '@/app/context/StoreContext';
 export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveItem }: CartDrawerProps) {
   const { products, taxRates, theme, preferences } = useStore();
   const navigate = useNavigate();
-  const subtotal = items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
+  const pricingEstimate = estimateCartLineTotalsWithTierDiscount(items as any, products as any);
+  const subtotal = pricingEstimate.subtotal;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
   // Drawer summary keeps shipping provisional; final fee is distance-based at checkout.
   const shipping = 0;
@@ -45,7 +47,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
     );
     const category = String(matchedProduct?.category || '').trim();
     const rate = category ? Number(taxRates[category] ?? taxRates[category.toLowerCase()] ?? taxRates[category.toUpperCase()] ?? 0) : 0;
-    return totalTax + (item.price * item.quantity * (rate / 100));
+    const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
+    const lineAmount = Number(pricingEstimate.lineTotals[lineKey] ?? (item.price * item.quantity));
+    return totalTax + (lineAmount * (rate / 100));
   }, 0);
 
   const total = subtotal + shipping + calculatedTax;
@@ -142,7 +146,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                 <div className="space-y-4">
                   {items.map((item, index) => {
                     const lineKey = `${String(item.id)}::${String(item.selectedVariantSku || item.selectedVariantId || '')}`;
-                    const lineTotal = Number(item.price || 0) * Number(item.quantity || 0);
+                    const lineTotal = Number(
+                      pricingEstimate.lineTotals[lineKey] ?? (Number(item.price || 0) * Number(item.quantity || 0)),
+                    );
                     return (
                     <motion.div
                       key={`${item.id}-${item.selectedVariantSku || 'default'}`}

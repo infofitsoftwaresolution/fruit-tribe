@@ -29,6 +29,7 @@ import { savedAddressToCheckoutForm, type SavedDeliveryAddress } from '@/lib/del
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
+import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { getUserErrorMessage } from '@/lib/userError';
 import { toast } from 'sonner';
 import { ServiceablePincodesHint } from '@/app/components/ServiceablePincodesHint';
@@ -1177,9 +1178,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }, {});
   }, [items]);
 
+  const cartPricingEstimate = useMemo(() => {
+    return estimateCartLineTotalsWithTierDiscount(items as any, products as any);
+  }, [items, products]);
+
   const subtotalOnly = useMemo(() => {
-    return items.reduce((sum: number, item: CartItem) => sum + item.price * item.quantity, 0);
-  }, [items]);
+    return cartPricingEstimate.subtotal;
+  }, [cartPricingEstimate]);
 
   const shippingFeeForDistance = useMemo(() => {
     if (!isAddressResolvedForPricing) return 0;
@@ -1210,7 +1215,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const vendorSummaries = useMemo(() => {
     const entries = Object.entries(groupedItems);
     return entries.map(([vendor, vendorItems], i) => {
-      const vSubtotal = vendorItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+      const vSubtotal = vendorItems.reduce((sum, i) => {
+        const lineKey = `${String(i.id)}::${String((i as any).selectedVariantSku || (i as any).selectedVariantId || '')}`;
+        const lineAmount = Number(cartPricingEstimate.lineTotals[lineKey] ?? (i.price * i.quantity));
+        return sum + lineAmount;
+      }, 0);
       const vTax = vendorItems.reduce((totalTax, item) => {
         const product = products.find((p: any) =>
           String(p.id) === String((item as any).productId ?? item.id)
@@ -1224,7 +1233,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             0,
           )
           : 0;
-        return totalTax + (item.price * item.quantity * (rate / 100));
+        const lineKey = `${String(item.id)}::${String((item as any).selectedVariantSku || (item as any).selectedVariantId || '')}`;
+        const lineAmount = Number(cartPricingEstimate.lineTotals[lineKey] ?? (item.price * item.quantity));
+        return totalTax + (lineAmount * (rate / 100));
       }, 0);
       const shipping = i === 0 ? shippingFeeForDistance : 0;
       return {
@@ -1236,7 +1247,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         total: vSubtotal + vTax + shipping,
       };
     });
-  }, [groupedItems, products, effectivePricing, shippingFeeForDistance]);
+  }, [groupedItems, products, effectivePricing, shippingFeeForDistance, cartPricingEstimate]);
 
   const totalShipping = useMemo(() => {
     return vendorSummaries.reduce((sum: number, s: any) => sum + s.shipping, 0);
@@ -1257,9 +1268,11 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           0,
         )
         : 0;
-      return totalTax + (item.price * item.quantity * (rate / 100));
+      const lineKey = `${String(item.id)}::${String((item as any).selectedVariantSku || (item as any).selectedVariantId || '')}`;
+      const lineAmount = Number(cartPricingEstimate.lineTotals[lineKey] ?? (item.price * item.quantity));
+      return totalTax + (lineAmount * (rate / 100));
     }, 0);
-  }, [items, products, effectivePricing]);
+  }, [items, products, effectivePricing, cartPricingEstimate]);
   const baseBillBeforeDiscount = useMemo(() => {
     return subtotalOnly + orderTaxAmount + totalShipping + platformFee;
   }, [subtotalOnly, orderTaxAmount, totalShipping, platformFee]);
@@ -2205,7 +2218,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                               </div>
 
                               {/* Subtotal per item */}
-                              <p className="text-[11px] font-black text-slate-900 tabular-nums">₹{item.price * item.quantity}</p>
+                              <p className="text-[11px] font-black text-slate-900 tabular-nums">
+                                ₹{
+                                  Number(
+                                    cartPricingEstimate.lineTotals[
+                                      `${String(item.id)}::${String((item as any).selectedVariantSku || (item as any).selectedVariantId || '')}`
+                                    ] ?? (item.price * item.quantity),
+                                  ).toFixed(2)
+                                }
+                              </p>
                                   </>
                                 );
                               })()}

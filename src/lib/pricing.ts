@@ -152,3 +152,110 @@ export function getEffectiveUnitPriceFromCartItem(item: CartPricingInput, quanti
   if (bestTier) return bestTier.unitPrice;
   return Number(retail);
 }
+
+type CartLikeItem = {
+  id: string | number;
+  productId?: string | number;
+  quantity: number;
+  price: number;
+  selectedVariantSku?: string;
+  selectedVariantId?: string;
+  selectedVariantName?: string;
+  selectedVariantPackQty?: number;
+};
+
+type ProductLike = {
+  id: string | number;
+  price: number;
+  bulkDiscountTiers?: Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
+};
+
+function parsePackQtyFromCartItem(item: CartLikeItem): number {
+  const direct = Number(item.selectedVariantPackQty);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const raw = String(item.selectedVariantName || '').trim().toLowerCase();
+  const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+  if (!m) return 1;
+  const q = Number(m[1]);
+  if (!Number.isFinite(q) || q <= 0) return 1;
+  return ['g', 'gm', 'grams'].includes(m[2]) ? q / 1000 : q;
+}
+
+export function estimateCartLineTotalsWithTierDiscount(
+  items: CartLikeItem[],
+  products: ProductLike[],
+): { lineTotals: Record<string, number>; subtotal: number } {
+  const lineTotals: Record<string, number> = {};
+  if (!items.length) return { lineTotals, subtotal: 0 };
+
+  const itemsByProduct = new Map<string, CartLikeItem[]>();
+  for (const item of items) {
+    const pid = String(item.productId ?? item.id);
+    const list = itemsByProduct.get(pid) || [];
+    list.push(item);
+    itemsByProduct.set(pid, list);
+  }
+
+  for (const [pid, productItems] of itemsByProduct.entries()) {
+    const product = products.find((p) => String(p.id) === pid);
+    const baseUnit = Number(product?.price || 0);
+    const inferredPackRows = productItems.map((item) => {
+      const packQty = parsePackQtyFromCartItem(item);
+      const packPrice = Number(item.price || 0);
+      const unit = packQty > 0 ? packPrice / packQty : packPrice;
+      return { item, packQty, packPrice, unit };
+    });
+    const inferredRetailUnit = Number.isFinite(baseUnit) && baseUnit > 0
+      ? baseUnit
+      : inferredPackRows
+          .map((r) => r.unit)
+          .filter((u) => Number.isFinite(u) && u > 0)
+          .sort((a, b) => b - a)[0] || 0;
+    const inferredVariantTiers = inferredPackRows
+      .map((r) => {
+        if (!(r.packQty > 0 && inferredRetailUnit > 0)) return null;
+        const pct = ((inferredRetailUnit - r.unit) / inferredRetailUnit) * 100;
+        if (!(Number.isFinite(pct) && pct > 0.0001)) return null;
+        return { qty: r.packQty, totalPrice: r.packPrice, unitPrice: r.unit };
+      })
+      .filter((t): t is { qty: number; totalPrice: number; unitPrice: number } => Boolean(t))
+      .sort((a, b) => a.qty - b.qty);
+    const grossByLine = productItems.map((item) => {
+      const packQty = parsePackQtyFromCartItem(item);
+      const qty = Math.max(1, Number(item.quantity) || 1);
+      const sourceUnit = inferredRetailUnit > 0 ? inferredRetailUnit : Number(item.price || 0);
+      const gross = (sourceUnit * packQty) * qty;
+      return { item, gross, weight: packQty * qty };
+    });
+    const grossSubtotal = grossByLine.reduce((sum, row) => sum + row.gross, 0);
+    const totalWeight = grossByLine.reduce((sum, row) => sum + row.weight, 0);
+
+    const tiers = normalizeBulkTiers({
+      price: inferredRetailUnit,
+      bulkDiscountTiers: product?.bulkDiscountTiers || [],
+    });
+    const effectiveTiers = tiers.length > 0 ? tiers : inferredVariantTiers;
+    let bestDiscountPct = 0;
+    for (const t of effectiveTiers) {
+      if (totalWeight >= t.qty && inferredRetailUnit > 0) {
+        const pct = ((inferredRetailUnit - t.unitPrice) / inferredRetailUnit) * 100;
+        if (Number.isFinite(pct) && pct > bestDiscountPct) bestDiscountPct = pct;
+      }
+    }
+    const totalDiscount = Math.round(grossSubtotal * (bestDiscountPct / 100) * 100) / 100;
+    let allocated = 0;
+    for (let i = 0; i < grossByLine.length; i++) {
+      const row = grossByLine[i];
+      const lineKey = `${String(row.item.id)}::${String(row.item.selectedVariantSku || row.item.selectedVariantId || '')}`;
+      const lineDiscount =
+        i === grossByLine.length - 1
+          ? Math.max(0, Math.round((totalDiscount - allocated) * 100) / 100)
+          : Math.round(((row.gross / Math.max(grossSubtotal, 1e-9)) * totalDiscount) * 100) / 100;
+      allocated += lineDiscount;
+      lineTotals[lineKey] = Math.max(0, Math.round((row.gross - lineDiscount) * 100) / 100);
+    }
+  }
+
+  const subtotal = Object.values(lineTotals).reduce((sum, amount) => sum + amount, 0);
+  return { lineTotals, subtotal: Math.round(subtotal * 100) / 100 };
+}
