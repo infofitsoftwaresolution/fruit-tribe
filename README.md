@@ -35,5 +35,9 @@ This repository contains a production-grade, scalable, and secure e-commerce pla
 3. Access the API at `http://localhost:3000/v1`.
 4. Access the Swagger docs at `http://localhost:3000/api/docs`.
 
+## ✅ Development Notes
+- Keep generated build output (like `backend/dist`) out of commits unless you're intentionally shipping compiled artifacts.
+- Store runtime user uploads in `backend/uploads` and avoid committing them to git.
+
 ---
 *Built with ❤️ by Antigravity (Senior Staff AI Engineer)*
