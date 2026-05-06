@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import {
@@ -66,6 +66,7 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
 
   const firstDelivery = (api.deliveries || [])[0] || null;
   const courierName: string | null = firstDelivery?.deliveryPartner?.name ?? null;
+  const courierPhone: string | null = firstDelivery?.deliveryPartner?.phone ?? null;
   const courierStatus: string | null = (firstDelivery?.status as string | null) ?? null;
 
   let timeline = (api.statusLogs || []).map((log: any) => {
@@ -139,12 +140,14 @@ function mapApiOrderToProfileOrder(api: any, userName: string) {
     statusTimeline: timeline,
     shippingAddress: api.shippingAddress || null,
     courierName,
+    courierPhone,
     courierStatus,
   };
 }
 
 export function ProfilePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout, updateUser } = useAuth();
   const { pincodes: serviceablePincodes, isPincodeServiceable } = useServiceableAreas();
   const { subscription, preferences } = useStore();
@@ -182,6 +185,7 @@ export function ProfilePage() {
   }, [newAddr.pincode, serviceablePincodes, isPincodeServiceable]);
   const [visibleOrderCount, setVisibleOrderCount] = useState(12);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const orderHistoryRef = useRef<HTMLDivElement | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -246,6 +250,15 @@ export function ProfilePage() {
     const latest = apiOrders.find((o) => o.orderId === trackingOrder.orderId);
     if (latest) setTrackingOrder(latest);
   }, [apiOrders, trackingOrder?.orderId]);
+
+  useEffect(() => {
+    if (location.hash !== '#order-history') return;
+    const node = orderHistoryRef.current;
+    if (!node) return;
+    window.requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [location.hash, ordersLoading, apiOrders.length]);
 
   // When a tracking order is opened, geocode its shipping address to show a mini map.
   useEffect(() => {
@@ -795,7 +808,7 @@ export function ProfilePage() {
           {/* Right column */}
           <div className="lg:col-span-8 space-y-10">
             {/* Orders */}
-            <div className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-2xl">
+            <div id="order-history" ref={orderHistoryRef} className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-2xl">
               <div className="flex items-center justify-between mb-10">
                 <h2 className="text-3xl font-semibold text-slate-900 uppercase tracking-tighter">Order history</h2>
                 <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
@@ -823,24 +836,24 @@ export function ProfilePage() {
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(idx, 4) * 0.03, duration: 0.22 }}
-                      className="p-8 bg-slate-50 rounded-[3rem] border border-slate-100 group hover:border-emerald-200 transition-all cursor-pointer relative overflow-hidden"
+                      className="p-4 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 group hover:border-emerald-200 transition-all cursor-pointer relative overflow-hidden"
                       onClick={() => setTrackingOrder(order)}
                     >
-                      <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-10 transition-opacity">
-                        <Navigation className="w-24 h-24 text-emerald-900" />
+                      <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-0 group-hover:opacity-10 transition-opacity">
+                        <Navigation className="w-16 h-16 sm:w-24 sm:h-24 text-emerald-900" />
                       </div>
 
-                      <div className="flex flex-col gap-6 relative z-10">
+                      <div className="flex flex-col gap-4 sm:gap-6 relative z-10">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div>
                             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1">Order #{order.id}</p>
-                            <h4 className="text-2xl font-semibold text-slate-900 tracking-tighter">{order.date}</h4>
+                            <h4 className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tighter">{order.date}</h4>
                             <p className="text-xs text-slate-500 mt-1">{order.items} item{order.items !== 1 ? 's' : ''}</p>
                           </div>
                           <div className="flex flex-col sm:items-end gap-2">
                             <div>
                               <p className="text-xs font-medium text-slate-500">Total</p>
-                              <p className="text-2xl font-semibold text-slate-900 tracking-tighter">₹{order.total}</p>
+                              <p className="text-xl sm:text-2xl font-semibold text-slate-900 tracking-tighter">₹{order.total}</p>
                             </div>
                             <div className={cn(
                               "px-4 py-1.5 rounded-xl text-[9px] font-medium text-xs text-slate-500 border",
@@ -878,7 +891,7 @@ export function ProfilePage() {
                         </div>
 
                         {/* Product details list (like Amazon order history) */}
-                        <div className="border-t border-slate-200/80 pt-6 space-y-4">
+                        <div className="border-t border-slate-200/80 pt-4 sm:pt-6 space-y-3 sm:space-y-4">
                           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Items</p>
                           {(order.orderItems || []).map((item: { productId: string; productName: string; imageUrl: string; quantity: number; pricePerUnit: number; subtotal: number }) => (
                             <button
@@ -890,9 +903,9 @@ export function ProfilePage() {
                                 e.stopPropagation();
                                 navigate(`/product/${item.productId}`);
                               }}
-                              className="w-full text-left flex gap-4 items-center bg-white rounded-2xl p-4 border border-slate-100 hover:border-emerald-200 transition-all"
+                              className="w-full text-left flex gap-3 sm:gap-4 items-center bg-white rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-100 hover:border-emerald-200 transition-all"
                             >
-                              <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
+                              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-slate-100 shrink-0 border border-slate-100">
                                 {item.imageUrl ? (
                                   <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
                                 ) : (
@@ -903,7 +916,7 @@ export function ProfilePage() {
                                 <p className="font-bold text-slate-900 truncate">{item.productName}</p>
                                 <p className="text-xs text-slate-500 mt-0.5">Qty: {item.quantity} × ₹{item.pricePerUnit}</p>
                               </div>
-                              <div className="text-right shrink-0">
+                              <div className="text-right shrink-0 min-w-[52px]">
                                 <p className="font-semibold text-slate-900">₹{item.subtotal}</p>
                               </div>
                             </button>
@@ -956,22 +969,22 @@ export function ProfilePage() {
       {/* Tracking modal */}
       <AnimatePresence>
         {trackingOrder && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-slate-900/80 backdrop-blur-xl" onClick={() => setTrackingOrder(null)} />
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 100 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 100 }}
-              className="relative bg-white rounded-[4rem] p-10 md:p-14 max-w-4xl w-full shadow-6xl border border-white/20 max-h-[90vh] overflow-y-auto custom-scrollbar"
+              className="relative bg-white rounded-3xl sm:rounded-[3rem] p-4 sm:p-8 md:p-12 max-w-4xl w-full shadow-6xl border border-white/20 max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
-              <div className="flex justify-between items-start mb-12">
+              <div className="flex justify-between items-start mb-6 sm:mb-10">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="w-4 h-4 text-emerald-500" />
                     <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest">Tracking</span>
                   </div>
-                  <h2 className="text-4xl font-semibold text-slate-900 tracking-tighter uppercase">Order #{trackingOrder.id}</h2>
-                          <p className="text-slate-500 mt-2 font-medium">
+                  <h2 className="text-3xl sm:text-4xl font-semibold text-slate-900 tracking-tighter uppercase break-words pr-2">Order #{trackingOrder.id}</h2>
+                          <p className="text-slate-500 mt-2 font-medium text-sm sm:text-base">
                             Placed on {trackingOrder.date} · Total ₹{trackingOrder.total}
                           </p>
                           {(() => {
@@ -987,7 +1000,7 @@ export function ProfilePage() {
                               <button
                                 type="button"
                                 onClick={() => { void handlePayNow(trackingOrder); }}
-                                className="mt-4 inline-flex h-11 px-6 bg-amber-500 text-white rounded-xl font-semibold text-[11px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-600/20 items-center justify-center gap-2"
+                                className="mt-4 inline-flex h-10 sm:h-11 px-4 sm:px-6 bg-amber-500 text-white rounded-xl font-semibold text-[10px] sm:text-[11px] uppercase tracking-widest hover:bg-amber-600 transition-all shadow-lg shadow-amber-600/20 items-center justify-center gap-2"
                               >
                                 <Zap className="w-4 h-4" />
                                 Pay now
@@ -1003,7 +1016,7 @@ export function ProfilePage() {
                 <button
                   onClick={() => setTrackingOrder(null)}
                   aria-label="Close tracking"
-                  className="p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-semibold"
+                  className="p-2.5 sm:p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all text-slate-400 font-semibold"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1011,12 +1024,12 @@ export function ProfilePage() {
 
               {/* Items in this order */}
               {(trackingOrder.orderItems?.length ?? 0) > 0 && (
-                <div className="mb-12">
+                <div className="mb-8 sm:mb-12">
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-4">Items in this order</p>
-                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
+                  <div className="space-y-3 max-h-56 overflow-y-auto pr-1 sm:pr-2">
                     {(trackingOrder.orderItems || []).map((item: { productId: string; productName: string; imageUrl: string; quantity: number; pricePerUnit: number; subtotal: number }) => (
-                      <div key={item.productId} className="flex gap-4 items-center bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-slate-100">
+                      <div key={item.productId} className="flex gap-3 sm:gap-4 items-center bg-slate-50 rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-slate-100">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-white shrink-0 border border-slate-100">
                           {item.imageUrl ? (
                             <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
                           ) : (
@@ -1027,7 +1040,7 @@ export function ProfilePage() {
                           <p className="font-bold text-slate-900 truncate">{item.productName}</p>
                           <p className="text-xs text-slate-500 mt-0.5">Qty: {item.quantity} × ₹{item.pricePerUnit}</p>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 min-w-[52px]">
                           <p className="font-semibold text-slate-900">₹{item.subtotal}</p>
                         </div>
                       </div>
@@ -1157,7 +1170,17 @@ export function ProfilePage() {
                     return (
                       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
                         {hasAssignedDriver && (
-                          <button className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2">
+                          <button
+                            className="flex-1 sm:flex-none px-6 sm:px-8 py-3 sm:py-4 bg-white text-slate-900 rounded-2xl font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2"
+                            onClick={() => {
+                              const phone = String(trackingOrder.courierPhone || '').replace(/\s+/g, '');
+                              if (!phone) {
+                                toast.error('Driver phone is unavailable right now.');
+                                return;
+                              }
+                              window.location.href = `tel:${phone}`;
+                            }}
+                          >
                             <Phone className="w-4 h-4" />
                             Call driver
                           </button>

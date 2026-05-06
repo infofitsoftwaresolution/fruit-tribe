@@ -143,7 +143,16 @@ export function AdminOrdersPage() {
             fulfillment: api.status === 'DELIVERED' ? 'Fulfilled' : 'Unfulfilled',
             status: statusMap[api.status] || 'Created',
             channel: 'Online Store',
-            itemsDetails: api.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity })) ?? [],
+            itemsDetails: api.items?.map((i: any) => ({
+                productId: i.productId,
+                quantity: Number(i.quantity || 0),
+                pricePerUnit: Number(i.pricePerUnit ?? 0),
+                subtotal: Number(i.subtotal ?? (Number(i.pricePerUnit || 0) * Number(i.quantity || 0))),
+                productName: String(i?.product?.name || ''),
+                productImage: String(i?.product?.images?.[0]?.imageUrl || ''),
+                variantName: String(i?.variant?.attributeValue || ''),
+                vendorName: String(i?.seller?.storeName || ''),
+            })) ?? [],
             shippingAddress: api.shippingAddress || null,
             courierName,
             vendorNames,
@@ -957,23 +966,33 @@ export function AdminOrdersPage() {
                                     <div className="grid grid-cols-1 gap-4">
                                         {selectedOrder.itemsDetails?.map((item, idx) => {
                                             const product = products.find(p => String(p.id) === String(item.productId));
+                                            const productName = String((item as any).productName || product?.name || 'Unknown Product');
+                                            const productImage = String((item as any).productImage || product?.image || '');
+                                            const variantName = String((item as any).variantName || '').trim();
+                                            const vendorName = String((item as any).vendorName || product?.vendor || 'Store');
+                                            const qty = Number((item as any).quantity || 0);
+                                            const unitPrice = Number((item as any).pricePerUnit || 0);
+                                            const subtotal = Number((item as any).subtotal || (unitPrice * qty));
                                             return (
                                                 <div key={idx} className="flex items-center gap-8 p-8 rounded-[3rem] bg-white border border-slate-100 hover:border-emerald-200 hover:shadow-[0_30px_60px_rgba(0,0,0,0.05)] transition-all duration-700 group">
                                                     <div className="h-24 w-24 rounded-[2.5rem] bg-slate-50 overflow-hidden shadow-2xl shadow-slate-900/5 group-hover:scale-105 group-hover:rotate-2 transition-all duration-700 border border-slate-100">
-                                                        <img src={product?.image} className="w-full h-full object-cover" />
+                                                        <img src={productImage} className="w-full h-full object-cover" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between mb-2">
-                                                            <p className="text-xl font-black text-slate-900 uppercase tracking-tighter truncate font-heading">{product?.name}</p>
-                                                            <p className="text-lg font-black text-slate-900 tracking-tighter font-heading">₹{((product?.discountPrice || product?.price || 0) * item.quantity).toLocaleString()}</p>
+                                                            <p className="text-xl font-black text-slate-900 uppercase tracking-tighter truncate font-heading">{productName}</p>
+                                                            <p className="text-lg font-black text-slate-900 tracking-tighter font-heading">₹{subtotal.toLocaleString()}</p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
                                                             <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
                                                                 <Zap className="h-3 w-3 text-emerald-600" />
-                                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{product?.vendor}</span>
+                                                                <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{vendorName}</span>
                                                             </div>
                                                             <div className="h-5 w-[1px] bg-slate-100" />
-                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quantum: {item.quantity} {product?.unit || 'kg'}</span>
+                                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                                Quantum: {qty} × ₹{unitPrice || 0}
+                                                                {variantName ? ` · ${variantName}` : ''}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 </div>

@@ -1120,7 +1120,7 @@ export class OrderService {
                 },
                 deliveries: {
                     include: {
-                        deliveryPartner: { select: { name: true } },
+                        deliveryPartner: { select: { name: true, phone: true } },
                     },
                 },
                 statusLogs: {
@@ -1170,7 +1170,7 @@ export class OrderService {
                 },
                 deliveries: {
                     include: {
-                        deliveryPartner: { select: { name: true } },
+                        deliveryPartner: { select: { name: true, phone: true } },
                     },
                 },
             },

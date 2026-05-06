@@ -392,7 +392,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
                   </div>
                 </Link>
 
-                <Link to={isDeliveryUser ? '/delivery/assignments' : '/profile'} onClick={() => setIsMenuOpen(false)}>
+                <Link to={isDeliveryUser ? '/delivery/assignments' : '/profile#order-history'} onClick={() => setIsMenuOpen(false)}>
                   <div className="flex items-center justify-between px-3 py-3 rounded-xl mb-0.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center gap-2.5">
                       <Truck className="w-4 h-4 text-slate-400" />

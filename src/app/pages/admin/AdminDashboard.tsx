@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import {
     ChevronRight, Users, Store, TrendingUp, AlertCircle,
     Package, ArrowUpRight, ArrowDownRight, IndianRupee,
@@ -23,10 +23,7 @@ function getLiveAvailableUnits(product: any): number {
             (sum: number, v: any) => sum + Number(v?.availableStock ?? v?.stock ?? 0),
             0
         );
-        // Prefer a conservative inventory number when top-level and variant stock drift.
-        if (Number.isFinite(productLevelAvailable) && productLevelAvailable >= 0) {
-            return Math.min(productLevelAvailable, variantTotal);
-        }
+        // For variant-backed products, variant aggregate is the source of truth.
         return variantTotal;
     }
     return productLevelAvailable;
@@ -40,12 +37,21 @@ function getLiveStockUnits(product: any): number {
             (sum: number, v: any) => sum + Number(v?.stock ?? 0),
             0
         );
-        if (Number.isFinite(productLevelStock) && productLevelStock >= 0) {
-            return Math.min(productLevelStock, variantStockTotal);
-        }
+        // For variant-backed products, variant aggregate is the source of truth.
         return variantStockTotal;
     }
     return productLevelStock;
+}
+
+function parsePackQtyKg(rawValue: string | null | undefined): number {
+    const raw = String(rawValue || '').trim().toLowerCase();
+    if (!raw) return 1;
+    const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+    if (!m) return 1;
+    const q = Number(m[1]);
+    if (!Number.isFinite(q) || q <= 0) return 1;
+    const u = String(m[2]).toLowerCase();
+    return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
 }
 
 export function AdminDashboard() {
@@ -80,16 +86,72 @@ export function AdminDashboard() {
         [products]
     );
 
+    const soldAdjustmentByProduct = useMemo(() => {
+        const byProduct = new Map<string, { soldPackCount: number; soldKg: number }>();
+        const variantPackByProductAndId = new Map<string, Map<string, number>>();
+        for (const p of products) {
+            const vMap = new Map<string, number>();
+            for (const v of (p as any).variants || []) {
+                const vid = String((v as any).id || '').trim();
+                if (!vid) continue;
+                vMap.set(vid, parsePackQtyKg(String((v as any).name || (v as any).attributeValue || '')));
+            }
+            variantPackByProductAndId.set(String(p.id), vMap);
+        }
+        for (const o of orders as any[]) {
+            const status = String(o?.status || '').toUpperCase();
+            const paymentStatus = String(o?.paymentStatus || '').toUpperCase();
+            const paymentMethod = String(o?.paymentMethod || '').toUpperCase();
+            const isCancelled = status === 'CANCELLED';
+            const isRefunded = paymentStatus === 'REFUNDED';
+            const isPaid =
+                paymentStatus === 'PAID' ||
+                (paymentMethod === 'COD' && status === 'DELIVERED');
+            if (isCancelled || isRefunded || !isPaid) continue;
+
+            for (const item of (o?.items || [])) {
+                const pid = String(item?.productId || '');
+                if (!pid) continue;
+                const qty = Math.max(0, Number(item?.quantity || 0));
+                if (!(qty > 0)) continue;
+                const variantId = String(item?.variantId || '');
+                const variantMap = variantPackByProductAndId.get(pid);
+                const fromVariantMap = variantId && variantMap ? Number(variantMap.get(variantId) || 0) : 0;
+                const fromPayload = parsePackQtyKg(String(item?.variant?.attributeValue || ''));
+                const packQty = fromVariantMap > 0 ? fromVariantMap : fromPayload > 0 ? fromPayload : 1;
+                const existing = byProduct.get(pid) || { soldPackCount: 0, soldKg: 0 };
+                existing.soldPackCount += qty;
+                existing.soldKg += qty * packQty;
+                byProduct.set(pid, existing);
+            }
+        }
+        const deltaByProduct = new Map<string, number>();
+        for (const [pid, v] of byProduct.entries()) {
+            // Legacy stock decrements by pack count; adjust to kg-equivalent.
+            const delta = Math.max(0, Math.round((v.soldKg - v.soldPackCount) * 1000) / 1000);
+            deltaByProduct.set(pid, delta);
+        }
+        return deltaByProduct;
+    }, [orders, products]);
+
+    const getAdjustedAvailableUnits = useCallback((product: any) => {
+        const pid = String(product?.id || '');
+        const raw = getLiveAvailableUnits(product);
+        const delta = Number(soldAdjustmentByProduct.get(pid) || 0);
+        return Math.max(0, raw - delta);
+    }, [soldAdjustmentByProduct]);
+
     const inventoryIntel = useMemo(() => {
         const totalProducts = products.length;
-        const totalUnits = products.reduce((sum, p) => sum + getLiveStockUnits(p), 0);
-        const outOfStock = products.filter((p) => getLiveAvailableUnits(p) <= 0).length;
+        // Total units should represent currently sellable kg-equivalent inventory after paid orders.
+        const totalUnits = products.reduce((sum, p) => sum + getAdjustedAvailableUnits(p), 0);
+        const outOfStock = products.filter((p) => getAdjustedAvailableUnits(p) <= 0).length;
         const lowStock = products.filter(
-            (p) => getLiveAvailableUnits(p) > 0 && getLiveAvailableUnits(p) <= (p.lowStockThreshold ?? 5)
+            (p) => getAdjustedAvailableUnits(p) > 0 && getAdjustedAvailableUnits(p) <= (p.lowStockThreshold ?? 5)
         ).length;
         const healthy = Math.max(0, totalProducts - outOfStock - lowStock);
         return { totalProducts, totalUnits, outOfStock, lowStock, healthy };
-    }, [products]);
+    }, [products, getAdjustedAvailableUnits]);
 
     const inventoryVendors = useMemo(
         () =>
@@ -107,7 +169,7 @@ export function AdminDashboard() {
         const query = inventorySearch.trim().toLowerCase();
         return products
             .filter((p) => {
-                const available = getLiveAvailableUnits(p);
+                const available = getAdjustedAvailableUnits(p);
                 const threshold = p.lowStockThreshold ?? 5;
                 const isLow = available > 0 && available <= threshold;
                 const isOut = available <= 0;
@@ -130,9 +192,9 @@ export function AdminDashboard() {
                     String(p.vendor ?? '').toLowerCase().includes(query);
                 return stockOk && vendorOk && searchOk;
             })
-            .sort((a, b) => getLiveAvailableUnits(a) - getLiveAvailableUnits(b))
+            .sort((a, b) => getAdjustedAvailableUnits(a) - getAdjustedAvailableUnits(b))
             .slice(0, 8);
-    }, [products, inventorySearch, inventoryVendorFilter, inventoryStockFilter]);
+    }, [products, inventorySearch, inventoryVendorFilter, inventoryStockFilter, getAdjustedAvailableUnits]);
 
         const intel = useMemo(() => {
         const fullOrders = orders.map((o: any) => ({
