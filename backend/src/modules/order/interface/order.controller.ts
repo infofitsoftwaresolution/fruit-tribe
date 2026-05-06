@@ -166,4 +166,12 @@ export class OrderController {
     ) {
         return this.orderService.updatePaymentStatus(id, body.paymentStatus);
     }
+
+    @ApiOperation({ summary: 'One-time admin stock reconciliation for legacy pack-unit reservations' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Post('admin/reconcile-stock-units')
+    async reconcileLegacyStockUnits() {
+        return this.orderService.reconcileLegacyStockUnits();
+    }
 }

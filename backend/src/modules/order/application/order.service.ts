@@ -163,9 +163,11 @@ export class OrderService {
             for (const item of dto.items) {
                 const variant = await tx.productVariant.findUnique({
                     where: { id: item.variantId },
+                    select: { id: true, availableQuantity: true, attributeValue: true },
                 });
-
-                if (!variant || variant.availableQuantity < item.quantity) {
+                const packQty = this.parsePackQtyKg(variant?.attributeValue);
+                const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
+                if (!variant || variant.availableQuantity < stockUnits) {
                     throw new BadRequestException(
                         `Insufficient stock for variant ${item.variantId}. Available: ${variant?.availableQuantity ?? 0}`,
                     );
@@ -212,13 +214,19 @@ export class OrderService {
             // Handle stock reservations
             for (const item of dto.items) {
                 const isFinalized = paymentStatus === 'PAID' || initialStatus === 'CONFIRMED';
+                const variant = await tx.productVariant.findUnique({
+                    where: { id: item.variantId },
+                    select: { attributeValue: true },
+                });
+                const packQty = this.parsePackQtyKg(variant?.attributeValue);
+                const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
                 
                 await tx.stockReservation.create({
                     data: {
                         variantId: item.variantId,
                         orderId: order.id,
                         userId: targetUser.id,
-                        quantity: item.quantity,
+                        quantity: stockUnits,
                         expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000),
                         status: isFinalized ? 'COMPLETED' : 'PENDING'
                     }
@@ -228,16 +236,16 @@ export class OrderService {
                     await tx.productVariant.update({
                         where: { id: item.variantId },
                         data: {
-                            stockQuantity: { decrement: item.quantity },
-                            availableQuantity: { decrement: item.quantity }
+                            stockQuantity: { decrement: stockUnits },
+                            availableQuantity: { decrement: stockUnits }
                         }
                     });
                 } else {
                     await tx.productVariant.update({
                         where: { id: item.variantId },
                         data: {
-                            reservedQuantity: { increment: item.quantity },
-                            availableQuantity: { decrement: item.quantity }
+                            reservedQuantity: { increment: stockUnits },
+                            availableQuantity: { decrement: stockUnits }
                         }
                     });
                 }
@@ -245,7 +253,7 @@ export class OrderService {
                 await tx.inventoryLog.create({
                     data: {
                         variantId: item.variantId,
-                        changeAmount: -item.quantity,
+                        changeAmount: -stockUnits,
                         reason: isFinalized ? 'MANUAL_ORDER_PAID_OR_CONFIRMED_COMMIT' : 'MANUAL_ORDER_RESERVED',
                         referenceId: order.id,
                     },
@@ -394,20 +402,22 @@ export class OrderService {
             if (String(item.productId) !== String(variant.productId)) {
                 throw new BadRequestException(`Variant ${item.variantId} does not belong to product ${item.productId}`);
             }
-            if (variant.availableQuantity < item.quantity) {
-                throw new BadRequestException(
-                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
-                );
-            }
             const basePrice = Number(variant.basePrice);
             const packQty = this.parsePackQtyKg(variant.attributeValue);
             const unitPrice = basePrice * packQty;
+            const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
+            if (variant.availableQuantity < stockUnits) {
+                throw new BadRequestException(
+                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, required units: ${stockUnits}.`,
+                );
+            }
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
                 sellerId: String(variant.sellerId),
                 quantity: item.quantity,
                 grossUnitPrice: unitPrice,
+                stockUnits,
                 subtotal: unitPrice * item.quantity,
             };
         });
@@ -434,6 +444,7 @@ export class OrderService {
             sellerId: item.sellerId,
             quantity: item.quantity,
             pricePerUnit: item.grossUnitPrice,
+            stockUnits: item.stockUnits,
             subtotal: item.subtotal,
         }));
         const itemIndexesByProduct = new Map<string, number[]>();
@@ -644,9 +655,9 @@ export class OrderService {
             const txVariantMap = new Map(txLockedVariants.map(v => [String(v.id), v]));
             for (const item of canonicalItems) {
                 const variant = txVariantMap.get(String(item.variantId));
-                if (!variant || variant.availableQuantity < item.quantity) {
+                if (!variant || variant.availableQuantity < item.stockUnits) {
                     throw new BadRequestException(
-                        `Insufficient stock for SKU ${variant?.sku || item.variantId}. Available: ${variant?.availableQuantity ?? 0}, requested: ${item.quantity}.`,
+                        `Insufficient stock for SKU ${variant?.sku || item.variantId}. Available: ${variant?.availableQuantity ?? 0}, required units: ${item.stockUnits}.`,
                     );
                 }
             }
@@ -697,7 +708,7 @@ export class OrderService {
                         variantId: item.variantId,
                         orderId: order.id,
                         userId,
-                        quantity: item.quantity,
+                        quantity: item.stockUnits,
                         expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000), // 10-minute hold
                         status: reservationStatus
                     }
@@ -708,8 +719,8 @@ export class OrderService {
                     await tx.productVariant.update({
                         where: { id: item.variantId },
                         data: {
-                            stockQuantity: { decrement: item.quantity },
-                            availableQuantity: { decrement: item.quantity }
+                            stockQuantity: { decrement: item.stockUnits },
+                            availableQuantity: { decrement: item.stockUnits }
                         }
                     });
                     
@@ -718,8 +729,8 @@ export class OrderService {
                     await tx.productVariant.update({
                         where: { id: item.variantId },
                         data: {
-                            reservedQuantity: { increment: item.quantity },
-                            availableQuantity: { decrement: item.quantity }
+                            reservedQuantity: { increment: item.stockUnits },
+                            availableQuantity: { decrement: item.stockUnits }
                         }
                     });
                 }
@@ -727,7 +738,7 @@ export class OrderService {
                 await tx.inventoryLog.create({
                     data: {
                         variantId: item.variantId,
-                        changeAmount: -item.quantity,
+                        changeAmount: -item.stockUnits,
                         reason: isCod ? 'ORDER_PLACED_COD_COMMIT' : 'ORDER_RESERVED_ONLINE',
                         referenceId: order.id,
                     },
@@ -876,14 +887,15 @@ export class OrderService {
             if (String(item.productId) !== String(variant.productId)) {
                 throw new BadRequestException(`Variant ${item.variantId} does not belong to product ${item.productId}`);
             }
-            if (variant.availableQuantity < item.quantity) {
-                throw new BadRequestException(
-                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, requested: ${item.quantity}.`,
-                );
-            }
             const basePrice = Number(variant.basePrice);
             const packQty = this.parsePackQtyKg(variant.attributeValue);
             const unitPrice = basePrice * Math.max(1, packQty);
+            const stockUnits = Math.max(1, Number(item.quantity) || 1) * Math.max(1, packQty);
+            if (variant.availableQuantity < stockUnits) {
+                throw new BadRequestException(
+                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, required units: ${stockUnits}.`,
+                );
+            }
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
@@ -1176,6 +1188,170 @@ export class OrderService {
             },
             orderBy: { createdAt: 'desc' },
         });
+    }
+
+    /**
+     * One-time admin repair for legacy reservations that stored pack-count instead of kg-equivalent units.
+     */
+    async reconcileLegacyStockUnits() {
+        type ReservationGroup = {
+            orderId: string;
+            variantId: string;
+            reservationTotal: number;
+            reservationStatus: string;
+            expectedUnits: number;
+            delta: number;
+        };
+
+        return this.prisma.$transaction(async (tx) => {
+            const orders = await tx.order.findMany({
+                where: {
+                    status: { not: 'CANCELLED' },
+                    paymentStatus: { not: 'REFUNDED' },
+                },
+                select: {
+                    id: true,
+                    items: {
+                        select: {
+                            variantId: true,
+                            quantity: true,
+                            variant: { select: { attributeValue: true } },
+                        },
+                    },
+                    reservations: {
+                        where: { status: { in: ['PENDING', 'COMPLETED'] } },
+                        select: { id: true, variantId: true, quantity: true, status: true },
+                    },
+                },
+            });
+
+            const groups: ReservationGroup[] = [];
+            const variantAdjust = new Map<string, { stock: number; reserved: number; available: number }>();
+            const reservationPatch = new Map<string, number>();
+            let skippedMixedStatusGroups = 0;
+
+            for (const order of orders) {
+                const expectedByVariant = new Map<string, number>();
+                for (const item of order.items) {
+                    const variantId = String(item.variantId || '');
+                    if (!variantId) continue;
+                    const packQty = this.parsePackQtyKg(item.variant?.attributeValue);
+                    const expected = Math.max(1, Number(item.quantity) || 1) * packQty;
+                    expectedByVariant.set(variantId, (expectedByVariant.get(variantId) || 0) + expected);
+                }
+
+                const reservationsByVariant = new Map<string, Array<{ id: string; qty: number; status: string }>>();
+                for (const res of order.reservations) {
+                    const variantId = String(res.variantId || '');
+                    if (!variantId) continue;
+                    const list = reservationsByVariant.get(variantId) || [];
+                    list.push({ id: res.id, qty: Number(res.quantity) || 0, status: String(res.status || '').toUpperCase() });
+                    reservationsByVariant.set(variantId, list);
+                }
+
+                for (const [variantId, expectedUnits] of expectedByVariant.entries()) {
+                    const rows = reservationsByVariant.get(variantId) || [];
+                    if (!rows.length) continue;
+
+                    const statuses = Array.from(new Set(rows.map((r) => r.status)));
+                    if (statuses.length !== 1) {
+                        skippedMixedStatusGroups += 1;
+                        continue;
+                    }
+
+                    const reservationStatus = statuses[0];
+                    const reservationTotal = rows.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+                    const delta = expectedUnits - reservationTotal;
+                    if (delta === 0) continue;
+
+                    const first = rows[0];
+                    reservationPatch.set(first.id, Math.max(0, (Number(first.qty) || 0) + delta));
+
+                    const existing = variantAdjust.get(variantId) || { stock: 0, reserved: 0, available: 0 };
+                    if (reservationStatus === 'COMPLETED') {
+                        existing.stock -= delta;
+                        existing.available -= delta;
+                    } else if (reservationStatus === 'PENDING') {
+                        existing.reserved += delta;
+                        existing.available -= delta;
+                    } else {
+                        continue;
+                    }
+                    variantAdjust.set(variantId, existing);
+
+                    groups.push({
+                        orderId: order.id,
+                        variantId,
+                        reservationTotal,
+                        reservationStatus,
+                        expectedUnits,
+                        delta,
+                    });
+                }
+            }
+
+            const variantIds = Array.from(variantAdjust.keys());
+            if (variantIds.length) {
+                const variants = await tx.productVariant.findMany({
+                    where: { id: { in: variantIds } },
+                    select: { id: true, stockQuantity: true, reservedQuantity: true, availableQuantity: true },
+                });
+                const byId = new Map(variants.map((v) => [String(v.id), v]));
+
+                for (const [variantId, d] of variantAdjust.entries()) {
+                    const current = byId.get(variantId);
+                    if (!current) {
+                        throw new NotFoundException(`Variant ${variantId} not found during stock reconciliation.`);
+                    }
+                    const nextStock = Number(current.stockQuantity) + d.stock;
+                    const nextReserved = Number(current.reservedQuantity) + d.reserved;
+                    const nextAvailable = Number(current.availableQuantity) + d.available;
+                    if (nextStock < 0 || nextReserved < 0 || nextAvailable < 0) {
+                        throw new BadRequestException(
+                            `Reconciliation would make stock negative for variant ${variantId}. Aborting.`,
+                        );
+                    }
+                }
+            }
+
+            for (const [reservationId, nextQty] of reservationPatch.entries()) {
+                await tx.stockReservation.update({
+                    where: { id: reservationId },
+                    data: { quantity: nextQty },
+                });
+            }
+
+            for (const [variantId, d] of variantAdjust.entries()) {
+                await tx.productVariant.update({
+                    where: { id: variantId },
+                    data: {
+                        stockQuantity: { increment: d.stock },
+                        reservedQuantity: { increment: d.reserved },
+                        availableQuantity: { increment: d.available },
+                    },
+                });
+
+                if (d.stock !== 0 || d.available !== 0 || d.reserved !== 0) {
+                    await tx.inventoryLog.create({
+                        data: {
+                            variantId,
+                            changeAmount: d.stock,
+                            reason: `ADMIN_LEGACY_PACK_RECONCILE stock=${d.stock},reserved=${d.reserved},available=${d.available}`,
+                        },
+                    });
+                }
+            }
+
+            return {
+                scannedOrders: orders.length,
+                touchedGroups: groups.length,
+                updatedReservations: reservationPatch.size,
+                updatedVariants: variantAdjust.size,
+                skippedMixedStatusGroups,
+                totalDeltaUnits: groups.reduce((s, g) => s + g.delta, 0),
+                groups,
+            };
+        }, { timeout: 60000 });
     }
 
     /** Update order status (admin or seller who has items in the order). Persists to DB. */
