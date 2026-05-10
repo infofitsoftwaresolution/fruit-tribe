@@ -1132,7 +1132,7 @@ export class OrderService {
                 },
                 deliveries: {
                     include: {
-                        deliveryPartner: { select: { name: true, phone: true } },
+                        deliveryPartner: { select: { id: true, name: true, phone: true } },
                     },
                 },
                 statusLogs: {
@@ -1182,12 +1182,117 @@ export class OrderService {
                 },
                 deliveries: {
                     include: {
-                        deliveryPartner: { select: { name: true, phone: true } },
+                        deliveryPartner: { select: { id: true, name: true, phone: true } },
                     },
                 },
             },
             orderBy: { createdAt: 'desc' },
         });
+    }
+
+    /**
+     * Orders with an assigned rider that are still not completed after `hoursThreshold` from the best-known
+     * milestone (latest SHIPPED log, else latest PACKED log, else delivery record created).
+     */
+    async findAdminDeliveryOverdue(hoursThreshold: number) {
+        const safeHours = Math.min(72, Math.max(0.5, Number(hoursThreshold) || 2));
+        const ms = safeHours * 60 * 60 * 1000;
+        const now = Date.now();
+
+        const rows = await this.prisma.delivery.findMany({
+            where: {
+                deliveryPartnerId: { not: null },
+                actualDelivery: null,
+                order: {
+                    status: { notIn: ['DELIVERED', 'CANCELLED'] },
+                },
+            },
+            include: {
+                deliveryPartner: { select: { id: true, name: true, phone: true } },
+                order: {
+                    select: {
+                        id: true,
+                        orderNumber: true,
+                        status: true,
+                        user: {
+                            select: { firstName: true, lastName: true, email: true, phone: true },
+                        },
+                        statusLogs: { orderBy: { createdAt: 'asc' } },
+                    },
+                },
+            },
+        });
+
+        const items: Array<{
+            orderId: string;
+            orderNumber: string;
+            orderStatus: string;
+            referenceLabel: 'Shipped' | 'Packed' | 'Delivery record';
+            referenceAt: string;
+            hoursSinceReference: number;
+            hoursPastDue: number;
+            deliveryPartner: { id: string; name: string; phone: string | null };
+            customerName: string;
+            customerEmail: string | null;
+            customerPhone: string | null;
+        }> = [];
+
+        for (const d of rows) {
+            const partner = d.deliveryPartner;
+            if (!partner) continue;
+
+            const logs = d.order.statusLogs;
+            const shippedAt = [...logs].reverse().find((l) => l.status === 'SHIPPED')?.createdAt;
+            const packedAt = [...logs].reverse().find((l) => l.status === 'PACKED')?.createdAt;
+
+            let referenceAt: Date;
+            let referenceLabel: 'Shipped' | 'Packed' | 'Delivery record';
+            if (shippedAt) {
+                referenceAt = shippedAt;
+                referenceLabel = 'Shipped';
+            } else if (packedAt) {
+                referenceAt = packedAt;
+                referenceLabel = 'Packed';
+            } else {
+                referenceAt = d.createdAt;
+                referenceLabel = 'Delivery record';
+            }
+
+            const elapsed = now - referenceAt.getTime();
+            if (elapsed < ms) {
+                continue;
+            }
+
+            const hoursSinceReference = elapsed / 3600000;
+            const hoursPastDue = (elapsed - ms) / 3600000;
+            const user = d.order.user;
+            const customerName =
+                [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() ||
+                (user?.email ?? '—');
+
+            items.push({
+                orderId: d.order.id,
+                orderNumber: d.order.orderNumber,
+                orderStatus: d.order.status,
+                referenceLabel,
+                referenceAt: referenceAt.toISOString(),
+                hoursSinceReference: Math.round(hoursSinceReference * 10) / 10,
+                hoursPastDue: Math.round(hoursPastDue * 10) / 10,
+                deliveryPartner: {
+                    id: partner.id,
+                    name: partner.name,
+                    phone: partner.phone ?? null,
+                },
+                customerName,
+                customerEmail: user?.email ?? null,
+                customerPhone: user?.phone ?? null,
+            });
+        }
+
+        items.sort(
+            (a, b) => new Date(a.referenceAt).getTime() - new Date(b.referenceAt).getTime(),
+        );
+        return { thresholdHours: safeHours, items };
     }
 
     /**

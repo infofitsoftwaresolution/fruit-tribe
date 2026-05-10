@@ -57,6 +57,7 @@ const AdminSettingsPage = lazy(() => import('@/app/pages/admin/AdminSettingsPage
 const AdminDiscountsPage = lazy(() => import('@/app/pages/admin/AdminDiscountsPage').then(m => ({ default: m.AdminDiscountsPage })));
 const AdminSellersPage = lazy(() => import('@/app/pages/admin/AdminSellersPage').then(m => ({ default: m.AdminSellersPage })));
 const AdminLogisticsPage = lazy(() => import('@/app/pages/admin/AdminLogisticsPage').then(m => ({ default: m.AdminLogisticsPage })));
+const AdminAlertsPage = lazy(() => import('@/app/pages/admin/AdminAlertsPage').then(m => ({ default: m.AdminAlertsPage })));
 const AdminPayoutsPage = lazy(() => import('@/app/pages/admin/AdminPayoutsPage').then(m => ({ default: m.AdminPayoutsPage })));
 const SellerDashboard = lazy(() => import('@/app/pages/seller/SellerDashboard').then(m => ({ default: m.SellerDashboard })));
 const DeliveryDashboard = lazy(() => import('@/app/pages/delivery/DeliveryDashboard').then(m => ({ default: m.DeliveryDashboard })));
@@ -271,6 +272,7 @@ function AppRoutes() {
               <Route path="discounts" element={<AdminDiscountsPage />} />
               <Route path="seller-dashboard" element={<SellerDashboard />} />
               <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+                <Route path="alerts" element={<AdminAlertsPage />} />
                 <Route path="customers" element={<AdminCustomersPage />} />
                 <Route path="sellers" element={<AdminSellersPage />} />
                 <Route path="logistics" element={<AdminLogisticsPage />} />
@@ -336,6 +338,7 @@ function AdminPerformanceWarmup() {
       void import('@/app/pages/admin/AdminCustomersPage');
       void import('@/app/pages/admin/AdminSellersPage');
       void import('@/app/pages/admin/AdminSettingsPage');
+      void import('@/app/pages/admin/AdminAlertsPage');
       void import('@/app/pages/seller/SellerDashboard');
       // Warm critical data for instant first paint on admin/profile surfaces.
       void getOrdersCached().catch(() => undefined);

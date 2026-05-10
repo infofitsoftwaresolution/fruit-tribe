@@ -5,6 +5,7 @@ import {
     Patch,
     Param,
     Body,
+    Query,
     UseGuards,
     Request,
     ParseUUIDPipe,
@@ -87,6 +88,15 @@ export class OrderController {
             return this.orderService.findAll();
         }
         return this.orderService.findByUser(req.user.id);
+    }
+
+    @ApiOperation({ summary: 'Admin: orders assigned to a rider but not delivered within threshold hours' })
+    @Roles('ADMIN')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Get('admin/delivery-overdue')
+    async adminDeliveryOverdue(@Query('hours') hours?: string) {
+        const h = Number(hours);
+        return this.orderService.findAdminDeliveryOverdue(Number.isFinite(h) && h > 0 ? h : 2);
     }
 
     @ApiOperation({ summary: 'Get a specific order by ID' })

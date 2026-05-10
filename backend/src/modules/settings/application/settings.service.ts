@@ -160,7 +160,7 @@ export class SettingsService {
         message: string;
         submittedAt: string;
     }>> {
-        const safeLimit = Math.min(50, Math.max(1, Number(limit) || 12));
+        const safeLimit = Math.min(200, Math.max(1, Number(limit) || 12));
         const rows = await this.prisma.auditLog.findMany({
             where: {
                 action: 'CONTACT_FORM_SUBMITTED',

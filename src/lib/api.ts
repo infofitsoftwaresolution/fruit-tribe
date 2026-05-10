@@ -473,6 +473,36 @@ export async function getAdminContactSubmissions(limit: number = 12): Promise<Ad
   return Array.isArray(data?.items) ? data.items : [];
 }
 
+export type AdminDeliveryOverdueItem = {
+  orderId: string;
+  orderNumber: string;
+  orderStatus: string;
+  referenceLabel: 'Shipped' | 'Packed' | 'Delivery record';
+  referenceAt: string;
+  hoursSinceReference: number;
+  hoursPastDue: number;
+  deliveryPartner: { id: string; name: string; phone: string | null };
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+};
+
+export async function getAdminDeliveryOverdue(
+  hours: number = 2,
+): Promise<{ thresholdHours: number; items: AdminDeliveryOverdueItem[] }> {
+  const params = new URLSearchParams();
+  params.set('hours', String(hours));
+  const res = await fetch(`${getEffectiveApiBase()}/orders/admin/delivery-overdue?${params.toString()}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  const data = await res.json() as { thresholdHours?: number; items?: AdminDeliveryOverdueItem[] };
+  return {
+    thresholdHours: typeof data?.thresholdHours === 'number' ? data.thresholdHours : hours,
+    items: Array.isArray(data?.items) ? data.items : [],
+  };
+}
+
 export async function createCategory(body: { name: string; description?: string; imageUrl?: string }): Promise<Category> {
   const res = await fetch(`${getEffectiveApiBase()}/categories`, {
     method: 'POST',

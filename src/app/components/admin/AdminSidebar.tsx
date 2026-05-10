@@ -17,7 +17,8 @@ import {
     Zap,
     Shield,
     LogOut,
-    Sparkles
+    Sparkles,
+    Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
@@ -28,6 +29,7 @@ import { useAdminData } from '@/app/context/AdminDataContext';
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: 'Dashboard', href: '/admin', roles: ['admin'] },
+    { icon: Bell, label: 'Alerts', href: '/admin/alerts', roles: ['admin'] },
     { icon: Zap, label: 'Orchard HUD', href: '/admin/seller-dashboard', roles: ['seller'] },
     { icon: ShoppingCart, label: 'Orders', href: '/admin/orders', badgeKey: 'orders' as const, roles: ['admin', 'seller'] },
     { icon: Package, label: 'Catalog', href: '/admin/products', roles: ['admin', 'seller'] },
@@ -76,6 +78,9 @@ export function AdminSidebar() {
         switch (href) {
             case '/admin':
                 void import('@/app/pages/admin/AdminDashboard');
+                break;
+            case '/admin/alerts':
+                void import('@/app/pages/admin/AdminAlertsPage');
                 break;
             case '/admin/seller-dashboard':
                 void import('@/app/pages/seller/SellerDashboard');

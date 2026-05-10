@@ -123,7 +123,10 @@ export function AdminOrdersPage() {
         };
         const itemCount = api.items?.reduce((s: number, i: any) => s + (i.quantity || 0), 0) ?? 0;
         const firstDelivery = (api.deliveries || [])[0] || null;
-        const courierName: string | null = firstDelivery?.deliveryPartner?.name ?? null;
+        const dp = firstDelivery?.deliveryPartner;
+        const courierName: string | null = dp?.name ?? null;
+        const deliveryPartnerId: string | null =
+            dp?.id != null && String(dp.id).trim() !== '' ? String(dp.id) : null;
         const vendorNames = Array.from(
             new Set(
                 (api.items || [])
@@ -155,6 +158,7 @@ export function AdminOrdersPage() {
             })) ?? [],
             shippingAddress: api.shippingAddress || null,
             courierName,
+            deliveryPartnerId,
             vendorNames,
             distanceKm: extractDistanceKm(api),
             userEmail: api.user?.email || '',
@@ -289,6 +293,7 @@ export function AdminOrdersPage() {
         if (current) {
             patchLocalOrder(orderId, {
                 courierName: partnerName as any,
+                deliveryPartnerId: partnerId as any,
                 status: current.status === 'Created' ? 'Confirmed' : current.status,
             });
         }
@@ -300,6 +305,7 @@ export function AdminOrdersPage() {
             if (current) {
                 patchLocalOrder(orderId, {
                     courierName: current.courierName as any,
+                    deliveryPartnerId: (current as any).deliveryPartnerId ?? null,
                     status: current.status,
                 });
             }
@@ -838,26 +844,49 @@ export function AdminOrdersPage() {
                                                         </div>
                                                         {user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
                                                             <div className="relative group/rider w-full min-w-[260px]">
-                                                                {deliveryPartners.length > 0 ? (
-                                                                    <select
-                                                                        defaultValue=""
-                                                                        onChange={(e) => {
-                                                                            const partnerId = e.target.value;
-                                                                            if (!partnerId) return;
-                                                                            handleAssignDelivery(order.id, partnerId);
-                                                                        }}
-                                                                        className="w-full min-w-[260px] bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
-                                                                    >
-                                                                        <option value="">Deploy Rider (Online)</option>
-                                                                        {deliveryPartners.map((p) => (
-                                                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                ) : (
-                                                                    <div className="mx-auto min-w-[220px] bg-slate-900 text-white text-[10px] font-black uppercase rounded-2xl border border-slate-800 shadow-2xl h-12 px-6 flex items-center justify-center tracking-[0.12em]">
-                                                                        No rider online
-                                                                    </div>
-                                                                )}
+                                                                {(() => {
+                                                                    const assignedIdRaw = (order as any).deliveryPartnerId as string | null | undefined;
+                                                                    const assignedName = (order as any).courierName as string | null | undefined;
+                                                                    const merged: typeof deliveryPartners = [...deliveryPartners];
+                                                                    if (assignedIdRaw && !merged.some((p) => String(p.id) === String(assignedIdRaw))) {
+                                                                        merged.unshift({
+                                                                            id: assignedIdRaw,
+                                                                            name: assignedName || 'Assigned rider',
+                                                                            status: 'ACTIVE',
+                                                                            onlineStatus: 'OFFLINE',
+                                                                        });
+                                                                    }
+                                                                    const currentValue = assignedIdRaw
+                                                                        ? String(assignedIdRaw)
+                                                                        : assignedName
+                                                                          ? String(merged.find((p) => p.name === assignedName)?.id ?? '')
+                                                                          : '';
+                                                                    if (merged.length === 0) {
+                                                                        return (
+                                                                            <div className="mx-auto min-w-[220px] bg-slate-900 text-white text-[10px] font-black uppercase rounded-2xl border border-slate-800 shadow-2xl h-12 px-6 flex items-center justify-center tracking-[0.12em]">
+                                                                                No rider online
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return (
+                                                                        <select
+                                                                            value={currentValue}
+                                                                            onChange={(e) => {
+                                                                                const partnerId = e.target.value;
+                                                                                if (!partnerId) return;
+                                                                                handleAssignDelivery(order.id, partnerId);
+                                                                            }}
+                                                                            className="w-full min-w-[260px] bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                        >
+                                                                            {!currentValue ? (
+                                                                                <option value="">Deploy Rider (Online)</option>
+                                                                            ) : null}
+                                                                            {merged.map((p) => (
+                                                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    );
+                                                                })()}
                                                             </div>
                                                         )}
                                                     </div>
