@@ -2248,6 +2248,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 <p className="mt-1.5 text-center text-[10px] text-slate-500 leading-tight">Complete address &amp; delivery fee to pay.</p>
               ) : null}
             </div>
+          </div> {/* Close Bill Details Card */}
           </div> {/* End of Right Column */}
 
 
