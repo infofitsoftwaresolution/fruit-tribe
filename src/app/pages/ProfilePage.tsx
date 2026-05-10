@@ -479,7 +479,7 @@ export function ProfilePage() {
     <div className="pt-20 pb-20 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Dashboard Header HUD */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-16">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-emerald-600 fill-emerald-600" />
@@ -522,7 +522,7 @@ export function ProfilePage() {
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-emerald-600 rounded-2xl p-10 text-white shadow-3xl relative overflow-hidden group"
+                className="bg-emerald-600 rounded-2xl p-6 sm:p-10 text-white shadow-3xl relative overflow-hidden group"
               >
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-700">
                   <Zap className="w-32 h-32" />
@@ -552,7 +552,7 @@ export function ProfilePage() {
                 </div>
               </motion.div>
             ) : (
-              <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl text-center">
+              <div className="bg-white rounded-2xl p-6 sm:p-10 border border-slate-100 shadow-2xl text-center">
                 <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mx-auto mb-6">
                   <Leaf className="w-10 h-10 text-slate-300" />
                 </div>
@@ -565,8 +565,8 @@ export function ProfilePage() {
             ))}
 
             {/* Profile card */}
-            <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl">
-              <div className="flex items-center justify-between mb-10">
+            <div className="bg-white rounded-2xl p-5 sm:p-10 border border-slate-100 shadow-2xl">
+              <div className="flex items-center justify-between mb-6 sm:mb-10">
                 <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Profile</h3>
                 <button onClick={() => setIsEditing(!isEditing)} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-all">
                   <Edit2 className="w-4 h-4 text-slate-400" />
@@ -609,8 +609,8 @@ export function ProfilePage() {
             </div>
 
             {/* Saved delivery addresses */}
-            <div className="bg-white rounded-2xl p-10 border border-slate-100 shadow-2xl">
-              <div className="flex items-center justify-between mb-8">
+            <div className="bg-white rounded-2xl p-5 sm:p-10 border border-slate-100 shadow-2xl">
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
                 <h3 className="text-xl font-semibold text-slate-900 uppercase tracking-tight">Saved addresses</h3>
                 <MapPin className="w-5 h-5 text-emerald-500" />
               </div>
@@ -808,9 +808,9 @@ export function ProfilePage() {
           {/* Right column */}
           <div className="lg:col-span-8 space-y-10">
             {/* Orders */}
-            <div id="order-history" ref={orderHistoryRef} className="bg-white rounded-[4rem] p-10 border border-slate-100 shadow-2xl">
-              <div className="flex items-center justify-between mb-10">
-                <h2 className="text-3xl font-semibold text-slate-900 uppercase tracking-tighter">Order history</h2>
+            <div id="order-history" ref={orderHistoryRef} className="bg-white rounded-3xl sm:rounded-[4rem] p-5 sm:p-10 border border-slate-100 shadow-2xl">
+              <div className="flex items-center justify-between mb-6 sm:mb-10">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-slate-900 uppercase tracking-tighter">Order history</h2>
                 <div className="px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
                   {ordersLoading ? '…' : `${userOrders.length} orders`}
                 </div>
@@ -945,7 +945,7 @@ export function ProfilePage() {
             </div>
 
             {/* Reviews */}
-            <div className="bg-slate-900 rounded-[4rem] p-12 text-white relative overflow-hidden group shadow-3xl">
+            <div className="bg-slate-900 rounded-3xl sm:rounded-[4rem] p-6 sm:p-12 text-white relative overflow-hidden group shadow-3xl">
               <div className="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-125 transition-transform duration-1000">
                 <Heart className="w-64 h-64 text-emerald-500 fill-emerald-500" />
               </div>
