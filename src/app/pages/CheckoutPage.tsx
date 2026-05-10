@@ -1445,12 +1445,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         navigate('/login', { state: { from: '/checkout' } });
         return;
       }
-      if (hasConfiguredDeliverySlots && !deliverySlot) {
-        toast.error('Please choose a delivery slot', {
-          description: 'Select a convenient time window for your delivery.',
-        });
-        return;
-      }
       if (!(typeof deliveryDistance === 'number' && Number.isFinite(deliveryDistance) && deliveryDistance >= 0)) {
         toast.error('Calculating delivery amount. Please wait a moment and try again.');
         return;
@@ -2093,7 +2087,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                         )}
                       </div>
                       <div className="space-y-1.5 pt-1 border-t border-slate-100">
-                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider pl-0.5">Delivery slot</p>
+                        <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider pl-0.5">
+                          Delivery slot <span className="font-normal normal-case text-slate-400">(optional)</span>
+                        </p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
                           {deliverySlotOptions.length === 0 ? (
                             <p className="text-[10px] text-slate-400 font-bold col-span-full py-1">No slots for today.</p>
@@ -2116,7 +2112,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                           )}
                         </div>
                         {!deliverySlot && hasConfiguredDeliverySlots && (
-                          <p className="text-[10px] font-semibold text-slate-400">Pick a slot to complete your order.</p>
+                          <p className="text-[10px] font-semibold text-slate-400">
+                            You can pick a preferred window — orders still go through if you skip this.
+                          </p>
                         )}
                       </div>
                     </div>
