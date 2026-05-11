@@ -7,7 +7,7 @@ import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { cn, formatInr } from '@/lib/utils';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
-import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier } from '@/lib/pricing';
+import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
@@ -137,12 +137,14 @@ export const ProductCard = memo(({
       })
       .map((v: any) => {
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
+        const total = Number(v.price || retailRef);
+        const discountSuffix = formatPerUnitPackDiscountSuffix(retailRef, parsed.packQty, total);
         return {
           id: String((v as any).id || ''),
           ...parsed,
           key: `variant:${v.sku}`,
-          label: `${parsed.label} pack · ${formatInr(Number(v.price || retailRef))}`,
-          price: Number(v.price || retailRef),
+          label: `${parsed.label} pack · ${formatInr(total)}${discountSuffix}`,
+          price: total,
           stock: Number(v.stock ?? 0),
           availableStock: Number(v.availableStock ?? v.stock ?? 0),
           sku: String(v.sku || ''),
@@ -207,21 +209,27 @@ export const ProductCard = memo(({
         }));
       }
       if (hasLegacyBulkPack) {
+        const bulkTotal = Number(bulkPriceVal);
+        const bq = Number(bulkQty) || 0;
+        const bulkSuffix = formatPerUnitPackDiscountSuffix(retailRef, bq, bulkTotal);
         return [
           {
             value: 'bulk',
-            label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
-            sortQty: Number(bulkQty) || 0,
+            label: `${bulkQty} ${unitLabel} pack · ${formatInr(bulkTotal)} total${bulkSuffix}`,
+            sortQty: bq,
           },
         ];
       }
     }
     const rows: Array<{ value: string; label: string; sortQty: number }> = [];
     if (hasLegacyBulkPack) {
+      const bulkTotal = Number(bulkPriceVal);
+      const bq = Number(bulkQty) || 0;
+      const bulkSuffix = formatPerUnitPackDiscountSuffix(retailRef, bq, bulkTotal);
       rows.push({
         value: 'bulk',
-        label: `${bulkQty} ${unitLabel} pack · ${formatInr(Number(bulkPriceVal))} total`,
-        sortQty: Number(bulkQty) || 0,
+        label: `${bulkQty} ${unitLabel} pack · ${formatInr(bulkTotal)} total${bulkSuffix}`,
+        sortQty: bq,
       });
     }
     for (const v of normalVariantOptions) {

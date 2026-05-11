@@ -109,6 +109,25 @@ export function getRetailUnitReference(
 }
 
 /**
+ * Bracket suffix such as " (10% off)" when the pack's implied unit price is below the retail unit baseline.
+ */
+export function formatPerUnitPackDiscountSuffix(
+  retailUnitRef: number,
+  packQty: number,
+  packTotalPrice: number,
+): string {
+  const qty = Math.max(1, Math.abs(Number(packQty)) || 1);
+  const total = Number(packTotalPrice);
+  const retail = Number(retailUnitRef);
+  if (!(retail > 0) || !Number.isFinite(total) || total <= 0) return '';
+  const unitPrice = total / qty;
+  if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice >= retail) return '';
+  const pct = Math.round(((retail - unitPrice) / retail) * 100);
+  if (pct <= 0) return '';
+  return ` (${pct}% off)`;
+}
+
+/**
  * True when admin saved a bulk rule (min qty + price per unit). Storefront shows these values exactly.
  * No comparison to retail and no stock gate — those are business choices left to the admin.
  */

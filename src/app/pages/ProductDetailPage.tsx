@@ -4,13 +4,13 @@ import { motion } from 'framer-motion';
 import { Share2, Minus, Plus, ChevronRight, ChevronDown, ShieldCheck, Truck, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { humanizePackLabelString, parseVariantPackDescriptor } from '@/lib/variantPackLabel';
+import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, formatInr } from '@/lib/utils';
-import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice } from '@/lib/pricing';
+import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
 import type { Product } from '@/lib/api';
 import { NotFoundPage } from './NotFoundPage';
 
@@ -276,6 +276,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     if (!(retailForRecommendation > 0) || !Number.isFinite(unit) || unit <= 0) return 0;
     return Math.max(0, Math.round(((retailForRecommendation - unit) / retailForRecommendation) * 100));
   })();
+  const variantChoiceLabel = (variant: { name?: string; price?: number }) => {
+    const parsed = parseVariantPackDescriptor(String(variant.name || ''), String(product.unit || 'kg'));
+    const total = Number(variant.price);
+    const suffix = formatPerUnitPackDiscountSuffix(retailForRecommendation, parsed.packQty, total);
+    return `${parsed.label} pack · ${formatInr(total)}${suffix}`;
+  };
   const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
   const reviewAverage = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
@@ -496,7 +502,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                   >
                     {normalSelectableVariants.map((variant: any) => (
                       <option key={variant.sku} value={variant.sku}>
-                        {humanizePackLabelString(String(variant.name || ''))}
+                        {variantChoiceLabel(variant)}
                       </option>
                     ))}
                   </select>
@@ -504,7 +510,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                 </div>
                 {normalSelectableVariants.map((variant: any) => (
                   <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
-                    {humanizePackLabelString(String(variant.name || ''))}
+                    {variantChoiceLabel(variant)}
                   </button>
                 ))}
               </div>
@@ -523,7 +529,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                             : 'bg-white border-emerald-200 text-emerald-700',
                         )}
                       >
-                        {humanizePackLabelString(String(variant.name || ''))}
+                        {variantChoiceLabel(variant)}
                       </button>
                     ))}
                   </div>

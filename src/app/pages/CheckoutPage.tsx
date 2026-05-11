@@ -462,6 +462,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const [availableOffers, setAvailableOffers] = useState<any[]>([]);
   const [deliverySlot, setDeliverySlot] = useState<string>('');
   const [showSlots, setShowSlots] = useState(false);
+  const [offersDropdownOpen, setOffersDropdownOpen] = useState(false);
+  const offersDropdownRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchOffers = async () => {
@@ -474,6 +476,17 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     };
     void fetchOffers();
   }, []);
+
+  useEffect(() => {
+    if (!offersDropdownOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!offersDropdownRef.current?.contains(e.target as Node)) {
+        setOffersDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [offersDropdownOpen]);
   const [formData, setFormData] = useState({
     firstName: user?.name?.split(' ')[0] || '',
     lastName: user?.name?.split(' ').slice(1).join(' ') || '',
@@ -1332,7 +1345,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           return;
         }
         setAppliedCoupon({
-          code,
+          code: code.trim().toUpperCase(),
           discountType: result.discountType,
           discountValue: result.discountValue,
           maxDiscount: result.maxDiscount ?? undefined,
@@ -2014,47 +2027,125 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             </div>
             
             <div className="font-bold text-sm text-slate-900 mb-3">Coupons & offers</div>
-            
+
             {availableOffers.length > 0 ? (
-              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x">
-                {availableOffers.map((offer) => {
-                  const isLocked = offer.minOrderValue != null && subtotalOnly < offer.minOrderValue;
-                  const needed = offer.minOrderValue != null ? Math.max(0, offer.minOrderValue - subtotalOnly) : 0;
-                  
-                  return (
-                    <div key={offer.code} className="min-w-[220px] max-w-[220px] bg-slate-50 rounded-lg p-3 snap-start border border-slate-100 flex flex-col justify-between">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 shrink-0">
-                          <Percent className="w-4 h-4" />
+              <div ref={offersDropdownRef} className="relative">
+                <div className="flex gap-2 items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => setOffersDropdownOpen((o) => !o)}
+                    className={cn(
+                      'flex-1 min-w-0 flex items-center justify-between gap-2 min-h-[44px] px-3 py-2.5 rounded-lg border text-left text-xs font-semibold transition-colors',
+                      'border-slate-200 bg-slate-50 text-slate-800 hover:border-pink-200 hover:bg-white',
+                    )}
+                    aria-expanded={offersDropdownOpen}
+                    aria-haspopup="listbox"
+                  >
+                    <span className="truncate">
+                      {appliedCoupon
+                        ? `Applied: ${appliedCoupon.code}`
+                        : `Select a coupon · ${availableOffers.length} offer${availableOffers.length !== 1 ? 's' : ''}`}
+                    </span>
+                    <ChevronDown
+                      className={cn('w-4 h-4 text-slate-500 shrink-0 transition-transform', offersDropdownOpen && 'rotate-180')}
+                    />
+                  </button>
+                  {appliedCoupon && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleRemovePromo();
+                        setOffersDropdownOpen(false);
+                      }}
+                      className="shrink-0 px-3 min-h-[44px] rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {offersDropdownOpen && (
+                  <div
+                    className="absolute left-0 right-0 z-[100] mt-1 max-h-[min(18rem,70vh)] touch-pan-y overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white shadow-lg py-1 [-webkit-overflow-scrolling:touch]"
+                    role="listbox"
+                    onWheel={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    {availableOffers.map((offer) => {
+                      const isLocked = offer.minOrderValue != null && subtotalOnly < offer.minOrderValue;
+                      const needed = offer.minOrderValue != null ? Math.max(0, offer.minOrderValue - subtotalOnly) : 0;
+                      const appliedNorm = appliedCoupon?.code?.trim().toUpperCase() ?? '';
+                      const offerNorm = String(offer.code ?? '').trim().toUpperCase();
+                      const isApplied = Boolean(appliedNorm) && appliedNorm === offerNorm;
+                      return (
+                        <div
+                          key={offer.code}
+                          className="px-3 py-3 border-b border-slate-100 last:border-b-0"
+                          role="option"
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
+                              <Percent className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <p className="text-xs font-bold text-slate-900">
+                                Save {offer.discountType === 'PERCENTAGE' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+                              </p>
+                              <p className="text-[10px] font-bold text-slate-700">
+                                Code: <span className="text-emerald-600">{offer.code}</span>
+                              </p>
+                              {isApplied ? (
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                                  <p className="text-[9px] font-semibold text-emerald-700">Applied to this order</p>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                      Active
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleRemovePromo();
+                                        setOffersDropdownOpen(false);
+                                      }}
+                                      className="text-[9px] font-bold text-slate-500 hover:text-red-700 underline underline-offset-2"
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : isLocked ? (
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                                  <p className="text-[9px] font-semibold text-orange-600 leading-tight">
+                                    Shop for ₹{needed.toFixed(2)} more
+                                  </p>
+                                  <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                                    Locked
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                                  <p className="text-[9px] font-semibold text-emerald-600">Eligible on this order</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPromoCode(offer.code);
+                                      setOffersDropdownOpen(false);
+                                      void applyPromoCode(offer.code);
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-600 text-white rounded-md text-[10px] font-bold hover:bg-emerald-700 shrink-0"
+                                  >
+                                    Apply
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <p className="text-xs font-bold text-slate-900 truncate">Save {offer.discountType === 'PERCENTAGE' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}</p>
-                      </div>
-                      
-                      <p className="text-[10px] font-bold text-slate-700 mb-2">Code: <span className="text-emerald-600">{offer.code}</span></p>
-                      
-                      {isLocked ? (
-                        <div className="flex items-center justify-between mt-auto">
-                          <p className="text-[9px] font-semibold text-orange-600 leading-tight">Shop for ₹{needed.toFixed(2)} more</p>
-                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">Locked</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between mt-auto">
-                          <p className="text-[9px] font-semibold text-emerald-600">Valid offer!</p>
-                          <button 
-                            type="button" 
-                            onClick={() => {
-                              setPromoCode(offer.code);
-                              void applyPromoCode(offer.code);
-                            }}
-                            className="px-2 py-1 bg-emerald-600 text-white rounded-md text-[10px] font-bold hover:bg-emerald-700"
-                          >
-                            Apply
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center text-xs font-semibold text-slate-500 py-2">
@@ -2062,6 +2153,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               </div>
             )}
             
+            {/* 
             <div className="border-t border-dashed border-slate-100 my-4"></div>
             
             <div className="flex items-center justify-between">
@@ -2073,6 +2165,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               </div>
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </div>
+            */}
           </div>
 
           {/* Delivery & Items Card */}
