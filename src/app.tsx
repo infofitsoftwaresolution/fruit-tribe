@@ -38,6 +38,7 @@ const CheckoutPage = lazy(() => import('@/app/pages/CheckoutPage').then(m => ({ 
 const OrderConfirmationPage = lazy(() => import('@/app/pages/OrderConfirmationPage').then(m => ({ default: m.OrderConfirmationPage })));
 const NotFoundPage = lazy(() => import('@/app/pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 const SubscriptionPage = lazy(() => import('@/app/pages/SubscriptionPage').then(m => ({ default: m.SubscriptionPage })));
+const GalleryPage = lazy(() => import('@/app/pages/GalleryPage').then(m => ({ default: m.GalleryPage })));
 const MerchantOnboardingPage = lazy(() => import('@/app/pages/MerchantOnboardingPage').then(m => ({ default: m.MerchantOnboardingPage })));
 
 const AdminLayout = lazy(() => import('@/app/layouts/AdminLayout').then(m => ({ default: m.AdminLayout })));
@@ -300,6 +301,7 @@ function AppRoutes() {
 
           <Route path="/" element={<MainLayout {...mainLayoutProps}><HomePage onAddToCart={handleAddToCart} /></MainLayout>} />
           <Route path="/products" element={<MainLayout {...mainLayoutProps}><ProductsPage onAddToCart={handleAddToCart} /></MainLayout>} />
+          <Route path="/gallery" element={<MainLayout {...mainLayoutProps}><GalleryPage /></MainLayout>} />
           <Route path="/product/:id" element={<MainLayout {...mainLayoutProps}><ProductDetailPage onAddToCart={handleAddToCart} /></MainLayout>} />
           <Route path="/about" element={<MainLayout {...mainLayoutProps}><AboutPage /></MainLayout>} />
           <Route path="/contact" element={<MainLayout {...mainLayoutProps}><ContactPage /></MainLayout>} />

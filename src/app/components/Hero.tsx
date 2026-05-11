@@ -260,7 +260,7 @@ export function Hero() {
                 style={{ height: 'calc(100svh - 120px)', maxHeight: '580px' }}
               >
                 <img
-                  src={theme.heroImage || '/images/hero.png'}
+                  src={theme.heroImage || '/images/hero.jpeg'}
                   alt="Fresh farm fruits"
                   className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-[3000ms]"
                 />

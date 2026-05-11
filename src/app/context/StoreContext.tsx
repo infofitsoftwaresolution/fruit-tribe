@@ -329,7 +329,7 @@ const INITIAL_THEME: ThemeSettings = {
     logoUrl: '/logo.png',
     heroTitle: 'Fresh From Our Fields',
     heroSubtitle: 'Hand-picked premium fruits delivered straight to your doorstep within 24 hours.',
-    heroImage: '/images/hero.png',
+    heroImage: '/images/hero.jpeg',
     primaryColor: '#10b981', // emerald-500
     accentColor: '#f97316', // orange-500
     announcementBar: 'Free shipping on all orders over ₹500!',
@@ -473,6 +473,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const saved = localStorage.getItem('store_theme');
         if (!saved) return INITIAL_THEME;
         const parsed = safeParseJson<Partial<ThemeSettings>>(saved, {});
+        if (parsed.heroImage === '/images/hero.png') {
+            parsed.heroImage = '/images/hero.jpeg';
+        }
         return {
             ...INITIAL_THEME,
             ...parsed,

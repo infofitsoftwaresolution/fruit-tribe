@@ -76,6 +76,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
     const all = [
       { path: '/', label: 'Home' },
       { path: '/products', label: 'Products' },
+      { path: '/gallery', label: 'Gallery' },
       { path: '/subscription', label: 'Subscription' },
       { path: '/about', label: 'About' },
       { path: '/contact', label: 'Contact' },
