@@ -1,215 +1,124 @@
+import React from 'react';
 import { motion } from 'framer-motion';
-import {
-  Leaf, Shield, Truck, Users, Target, Star, ArrowRight,
-  MapPin, Clock, Scale, Cpu, CheckCircle2
+import { 
+  Leaf, 
+  ShieldCheck, 
+  MapPin, 
+  Heart, 
+  Star, 
+  ArrowRight, 
+  Globe, 
+  CheckCircle2,
+  TreeDeciduous,
+  Quote
 } from 'lucide-react';
-import { Testimonials } from '@/app/components/Testimonials';
-import { StatsSection } from '@/app/components/StatsSection';
-import { useStore } from '@/app/context/StoreContext';
 import { Link } from 'react-router-dom';
-import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
-
-const VALUES = [
-  {
-    icon: Scale,
-    title: 'Equitable sourcing',
-    desc: 'We work directly with farmers so they earn more and you get fresher produce — no middlemen.',
-    color: 'emerald',
-  },
-  {
-    icon: Shield,
-    title: 'Quality integrity',
-    desc: 'Every batch is quality-checked before it leaves the farm. No compromises.',
-    color: 'blue',
-  },
-  {
-    icon: Truck,
-    title: 'Sustainable delivery',
-    desc: 'Efficient delivery routes and minimal packaging to reduce our carbon footprint.',
-    color: 'amber',
-  },
-  {
-    icon: Cpu,
-    title: 'Smart ag-tech',
-    desc: 'We use real-time data to match freshness windows with delivery slots.',
-    color: 'purple',
-  },
-];
-
-const COLOR_MAP: Record<string, string> = {
-  emerald: 'bg-emerald-50 text-emerald-600',
-  blue: 'bg-blue-50 text-blue-600',
-  amber: 'bg-amber-50 text-amber-600',
-  purple: 'bg-purple-50 text-purple-600',
-};
-
-const TEAM = [
-  {
-    name: 'Arjun Nair',
-    role: 'Founder & CEO',
-    bio: 'Ex-agritech, passionate about connecting farmers directly with consumers.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&q=80',
-  },
-  {
-    name: 'Priya Sharma',
-    role: 'Head of Sourcing',
-    bio: 'Built relationships with 50+ farm partners across Karnataka.',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&q=80',
-  },
-  {
-    name: 'Ravi Kumar',
-    role: 'Operations Lead',
-    bio: 'Ensures every order reaches you at peak freshness, every time.',
-    image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&q=80',
-  },
-];
-
-const MILESTONES = [
-  { year: '2020', event: 'Founded with a single partner farm' },
-  { year: '2021', event: 'Expanded to 15 Bengaluru neighbourhoods' },
-  { year: '2022', event: 'Reached 1,000 active customers' },
-  { year: '2023', event: '50+ farm partnerships across Karnataka' },
-  { year: '2024', event: '10,000+ orders delivered, 4.9★ rating' },
-];
 
 export function AboutPage() {
-  const { theme, preferences } = useStore();
-  const subscriptionPageEnabled = mergeSubscriptionPageConfig(preferences.subscriptionPage).enabled;
-  const storyImage =
-    theme.aboutPageImage ||
-    'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=1080&q=80';
-
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-[#fdfcf6] min-h-screen font-outfit overflow-x-hidden">
+      
+      {/* ── Hero Section ── */}
+      <section className="relative pt-20 pb-12 md:pt-32 md:pb-20 overflow-hidden">
+        {/* Soft decorative blur */}
+        <div className="absolute top-0 right-0 w-[300px] h-[300px] md:w-[400px] md:h-[400px] bg-amber-100/30 rounded-full blur-[80px] md:blur-[100px] -translate-y-1/2 translate-x-1/3 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[250px] h-[250px] md:w-[300px] md:h-[300px] bg-emerald-50/30 rounded-full blur-[60px] md:blur-[80px] translate-y-1/3 -translate-x-1/4 pointer-events-none" />
 
-      {/* ── Hero ── */}
-      <section className="pt-24 pb-16 bg-gradient-to-b from-emerald-50/60 to-white border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-w-3xl"
-          >
-            <p className="text-sm font-semibold text-emerald-600 uppercase tracking-wider mb-3">
-              About us
-            </p>
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-slate-900 tracking-tight leading-tight mb-5">
-              We're on a mission to bring the{' '}
-              <span className="text-emerald-600">farm to your doorstep.</span>
-            </h1>
-            <p className="text-base sm:text-lg text-slate-500 leading-relaxed max-w-2xl">
-              {theme.aboutHeroSubtitle ||
-                'The Fruit Tribe was born out of a simple belief — fresh fruit shouldn\'t require a trip to a crowded market. We partner directly with farms so you get better quality and farmers get a fair deal.'}
-            </p>
-
-            <div className="flex flex-wrap gap-3 mt-8">
-              <Link
-                to="/products"
-                className="inline-flex items-center gap-2 h-11 px-6 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 transition-colors group"
-              >
-                Shop our product
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </Link>
-              <Link
-                to="/contact"
-                className="inline-flex items-center gap-2 h-11 px-5 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                Get in touch
-              </Link>
-            </div>
-          </motion.div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-2xl mx-auto">
+            <motion.span
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black uppercase tracking-[0.2em] mb-4"
+            >
+              <Star className="w-3 h-3 fill-amber-500" />
+              The Fruit Tribe Journey
+            </motion.span>
+            
+            <motion.h1 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 tracking-tight leading-[1.2] mb-4"
+            >
+              Welcome to our <span className="text-emerald-800 italic">mango heaven</span>
+            </motion.h1>
+            
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-sm sm:text-base md:text-lg text-slate-600 leading-relaxed font-medium px-4"
+            >
+              Where freshness, flavor, and organic goodness come together.
+            </motion.p>
+          </div>
         </div>
       </section>
 
-      {/* ── Story + Image ── */}
-      <section className="py-16 md:py-24">
+      {/* ── Our Story Section ── */}
+      <section className="py-12 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-            {/* Image */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
+          <div className="grid lg:grid-cols-5 gap-10 lg:gap-16 items-center">
+            
+            {/* Image Column (40%) */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6 }}
-              className="relative"
+              transition={{ duration: 0.7 }}
+              className="relative lg:col-span-2"
             >
-              <div className="rounded-3xl overflow-hidden aspect-[4/3] bg-slate-100">
-                <img
-                  src={storyImage}
-                  alt="Farm fresh fruits"
-                  className="w-full h-full object-cover hover:scale-[1.02] transition-transform duration-700"
+              <div className="aspect-[4/3] sm:aspect-[3/2] lg:aspect-[4/5] max-w-sm mx-auto lg:max-w-none rounded-[1.25rem] overflow-hidden shadow-lg shadow-amber-900/5">
+                <img 
+                  src="/images/about.jpeg" 
+                  alt="Organic Mango Orchard in Bihar" 
+                  className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-1000"
                 />
               </div>
-              {/* Floating card */}
-              <div className="absolute -bottom-5 -right-3 sm:-right-6 bg-white shadow-xl rounded-2xl border border-slate-100 px-5 py-4 flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-600 rounded-xl flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Farm-to-door verified</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Every delivery tracked</p>
-                </div>
+              <div className="absolute -bottom-4 -right-2 bg-emerald-800 text-white p-4 rounded-[1rem] hidden md:block max-w-[180px] shadow-lg">
+                <Quote className="w-4 h-4 text-amber-400 mb-2 fill-amber-400 opacity-40" />
+                <p className="text-[10px] font-medium leading-relaxed italic">
+                  "Naturally sweet taste, grown the way nature intended."
+                </p>
               </div>
             </motion.div>
 
-            {/* Story copy */}
-            <motion.div
+            {/* Content Column (60%) */}
+            <motion.div 
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="space-y-6"
+              transition={{ duration: 0.7, delay: 0.2 }}
+              className="space-y-6 lg:col-span-3"
             >
-              <div>
-                <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-                  Our story
+              <div className="space-y-2 text-center lg:text-left">
+                <h2 className="text-[9px] font-black text-amber-600 uppercase tracking-[0.3em]">Our Journey</h2>
+                <h3 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 leading-[1.2] tracking-tight">
+                  Born from a <span className="text-emerald-800">simple idea.</span>
+                </h3>
+              </div>
+              
+              <div className="space-y-4 text-slate-600 leading-relaxed text-sm md:text-base text-center lg:text-left">
+                <p>
+                  Our journey began with a simple idea: to make premium, farm-fresh organic mangoes easily accessible without compromising on quality. 
                 </p>
-                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight leading-snug">
-                  {theme.aboutStoryTitle || 'Started small. Still personal.'}
-                </h2>
+                <p className="font-medium text-slate-800">
+                  We work closely with local farmers in Bihar who follow sustainable, eco-friendly, and organic farming practices, supporting both the environment and farming communities.
+                </p>
               </div>
 
-              <div className="space-y-4 text-slate-500 text-sm leading-relaxed">
-                {theme.aboutStoryText ? (
-                  <div dangerouslySetInnerHTML={{ __html: theme.aboutStoryText }} />
-                ) : (
-                  <>
-                    <p>
-                      Founded in 2020, The Fruit Tribe started with one goal — make farm-fresh fruit easy to buy at home.
-                      What began as a single farm partnership has grown into a network of 50+ growers across Karnataka.
-                    </p>
-                    <p>
-                      We believe that transparency matters. You should know where your food comes from.
-                      That's why every product on our platform comes with farm information and a freshness guarantee.
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Mini timeline */}
-              <div className="space-y-3 pt-2">
-                {MILESTONES.map((m, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <span className="text-xs font-bold text-emerald-600 w-10 shrink-0 mt-0.5">{m.year}</span>
-                    <div className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                      <span className="text-sm text-slate-600">{m.event}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Live badge */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-full text-xs font-semibold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Service active — Bengaluru
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-2 max-w-md mx-auto lg:mx-0">
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-100/50 hover:shadow-md hover:shadow-amber-900/5 transition-all text-center lg:text-left">
+                  <Leaf className="w-5 h-5 text-amber-600 mb-2 mx-auto lg:mx-0" />
+                  <p className="text-base sm:text-lg font-bold text-slate-900 mb-0.5">Organic</p>
+                  <p className="text-[8px] text-amber-900/50 font-black uppercase tracking-wider">Certified Methods</p>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-xs text-slate-500 font-medium">
-                  <Clock className="w-3.5 h-3.5" />
-                  6h avg. farm to door
+                <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50 border border-emerald-100/50 hover:shadow-md hover:shadow-emerald-900/5 transition-all text-center lg:text-left">
+                  <MapPin className="w-5 h-5 text-emerald-700 mb-2 mx-auto lg:mx-0" />
+                  <p className="text-base sm:text-lg font-bold text-slate-900 mb-0.5">Bihar</p>
+                  <p className="text-[8px] text-emerald-900/50 font-black uppercase tracking-wider">Trusted Farms</p>
                 </div>
               </div>
             </motion.div>
@@ -217,127 +126,155 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* ── Stats ── */}
-      <div className="bg-slate-50 border-y border-slate-100">
-        <StatsSection />
-      </div>
+      {/* ── Variety Spotlight ── */}
+      <section className="py-16 md:py-24 bg-emerald-900 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-1/4 h-full bg-emerald-800/20 skew-x-12 translate-x-1/4 pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid lg:grid-cols-5 gap-10 lg:gap-16 items-center">
+            
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-white space-y-6 lg:col-span-3 text-center lg:text-left order-2 lg:order-1"
+            >
+              <div className="space-y-2">
+                <h2 className="text-[9px] font-black text-amber-400 uppercase tracking-[0.3em]">Primary Variety</h2>
+                <h3 className="text-2xl sm:text-3xl md:text-5xl font-bold leading-tight tracking-tight">
+                  The King of Fruits: <br className="hidden sm:block" />
+                  <span className="text-amber-400 italic">Malda & Langra</span>
+                </h3>
+              </div>
+              
+              <div className="space-y-4 text-sm sm:text-base md:text-lg text-emerald-50/80 leading-relaxed font-light">
+                <p>
+                  We are passionate about bringing you the finest, hand-picked organic mangoes straight from trusted farms in Bihar to your doorstep. 
+                </p>
+                <p className="font-medium text-white">
+                  Our primary variety — Malda/Langra — is known for its rich aroma, smooth texture, and naturally sweet taste. 
+                </p>
+                <p>
+                  Every mango we offer is carefully selected for its quality and ripeness — grown without harmful chemicals, so you can enjoy fruit the way nature intended.
+                </p>
+              </div>
 
-      {/* ── Values ── */}
-      <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-10">
-            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-              What we stand for
-            </p>
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-              Our core values
-            </h2>
-          </div>
-
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {VALUES.map((val, i) => (
-              <motion.div
-                key={val.title}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="bg-white rounded-2xl border border-slate-200 p-6 hover:border-emerald-200 hover:shadow-sm transition-all"
-              >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 ${COLOR_MAP[val.color]}`}>
-                  <val.icon className="w-5 h-5" />
+              <div className="pt-2 flex justify-center lg:justify-start">
+                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm">
+                  <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-[9px] font-bold uppercase tracking-[0.15em]">Seasonal Selection Available</span>
                 </div>
-                <h3 className="text-base font-semibold text-slate-900 mb-2">{val.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{val.desc}</p>
-              </motion.div>
-            ))}
+              </div>
+            </motion.div>
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+              className="relative lg:col-span-2 order-1 lg:order-2"
+            >
+              <div className="aspect-square max-w-xs sm:max-w-sm mx-auto rounded-[1.5rem] overflow-hidden border-2 border-emerald-800 shadow-xl">
+                <img 
+                  src="/images/WhatsApp Image 2026-05-10 at 10.06.34 PM.jpeg" 
+                  alt="Premium Malda Mangoes" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* ── Team (temporarily hidden) ── */}
-      {false && (
-        <section className="py-16 md:py-20 bg-slate-50 border-y border-slate-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="mb-10">
-              <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-2">
-                The people behind it
-              </p>
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-                Meet the team
-              </h2>
-            </div>
-
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {TEAM.map((member, i) => (
-                <motion.div
-                  key={member.name}
-                  initial={{ opacity: 0, y: 12 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-sm transition-all"
-                >
-                  <div className="aspect-[3/2] overflow-hidden bg-slate-100">
-                    <img
-                      src={member.image}
-                      alt={member.name}
-                      className="w-full h-full object-cover hover:scale-[1.03] transition-transform duration-500"
-                    />
-                  </div>
-                  <div className="p-5">
-                    <p className="text-base font-semibold text-slate-900">{member.name}</p>
-                    <p className="text-xs font-medium text-emerald-600 mt-0.5 mb-2">{member.role}</p>
-                    <p className="text-xs text-slate-500 leading-relaxed">{member.bio}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── Testimonials ── */}
-      <Testimonials />
-
-      {/* ── CTA ── */}
-      <section className="py-16 md:py-20 bg-emerald-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
+      {/* ── Seasonal Variety Info ── */}
+      <section className="py-10 bg-[#fdfcf6] border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="space-y-5"
+            className="flex flex-col md:flex-row items-center gap-5 sm:gap-6 bg-white p-6 sm:p-8 rounded-[1.5rem] shadow-md shadow-amber-900/5 text-center md:text-left"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mx-auto">
-              <Star className="w-6 h-6 text-white fill-white" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 bg-amber-100 rounded-lg flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600" />
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-              Ready to taste the difference?
-            </h2>
-            <p className="text-emerald-100 text-sm leading-relaxed max-w-lg mx-auto">
-              Join thousands of happy customers who get farm-fresh fruits delivered in Bengaluru.
+            <p className="text-base sm:text-lg md:text-xl font-semibold text-slate-900 leading-tight">
+              While Malda/Langra remain at the heart of what we offer, we strive to bring you the best of seasonal varieties — <span className="text-emerald-800 font-bold">pure, fresh, and naturally grown.</span>
             </p>
-            <div className="flex flex-wrap gap-3 justify-center pt-2">
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Expansion Section ── */}
+      <section className="py-16 md:py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl mx-auto space-y-6"
+          >
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto">
+              <TreeDeciduous className="w-6 h-6 text-emerald-800" />
+            </div>
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+              Growing <span className="text-emerald-800 italic">beyond mangoes</span>
+            </h2>
+            <p className="text-xs sm:text-sm md:text-base text-slate-500 leading-relaxed font-medium px-4">
+              As we grow, we’re excited to expand beyond mangoes and bring you a wider range of fresh, organic fruits — continuing our promise of quality, sustainability, and great taste across everything we offer.
+            </p>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Commitment & Closing ── */}
+      <section className="py-16 md:py-24 relative overflow-hidden bg-[#fdfcf6]">
+        <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-amber-100/30 rounded-full blur-[60px] sm:blur-[80px] pointer-events-none" />
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-emerald-100/30 rounded-full blur-[60px] sm:blur-[80px] pointer-events-none" />
+
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="space-y-6 md:space-y-8"
+          >
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 leading-[1.2] tracking-tight">
+              A clean, wholesome taste of <br className="hidden sm:block" />
+              <span className="text-amber-500 italic">summer you can trust.</span>
+            </h2>
+            
+            <div className="space-y-4 text-xs sm:text-sm md:text-base text-slate-600 leading-relaxed font-medium max-w-xl mx-auto px-4">
+              <p>
+                At the heart of what we do is a commitment to organic farming, freshness, authenticity, and customer satisfaction. From orchard to your home, we ensure every mango delivers a clean, wholesome taste of summer you can trust.
+              </p>
+              <p className="text-slate-900 font-bold italic pt-1">
+                “Thank you for choosing us to be a part of your mango experience.”
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center pt-4 px-4 sm:px-0">
               <Link
                 to="/products"
-                className="inline-flex items-center gap-2 h-11 px-7 bg-white text-emerald-700 rounded-xl text-sm font-semibold hover:bg-emerald-50 transition-colors group"
+                className="w-full sm:w-auto h-11 md:h-12 px-8 bg-emerald-800 text-white rounded-full font-bold text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-emerald-900 hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md"
               >
-                Start shopping
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                Shop Our Harvest
+                <ArrowRight className="w-4 h-4" />
               </Link>
-              {subscriptionPageEnabled && (
-                <Link
-                  to="/subscription"
-                  className="inline-flex items-center gap-2 h-11 px-6 bg-emerald-700 text-white rounded-xl text-sm font-semibold hover:bg-emerald-800 transition-colors"
-                >
-                  View plans
-                </Link>
-              )}
+              <Link
+                to="/contact"
+                className="w-full sm:w-auto h-11 md:h-12 px-8 bg-white text-emerald-800 border border-emerald-800/10 rounded-full font-bold text-[10px] sm:text-[11px] uppercase tracking-widest flex items-center justify-center hover:bg-slate-50 transition-all"
+              >
+                Get in Touch
+              </Link>
             </div>
           </motion.div>
         </div>
       </section>
+
+      {/* ── Footer-like Spacer ── */}
+      <div className="h-10 md:h-12 bg-emerald-900" />
+
     </div>
   );
 }

@@ -347,10 +347,12 @@ function AdminPerformanceWarmup() {
       void getProductsCached({ limit: 200, page: 1, showOutOfSeason: true, includeInactive: true }).catch(() => undefined);
     };
 
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(warm, { timeout: 1200 });
-    } else {
-      window.setTimeout(warm, 250);
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(warm, { timeout: 1200 });
+      } else {
+        setTimeout(warm, 250);
+      }
     }
   }, [isSessionChecked, user]);
 

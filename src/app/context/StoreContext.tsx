@@ -43,6 +43,7 @@ export interface Product {
     isOrganic?: boolean;
     grade?: 'A' | 'B' | 'Premium';
     variants?: {
+        id?: string | number;
         name: string;
         price: number;
         stock: number;
@@ -357,8 +358,8 @@ const INITIAL_THEME: ThemeSettings = {
     contactEmail: 'thefruittribes@gmail.com',
     contactAddress: '706, Mahaveer Palatium, Sarjapur, Bangalore - 560105',
     footerAboutText: 'Dedicated to bringing the finest, orchard-fresh fruits directly to your table with love and care.',
-    socialFacebook: 'https://www.facebook.com/profile.php?id=61572059034902',
-    socialInstagram: 'https://www.instagram.com/thefruittribe?igsh=bWpmNGltZzN1anB6',
+    socialFacebook: 'https://www.facebook.com/share/18izdmkL67/',
+    socialInstagram: 'https://www.instagram.com/thefruittribe?igsh=dmg1bXEydGtjcW5i',
     socialTwitter: ''
 };
 
@@ -479,7 +480,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return {
             ...INITIAL_THEME,
             ...parsed,
-            seasonal: { ...INITIAL_THEME.seasonal, ...(parsed.seasonal ?? {}) }
+            seasonal: {
+                active: parsed.seasonal?.active ?? INITIAL_THEME.seasonal!.active,
+                type: parsed.seasonal?.type ?? INITIAL_THEME.seasonal!.type,
+                showEffects: parsed.seasonal?.showEffects ?? INITIAL_THEME.seasonal!.showEffects,
+                customBanner: parsed.seasonal?.customBanner ?? INITIAL_THEME.seasonal?.customBanner,
+            }
         };
     });
 
