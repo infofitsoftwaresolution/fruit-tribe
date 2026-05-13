@@ -1440,7 +1440,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         return 'Not deliverable — this PIN is not in our service area.';
       }
     }
-    if (name === 'email' && trimmed && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    if (name === 'email' && trimmed && !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(trimmed)) {
       return 'Enter a valid email address.';
     }
     if (name === 'phone') {

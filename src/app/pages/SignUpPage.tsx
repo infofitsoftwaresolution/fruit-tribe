@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
@@ -45,16 +45,10 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
     e.preventDefault();
     setError('');
 
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const email = formData.email.trim();
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;&#10;    const email = formData.email.trim();
 
     if (!emailPattern.test(email)) {
       setError('Please enter a valid email address.');
-      return;
-    }
-
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
-      setError('Please enter a valid Gmail address (e.g. you@gmail.com).');
       return;
     }
 

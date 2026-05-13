@@ -21,8 +21,7 @@ export function BulkInquiryForm({ productName, theme, className }: BulkInquiryFo
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(formData.email.trim())) {
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;&#10;    if (!emailPattern.test(formData.email.trim())) {
       toast.error('Please enter a valid email address.');
       return;
     }
