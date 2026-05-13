@@ -45,7 +45,8 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
     e.preventDefault();
     setError('');
 
-    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;&#10;    const email = formData.email.trim();
+    const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const email = formData.email.trim();
 
     if (!emailPattern.test(email)) {
       setError('Please enter a valid email address.');
