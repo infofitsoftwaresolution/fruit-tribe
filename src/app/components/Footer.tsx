@@ -14,8 +14,8 @@ export function Footer() {
   const { cities: deliveryCities } = useServiceableAreas();
 
   const socialLinks = [
-    { icon: Facebook, href: theme.socialFacebook || 'https://www.facebook.com/profile.php?id=61585888310666', label: 'Facebook' },
-    { icon: Instagram, href: theme.socialInstagram || 'https://www.instagram.com/thefruittribe?igsh=bWpmNGltZzN1anB6', label: 'Instagram' },
+    { icon: Facebook, href: theme.socialFacebook || 'https://www.facebook.com/share/18izdmkL67/', label: 'Facebook' },
+    { icon: Instagram, href: theme.socialInstagram || 'https://www.instagram.com/thefruittribe?igsh=dmg1bXEydGtjcW5i', label: 'Instagram' },
   ];
 
   const quickLinks = [
