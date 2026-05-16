@@ -110,8 +110,8 @@ export function SeasonalHighlights() {
               </motion.div>
             ))}
             {seasonalProducts.length === 0 && (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-white/50">
-                <Calendar className="h-10 w-10 text-slate-200 mx-auto mb-4" />
+              <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-white/50">
+                <Leaf className="w-10 h-10 text-slate-300 mx-auto mb-4" />
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No seasonal products right now.</p>
               </div>
             )}

@@ -5,6 +5,7 @@ import { FeaturedProducts } from '@/app/components/FeaturedProducts';
 import { HowItWorks } from '@/app/components/HowItWorks';
 import { Testimonials } from '@/app/components/Testimonials';
 import { FreshnessPromise } from '@/app/components/FreshnessPromise';
+import { WhatsAppButton } from '@/app/components/WhatsAppButton';
 import { useProducts } from '@/app/hooks/useProducts';
 import { motion } from 'framer-motion';
 import { ArrowRight, Leaf, Zap, ShieldCheck, Truck } from 'lucide-react';
@@ -29,7 +30,7 @@ export function HomePage({ onAddToCart }: HomePageProps) {
 
       {/* Category Strip */}
       {categories.length > 0 && (
-        <section className="py-10 border-b border-slate-100">
+        <section className="py-8 md:py-10 border-b border-slate-100">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-6">
               <div>
@@ -72,9 +73,9 @@ export function HomePage({ onAddToCart }: HomePageProps) {
       )}
 
       {/* Trust Band */}
-      <section className="py-12 bg-slate-50 border-y border-slate-100">
+      <section className="py-10 md:py-12 bg-slate-50 border-y border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { icon: Truck,       title: 'Fast delivery',  desc: 'Delivered fresh to your door, quickly.' },
               { icon: Leaf,        title: 'Farm-fresh',     desc: 'Picked close to delivery, never old stock.' },
@@ -103,6 +104,9 @@ export function HomePage({ onAddToCart }: HomePageProps) {
 
       {/* Freshness Promise + Stats + Delivery areas (replaces newsletter) */}
       <FreshnessPromise />
+
+      {/* WhatsApp Floating Button */}
+      <WhatsAppButton />
     </div>
   );
 }

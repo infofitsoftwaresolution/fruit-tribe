@@ -116,7 +116,7 @@ export function SpecialOffers() {
         {/* Tactical Rewards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {activeOffers === null ? (
-            <div className="col-span-full py-20 text-center">
+            <div className="col-span-full py-12 text-center">
                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
             </div>
           ) : offers.length > 0 ? (
@@ -164,7 +164,7 @@ export function SpecialOffers() {
               </motion.div>
             ))
           ) : (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-slate-50">
+            <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-200 rounded-[3rem] bg-slate-50">
               <Tag className="h-10 w-10 text-slate-300 mx-auto mb-4" />
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No active promo codes right now</p>
             </div>
@@ -252,7 +252,7 @@ export function SpecialOffers() {
               </motion.div>
             ))}
             {bulkProducts.length === 0 && (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
+              <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-100 rounded-[3rem] bg-slate-50/50">
                 <Tag className="h-10 w-10 text-slate-200 mx-auto mb-4" />
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No bulk deals available right now.</p>
               </div>

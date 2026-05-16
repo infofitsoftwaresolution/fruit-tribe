@@ -93,32 +93,10 @@ export function FreshnessPromise() {
   return (
     <section className="bg-white">
 
-      {/* ── Stats Band ── */}
-      <div className="bg-slate-900 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-0 lg:divide-x lg:divide-white/10">
-            {stats.band.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className="flex flex-col items-center lg:items-start gap-2 px-0 lg:px-10 text-center lg:text-left first:lg:pl-0 last:lg:pr-0"
-              >
-                <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                  <stat.icon className="w-4 h-4 text-emerald-400" />
-                </div>
-                <p className="text-3xl font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-slate-400 font-medium">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </div>
+
 
       {/* ── Our Promise CTA ── */}
-      <div className="py-16 md:py-24 bg-white">
+      <div className="py-12 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
 
@@ -132,7 +110,7 @@ export function FreshnessPromise() {
             >
               <div className="relative rounded-3xl overflow-hidden aspect-[4/3] bg-slate-100">
                 <img
-                  src="https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=900&q=80"
+                  src="/images/about.jpeg"
                   alt="Fresh fruits from the farm"
                   className="w-full h-full object-cover"
                 />
@@ -185,14 +163,14 @@ export function FreshnessPromise() {
                   <span className="text-emerald-600">We deliver today's harvest.</span>
                 </h2>
                 <p className="mt-4 text-sm text-slate-500 leading-relaxed max-w-lg">
-                  Every fruit on The Fruit Tribe is sourced directly from partner farms across Karnataka and delivered 
+                  Every fruit on The Fruit Tribe is sourced directly from partner farms across Bihar and delivered 
                   within hours — not days. No cold storage, no middlemen, no compromises.
                 </p>
               </div>
 
               <div className="space-y-3">
                 {[
-                  { icon: MapPin, title: 'Sourced locally', desc: 'Partner farms within 100km of Bengaluru.' },
+                  { icon: MapPin, title: 'Sourced locally', desc: 'Partner farms located in Bihar.' },
                   { icon: ShieldCheck, title: 'Quality guaranteed', desc: 'Every box inspected before it leaves the farm.' },
                   { icon: Truck, title: 'Same-day delivery', desc: 'Order by the cutoff, receive it today.' },
                 ].map((item) => (

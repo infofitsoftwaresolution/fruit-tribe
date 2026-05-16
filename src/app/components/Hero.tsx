@@ -290,7 +290,7 @@ export function Hero() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-white leading-tight">
-                        The Fruit Tribe Farm, Karnataka
+                        The Fruit Tribe Farm, Bihar
                       </p>
                       <p className="text-[11px] text-white/60 mt-0.5">
                         Harvested this morning · Grade A

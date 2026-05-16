@@ -58,7 +58,7 @@ export function AboutPage() {
       </section>
 
       {/* ── Our Story Section ── */}
-      <section className="py-12 md:py-20 bg-white">
+      <section className="py-10 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-5 gap-10 lg:gap-16 items-center">
             
@@ -127,7 +127,7 @@ export function AboutPage() {
       </section>
 
       {/* ── Variety Spotlight ── */}
-      <section className="py-16 md:py-24 bg-emerald-900 relative overflow-hidden">
+      <section className="py-12 md:py-16 bg-emerald-900 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-1/4 h-full bg-emerald-800/20 skew-x-12 translate-x-1/4 pointer-events-none" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -206,7 +206,7 @@ export function AboutPage() {
       </section>
 
       {/* ── Expansion Section ── */}
-      <section className="py-16 md:py-20 bg-white">
+      <section className="py-12 md:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -228,7 +228,7 @@ export function AboutPage() {
       </section>
 
       {/* ── Commitment & Closing ── */}
-      <section className="py-16 md:py-24 relative overflow-hidden bg-[#fdfcf6]">
+      <section className="py-12 md:py-16 relative overflow-hidden bg-[#fdfcf6]">
         <div className="absolute top-1/2 left-0 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-amber-100/30 rounded-full blur-[60px] sm:blur-[80px] pointer-events-none" />
         <div className="absolute top-1/2 right-0 -translate-y-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-emerald-100/30 rounded-full blur-[60px] sm:blur-[80px] pointer-events-none" />
 

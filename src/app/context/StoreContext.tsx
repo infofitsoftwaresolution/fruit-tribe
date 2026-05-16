@@ -356,7 +356,7 @@ const INITIAL_THEME: ThemeSettings = {
     showNewsletter: true,
     contactPhone: '9934722416',
     contactEmail: 'thefruittribes@gmail.com',
-    contactAddress: '706, Mahaveer Palatium, Sarjapur, Bangalore - 560105',
+    contactAddress: '706, Mahaveer Palatium, Jigani, Bangalore - 560105',
     footerAboutText: 'Dedicated to bringing the finest, orchard-fresh fruits directly to your table with love and care.',
     socialFacebook: 'https://www.facebook.com/share/18izdmkL67/',
     socialInstagram: 'https://www.instagram.com/thefruittribe?igsh=dmg1bXEydGtjcW5i',
