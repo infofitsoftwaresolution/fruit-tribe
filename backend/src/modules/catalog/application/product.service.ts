@@ -303,17 +303,32 @@ export class ProductService {
                 },
             });
 
-            if (dto.variants && dto.variants.length > 0) {
+            const variantRows =
+                Array.isArray(dto.variants) && dto.variants.length > 0
+                    ? dto.variants
+                    : [
+                          {
+                              sku: `${slug}-DEFAULT`,
+                              attributeName: 'Quantity',
+                              attributeValue: 'Default',
+                              isBulkVariant: false,
+                              priceOverride: undefined as number | undefined,
+                              stockQuantity: 0,
+                              lowStockThreshold: 5,
+                          },
+                      ];
+
+            if (variantRows.length > 0) {
                 await tx.productVariant.createMany({
-                    data: dto.variants.map((v) => ({
+                    data: variantRows.map((v) => ({
                         productId: product.id,
                         sku: v.sku,
                         attributeName: v.attributeName,
                         attributeValue: v.attributeValue,
                         isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: v.priceOverride,
-                        stockQuantity: v.stockQuantity,
-                        availableQuantity: v.stockQuantity,
+                        stockQuantity: Math.max(0, Number(v.stockQuantity) || 0),
+                        availableQuantity: Math.max(0, Number(v.stockQuantity) || 0),
                         lowStockThreshold: v.lowStockThreshold || 5,
                     })),
                 });

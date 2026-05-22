@@ -7,7 +7,7 @@ import { useStore } from '@/app/context/StoreContext';
 import { useProducts } from '@/app/hooks/useProducts';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { productHasBulkPricing } from '@/lib/pricing';
+import { productHasBulkPricing, productAvailableStock } from '@/lib/pricing';
 
 interface FeaturedProductsProps {
     onAddToCart: (product: Product, quantity?: number) => void;
@@ -18,21 +18,30 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     const { products, loading, error } = useProducts({ limit: 100, showOutOfSeason: true });
     const [productTab, setProductTab] = useState<'all' | 'bulk' | 'seasonal'>('all');
 
-    const featuredProducts = useMemo(() => {
+    const activeCatalog = useMemo(() => {
         const now = Date.now();
-        let next = products.filter((p) => {
-            if (!(p.status === 'Active' && p.availableStock > 0)) return false;
+        return products.filter((p) => {
+            if (p.status !== 'Active') return false;
             if (!p.expiryDate) return true;
             const t = new Date(p.expiryDate).getTime();
             return !Number.isFinite(t) || t >= now;
         });
+    }, [products]);
+
+    const featuredProducts = useMemo(() => {
+        let next = activeCatalog;
         if (productTab === 'bulk') {
             next = next.filter((p) => productHasBulkPricing(p));
         } else if (productTab === 'seasonal') {
             next = next.filter((p) => Boolean(p.isSeasonal));
         }
         return next.slice(0, 8);
-    }, [products, productTab]);
+    }, [activeCatalog, productTab]);
+
+    const inStockCount = useMemo(
+        () => activeCatalog.filter((p) => productAvailableStock(p) > 0).length,
+        [activeCatalog],
+    );
 
     return (
         <section className="py-12 md:py-16 bg-white">
@@ -104,7 +113,15 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
                             <div className="col-span-full py-12 text-center">
                                 <Leaf className="w-8 h-8 text-emerald-200 mx-auto mb-3" />
                                 <p className="text-sm text-slate-400 font-medium">
-                                    No products in this category yet.
+                                    {products.length === 0
+                                        ? 'Products could not be loaded. Refresh the page or try again shortly.'
+                                        : activeCatalog.length === 0
+                                          ? 'No active products in the catalog yet.'
+                                          : productTab !== 'all'
+                                            ? 'No products in this category yet.'
+                                            : inStockCount === 0
+                                              ? 'Products are listed but out of stock. Add stock in Admin → Products.'
+                                              : 'No products in this category yet.'}
                                 </p>
                             </div>
                         ) : (

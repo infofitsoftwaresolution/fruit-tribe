@@ -279,7 +279,14 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     price,
     category: p.category?.name ?? 'Uncategorized',
     stock: p.stock ?? 0,
-    availableStock: p.availableQuantity ?? p.stock ?? 0,
+    availableStock: (() => {
+      const variantTotal = (p.variants || []).reduce(
+        (sum, v) => sum + Math.max(0, Number(v.availableQuantity ?? v.stockQuantity ?? 0)),
+        0,
+      );
+      const productLevel = Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0));
+      return Math.max(productLevel, variantTotal);
+    })(),
     reservedStock: p.reservedQuantity ?? 0,
     lowStockThreshold: p.lowStockThreshold ?? 5,
     image: getImageDisplayUrl(imageUrl),
