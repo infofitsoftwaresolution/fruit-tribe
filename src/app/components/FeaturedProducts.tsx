@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ProductCard } from '@/app/components/ProductCard';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Leaf } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useProducts } from '@/app/hooks/useProducts';

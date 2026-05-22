@@ -305,16 +305,33 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     farmState: p.farmState ?? undefined,
     origin: p.origin ?? undefined,
     nutritionalInfo: p.nutritionalInfo ?? undefined,
-    variants: p.variants?.map((v) => ({
+    variants: p.variants?.map((v) => {
+      const labelRaw = String(v.attributeValue || '').trim();
+      const label = labelRaw.toLowerCase();
+      const packMatch = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
+      let packQty = 1;
+      if (packMatch) {
+        const rawQty = Number(packMatch[1]);
+        packQty = ['g', 'gm', 'grams'].includes(packMatch[2]) ? rawQty / 1000 : rawQty;
+        if (!Number.isFinite(packQty) || packQty <= 0) packQty = 1;
+      }
+      const override = v.priceOverride != null
+        ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : Number(v.priceOverride)))
+        : NaN;
+      const variantPrice = Number.isFinite(override) && override > 0
+        ? override
+        : (packQty > 0 && price > 0 ? price * packQty : price);
+      return {
       id: v.id,
-      name: String(v.attributeValue || '').trim(),
-      price: v.priceOverride != null ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : v.priceOverride)) : price,
+      name: labelRaw,
+      price: variantPrice,
       stock: v.stockQuantity ?? 0,
       availableStock: v.availableQuantity ?? v.stockQuantity,
       reservedStock: v.reservedQuantity ?? 0,
       sku: v.sku,
       isBulkVariant: Boolean(v.isBulkVariant),
-    })),
+    };
+    }),
     bulkDiscountTiers: (p.variants || [])
       .map((v) => {
         const availableQty = Number((v as any).availableQuantity ?? (v as any).stockQuantity ?? 0);

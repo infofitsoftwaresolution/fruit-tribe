@@ -34,6 +34,47 @@ export class ProductService {
         return { qty: null, price: null };
     }
 
+    private isArchivedVariantLabel(value: string | null | undefined): boolean {
+        return String(value || '').trim().toLowerCase().includes('(archived)');
+    }
+
+    private variantPackMatches(
+        incomingValue: string | null | undefined,
+        existingValue: string | null | undefined,
+    ): boolean {
+        const inc = String(incomingValue || '').trim().toLowerCase();
+        const ex = String(existingValue || '').trim().toLowerCase();
+        if (inc && ex && inc === ex) return true;
+        const incKg = this.parsePackQtyKg(incomingValue);
+        const exKg = this.parsePackQtyKg(existingValue);
+        return Number.isFinite(incKg) && Number.isFinite(exKg) && incKg > 0 && incKg === exKg;
+    }
+
+    private findExistingVariantForIncoming(
+        incoming: { id?: string; attributeValue?: string | null; sku?: string | null },
+        existingVariants: Array<{
+            id: string;
+            sku: string | null;
+            attributeValue: string | null;
+            reservedQuantity?: number | null;
+        }>,
+        alreadyMatched: Set<string>,
+    ) {
+        if (incoming.id) {
+            const byId = existingVariants.find((ev) => ev.id === incoming.id);
+            if (byId && !alreadyMatched.has(byId.id)) return byId;
+        }
+        const incKg = this.parsePackQtyKg(incoming.attributeValue);
+        if (!(Number.isFinite(incKg) && incKg > 0)) return null;
+        return (
+            existingVariants.find((ev) => {
+                if (alreadyMatched.has(ev.id)) return false;
+                if (this.isArchivedVariantLabel(ev.attributeValue)) return false;
+                return this.variantPackMatches(incoming.attributeValue, ev.attributeValue);
+            }) ?? null
+        );
+    }
+
     private parsePackQtyKg(rawValue: string | null | undefined): number {
         const raw = String(rawValue || '').trim().toLowerCase();
         if (!raw) return 1;
@@ -372,15 +413,21 @@ export class ProductService {
                 }
             }
 
-            // High-Precision Variant Synchronization
+            // High-Precision Variant Synchronization (match by id or pack weight — never drop 5kg silently)
             if (dto.variants !== undefined && Array.isArray(dto.variants)) {
                 const incomingVariants = dto.variants;
                 const existingVariants = await tx.productVariant.findMany({ where: { productId: id } });
-                const existingIds = existingVariants.map(v => v.id);
-                const incomingIds = incomingVariants.filter((v: any) => v.id).map((v: any) => v.id);
+                const matchedExistingIds = new Set<string>();
 
-                // 1. Delete removed variants (safe-delete only when not referenced by historical records).
-                const idsToDelete = existingIds.filter(id => !incomingIds.includes(id));
+                for (const incoming of incomingVariants) {
+                    const match = this.findExistingVariantForIncoming(incoming, existingVariants, matchedExistingIds);
+                    if (match) matchedExistingIds.add(match.id);
+                }
+
+                const idsToDelete = existingVariants
+                    .filter((ev) => !matchedExistingIds.has(ev.id))
+                    .map((ev) => ev.id);
+
                 if (idsToDelete.length > 0) {
                     const deletableIds: string[] = [];
                     const blockedIds: string[] = [];
@@ -391,100 +438,78 @@ export class ProductService {
                             tx.stockReservation.count({ where: { variantId } }),
                         ]);
                         const hasReferences = orderItemsCount > 0 || inventoryLogsCount > 0 || reservationsCount > 0;
-                        if (hasReferences) {
-                            blockedIds.push(variantId);
-                        } else {
-                            deletableIds.push(variantId);
-                        }
+                        if (hasReferences) blockedIds.push(variantId);
+                        else deletableIds.push(variantId);
                     }
                     if (deletableIds.length > 0) {
                         await tx.productVariant.deleteMany({ where: { id: { in: deletableIds } } });
                         variantSyncStats.deleted += deletableIds.length;
                     }
-                    if (blockedIds.length > 0) {
-                        // Preserve referential integrity for historical rows by archiving instead of deleting.
-                        for (const variantId of blockedIds) {
-                            const existingVariant = existingVariants.find((v) => v.id === variantId);
-                            const reserved = Math.max(0, Number(existingVariant?.reservedQuantity || 0));
-                            const currentLabel = String(existingVariant?.attributeValue || existingVariant?.sku || 'Variant');
-                            const archivedLabel = currentLabel.toLowerCase().includes('(archived)')
-                                ? currentLabel
-                                : `${currentLabel} (Archived)`;
-                            await tx.productVariant.update({
-                                where: { id: variantId },
-                                data: {
-                                    attributeValue: archivedLabel,
-                                    stockQuantity: reserved,
-                                    availableQuantity: 0,
-                                    lowStockThreshold: 0,
-                                },
-                            });
-                        }
-                        this.logger.warn(
-                            `Product ${id}: archived ${blockedIds.length} variant(s) instead of deleting due to historical references.`,
-                        );
-                        variantSyncStats.archived += blockedIds.length;
+                    for (const variantId of blockedIds) {
+                        const existingVariant = existingVariants.find((v) => v.id === variantId);
+                        const reserved = Math.max(0, Number(existingVariant?.reservedQuantity || 0));
+                        const currentLabel = String(existingVariant?.attributeValue || existingVariant?.sku || 'Variant');
+                        const archivedLabel = this.isArchivedVariantLabel(currentLabel)
+                            ? currentLabel
+                            : `${currentLabel} (Archived)`;
+                        await tx.productVariant.update({
+                            where: { id: variantId },
+                            data: {
+                                attributeValue: archivedLabel,
+                                stockQuantity: reserved,
+                                availableQuantity: 0,
+                                lowStockThreshold: 0,
+                            },
+                        });
+                        variantSyncStats.archived += 1;
                     }
                 }
 
-                // 2. Update or Create
-                const existingBySku = new Map(
-                    existingVariants
-                        .map((ev) => [String(ev.sku || '').trim(), ev] as const)
-                        .filter(([sku]) => sku.length > 0),
+                const usedSkus = new Set(
+                    existingVariants.map((ev) => String(ev.sku || '').trim()).filter(Boolean),
                 );
-                for (const v of incomingVariants) {
-                    const normalizedSku = String(v.sku || '').trim();
-                    const data = {
-                        sku: normalizedSku || `SKU-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-                        attributeName: v.attributeName || 'Quantity',
-                        attributeValue: v.attributeValue,
-                        isBulkVariant: Boolean(v.isBulkVariant),
-                        priceOverride: v.priceOverride,
-                        stockQuantity: v.stockQuantity,
-                        lowStockThreshold: v.lowStockThreshold,
-                        availableQuantity: v.id 
-                            ? undefined // Don't reset available stock blindly on update
-                            : v.stockQuantity // Initial available = stock for new variants
+                matchedExistingIds.clear();
+
+                for (const incoming of incomingVariants) {
+                    const existing = this.findExistingVariantForIncoming(incoming, existingVariants, matchedExistingIds);
+                    if (existing) matchedExistingIds.add(existing.id);
+
+                    let sku = String(incoming.sku || '').trim();
+                    if (!sku) {
+                        sku = `SKU-${Date.now()}-${Math.random().toString(36).slice(-6).toUpperCase()}`;
+                    }
+                    while (usedSkus.has(sku) && existing && String(existing.sku || '').trim() !== sku) {
+                        sku = `${sku}-${Math.random().toString(36).slice(-4).toUpperCase()}`;
+                    }
+                    usedSkus.add(sku);
+
+                    const stockQty = Math.max(0, Number(incoming.stockQuantity) || 0);
+                    const reserved = Math.max(0, Number(existing?.reservedQuantity) || 0);
+                    const nextAvailable = Math.max(0, stockQty - reserved);
+
+                    const rowData = {
+                        sku,
+                        attributeName: incoming.attributeName || 'Quantity',
+                        attributeValue: incoming.attributeValue,
+                        isBulkVariant: Boolean(incoming.isBulkVariant),
+                        priceOverride: incoming.priceOverride,
+                        stockQuantity: stockQty,
+                        lowStockThreshold: incoming.lowStockThreshold ?? 5,
+                        availableQuantity: nextAvailable,
                     };
 
-                    if (v.id && existingIds.includes(v.id)) {
-                        // For existing: update stock carefully
-                        const existingV = existingVariants.find(ex => ex.id === v.id);
-                        const stockDiff = (v.stockQuantity || 0) - (existingV?.stockQuantity || 0);
-                        
+                    if (existing) {
                         await tx.productVariant.update({
-                            where: { id: v.id },
-                            data: {
-                                ...data,
-                                availableQuantity: { increment: stockDiff }
-                            }
+                            where: { id: existing.id },
+                            data: rowData,
                         });
                         variantSyncStats.updated += 1;
                     } else {
-                        const skuMatchedExisting = normalizedSku ? existingBySku.get(normalizedSku) : null;
-                        if (skuMatchedExisting) {
-                            // SKU already exists (often archived/historical row). Reuse it instead of creating duplicate SKU.
-                            const stockDiff = (v.stockQuantity || 0) - (skuMatchedExisting.stockQuantity || 0);
-                            const currentAvailable = Number(skuMatchedExisting.availableQuantity || 0);
-                            const nextAvailable = Math.max(0, currentAvailable + stockDiff);
-                            await tx.productVariant.update({
-                                where: { id: skuMatchedExisting.id },
-                                data: {
-                                    ...data,
-                                    availableQuantity: nextAvailable,
-                                },
-                            });
-                            variantSyncStats.reusedBySku += 1;
-                            continue;
-                        }
-                        // New variant
                         await tx.productVariant.create({
                             data: {
-                                ...data,
+                                ...rowData,
                                 productId: id,
-                                availableQuantity: v.stockQuantity || 0
-                            }
+                            },
                         });
                         variantSyncStats.created += 1;
                     }

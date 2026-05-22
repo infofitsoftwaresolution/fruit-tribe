@@ -64,3 +64,45 @@ export function parseVariantPackDescriptor(
     packUnit: fallback,
   };
 }
+
+/** Normalize admin input like "5" → "5 kg" when unit is omitted. */
+export function normalizeVariantLabel(label: string, unit = 'kg'): string {
+  const raw = String(label || '').trim();
+  if (!raw) return raw;
+  if (/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|gram|grams|l|liter|litre|ml|pc|pcs|piece|pieces|unit|units)\b/i.test(raw)) {
+    return humanizePackLabelString(raw);
+  }
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
+    return humanizePackLabelString(`${raw} ${unit || 'kg'}`);
+  }
+  return raw;
+}
+
+/** Stable SKU suffix from pack label (3kg → 3KG), avoids index collisions (PRODUCT-2). */
+export function variantLabelToSkuSuffix(label: string): string {
+  const text = String(label || '').trim().toLowerCase();
+  const withUnit = text.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|gram|grams)\b/);
+  if (withUnit) {
+    const amount = Number(withUnit[1]);
+    const unit = withUnit[2];
+    if (!Number.isFinite(amount) || amount <= 0) return '';
+    if (unit === 'g' || unit === 'gm' || unit === 'gram' || unit === 'grams') {
+      return `${Math.round(amount)}G`;
+    }
+    const kgKey = Number.isInteger(amount) ? String(amount) : String(amount).replace('.', '_');
+    return `${kgKey}KG`;
+  }
+  const slug = text.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toUpperCase();
+  return slug.slice(0, 24);
+}
+
+export function buildVariantSku(seed: string, label: string, index: number, manualSku?: string): string {
+  const manual = String(manualSku || '').trim().toUpperCase();
+  if (manual) return manual;
+  const base = String(seed || 'VARIANT')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'VARIANT';
+  const suffix = variantLabelToSkuSuffix(label) || `V${index + 1}`;
+  return `${base}-${suffix}`;
+}

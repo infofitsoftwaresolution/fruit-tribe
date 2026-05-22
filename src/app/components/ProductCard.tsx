@@ -132,22 +132,25 @@ export const ProductCard = memo(({
     const rows = (product?.variants || [])
       .filter((v: any) => {
         const label = String(v?.name || '').trim().toLowerCase();
-        const avail = Number(v?.availableStock ?? v?.stock ?? 0);
-        return !label.includes('(archived)') && avail > 0;
+        return !label.includes('(archived)');
       })
       .map((v: any) => {
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
         const total = Number(v.price || retailRef);
         const discountSuffix = formatPerUnitPackDiscountSuffix(retailRef, parsed.packQty, total);
+        const availableStock = Number(v.availableStock ?? v.stock ?? 0);
+        const variantId = String((v as any).id || '');
+        const sku = String(v.sku || '');
         return {
-          id: String((v as any).id || ''),
+          id: variantId,
           ...parsed,
-          key: `variant:${v.sku}`,
+          key: `variant:${variantId || sku}`,
           label: `${parsed.label} pack · ${formatInr(total)}${discountSuffix}`,
           price: total,
           stock: Number(v.stock ?? 0),
-          availableStock: Number(v.availableStock ?? v.stock ?? 0),
-          sku: String(v.sku || ''),
+          availableStock,
+          inStock: availableStock > 0,
+          sku,
           name: parsed.label,
           isBulkVariant: Boolean((v as any).isBulkVariant),
         };
@@ -157,6 +160,10 @@ export const ProductCard = memo(({
     );
     return rows;
   }, [product?.variants, retailRef, unitLabel]);
+  const inStockVariantOptions = useMemo(
+    () => variantOptions.filter((v) => v.inStock),
+    [variantOptions],
+  );
   const normalVariantOptions = useMemo(
     () => variantOptions.filter((v) => !v.isBulkVariant),
     [variantOptions],
@@ -221,7 +228,7 @@ export const ProductCard = memo(({
         ];
       }
     }
-    const rows: Array<{ value: string; label: string; sortQty: number }> = [];
+    const rows: Array<{ value: string; label: string; sortQty: number; disabled?: boolean }> = [];
     if (hasLegacyBulkPack) {
       const bulkTotal = Number(bulkPriceVal);
       const bq = Number(bulkQty) || 0;
@@ -232,8 +239,9 @@ export const ProductCard = memo(({
         sortQty: bq,
       });
     }
-    for (const v of normalVariantOptions) {
-      rows.push({ value: v.key, label: v.label, sortQty: v.packQty });
+    for (const v of variantOptions) {
+      const suffix = v.inStock ? '' : ' · Out of stock';
+      rows.push({ value: v.key, label: `${v.label}${suffix}`, sortQty: v.packQty, disabled: !v.inStock });
     }
     rows.sort((a, b) =>
       a.sortQty !== b.sortQty ? a.sortQty - b.sortQty : a.value.localeCompare(b.value),
@@ -248,13 +256,13 @@ export const ProductCard = memo(({
     bulkPriceVal,
     unitLabel,
     retailRef,
-    normalVariantOptions,
+    variantOptions,
   ]);
 
   const [packKind, setPackKind] = useState<string>(() =>
     bulkDealMode
       ? (defaultBulkVariantKey || (hasLegacyBulkPack ? 'bulk' : 'retail'))
-      : (normalVariantOptions[0]?.key || variantOptions[0]?.key || 'retail')
+      : (inStockVariantOptions[0]?.key || variantOptions[0]?.key || 'retail')
   );
   useEffect(() => {
     if (!bulkDealMode) return;
@@ -265,10 +273,10 @@ export const ProductCard = memo(({
       setPackKind(
         bulkDealMode && hasLegacyBulkPack
           ? 'bulk'
-          : (normalVariantOptions[0]?.key || variantOptions[0]?.key || 'retail'),
+          : (inStockVariantOptions[0]?.key || variantOptions[0]?.key || 'retail'),
       );
     }
-  }, [packKind, variantOptions, normalVariantOptions, bulkDealMode, hasLegacyBulkPack]);
+  }, [packKind, variantOptions, inStockVariantOptions, bulkDealMode, hasLegacyBulkPack]);
     useEffect(() => {
     const onDocPointerDown = (ev: MouseEvent) => {
       if (!packSelectRef.current) return;
@@ -552,19 +560,24 @@ export const ProductCard = memo(({
                 <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
                   {sortedPackSelectOptions.map((opt) => {
                     const active = (bulkDealMode ? 'bulk' : packKind) === opt.value;
+                    const disabled = Boolean((opt as { disabled?: boolean }).disabled);
                     return (
                       <button
                         type="button"
                         key={opt.value}
+                        disabled={disabled}
                         onClick={() => {
+                          if (disabled) return;
                           setPackKind(opt.value);
                           setIsPackSelectOpen(false);
                         }}
                         className={cn(
-                          "w-full px-3 py-2 text-left text-[11px] transition-colors duration-150 cursor-pointer",
-                          active
-                            ? "bg-slate-100 text-slate-900 font-semibold cursor-default"
-                            : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:font-semibold"
+                          "w-full px-3 py-2 text-left text-[11px] transition-colors duration-150",
+                          disabled
+                            ? "text-slate-400 cursor-not-allowed"
+                            : active
+                              ? "bg-slate-100 text-slate-900 font-semibold cursor-default"
+                              : "text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 hover:font-semibold cursor-pointer",
                         )}
                       >
                         {opt.label}
@@ -574,28 +587,6 @@ export const ProductCard = memo(({
                 </div>
               )}
             </div>
-            {bulkVariantOptions.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {bulkVariantOptions.map((opt) => {
-                  const active = packKind === opt.key;
-                  return (
-                    <button
-                      type="button"
-                      key={opt.key}
-                      onClick={() => setPackKind(opt.key)}
-                      className={cn(
-                        'px-2.5 h-7 rounded-lg border text-[10px] font-semibold transition-colors',
-                        active
-                          ? 'bg-emerald-600 text-white border-emerald-600'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100',
-                      )}
-                    >
-                      {opt.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
 

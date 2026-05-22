@@ -10,3 +10,16 @@ export function storePhoneTelHref(phone: string): string {
   if (digits.length >= 10) return `tel:+91${digits.slice(-10)}`;
   return `tel:${phone}`;
 }
+
+/** E.164-style digits for wa.me (India: 91 + 10 digits). */
+export function storePhoneWhatsAppDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length >= 10) return `91${digits.slice(-10)}`;
+  return digits;
+}
+
+export function storeWhatsAppHref(phone: string, message?: string): string {
+  const base = `https://wa.me/${storePhoneWhatsAppDigits(phone)}`;
+  if (!message?.trim()) return base;
+  return `${base}?text=${encodeURIComponent(message.trim())}`;
+}

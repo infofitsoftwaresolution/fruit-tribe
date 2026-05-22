@@ -27,6 +27,7 @@ import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleto
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
 import { getUserErrorMessage } from '@/lib/userError';
+import { buildVariantSku, normalizeVariantLabel } from '@/lib/variantPackLabel';
 
 const PDP_META_PREFIX = '[PDP_META]';
 type PdpMeta = {
@@ -503,32 +504,41 @@ export function AdminProductsPage() {
             const imagesPayload = imagePaths.length > 0
                 ? imagePaths.map((imageUrl, i) => ({ imageUrl, isPrimary: i === 0 }))
                 : undefined;
-            const skuSeed = (formData.sku || formData.name || 'variant')
+            const skuSeedBase = (formData.sku || formData.name || 'variant')
                 .toUpperCase()
                 .replace(/[^A-Z0-9]+/g, '-')
                 .replace(/^-+|-+$/g, '') || 'VARIANT';
+            const skuSeed = editingProduct
+                ? `${skuSeedBase}-${String(editingProduct.id).slice(0, 8)}`
+                : skuSeedBase;
             const normalizedVariants = formData.variants
                 .map((v, index) => {
-                    const rawName = String(v.name || '').trim();
+                    const rawName = normalizeVariantLabel(String(v.name || '').trim(), formData.unit || 'kg');
                     const rawSku = String(v.sku || '').trim().toUpperCase();
                     const rawDiscountPct = String(v.price || '').trim();
                     const rawStock = String(v.stock || '').trim();
+                    const parsedVariantStock = rawStock === '' ? NaN : parseInt(rawStock, 10);
                     const hasUserInput = !!(rawName || rawSku || rawDiscountPct || rawStock);
                     if (!hasUserInput) return null;
                     const discountPct = Math.max(0, Math.min(100, parseFloat(rawDiscountPct) || 0));
                     const multiplier = getVariantQuantityMultiplier(rawName || `Option ${index + 1}`);
                     const baseTotal = parsedBasePrice * multiplier;
                     const variantPriceOverride =
-                        baseTotal > 0 && discountPct > 0
-                            ? Math.max(0, Number((baseTotal * (1 - discountPct / 100)).toFixed(2)))
+                        baseTotal > 0
+                            ? discountPct > 0
+                                ? Math.max(0, Number((baseTotal * (1 - discountPct / 100)).toFixed(2)))
+                                : baseTotal
                             : undefined;
                     return {
                         id: v.id,
-                        sku: rawSku || `${skuSeed}-${index + 1}`,
+                        sku: buildVariantSku(skuSeed, rawName || `Option ${index + 1}`, index, rawSku || undefined),
                         attributeValue: rawName || `Option ${index + 1}`,
                         isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: variantPriceOverride,
-                        stockQuantity: Math.max(0, parseInt(v.stock, 10) || 0),
+                        stockQuantity: Math.max(
+                            0,
+                            Number.isFinite(parsedVariantStock) ? parsedVariantStock : 0,
+                        ),
                         lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
                     };
                 })
@@ -543,10 +553,19 @@ export function AdminProductsPage() {
             // Keep stock truly wired to what backend persists (variants).
             // - No variants: create one default variant from stock field.
             // - Single variant: stock field controls that variant's stock.
-            let variantsPayload =
-                normalizedVariants.length === 1
-                        ? normalizedVariants.map(v => ({ ...v, stockQuantity: parsedStock }))
-                        : normalizedVariants;
+            let variantsPayload = normalizedVariants;
+            if (normalizedVariants.length === 0) {
+                variantsPayload = [{
+                    sku: formData.sku || `${skuSeed}-1`,
+                    attributeValue: 'Default',
+                    isBulkVariant: false,
+                    priceOverride: undefined,
+                    stockQuantity: parsedStock,
+                    lowStockThreshold: 5,
+                }];
+            } else if (normalizedVariants.length === 1) {
+                variantsPayload = normalizedVariants.map(v => ({ ...v, stockQuantity: parsedStock }));
+            }
 
             // If user edits top-level stock for multi-variant products, keep backend in sync by
             // applying the delta to the first variant instead of silently ignoring it.
@@ -598,7 +617,7 @@ export function AdminProductsPage() {
                     seasonalEnd: formData.seasonalEnd || undefined,
                 } as Product;
                 setProductOverrides((prev) => ({ ...prev, [String(editingProduct.id)]: optimisticProduct }));
-                const updated = await updateProductApi(String(editingProduct.id), {
+                const updatedApi = await updateProductApi(String(editingProduct.id), {
                     name: formData.name,
                     description: composedDescription,
                     basePrice: parseFloat(formData.price),
@@ -621,6 +640,7 @@ export function AdminProductsPage() {
                     images: imagesPayload,
                     variants: variantsPayload,
                 });
+                const updated = updatedApi;
                 const updatedVariantCount = updated.variants?.length ?? variantsPayload.length;
                 const updatedStock = Number(updated.stock ?? variantsPayload.reduce((sum, v) => sum + (v.stockQuantity || 0), 0));
                 const previousStock = Number(editingProduct.stock ?? 0);
@@ -1488,6 +1508,11 @@ export function AdminProductsPage() {
                                                                 placeholder="5"
                                                             />
                                                         </div>
+                                                        {Number(variant.stock) === 0 && (
+                                                            <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                                                                This pack has 0 stock — it will be hidden on the shop until you set stock here.
+                                                            </p>
+                                                        )}
                                                         <div className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
                                                             <div>
                                                                 <p className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.15em]">Bulk Variant</p>

@@ -1,9 +1,15 @@
 import { motion } from 'framer-motion';
+import { useStore } from '@/app/context/StoreContext';
+import { STORE_PUBLIC_CONTACT, storeWhatsAppHref } from '@/app/constants/storeContact';
 
 export function WhatsAppButton() {
+  const { theme } = useStore();
+  const phone = theme.contactPhone?.trim() || STORE_PUBLIC_CONTACT.phone;
+  const href = storeWhatsAppHref(phone);
+
   return (
     <motion.a
-      href="https://wa.me/919934722416"
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-[#25D366] text-white rounded-full shadow-lg hover:bg-[#1ebd57] transition-colors focus:outline-none focus:ring-4 focus:ring-emerald-500/20"

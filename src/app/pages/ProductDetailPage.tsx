@@ -114,16 +114,18 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     callback();
   };
 
-  const sortedSelectableVariants = useMemo((): NonNullable<Product['variants']> => {
+  const sortedSelectableVariants = useMemo((): Array<NonNullable<Product['variants']>[number] & { inStock: boolean }> => {
     if (!apiProduct) return [];
     const unit = apiProduct.unit || 'kg';
     return (apiProduct.variants || [])
       .filter((v) => {
         const label = String(v.name || '').trim().toLowerCase();
-        const avail = Number((v as any).availableStock ?? (v as any).stock ?? 0);
-        return !label.includes('(archived)') && avail > 0;
+        return !label.includes('(archived)');
       })
-      .slice()
+      .map((v) => ({
+        ...v,
+        inStock: Number((v as any).availableStock ?? (v as any).stock ?? 0) > 0,
+      }))
       .sort((a, b) => {
         const wa = parseVariantPackDescriptor(String(a.name || ''), unit).packQty;
         const wb = parseVariantPackDescriptor(String(b.name || ''), unit).packQty;
@@ -131,12 +133,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
         return String(a.sku).localeCompare(String(b.sku));
       });
   }, [apiProduct]);
-  const normalSelectableVariants = useMemo(
-    () => sortedSelectableVariants.filter((v: any) => !Boolean(v?.isBulkVariant)),
-    [sortedSelectableVariants],
-  );
-  const bulkSelectableVariants = useMemo(
-    () => sortedSelectableVariants.filter((v: any) => Boolean(v?.isBulkVariant)),
+  const firstInStockVariantSku = useMemo(
+    () => sortedSelectableVariants.find((v) => v.inStock)?.sku ?? null,
     [sortedSelectableVariants],
   );
 
@@ -185,9 +183,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     const allSkus = sortedSelectableVariants.map((v: any) => String(v?.sku || '')).filter(Boolean);
     if (!allSkus.length) return;
     if (current && allSkus.includes(current)) return;
-    const preferred = normalSelectableVariants[0]?.sku || sortedSelectableVariants[0]?.sku || null;
+    const preferred = firstInStockVariantSku || sortedSelectableVariants[0]?.sku || null;
     if (preferred) setActiveVariant(String(preferred));
-  }, [activeVariant, normalSelectableVariants, sortedSelectableVariants]);
+  }, [activeVariant, firstInStockVariantSku, sortedSelectableVariants]);
 
   useEffect(() => {
     if (!id) return;
@@ -496,45 +494,39 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
               <div className="flex flex-wrap gap-2 items-center">
                 <div className="relative">
                   <select
-                    value={activeVariant ?? (normalSelectableVariants[0]?.sku || '')}
+                    value={activeVariant ?? (firstInStockVariantSku || sortedSelectableVariants[0]?.sku || '')}
                     onChange={(e) => setActiveVariant(e.target.value || null)}
                     className="h-10 min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-semibold text-slate-800 shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
                   >
-                    {normalSelectableVariants.map((variant: any) => (
-                      <option key={variant.sku} value={variant.sku}>
-                        {variantChoiceLabel(variant)}
+                    {sortedSelectableVariants.map((variant) => (
+                      <option key={variant.sku} value={variant.sku} disabled={!variant.inStock}>
+                        {variantChoiceLabel(variant)}{!variant.inStock ? ' (Out of stock)' : ''}
                       </option>
                     ))}
                   </select>
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 </div>
-                {normalSelectableVariants.map((variant: any) => (
-                  <button key={variant.sku} onClick={() => setActiveVariant(variant.sku)} className={cn('px-4 h-10 rounded-xl border text-sm', activeVariant === variant.sku ? 'bg-emerald-900 text-white border-emerald-900' : 'bg-white border-slate-200 text-slate-700')}>
+                {sortedSelectableVariants.map((variant) => (
+                  <button
+                    key={variant.sku}
+                    type="button"
+                    disabled={!variant.inStock}
+                    onClick={() => variant.inStock && setActiveVariant(variant.sku)}
+                    className={cn(
+                      'px-4 h-10 rounded-xl border text-sm transition-colors',
+                      !variant.inStock && 'opacity-50 cursor-not-allowed',
+                      activeVariant === variant.sku
+                        ? 'bg-emerald-900 text-white border-emerald-900'
+                        : variant.isBulkVariant
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                          : 'bg-white border-slate-200 text-slate-700',
+                    )}
+                  >
                     {variantChoiceLabel(variant)}
+                    {!variant.inStock ? ' · OOS' : ''}
                   </button>
                 ))}
               </div>
-              {bulkSelectableVariants.length > 0 && (
-                <div className="mt-3">
-                  <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wider mb-2">Bulk variants</p>
-                  <div className="flex flex-wrap gap-2">
-                    {bulkSelectableVariants.map((variant: any) => (
-                      <button
-                        key={variant.sku}
-                        onClick={() => setActiveVariant(variant.sku)}
-                        className={cn(
-                          'px-4 h-10 rounded-xl border text-sm',
-                          activeVariant === variant.sku
-                            ? 'bg-emerald-900 text-white border-emerald-900'
-                            : 'bg-white border-emerald-200 text-emerald-700',
-                        )}
-                      >
-                        {variantChoiceLabel(variant)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

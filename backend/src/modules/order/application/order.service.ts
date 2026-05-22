@@ -12,6 +12,7 @@ import { CreateSubscriptionOrderDto } from '../interface/dtos/create-subscriptio
 import { CreateManualOrderDto } from '../interface/dtos/create-manual-order.dto';
 import * as crypto from 'crypto';
 import { userCityMatchesServiceList } from '../../../common/utils/indian-city-aliases';
+import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
 
 @Injectable()
 export class OrderService {
@@ -21,6 +22,7 @@ export class OrderService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly settingsService: SettingsService,
+        private readonly whatsappService: WhatsappService,
     ) { }
 
     private normalizeTaxRates(raw: unknown): Record<string, number> {
@@ -630,7 +632,7 @@ export class OrderService {
         }
 
         // Use a transaction to create the full order atomically with an increased timeout
-        return this.prisma.$transaction(async (tx) => {
+        const order = await this.prisma.$transaction(async (tx) => {
             let linkedAddressId: string | undefined;
             if (dto.savedAddressId) {
                 const saved = await tx.userAddress.findFirst({
@@ -765,6 +767,85 @@ export class OrderService {
             this.logger.log(`Order ${order.orderNumber} created for user ${userId}`);
             return order;
         }, { timeout: 15000 });
+
+        void this.dispatchOrderWhatsAppAlert(order, userId, dto, isCod).catch((err) => {
+            this.logger.warn(
+                `WhatsApp order alert failed for ${order.orderNumber}: ${err?.message || err}`,
+            );
+        });
+
+        return order;
+    }
+
+    /** Send new-order alert to the store WhatsApp configured in theme / env. */
+    private async dispatchOrderWhatsAppAlert(
+        order: {
+            orderNumber: string;
+            payableAmount: unknown;
+            deliverySlot?: string | null;
+            shippingAddress: unknown;
+            items: Array<{ productId: string; quantity: number; subtotal: unknown }>;
+        },
+        userId: string,
+        dto: CreateOrderDto,
+        isCod: boolean,
+    ): Promise<void> {
+        if (!this.whatsappService.isEnabled()) return;
+
+        const [theme, preferences, user, products] = await Promise.all([
+            this.settingsService.getStoreTheme(),
+            this.settingsService.getStorePreferences(),
+            this.prisma.user.findUnique({
+                where: { id: userId },
+                select: { firstName: true, lastName: true, email: true, phone: true },
+            }),
+            this.prisma.product.findMany({
+                where: { id: { in: order.items.map((i) => i.productId) } },
+                select: { id: true, name: true },
+            }),
+        ]);
+
+        const storePhone = this.whatsappService.resolveStoreNotifyPhone(
+            typeof theme?.contactPhone === 'string' ? theme.contactPhone : null,
+            typeof preferences?.contactPhone === 'string' ? preferences.contactPhone : null,
+        );
+        if (!storePhone) {
+            this.logger.warn(`WhatsApp order alert skipped for ${order.orderNumber}: no store phone configured`);
+            return;
+        }
+
+        const productNameById = new Map(products.map((p) => [String(p.id), p.name]));
+        const customerName = [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim()
+            || String((order.shippingAddress as Record<string, unknown>)?.fullName ?? '').trim()
+            || 'Customer';
+        const addr = order.shippingAddress as Record<string, unknown>;
+        const customerPhone =
+            this.whatsappService.normalizeIndianPhone10(user?.phone)
+            ?? this.whatsappService.normalizeIndianPhone10(String(addr.phone ?? addr.mobile ?? ''));
+        const payable = Number(order.payableAmount);
+        const paymentLabel = isCod
+            ? 'Cash on Delivery'
+            : String(dto.paymentMethod || 'online').toLowerCase() === 'cod'
+                ? 'Cash on Delivery'
+                : 'Online (pending payment)';
+
+        await this.whatsappService.sendOrderAlert(storePhone, {
+            orderNumber: order.orderNumber,
+            payableAmount: Number.isFinite(payable) ? payable : 0,
+            paymentLabel,
+            deliverySlot: order.deliverySlot,
+            customerName,
+            customerPhone,
+            customerEmail: user?.email ?? null,
+            shippingAddress: (order.shippingAddress as Record<string, unknown>) || {},
+            itemLines: order.items.map((item) => {
+                const name = productNameById.get(String(item.productId)) || 'Item';
+                const qty = Number(item.quantity) || 1;
+                const sub = Number(item.subtotal);
+                const subtotalStr = Number.isFinite(sub) ? ` — ₹${sub.toFixed(2)}` : '';
+                return `${name} × ${qty}${subtotalStr}`;
+            }),
+        });
     }
 
     async simulatePricing(

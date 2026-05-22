@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore, StoreContext } from '@/app/context/StoreContext';
-import { Save, Type, Image as ImageIcon, Palette, Upload, Smartphone, Monitor, Globe, Lock, Zap, RefreshCcw, LayoutDashboard, Terminal, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
+import { Save, Type, Image as ImageIcon, Palette, Upload, Smartphone, Monitor, Globe, Lock, Zap, RefreshCcw, LayoutDashboard, Terminal, ArrowRight, ChevronRight, Sparkles, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { updateStoreSettings } from '@/lib/api';
@@ -261,6 +261,31 @@ export function AdminThemeEditor() {
                                             </label>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <SectionHeader icon={Phone} title="Contact & WhatsApp" />
+                                <p className="text-xs text-slate-400 -mt-2">
+                                    Order alerts and the site WhatsApp button use this number (10-digit Indian mobile).
+                                </p>
+                                <div className="grid gap-5">
+                                    <PremiumInput
+                                        label="WhatsApp / store phone"
+                                        name="contactPhone"
+                                        value={formData.contactPhone || ''}
+                                        onChange={handleChange}
+                                        placeholder="9934722416"
+                                        inputMode="tel"
+                                    />
+                                    <PremiumInput
+                                        label="Contact email"
+                                        name="contactEmail"
+                                        type="email"
+                                        value={formData.contactEmail || ''}
+                                        onChange={handleChange}
+                                        placeholder="store@example.com"
+                                    />
                                 </div>
                             </div>
 

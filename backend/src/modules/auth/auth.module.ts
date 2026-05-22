@@ -7,10 +7,11 @@ import { AuthController } from './interface/auth.controller';
 import { JwtStrategy } from './interface/strategies/jwt.strategy';
 import { MailService } from '../../common/mail/mail.service';
 import { SmsService } from '../../common/sms/sms.service';
-import { WhatsappService } from '../../common/whatsapp/whatsapp.service';
+import { WhatsappModule } from '../../common/whatsapp/whatsapp.module';
 
 @Module({
     imports: [
+        WhatsappModule,
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.registerAsync({
             imports: [ConfigModule],
@@ -21,7 +22,7 @@ import { WhatsappService } from '../../common/whatsapp/whatsapp.service';
             inject: [ConfigService],
         }),
     ],
-    providers: [AuthService, JwtStrategy, MailService, SmsService, WhatsappService],
+    providers: [AuthService, JwtStrategy, MailService, SmsService],
     controllers: [AuthController],
     exports: [JwtModule, PassportModule],
 })

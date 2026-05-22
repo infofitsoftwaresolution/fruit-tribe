@@ -6,9 +6,10 @@ import { OrderController } from './interface/order.controller';
 import { OrderPublicController } from './interface/order-public.controller';
 import { SettingsModule } from '../settings/settings.module';
 import { MailService } from '../../common/mail/mail.service';
+import { WhatsappModule } from '../../common/whatsapp/whatsapp.module';
 
 @Module({
-    imports: [SettingsModule],
+    imports: [SettingsModule, WhatsappModule],
     providers: [OrderService, PaymentService, OrderHoldCleanupService, MailService],
     controllers: [OrderController, OrderPublicController],
     exports: [OrderService],
