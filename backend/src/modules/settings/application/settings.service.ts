@@ -15,6 +15,7 @@ const KEY_DELIVERY_FEE_RULES = 'delivery_fee_rules';
 const KEY_DELIVERY_FEE_MODE = 'delivery_fee_mode';
 const KEY_DELIVERY_PER_KM_RATE = 'delivery_per_km_rate';
 const KEY_FREE_DELIVERY_THRESHOLD = 'free_delivery_threshold';
+const KEY_FREE_DELIVERY_WITHIN_KM = 'free_delivery_within_km';
 const KEY_COUPON_SCOPES = 'coupon_scopes';
 const KEY_PLATFORM_FEE = 'platform_fee';
 const KEY_NEWSLETTER_SUBSCRIBERS = 'newsletter_subscribers';
@@ -459,14 +460,40 @@ export class SettingsService {
         await this.set(KEY_DELIVERY_FEE_RULES, JSON.stringify(normalized));
     }
 
+    private qualifiesForFreeDelivery(
+        orderValue: number | undefined,
+        distanceKm: number | null | undefined,
+        freeThreshold: number,
+        freeWithinKm: number,
+    ): boolean {
+        const order = Number(orderValue);
+        const dist = Number(distanceKm);
+        if (freeThreshold > 0 && freeWithinKm > 0) {
+            return (
+                Number.isFinite(order) &&
+                order >= freeThreshold &&
+                Number.isFinite(dist) &&
+                dist >= 0 &&
+                dist <= freeWithinKm
+            );
+        }
+        if (freeThreshold > 0 && freeWithinKm <= 0) {
+            return Number.isFinite(order) && order >= freeThreshold;
+        }
+        if (freeThreshold <= 0 && freeWithinKm > 0) {
+            return Number.isFinite(dist) && dist >= 0 && dist <= freeWithinKm;
+        }
+        return false;
+    }
+
     /** Calculate delivery fee from distance and current admin-defined slabs. */
     async calculateDeliveryFeeByDistance(distanceKm: number | null, orderValue?: number): Promise<number> {
-        // Free delivery threshold check
-        if (orderValue !== undefined) {
-            const threshold = await this.getFreeDeliveryThreshold();
-            if (threshold > 0 && orderValue >= threshold) {
-                return 0;
-            }
+        const [freeThreshold, freeWithinKm] = await Promise.all([
+            this.getFreeDeliveryThreshold(),
+            this.getFreeDeliveryWithinKm(),
+        ]);
+        if (this.qualifiesForFreeDelivery(orderValue, distanceKm, freeThreshold, freeWithinKm)) {
+            return 0;
         }
 
         const flat = await this.getDeliveryCharge();
@@ -506,9 +533,10 @@ export class SettingsService {
         deliveryFeeMode: DeliveryFeeMode;
         deliveryPerKmRate: number;
         freeDeliveryThreshold: number;
+        freeDeliveryWithinKm: number;
         platformFee: number;
     }> {
-        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, platformFee] = await Promise.all([
+        const [theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, freeDeliveryWithinKm, platformFee] = await Promise.all([
             this.getStoreTheme(),
             this.getStorePreferences(),
             this.getDeliveryCharge(),
@@ -516,9 +544,10 @@ export class SettingsService {
             this.getDeliveryFeeMode(),
             this.getDeliveryPerKmRate(),
             this.getFreeDeliveryThreshold(),
+            this.getFreeDeliveryWithinKm(),
             this.getPlatformFee(),
         ]);
-        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, platformFee };
+        return { theme, preferences, deliveryCharge, deliveryFeeRules, deliveryFeeMode, deliveryPerKmRate, freeDeliveryThreshold, freeDeliveryWithinKm, platformFee };
     }
 
     /** Update store settings (admin only). Partial update. */
@@ -530,6 +559,7 @@ export class SettingsService {
         deliveryFeeMode?: DeliveryFeeMode;
         deliveryPerKmRate?: number;
         freeDeliveryThreshold?: number;
+        freeDeliveryWithinKm?: number;
         platformFee?: number;
     }): Promise<void> {
         if (updates.theme !== undefined) {
@@ -552,6 +582,9 @@ export class SettingsService {
         }
         if (updates.freeDeliveryThreshold !== undefined) {
             await this.setFreeDeliveryThreshold(updates.freeDeliveryThreshold);
+        }
+        if (updates.freeDeliveryWithinKm !== undefined) {
+            await this.setFreeDeliveryWithinKm(updates.freeDeliveryWithinKm);
         }
         if (updates.platformFee !== undefined) {
             await this.setPlatformFee(updates.platformFee);
@@ -591,6 +624,18 @@ export class SettingsService {
     async setFreeDeliveryThreshold(threshold: number): Promise<void> {
         const n = Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
         await this.set(KEY_FREE_DELIVERY_THRESHOLD, String(n));
+    }
+
+    async getFreeDeliveryWithinKm(): Promise<number> {
+        const raw = await this.get(KEY_FREE_DELIVERY_WITHIN_KM);
+        if (raw == null || raw === '') return 0;
+        const n = parseFloat(raw);
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+
+    async setFreeDeliveryWithinKm(km: number): Promise<void> {
+        const n = Number.isFinite(km) && km >= 0 ? km : 0;
+        await this.set(KEY_FREE_DELIVERY_WITHIN_KM, String(n));
     }
 
     async getPlatformFee(): Promise<number> {

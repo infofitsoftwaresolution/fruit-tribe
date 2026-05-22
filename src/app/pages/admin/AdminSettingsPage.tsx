@@ -82,6 +82,7 @@ export function AdminSettingsPage() {
     const [deliveryFeeMode, setDeliveryFeeMode] = useState<'SLAB' | 'PER_KM'>(preferences.deliveryFeeMode === 'PER_KM' ? 'PER_KM' : 'SLAB');
     const [deliveryPerKmRate, setDeliveryPerKmRate] = useState<string>(String(preferences.deliveryPerKmRate ?? 10));
     const [freeDeliveryThreshold, setFreeDeliveryThreshold] = useState<string>(String(preferences.freeDeliveryThreshold ?? 0));
+    const [freeDeliveryWithinKm, setFreeDeliveryWithinKm] = useState<string>(String(preferences.freeDeliveryWithinKm ?? 0));
     const [platformFee, setPlatformFee] = useState<string>(String(preferences.platformFee ?? 0));
     const [deliveryFeeRules, setDeliveryFeeRules] = useState<Array<{ upToKm: string; fee: string }>>(
         (preferences.deliveryFeeRules && preferences.deliveryFeeRules.length
@@ -134,6 +135,10 @@ export function AdminSettingsPage() {
     }, [preferences.freeDeliveryThreshold]);
 
     useEffect(() => {
+        setFreeDeliveryWithinKm(String(preferences.freeDeliveryWithinKm ?? 0));
+    }, [preferences.freeDeliveryWithinKm]);
+
+    useEffect(() => {
         setPlatformFee(String(preferences.platformFee ?? 0));
     }, [preferences.platformFee]);
 
@@ -161,6 +166,7 @@ export function AdminSettingsPage() {
             deliveryFeeMode: preferences.deliveryFeeMode,
             deliveryPerKmRate: preferences.deliveryPerKmRate,
             freeDeliveryThreshold: preferences.freeDeliveryThreshold,
+            freeDeliveryWithinKm: preferences.freeDeliveryWithinKm,
             platformFee: preferences.platformFee,
             deliverySlots: preferences.deliverySlots,
         };
@@ -182,6 +188,7 @@ export function AdminSettingsPage() {
                 return;
             }
             const thresholdNum = parseFloat(freeDeliveryThreshold);
+            const withinKmNum = parseFloat(freeDeliveryWithinKm);
             const platformFeeNum = parseFloat(platformFee);
             const optimisticDeliveryPrefs = {
                 deliveryCharge: num,
@@ -189,6 +196,7 @@ export function AdminSettingsPage() {
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
                 freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
+                freeDeliveryWithinKm: Number.isFinite(withinKmNum) && withinKmNum >= 0 ? withinKmNum : 0,
                 platformFee: Number.isFinite(platformFeeNum) && platformFeeNum >= 0 ? platformFeeNum : 0,
             };
             // Automatically add any pending newSlot if user forgot to click Add
@@ -210,6 +218,7 @@ export function AdminSettingsPage() {
                 deliveryFeeMode,
                 deliveryPerKmRate: Number.isFinite(perKmRateNum) && perKmRateNum >= 0 ? perKmRateNum : 0,
                 freeDeliveryThreshold: Number.isFinite(thresholdNum) && thresholdNum >= 0 ? thresholdNum : 0,
+                freeDeliveryWithinKm: Number.isFinite(withinKmNum) && withinKmNum >= 0 ? withinKmNum : 0,
                 platformFee: Number.isFinite(platformFeeNum) && platformFeeNum >= 0 ? platformFeeNum : 0,
                 preferences: {
                     ...preferences,
@@ -225,6 +234,7 @@ export function AdminSettingsPage() {
                 deliveryFeeMode: previousDeliveryPrefs.deliveryFeeMode,
                 deliveryPerKmRate: previousDeliveryPrefs.deliveryPerKmRate,
                 freeDeliveryThreshold: previousDeliveryPrefs.freeDeliveryThreshold,
+                freeDeliveryWithinKm: previousDeliveryPrefs.freeDeliveryWithinKm,
                 platformFee: previousDeliveryPrefs.platformFee,
                 deliverySlots: previousDeliveryPrefs.deliverySlots,
             });
@@ -604,31 +614,82 @@ export function AdminSettingsPage() {
                         </button>
                     </div>
                 )}
-                <div className="mb-8 p-6 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50">
+                <div className="mb-8 p-6 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50 space-y-5">
+                    <div>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Free delivery rules</p>
+                        <p className="text-xs text-slate-500 max-w-lg">
+                            Set minimum order (₹) and/or max distance (km). When both are set, free delivery applies only if the order meets the amount
+                            <strong> and </strong>
+                            the address is within that distance. Use 0 on either field to ignore that condition.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Min order value (₹)</label>
+                            <div className="flex items-center gap-2">
+                                <span className="text-emerald-600 font-bold">₹</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    value={freeDeliveryThreshold}
+                                    onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
+                                    className="h-12 flex-1 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                                    placeholder="e.g. 500"
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-400">0 = do not require a minimum order</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Within distance (km)</label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={0.1}
+                                    value={freeDeliveryWithinKm}
+                                    onChange={(e) => setFreeDeliveryWithinKm(e.target.value)}
+                                    className="h-12 flex-1 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                                    placeholder="e.g. 8"
+                                />
+                                <span className="text-emerald-600 font-bold text-sm">km</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400">0 = any distance (if min order is set)</p>
+                        </div>
+                    </div>
+                    <p className="text-xs font-semibold text-emerald-800 bg-emerald-100/60 rounded-xl px-3 py-2">
+                        Example: ₹500 + 8 km → free delivery when subtotal is at least ₹500 and delivery is within 8 km of the store.
+                    </p>
+                </div>
+                <div className="mb-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-200">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Free Delivery Threshold</p>
-                            <p className="text-xs text-slate-500 max-w-sm">Set to 0 to disable. Example: 500 means delivery is free for orders ₹500 and above.</p>
+                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Flat fallback delivery fee</p>
+                            <p className="text-xs text-slate-500 max-w-sm">
+                                Used only when distance cannot be calculated. Distance slabs / per-km above usually apply instead.
+                            </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className="text-emerald-600 font-bold">₹</span>
+                            <span className="text-slate-600 font-bold">₹</span>
                             <input
                                 type="number"
                                 min={0}
                                 step={1}
-                                value={freeDeliveryThreshold}
-                                onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
-                                className="h-12 w-32 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
-                                placeholder="e.g. 500"
+                                value={deliveryCharge}
+                                onChange={(e) => setDeliveryCharge(e.target.value)}
+                                className="h-12 w-32 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
+                                placeholder="0"
                             />
                         </div>
                     </div>
                 </div>
-                <div className="mb-8 p-6 bg-slate-50 rounded-[2rem] border border-slate-200">
+                <div className="mb-8 p-6 bg-slate-50/80 rounded-[2rem] border border-dashed border-slate-200">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Platform Fee</p>
-                            <p className="text-xs text-slate-500 max-w-sm">Set per-order platform/handling fee. Use 0 to disable.</p>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Platform fee (optional)</p>
+                            <p className="text-xs text-slate-500 max-w-sm">
+                                Extra handling fee added to every order bill — not free delivery and not the km-based delivery charge. Leave 0 to hide.
+                            </p>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-slate-600 font-bold">₹</span>
@@ -639,23 +700,12 @@ export function AdminSettingsPage() {
                                 value={platformFee}
                                 onChange={(e) => setPlatformFee(e.target.value)}
                                 className="h-12 w-32 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm font-medium"
-                                placeholder="e.g. 0"
+                                placeholder="0"
                             />
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-slate-500 font-bold">₹</span>
-                        <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={deliveryCharge}
-                            onChange={(e) => setDeliveryCharge(e.target.value)}
-                            className="h-12 w-32 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
-                        />
-                    </div>
+                <div className="flex flex-wrap items-center justify-end gap-4">
                     <button
                         type="button"
                         onClick={handleSaveDeliveryCharge}
@@ -663,7 +713,7 @@ export function AdminSettingsPage() {
                         className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
                     >
                         <Save className="h-4 w-4" />
-                        {deliverySaving ? 'Saving…' : 'Save delivery charge'}
+                        {deliverySaving ? 'Saving…' : 'Save delivery settings'}
                     </button>
                 </div>
             </motion.div>

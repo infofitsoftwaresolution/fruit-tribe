@@ -4,6 +4,7 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
+import { formatFreeDeliveryHint } from '@/lib/deliveryFeeUtils';
 
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
@@ -26,6 +27,8 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
   const pricingEstimate = estimateCartLineTotalsWithTierDiscount(items as any, products as any);
   const subtotal = pricingEstimate.subtotal;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+  const freeWithinKm = Number(preferences.freeDeliveryWithinKm) || 0;
+  const freeDeliveryHint = formatFreeDeliveryHint(threshold, freeWithinKm);
   // Cart summary shows provisional shipping only; final shipping is calculated at checkout.
   const shipping = 0;
 
@@ -262,13 +265,17 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                   <span>Tax</span>
                   <span className="font-semibold">₹{calculatedTax.toFixed(2)}</span>
                 </div>
+                {freeDeliveryHint && (
+                  <p className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg font-semibold">{freeDeliveryHint}</p>
+                )}
                 {threshold > 0 && subtotal > 0 && subtotal < threshold && (
                   <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="text-sm text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                   >
-                    Add ₹{(threshold - subtotal).toFixed(2)} more for free shipping!
+                    Add ₹{(threshold - subtotal).toFixed(2)} more
+                    {freeWithinKm > 0 ? ` for free delivery (within ${freeWithinKm} km at checkout)` : ' for free shipping!'}
                   </motion.p>
                 )}
                 <div className="border-t border-gray-200 pt-4">

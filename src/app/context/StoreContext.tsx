@@ -252,6 +252,8 @@ export interface StorePreferences {
     deliveryPerKmRate?: number;
     /** Free delivery for orders >= this amount. */
     freeDeliveryThreshold?: number;
+    /** Max delivery distance (km) for free delivery when combined with min order threshold. */
+    freeDeliveryWithinKm?: number;
     /** Standard platform/handling fee per order. */
     platformFee?: number;
     /** Available delivery time slots for checkout selection (admin configurable). */
@@ -573,6 +575,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             }
             if (typeof (data as any).freeDeliveryThreshold === 'number' && (data as any).freeDeliveryThreshold >= 0) {
                 next.freeDeliveryThreshold = (data as any).freeDeliveryThreshold;
+            }
+            if (typeof (data as any).freeDeliveryWithinKm === 'number' && (data as any).freeDeliveryWithinKm >= 0) {
+                next.freeDeliveryWithinKm = (data as any).freeDeliveryWithinKm;
             }
             if (typeof (data as any).platformFee === 'number' && (data as any).platformFee >= 0) {
                 next.platformFee = (data as any).platformFee;

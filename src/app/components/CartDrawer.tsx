@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
+import { formatFreeDeliveryHint } from '@/lib/deliveryFeeUtils';
 
 interface CartItem {
   id: string | number;
@@ -37,6 +38,8 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
   const pricingEstimate = estimateCartLineTotalsWithTierDiscount(items as any, products as any);
   const subtotal = pricingEstimate.subtotal;
   const threshold = Number(preferences.freeDeliveryThreshold) || 0;
+  const freeWithinKm = Number(preferences.freeDeliveryWithinKm) || 0;
+  const freeDeliveryHint = formatFreeDeliveryHint(threshold, freeWithinKm);
   // Drawer summary keeps shipping provisional; final fee is distance-based at checkout.
   const shipping = 0;
 
@@ -277,13 +280,17 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                     <span className="text-slate-600">Tax:</span>
                     <span className="font-semibold text-slate-800">₹{calculatedTax.toFixed(2)}</span>
                   </div>
+                  {freeDeliveryHint && (
+                    <p className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg font-semibold">{freeDeliveryHint}</p>
+                  )}
                   {threshold > 0 && subtotal > 0 && subtotal < threshold && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-green-600 bg-green-50 px-3 py-2 rounded-lg"
                     >
-                      Add ₹{(threshold - subtotal).toFixed(2)} more for free shipping!
+                      Add ₹{(threshold - subtotal).toFixed(2)} more
+                      {freeWithinKm > 0 ? ` (within ${freeWithinKm} km at checkout)` : ' for free shipping!'}
                     </motion.p>
                   )}
                   <div className="border-t border-slate-300 pt-3">

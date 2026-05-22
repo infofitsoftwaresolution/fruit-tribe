@@ -1,4 +1,55 @@
 /**
+ * Free delivery when admin rules match:
+ * - Both min order (₹) and max distance (km) set → order must meet ₹ AND be within km.
+ * - Only min order set → free above that subtotal (legacy).
+ * - Only max km set → free within that distance for any order size.
+ */
+export function qualifiesForFreeDelivery(
+    orderValue: number | undefined | null,
+    distanceKm: number | undefined | null,
+    freeThreshold?: number,
+    freeWithinKm?: number,
+): boolean {
+    const threshold = Number(freeThreshold) || 0;
+    const withinKm = Number(freeWithinKm) || 0;
+    const order = Number(orderValue);
+    const dist = Number(distanceKm);
+
+    if (threshold > 0 && withinKm > 0) {
+        return (
+            Number.isFinite(order) &&
+            order >= threshold &&
+            Number.isFinite(dist) &&
+            dist >= 0 &&
+            dist <= withinKm
+        );
+    }
+    if (threshold > 0 && withinKm <= 0) {
+        return Number.isFinite(order) && order >= threshold;
+    }
+    if (threshold <= 0 && withinKm > 0) {
+        return Number.isFinite(dist) && dist >= 0 && dist <= withinKm;
+    }
+    return false;
+}
+
+/** Customer-facing hint for cart / promos. */
+export function formatFreeDeliveryHint(freeThreshold?: number, freeWithinKm?: number): string | null {
+    const threshold = Number(freeThreshold) || 0;
+    const withinKm = Number(freeWithinKm) || 0;
+    if (threshold > 0 && withinKm > 0) {
+        return `Free delivery on orders ₹${threshold}+ within ${withinKm} km`;
+    }
+    if (threshold > 0) {
+        return `Free delivery on orders ₹${threshold} and above`;
+    }
+    if (withinKm > 0) {
+        return `Free delivery within ${withinKm} km`;
+    }
+    return null;
+}
+
+/**
  * Matches backend `SettingsService.calculateDeliveryFeeByDistance`:
  * first slab where distance <= upToKm, else last slab fee, else flat fallback.
  */
@@ -10,8 +61,9 @@ export function computeDeliveryFeeByDistanceKm(
     perKmRate?: number,
     orderValue?: number,
     freeThreshold?: number,
+    freeWithinKm?: number,
 ): number {
-    if (freeThreshold != null && freeThreshold > 0 && orderValue != null && orderValue >= freeThreshold) {
+    if (qualifiesForFreeDelivery(orderValue, distanceKm, freeThreshold, freeWithinKm)) {
         return 0;
     }
     const d = Number(distanceKm);

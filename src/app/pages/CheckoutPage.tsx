@@ -26,7 +26,7 @@ import {
 import { savedAddressToCheckoutForm, type SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
-import { computeDeliveryFeeByDistanceKm } from '@/lib/deliveryFeeUtils';
+import { computeDeliveryFeeByDistanceKm, qualifiesForFreeDelivery } from '@/lib/deliveryFeeUtils';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { getUserErrorMessage } from '@/lib/userError';
 import { toast } from 'sonner';
@@ -540,6 +540,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     deliveryFeeMode: 'SLAB' | 'PER_KM';
     deliveryPerKmRate: number;
     freeDeliveryThreshold: number;
+    freeDeliveryWithinKm: number;
     platformFee: number;
     taxRates: Record<string, number>;
   } | null>(null);
@@ -565,6 +566,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           deliveryFeeMode: String((data as any)?.deliveryFeeMode).toUpperCase() === 'PER_KM' ? 'PER_KM' : 'SLAB',
           deliveryPerKmRate: Number((data as any)?.deliveryPerKmRate ?? 0) || 0,
           freeDeliveryThreshold: Number((data as any)?.freeDeliveryThreshold ?? 0) || 0,
+          freeDeliveryWithinKm: Number((data as any)?.freeDeliveryWithinKm ?? 0) || 0,
           platformFee: Number((data as any)?.platformFee ?? 0) || 0,
           taxRates: normalizedTaxRates,
         });
@@ -587,6 +589,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     deliveryFeeMode: pricingSnapshot?.deliveryFeeMode ?? (preferences.deliveryFeeMode || 'SLAB'),
     deliveryPerKmRate: pricingSnapshot?.deliveryPerKmRate ?? (Number(preferences.deliveryPerKmRate) || 0),
     freeDeliveryThreshold: pricingSnapshot?.freeDeliveryThreshold ?? (Number(preferences.freeDeliveryThreshold) || 0),
+    freeDeliveryWithinKm: pricingSnapshot?.freeDeliveryWithinKm ?? (Number(preferences.freeDeliveryWithinKm) || 0),
     platformFee: pricingSnapshot?.platformFee ?? (Number(preferences.platformFee) || 0),
     taxRates:
       pricingSnapshot?.taxRates && Object.keys(pricingSnapshot.taxRates).length > 0
@@ -1289,6 +1292,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       perKmRate,
       subtotalOnly,
       effectivePricing.freeDeliveryThreshold,
+      effectivePricing.freeDeliveryWithinKm,
     );
   }, [
     isAddressResolvedForPricing,
@@ -1297,6 +1301,15 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     subtotalOnly,
     effectivePricing,
   ]);
+
+  const hasFreeDeliveryApplied = useMemo(() => {
+    return qualifiesForFreeDelivery(
+      subtotalOnly,
+      deliveryDistance,
+      effectivePricing.freeDeliveryThreshold,
+      effectivePricing.freeDeliveryWithinKm,
+    );
+  }, [subtotalOnly, deliveryDistance, effectivePricing.freeDeliveryThreshold, effectivePricing.freeDeliveryWithinKm]);
 
   const vendorSummaries = useMemo(() => {
     const entries = Object.entries(groupedItems);
@@ -2428,6 +2441,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <span>
                       {isDeliveryOutOfRange ? (
                         <span className="text-orange-600">Out of range</span>
+                      ) : hasFreeDeliveryApplied ? (
+                        <span className="text-emerald-600 font-bold">FREE</span>
                       ) : (
                         `₹${shippingFeeForDistance.toFixed(2)}`
                       )}
@@ -2444,6 +2459,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <span>₹{payableGrandTotal.toFixed(2)}</span>
                   </div>
                 </div>
+                {hasFreeDeliveryApplied ? (
+                  <p className="mt-2 text-[10px] font-semibold text-emerald-600">Free delivery applied for this order.</p>
+                ) : null}
                 {addressCityConflict ? (
                   <p className="mt-2 text-[10px] font-semibold text-amber-700 leading-snug">
                     Street mentions {addressCityConflict} but city is Bengaluru — update street to match your PIN.
@@ -2535,6 +2553,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <span>
                       {isDeliveryOutOfRange ? (
                         <span className="text-orange-600">Out of range</span>
+                      ) : hasFreeDeliveryApplied ? (
+                        <span className="text-emerald-600 font-bold">FREE</span>
                       ) : (
                         `₹${shippingFeeForDistance.toFixed(2)}`
                       )}
@@ -2551,6 +2571,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                     <span>₹{payableGrandTotal.toFixed(2)}</span>
                   </div>
                 </div>
+                {hasFreeDeliveryApplied ? (
+                  <p className="mt-2 text-[10px] font-semibold text-emerald-600">Free delivery applied for this order.</p>
+                ) : null}
                 {isDeliveryOutOfRange ? (
                   <p className="mt-2 text-[10px] font-semibold text-orange-600 leading-snug">
                     Address looks too far — use a Bengaluru PIN that matches your street.

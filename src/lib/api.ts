@@ -1135,6 +1135,7 @@ export async function getStoreSettings(): Promise<{
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
   freeDeliveryThreshold?: number;
+  freeDeliveryWithinKm?: number;
 }> {
   const bust = Date.now();
   const res = await fetch(`${getEffectiveApiBase()}/settings/store?_=${bust}`, {
@@ -1154,6 +1155,7 @@ export async function updateStoreSettings(body: {
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
   freeDeliveryThreshold?: number;
+  freeDeliveryWithinKm?: number;
 }): Promise<{
   theme: Record<string, unknown> | null;
   preferences: Record<string, unknown> | null;
@@ -1162,6 +1164,7 @@ export async function updateStoreSettings(body: {
   deliveryFeeMode?: 'SLAB' | 'PER_KM';
   deliveryPerKmRate?: number;
   freeDeliveryThreshold?: number;
+  freeDeliveryWithinKm?: number;
   message?: string;
 }> {
   const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {
