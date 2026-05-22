@@ -9,8 +9,9 @@ import { cn, formatInr } from '@/lib/utils';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
-const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
+const PLACEHOLDER_IMAGE = PRODUCT_PLACEHOLDER_IMAGE;
 const PDP_META_PREFIX = '[PDP_META]';
 const PDP_META_LEGACY_PREFIX = '[PDP_META';
 

@@ -9,8 +9,7 @@ import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { productHasBulkPricing } from '@/lib/pricing';
 import { useStore } from '@/app/context/StoreContext';
-
-const PLACEHOLDER_PRODUCT_IMAGE = 'https://images.unsplash.com/photo-1610832958506-aa56368176cf?q=80&w=800';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
 interface ProductsPageProps {
   onAddToCart: (product: Product) => void;
@@ -472,12 +471,12 @@ export function ProductsPage({ onAddToCart }: ProductsPageProps) {
                       <div className="flex items-center gap-3 sm:gap-4">
                         <Link to={`/product/${product.id}`} className="block shrink-0">
                           <img
-                            src={(product.image || '').trim() || PLACEHOLDER_PRODUCT_IMAGE}
+                            src={(product.image || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
                             alt={product.name}
                             loading="lazy"
                             onError={(e) => {
                               e.currentTarget.onerror = null;
-                              e.currentTarget.src = PLACEHOLDER_PRODUCT_IMAGE;
+                              e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE;
                             }}
                             className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover bg-slate-100"
                           />
