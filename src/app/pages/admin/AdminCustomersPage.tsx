@@ -235,151 +235,125 @@ export function AdminCustomersPage() {
     };
 
     return (
-        <div className="space-y-12 pb-20">
-            {/* Ultra-Premium Header: Customer Broadcast Node */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
-                <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/5 blur-[120px] rounded-full pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4 group cursor-default">
-                        <div className="h-2 w-12 bg-blue-500 rounded-full group-hover:w-16 transition-all duration-700" />
-                        <span className="text-[11px] font-black text-blue-600 uppercase tracking-[0.3em]">Customer Broadcast Node</span>
-                    </div>
-                    <h1 className="text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter uppercase font-heading">
-                        User <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500">Base</span>
-                    </h1>
-                    <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-4 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-blue-500" />
-                        Network Density & Engagement Telemetry
-                    </p>
+        <div className="space-y-6 pb-20">
+            {/* Page header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-page-title">Customers</h1>
+                    <p className="admin-page-subtitle">Manage customer accounts and engagement</p>
                 </div>
-                <div className="flex items-center gap-4 relative z-10">
+                <div className="flex items-center gap-3">
                     <button
                         type="button"
                         onClick={handleExportCustomersCsv}
-                        className="h-16 px-10 rounded-[2rem] bg-white border border-slate-100 text-[11px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-50 hover:shadow-[0_20px_40px_rgba(0,0,0,0.05)] transition-all duration-500 flex items-center gap-3 group"
+                        className="admin-btn-secondary"
                     >
-                        <Download className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                        Export Ledger
+                        <Download className="w-4 h-4" />
+                        Export CSV
                     </button>
                     {isAdmin && (
                         <button
                             onClick={openBulkModal}
-                            className="h-16 px-12 rounded-[2rem] bg-slate-900 text-white text-[11px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all duration-700 shadow-2xl shadow-slate-900/20 active:scale-95 flex items-center gap-3 group"
+                            className="admin-btn-primary"
                         >
-                            <Megaphone className="h-5 w-5 transition-transform group-hover:rotate-12 duration-500" />
-                            Broadcast Node
+                            <Megaphone className="h-4 w-4" />
+                            Broadcast
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Performance Matrix: High-Contrast Discovery Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Total Users', value: stats.total, icon: User, color: 'emerald', trend: 'Network Size', sub: 'Aggregated accounts' },
-                    { label: 'VIP Assets', value: stats.vip, icon: Star, color: 'purple', trend: 'High Value', sub: 'Top tier spenders' },
-                    { label: 'Active nodes', value: stats.active, icon: TrendingUp, color: 'blue', trend: 'In-Flight', sub: 'Engagement level' },
-                    { label: 'Trust Ratio', value: stats.growth, icon: Shield, color: 'orange', trend: 'Verified', sub: 'KYC completion' }
+                    { label: 'Total Customers', value: stats.total, icon: User, color: 'emerald', sub: 'Registered accounts' },
+                    { label: 'VIP Customers', value: stats.vip, icon: Star, color: 'purple', sub: 'Top spenders' },
+                    { label: 'Active Buyers', value: stats.active, icon: TrendingUp, color: 'blue', sub: 'Have placed orders' },
+                    { label: 'Verified', value: stats.growth, icon: Shield, color: 'orange', sub: 'Email KYC complete' }
                 ].map((stat, i) => (
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
                         key={stat.label}
-                        className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:shadow-[0_30px_70px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-700"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: i * 0.08 }}
+                        className="admin-stat-card"
                     >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[4rem] group-hover:bg-blue-50 transition-colors duration-700" />
-                        <div className="relative z-10">
-                            <div className="flex items-start justify-between mb-10">
-                                <div className={cn(
-                                    "h-16 w-16 rounded-[1.75rem] flex items-center justify-center transition-all duration-700 shadow-lg",
-                                    stat.color === 'emerald' ? "bg-emerald-500 text-white shadow-emerald-500/20" :
-                                    stat.color === 'orange' ? "bg-orange-500 text-white shadow-orange-500/20" :
-                                    stat.color === 'blue' ? "bg-blue-600 text-white shadow-blue-600/20" :
-                                    "bg-purple-600 text-white shadow-purple-600/20"
-                                )}>
-                                    <stat.icon className="w-7 h-7" />
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{stat.trend}</span>
-                                    <div className="flex items-center justify-end gap-1">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
-                                    </div>
-                                </div>
+                        <div className="flex items-start justify-between mb-3">
+                            <div className={cn(
+                                "h-9 w-9 rounded-lg flex items-center justify-center",
+                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                stat.color === 'purple' ? 'bg-purple-50 text-purple-600' :
+                                stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                'bg-orange-50 text-orange-600'
+                            )}>
+                                <stat.icon className="w-4 h-4" />
                             </div>
-                            <h3 className="text-4xl font-black text-slate-900 tracking-tighter mb-2 font-heading">{stat.value}</h3>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-                            <p className="text-[10px] font-bold text-slate-300 italic">{stat.sub}</p>
                         </div>
+                        <p className="admin-stat-value">{stat.value}</p>
+                        <p className="admin-stat-label">{stat.label}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{stat.sub}</p>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Fulfillment Pipeline: Interactive Data Table */}
-            <div className="bg-white rounded-[4rem] border border-slate-100 shadow-[0_40px_100px_rgba(0,0,0,0.03)] overflow-hidden relative">
-                <div className="p-10 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-8 bg-slate-50/30">
-                    <div className="flex items-center gap-3 p-2 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
-                        <div className="flex items-center gap-2 px-4 border-r border-slate-100">
-                            <Filter className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Filters</span>
-                        </div>
+            {/* Customers table */}
+            <div className="admin-card">
+                <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    {/* Filters */}
+                    <div className="flex flex-wrap items-center gap-2">
                         <select
                             value={segmentFilter}
                             onChange={(e) => setSegmentFilter(e.target.value as 'all' | 'VIP' | 'Active' | 'Inactive')}
-                            className="bg-transparent h-10 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
+                            className="admin-select"
                         >
                             <option value="all">All Segments</option>
-                            <option value="VIP">VIP Customers</option>
-                            <option value="Active">Active Customers</option>
-                            <option value="Inactive">Inactive Customers</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
                         </select>
-                        <div className="h-4 w-[1px] bg-slate-100" />
                         <select
                             value={verificationFilter}
                             onChange={(e) => setVerificationFilter(e.target.value as 'all' | 'Verified' | 'Unverified')}
-                            className="bg-transparent h-10 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
+                            className="admin-select"
                         >
-                            <option value="all">Verification Status</option>
+                            <option value="all">All Verification</option>
                             <option value="Verified">Verified</option>
                             <option value="Unverified">Unverified</option>
                         </select>
-                        <div className="h-4 w-[1px] bg-slate-100" />
                         <select
                             value={activityFilter}
                             onChange={(e) => setActivityFilter(e.target.value as 'all' | 'with_orders' | 'no_orders')}
-                            className="bg-transparent h-10 px-4 text-[10px] font-black uppercase tracking-widest text-slate-600 outline-none cursor-pointer hover:text-blue-600 transition-colors"
+                            className="admin-select"
                         >
-                            <option value="all">Activity Level</option>
+                            <option value="all">All Activity</option>
                             <option value="with_orders">With Orders</option>
                             <option value="no_orders">No Orders</option>
                         </select>
                     </div>
 
-                    <div className="relative group flex-1 max-w-2xl">
-                        <Search className="absolute left-8 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-blue-500 transition-all duration-500 group-focus-within:scale-110" />
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search by customer name, email, or phone..."
-                            className="w-full h-16 pl-16 pr-8 bg-white border border-slate-100 rounded-[1.5rem] text-[13px] font-bold text-slate-900 focus:ring-[12px] focus:ring-blue-500/5 focus:border-blue-500/50 outline-none transition-all duration-500 shadow-inner"
+                            placeholder="Search by name, email, or phone…"
+                            className="admin-input pl-9"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[600px] custom-scrollbar">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Entity</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Digital Credentials</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Telemetry Contact</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Transaction Load</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Lifetime Valuation</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Node State</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Flow Console</th>
+                            <tr className="border-b border-slate-100 bg-slate-50">
+                                <th className="admin-th">Customer</th>
+                                <th className="admin-th">Email / Status</th>
+                                <th className="admin-th">Phone</th>
+                                <th className="admin-th text-center">Orders</th>
+                                <th className="admin-th text-right">Total Spent</th>
+                                <th className="admin-th text-center">Segment</th>
+                                <th className="admin-th text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -397,81 +371,62 @@ export function AdminCustomersPage() {
                                             className="group hover:bg-slate-50/50 transition-all duration-500 cursor-pointer relative"
                                             onClick={() => handleViewDetails(customer)}
                                         >
-                                            <td className="px-12 py-10">
-                                                <div className="flex items-center gap-6">
-                                                    <div className="h-14 w-14 rounded-[1.5rem] bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-2xl shadow-slate-900/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 font-heading">
+                                            <td className="admin-td">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
                                                         {customer.name.charAt(0)}
                                                     </div>
                                                     <div className="flex flex-col">
-                                                        <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight group-hover:text-blue-600 transition-colors">{customer.name}</span>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <Calendar className="w-3 h-3 text-slate-300" />
-                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Node since {customer.joined}</span>
-                                                        </div>
+                                                        <span className="text-sm font-semibold text-slate-900">{customer.name}</span>
+                                                        <span className="text-xs text-slate-400">Joined {customer.joined}</span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="text-[11px] font-bold text-slate-500 tracking-tight lowercase">{customer.email}</span>
-                                                    <div className={cn(
-                                                        "flex items-center gap-2 px-3 py-1 rounded-lg w-fit transition-all duration-500",
-                                                        customer.verificationStatus === 'Verified'
-                                                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                                            : 'bg-amber-50 text-amber-600 border border-amber-100'
-                                                    )}>
-                                                        {customer.verificationStatus === 'Verified' ? <Shield className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
-                                                        <span className="text-[8px] font-black uppercase tracking-widest">
-                                                            {customer.verificationStatus}
-                                                        </span>
-                                                    </div>
+                                            <td className="admin-td">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="text-xs text-slate-600">{customer.email}</span>
+                                                    <span className={customer.verificationStatus === 'Verified' ? 'admin-badge-emerald' : 'admin-badge-amber'}>
+                                                        {customer.verificationStatus}
+                                                    </span>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
-                                                <div className="flex items-center gap-3 text-slate-400 group-hover:text-slate-900 transition-colors">
-                                                    <Phone className="w-3.5 h-3.5" />
-                                                    <span className="text-[11px] font-black tracking-widest">{customer.phone || '—'}</span>
-                                                </div>
+                                            <td className="admin-td">
+                                                <span className="text-xs text-slate-600">{customer.phone || '—'}</span>
                                             </td>
-                                            <td className="px-12 py-10 text-center">
-                                                <div className="inline-flex items-center gap-3 px-6 py-2 bg-slate-50 rounded-2xl border border-slate-100 group-hover:bg-white group-hover:border-slate-200 transition-all duration-500">
-                                                    <ShoppingBag className="w-3.5 h-3.5 text-slate-300 group-hover:text-blue-500 transition-colors" />
-                                                    <span className="text-xs font-black text-slate-900">{customer.orders} <span className="text-[9px] text-slate-400 font-black uppercase ml-1">Orders</span></span>
-                                                </div>
+                                            <td className="admin-td text-center">
+                                                <span className="text-sm font-medium text-slate-900">{customer.orders} orders</span>
                                             </td>
-                                            <td className="px-12 py-10 text-right">
+                                            <td className="admin-td text-right">
                                                 <div className="flex flex-col items-end">
-                                                    <span className="text-xl font-black text-slate-900 tracking-tighter leading-none font-heading">₹{customer.spent.toLocaleString()}</span>
+                                                    <span className="text-sm font-semibold text-slate-900">₹{customer.spent.toLocaleString()}</span>
                                                     {customer.spent >= 10000 && (
-                                                        <span className="text-[8px] font-black text-purple-500 uppercase tracking-widest mt-2 flex items-center gap-1">
-                                                            <Star className="h-2.5 w-2.5 fill-purple-500" />
-                                                            Priority Asset
+                                                        <span className="admin-badge-purple text-[10px] mt-1">
+                                                            VIP Priority
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
+                                            <td className="admin-td">
                                                 <div className="flex justify-center">
                                                     <span className={cn(
-                                                        "px-5 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all duration-700 shadow-sm",
-                                                        customer.status === 'VIP' ? 'bg-purple-900 text-white border-purple-800 shadow-purple-900/20' :
-                                                        customer.status === 'Active' ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/20' :
-                                                        'bg-white text-slate-400 border-slate-100'
+                                                        customer.status === 'VIP' ? 'admin-badge-purple' :
+                                                        customer.status === 'Active' ? 'admin-badge-emerald' :
+                                                        'admin-badge-slate'
                                                     )}>
                                                         {customer.status}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
+                                            <td className="admin-td">
                                                 <div className="flex justify-center">
                                                     <button 
-                                                        className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 group/btn"
+                                                        className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             handleViewDetails(customer);
                                                         }}
                                                     >
-                                                        <Eye className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                        <Eye className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>

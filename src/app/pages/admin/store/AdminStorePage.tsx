@@ -35,129 +35,126 @@ export function AdminStorePage() {
     ];
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Ultra-Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-6 pb-20">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Globe className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Store Management</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Globe className="w-4 h-4 text-emerald-600" />
+                        <span className="admin-section-label">Storefront Configuration</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Store Setup</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage your storefront look and settings.</p>
+                    <h1 className="admin-page-title">Store Setup</h1>
+                    <p className="admin-page-subtitle">Configure your public storefront branding, customize layout pages, and manage search engine properties.</p>
                 </div>
                 <a
                     href="#/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-6 h-12 bg-white border border-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:shadow-xl transition-all shadow-sm"
+                    className="admin-btn-secondary"
                 >
                     <Eye className="h-4 w-4" />
                     Live Preview
-                    <ExternalLink className="h-3 w-3 opacity-40" />
+                    <ExternalLink className="h-3.5 w-3.5 opacity-60" />
                 </a>
             </div>
 
             {/* Hub Sections Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {sections.map((section, index) => (
                     <motion.div
                         key={section.title}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
+                        transition={{ delay: index * 0.05 }}
                         className="h-full"
                     >
                         <Link
                             to={section.href}
-                            className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-2xl hover:shadow-slate-200/40 transition-all h-full flex flex-col group relative overflow-hidden"
+                            className="admin-card p-6 hover:shadow-md transition-all h-full flex flex-col justify-between group"
                         >
-                            <div className="relative z-10 flex flex-col h-full">
-                                <div className="flex items-center justify-between mb-8">
-                                    <div className={cn("p-5 rounded-[1.75rem] transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-sm", `bg-${section.color}-50 text-${section.color}-600`)}>
-                                        <section.icon className="h-7 w-7" />
+                            <div>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div className={cn("p-2 rounded-lg bg-slate-50 text-slate-600 transition-all duration-300 group-hover:bg-emerald-50 group-hover:text-emerald-600")}>
+                                        <section.icon className="h-5 w-5" />
                                     </div>
                                     <span className={cn(
-                                        "px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border shadow-sm transition-colors",
-                                        `bg-${section.color}-50/50 border-${section.color}-100 text-${section.color}-700`
+                                        "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                                        section.color === 'emerald' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
+                                        section.color === 'blue' ? 'bg-blue-50 border-blue-100 text-blue-700' :
+                                        'bg-purple-50 border-purple-100 text-purple-700'
                                     )}>
                                         {section.badge}
                                     </span>
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight mb-2 group-hover:text-emerald-600 transition-colors">{section.title}</h3>
-                                <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-tight mb-8">{section.description}</p>
-
-                                <div className="mt-auto flex items-center gap-2 text-[10px] font-black text-emerald-600 uppercase tracking-widest group-hover:translate-x-2 transition-transform">
-                                    Open Section <Zap className="h-3 w-3" />
-                                </div>
+                                <h3 className="text-sm font-semibold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">{section.title}</h3>
+                                <p className="text-xs text-slate-400 leading-normal mb-4">{section.description}</p>
                             </div>
 
-                            {/* Ambient Glow */}
-                            <div className={cn("absolute -right-10 -bottom-10 w-32 h-32 blur-[40px] opacity-10 transition-all duration-700 group-hover:opacity-20 group-hover:scale-150", `bg-${section.color}-400`)} />
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 group-hover:translate-x-1 transition-transform">
+                                Open Section <Zap className="h-3 w-3" />
+                            </div>
                         </Link>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Strategic Preview HUD */}
-            <div className="bg-slate-900 rounded-[3.5rem] border border-white/10 shadow-2xl shadow-slate-900/40 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-600/20 via-transparent to-blue-600/10 pointer-events-none" />
-                <div className="p-10 border-b border-white/10 flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 flex items-center justify-center">
-                            <Command className="h-6 w-6 text-emerald-400" />
+            {/* Store Preview HUD */}
+            <div className="admin-card overflow-hidden">
+                <div className="admin-card-header bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className="p-1.5 rounded bg-slate-100 text-slate-700">
+                            <Command className="h-4.5 w-4.5" />
                         </div>
                         <div>
-                            <h3 className="text-xl font-black text-white uppercase tracking-tighter">Current Store Preview</h3>
-                            <p className="text-[10px] font-black text-emerald-400/60 uppercase tracking-widest italic">Live Preview</p>
+                            <h3 className="text-xs font-semibold text-slate-900">Current Theme Preview</h3>
+                            <p className="text-[10px] text-slate-400 mt-0.5">Live configuration snapshot</p>
                         </div>
                     </div>
-                    <div className="hidden md:flex gap-8">
+                    <div className="flex gap-6">
                         <div className="text-right">
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Current Theme</p>
-                            <p className="text-xs font-black text-white uppercase tracking-tight">Fruit Tribe Prime</p>
+                            <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Active Layout</p>
+                            <p className="text-xs font-semibold text-slate-700">Fruit Tribe Prime</p>
                         </div>
-                        <div className="text-right border-l border-white/10 pl-8">
-                            <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1">Last Updated</p>
-                            <p className="text-xs font-black text-emerald-400 uppercase tracking-tight">Recently Synced</p>
+                        <div className="text-right border-l border-slate-200 pl-6">
+                            <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Status</p>
+                            <p className="text-xs font-semibold text-emerald-600">Synced &amp; Live</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="relative h-96 w-full group-hover:scale-105 transition-transform duration-[2000ms]">
+                <div className="relative h-80 w-full overflow-hidden">
                     <img
                         src={theme.heroImage}
                         alt="Store Hero Preview"
-                        className="w-full h-full object-cover opacity-30 grayscale group-hover:grayscale-0 transition-all duration-1000"
+                        className="w-full h-full object-cover opacity-20"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/60 to-transparent" />
 
-                    <div className="absolute inset-0 flex items-center justify-center flex-col p-12 text-center relative z-10">
+                    <div className="absolute inset-0 flex items-center justify-center flex-col p-6 text-center z-10">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="space-y-4"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-3"
                         >
-                            <h2 className="text-5xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">{theme.storeName}</h2>
-                            <p className="text-emerald-400/80 text-sm md:text-base font-bold max-w-xl mx-auto uppercase tracking-wide italic">{theme.heroTitle}</p>
-                            <div className="pt-8">
+                            <h2 className="text-3xl font-bold text-white tracking-tight leading-none">{theme.storeName}</h2>
+                            <p className="text-emerald-400 text-xs font-medium max-w-md mx-auto italic">{theme.heroTitle}</p>
+                            <div className="pt-4">
                                 <Link
                                     to="/admin/themes"
-                                    className="px-10 h-14 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-slate-900 transition-all shadow-2xl flex items-center gap-3 mx-auto w-fit active:scale-95"
+                                    className="admin-btn-primary h-10 px-6"
                                 >
-                                    Edit Theme <Zap className="h-4 w-4" />
+                                    Customize Theme <Zap className="h-4 w-4" />
                                 </Link>
                             </div>
                         </motion.div>
                     </div>
 
                     {/* Hud Markers */}
-                    <div className="absolute bottom-10 left-10 p-4 border border-white/10 rounded-2xl bg-white/5 backdrop-blur-md hidden xl:block">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <p className="text-[9px] font-black text-white uppercase tracking-widest">Store is live</p>
+                    <div className="absolute bottom-6 left-6 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-white/10 backdrop-blur-md hidden sm:block">
+                        <div className="flex items-center gap-2">
+                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                            <p className="text-[10px] text-white/95 font-medium">Production Environment Online</p>
                         </div>
-                        <p className="text-[10px] text-white/30 font-mono">HASH: 0x82...EE74</p>
                     </div>
                 </div>
             </div>

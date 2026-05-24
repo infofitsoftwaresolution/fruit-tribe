@@ -55,7 +55,7 @@ export function Hero() {
       {/* ─── Hero: strict one-screen height ─── */}
       <div
         ref={containerRef}
-        className="relative h-[100svh] flex items-center overflow-hidden bg-white"
+        className="relative min-h-[100svh] lg:h-[100svh] flex items-center overflow-hidden bg-white py-20 lg:py-0"
       >
         {/* Background */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">

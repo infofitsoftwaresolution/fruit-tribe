@@ -265,23 +265,19 @@ export function AdminLogisticsPage() {
     };
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Ultra-Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-6 pb-20">
+            {/* Page header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Navigation2 className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Delivery Operations</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Logistics Overview</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Track deliveries, staff, and warehouses in one place.</p>
+                    <h1 className="admin-page-title">Logistics</h1>
+                    <p className="admin-page-subtitle">Track deliveries, manage warehouses and delivery staff</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
                         onClick={() => void openDeliveryMap()}
                         disabled={openingMap}
-                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="admin-btn-secondary disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         <Globe className="w-4 h-4" />
                         {openingMap ? 'Loading…' : 'Delivery Map'}
@@ -289,63 +285,63 @@ export function AdminLogisticsPage() {
                     <button
                         type="button"
                         onClick={openDispatch}
-                        className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95 flex items-center gap-2"
+                        className="admin-btn-primary"
                     >
-                        <Zap className="h-4 w-4 text-emerald-400" />
+                        <Zap className="h-4 w-4" />
                         Open Dispatch
                     </button>
                 </div>
             </div>
 
-            {/* Section tabs: Deliveries | Warehouses | Delivery staff */}
-            <div className="flex gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm w-fit">
+            {/* Section tabs */}
+            <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-lg border border-slate-100 w-fit">
                 {(['deliveries', 'warehouses', 'staff'] as const).map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setSectionTab(tab)}
                         className={cn(
-                            'px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
-                            sectionTab === tab ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
+                            'px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-150',
+                            sectionTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
                         {tab === 'deliveries' && 'Deliveries'}
                         {tab === 'warehouses' && 'Warehouses'}
-                        {tab === 'staff' && 'Delivery staff'}
+                        {tab === 'staff' && 'Delivery Staff'}
                     </button>
                 ))}
             </div>
 
             {sectionTab === 'warehouses' && (
-                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                <div className="admin-card">
+                    <div className="admin-card-header">
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                            <h2 className="admin-section-heading flex items-center gap-2">
                                 <WarehouseIcon className="w-5 h-5 text-emerald-500" />
                                 Warehouses
                             </h2>
-                            <p className="text-slate-500 text-sm mt-1">Used for checkout distance &amp; ETA. Add warehouse addresses (lat/lng).</p>
+                            <p className="text-slate-500 text-xs mt-0.5">Used for checkout distance &amp; ETA. Add warehouse addresses (lat/lng).</p>
                         </div>
-                        <button onClick={() => { setWarehouseModal({ open: true }); setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
-                            <Plus className="w-4 h-4" /> Add warehouse
+                        <button onClick={() => { setWarehouseModal({ open: true }); setWarehouseForm({ name: '', address: '', latitude: '', longitude: '', isActive: true }); }} className="admin-btn-primary">
+                            <Plus className="w-4 h-4" /> Add Warehouse
                         </button>
                     </div>
-                    <div className="p-8 grid gap-4 min-h-[300px]">
+                    <div className="p-6 grid gap-4 min-h-[200px]">
                         {warehouses.length === 0 ? (
-                            <p className="text-slate-400 text-sm py-8">No warehouses yet. Add one to enable distance/ETA at checkout.</p>
+                            <p className="text-slate-400 text-xs py-8 text-center">No warehouses yet. Add one to enable distance/ETA at checkout.</p>
                         ) : (
                             warehouses.map((w) => (
-                                <div key={w.id} className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all">
+                                <div key={w.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all duration-200">
                                     <div>
-                                        <p className="font-black text-slate-900">{w.name}</p>
-                                        <p className="text-sm text-slate-500 mt-1">{w.address}</p>
-                                        <p className="text-[10px] text-slate-400 mt-1">Lat: {Number(w.latitude).toFixed(4)}, Lng: {Number(w.longitude).toFixed(4)}</p>
+                                        <p className="font-semibold text-slate-900">{w.name}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">{w.address}</p>
+                                        <p className="text-[11px] text-slate-400 mt-1">Lat: {Number(w.latitude).toFixed(4)}, Lng: {Number(w.longitude).toFixed(4)}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => { setWarehouseModal({ open: true, editing: { id: w.id, name: w.name, address: w.address, latitude: Number(w.latitude), longitude: Number(w.longitude), isActive: w.isActive } }); setWarehouseForm({ name: w.name, address: w.address, latitude: String(w.latitude), longitude: String(w.longitude), isActive: w.isActive }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={() => { setWarehouseModal({ open: true, editing: { id: w.id, name: w.name, address: w.address, latitude: Number(w.latitude), longitude: Number(w.longitude), isActive: w.isActive } }); setWarehouseForm({ name: w.name, address: w.address, latitude: String(w.latitude), longitude: String(w.longitude), isActive: w.isActive }); }} className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"><Edit2 className="w-4 h-4" /></button>
                                         <button
                                             type="button"
                                             onClick={() => promptRemoveWarehouse(w)}
-                                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"
+                                            className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-red-600 hover:bg-slate-50 transition-all"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -358,38 +354,38 @@ export function AdminLogisticsPage() {
             )}
 
             {sectionTab === 'staff' && (
-                <div className="bg-white rounded-[3rem] border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="p-8 border-b border-slate-50 flex items-center justify-between">
+                <div className="admin-card">
+                    <div className="admin-card-header">
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                            <h2 className="admin-section-heading flex items-center gap-2">
                                 <UserCircle className="w-5 h-5 text-emerald-500" />
-                                In-house delivery staff
+                                In-house Delivery Staff
                             </h2>
-                            <p className="text-slate-500 text-sm mt-1">People who deliver your products.</p>
+                            <p className="text-slate-500 text-xs mt-0.5">People who deliver your products.</p>
                         </div>
-                        <button onClick={() => { setStaffModal({ open: true }); setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' }); }} className="h-12 px-6 rounded-2xl bg-slate-900 text-white text-sm font-black flex items-center gap-2">
-                            <Plus className="w-4 h-4" /> Add delivery staff
+                        <button onClick={() => { setStaffModal({ open: true }); setStaffForm({ name: '', phone: '', email: '', vehicle: '', status: 'ACTIVE' }); }} className="admin-btn-primary">
+                            <Plus className="w-4 h-4" /> Add Staff
                         </button>
                     </div>
-                    <div className="p-8 grid gap-4 min-h-[300px]">
+                    <div className="p-6 grid gap-4 min-h-[200px]">
                         {deliveryPartners.length === 0 ? (
-                            <p className="text-slate-400 text-sm py-8">No delivery staff yet. Add in-house delivery people.</p>
+                            <p className="text-slate-400 text-xs py-8 text-center">No delivery staff yet. Add in-house delivery people.</p>
                         ) : (
                             deliveryPartners.map((dp) => (
-                                <div key={dp.id} className="flex items-center justify-between p-6 rounded-2xl border border-slate-100 hover:border-emerald-100 transition-all">
+                                <div key={dp.id} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 hover:border-emerald-100 transition-all duration-200">
                                     <div>
-                                        <p className="font-black text-slate-900">{dp.name}</p>
-                                        <p className="text-sm text-slate-500 mt-1">{dp.phone}</p>
+                                        <p className="font-semibold text-slate-900">{dp.name}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">{dp.phone}</p>
                                         {dp.user?.email && <p className="text-xs text-slate-400 mt-0.5">{dp.user.email}</p>}
-                                        {dp.vehicle && <p className="text-[10px] text-slate-400 mt-1">Vehicle: {dp.vehicle}</p>}
-                                        <span className={cn('inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold uppercase', dp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500')}>{dp.status}</span>
+                                        {dp.vehicle && <p className="text-[11px] text-slate-400 mt-1">Vehicle: {dp.vehicle}</p>}
+                                        <span className={cn('inline-block mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase', dp.status === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-slate-100 text-slate-500 border border-slate-200')}>{dp.status}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status, email: dp.user?.email || '' } }); setStaffForm({ name: dp.name, phone: dp.phone, email: dp.user?.email || '', vehicle: dp.vehicle || '', status: dp.status }); }} className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-emerald-600"><Edit2 className="w-4 h-4" /></button>
+                                        <button onClick={() => { setStaffModal({ open: true, editing: { id: dp.id, name: dp.name, phone: dp.phone, vehicle: dp.vehicle || '', status: dp.status, email: dp.user?.email || '' } }); setStaffForm({ name: dp.name, phone: dp.phone, email: dp.user?.email || '', vehicle: dp.vehicle || '', status: dp.status }); }} className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"><Edit2 className="w-4 h-4" /></button>
                                         <button
                                             type="button"
                                             onClick={() => promptRemoveDeliveryPartner(dp)}
-                                            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500"
+                                            className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-red-600 hover:bg-slate-50 transition-all"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
@@ -404,43 +400,47 @@ export function AdminLogisticsPage() {
             {sectionTab === 'deliveries' && (
             <>
             <div ref={deliveriesPanelRef} className="scroll-mt-24" />
-            {/* Logistics Stats */}
+            {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {statsFromData.map((stat, i) => (
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        transition={{ delay: i * 0.08 }}
                         key={stat.label}
-                        className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:ring-2 ring-transparent hover:ring-emerald-500/10 transition-all cursor-default"
+                        className="admin-stat-card"
                     >
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className={cn("p-4 rounded-3xl", `bg-${stat.color}-50 text-${stat.color}-600`)}>
-                                    <stat.icon className="w-5 h-5" />
-                                </div>
-                                <span className="text-[10px] font-black text-slate-400 border border-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter">{stat.trend}</span>
+                        <div className="flex items-start justify-between mb-3">
+                            <div className={cn(
+                                "h-9 w-9 rounded-lg flex items-center justify-center",
+                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                stat.color === 'purple' ? 'bg-purple-50 text-purple-600' :
+                                'bg-orange-50 text-orange-600'
+                            )}>
+                                <stat.icon className="w-4 h-4" />
                             </div>
-                            <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1">{stat.value}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            <span className="text-xs text-slate-400 border border-slate-100 px-2 py-0.5 rounded-full">{stat.trend}</span>
                         </div>
+                        <p className="admin-stat-value">{stat.value}</p>
+                        <p className="admin-stat-label">{stat.label}</p>
                     </motion.div>
                 ))}
             </div>
 
             {/* Delivery list */}
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
-                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
+            <div className="admin-card">
+                <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-lg border border-slate-100 overflow-x-auto no-scrollbar">
                         {['Active', 'Completed', 'Hyperlocal', 'Delayed'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                    "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-150 whitespace-nowrap",
                                     activeTab === tab
-                                        ? "bg-slate-900 text-white shadow-lg"
-                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                        ? "bg-white text-slate-900 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
                                 )}
                             >
                                 {tab}
@@ -448,19 +448,19 @@ export function AdminLogisticsPage() {
                         ))}
                     </div>
 
-                    <div className="relative group flex-1 max-w-2xl">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <div className="relative group flex-1 max-w-xl">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 focus:text-emerald-500 transition-colors" />
                         <input
                             type="text"
                             placeholder="Track by order ID or tracking number..."
-                            className="w-full h-14 pl-14 pr-6 bg-white border border-slate-100 rounded-2xl text-sm font-medium focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                            className="admin-input pl-9"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="p-8 grid gap-4 min-h-[500px]">
+                <div className="p-6 grid gap-4 min-h-[300px]">
                     {loading ? (
                         <div className="py-16 text-center text-slate-400 text-sm">Loading deliveries...</div>
                     ) : filteredDeliveries.length > 0 ? (
@@ -471,73 +471,71 @@ export function AdminLogisticsPage() {
                                 transition={{ delay: idx * 0.05 }}
                                 key={delivery.id}
                                 onClick={() => setSelectedDelivery(delivery)}
-                                className="group flex flex-col md:flex-row md:items-center gap-8 p-8 rounded-[2.5rem] bg-white border border-slate-100 hover:border-emerald-500/30 hover:shadow-2xl hover:shadow-slate-200/40 transition-all cursor-pointer relative overflow-hidden"
+                                className="group flex flex-col md:flex-row md:items-center gap-6 p-4 rounded-xl bg-white border border-slate-100 hover:border-emerald-500/20 hover:shadow-sm transition-all cursor-pointer relative overflow-hidden"
                             >
-                                <div className="absolute left-0 top-0 bottom-0 w-2 bg-slate-50 group-hover:bg-emerald-500 transition-colors" />
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-100 group-hover:bg-emerald-500 transition-colors" />
 
-                                <div className="flex items-center gap-6 min-w-[240px]">
+                                <div className="flex items-center gap-4 min-w-[200px]">
                                     <div className={cn(
-                                        "h-20 w-20 rounded-[1.75rem] flex items-center justify-center relative shadow-xl shadow-slate-900/5 transition-transform duration-700 group-hover:rotate-12 group-hover:scale-110",
-                                        delivery.status === 'Out for Delivery' ? 'bg-orange-600 text-white' :
-                                            delivery.status === 'Delivered' ? 'bg-emerald-600 text-white' :
-                                                'bg-slate-900 text-white'
+                                        "h-10 w-10 rounded-lg flex items-center justify-center relative border shadow-sm",
+                                        delivery.status === 'Out for Delivery' ? 'bg-orange-50 text-orange-600 border-orange-100' :
+                                            delivery.status === 'Delivered' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                                                'bg-slate-50 text-slate-700 border-slate-200'
                                     )}>
-                                        <Truck className="w-8 h-8" />
+                                        <Truck className="w-5 h-5" />
                                         {delivery.type === 'Hyperlocal' && (
-                                            <div className="absolute -right-3 -top-3 h-8 w-8 bg-emerald-400 rounded-2xl flex items-center justify-center border-4 border-white shadow-lg">
-                                                <Zap className="h-4 w-4 text-emerald-900 fill-emerald-900" />
+                                            <div className="absolute -right-1.5 -top-1.5 h-4.5 w-4.5 bg-emerald-500 rounded-full flex items-center justify-center border border-white shadow-sm">
+                                                <Zap className="h-2.5 w-2.5 text-white fill-white" />
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex flex-col">
-                                        <p className="text-lg font-black text-slate-900 uppercase tracking-tighter group-hover:text-emerald-600 transition-colors">{delivery.id.slice(0, 8)}</p>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 italic">Order #{delivery.orderNumber || delivery.orderId}</p>
+                                        <p className="text-sm font-semibold text-slate-900 group-hover:text-emerald-600 transition-colors">ID: {delivery.id.slice(0, 8)}</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">Order #{delivery.orderNumber || delivery.orderId}</p>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 space-y-2">
-                                    <div className="flex items-center gap-3">
-                                        <MapPin className="w-4 h-4 text-emerald-500" />
-                                        <p className="text-sm font-black text-slate-800 uppercase tracking-tight">{delivery.destination}</p>
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                                        <p className="text-xs font-medium text-slate-700">{delivery.destination}</p>
                                     </div>
-                                    <div className="flex items-center gap-6">
-                                        <span className="text-[10px] font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-                                            <Shield className="w-3 h-3 text-slate-300" />
+                                    <div className="flex items-center gap-4">
+                                        <span className="admin-badge-slate text-[10px]">
                                             {delivery.partner}
                                         </span>
-                                        <div className="h-4 w-[1px] bg-slate-100" />
-                                        <span className="text-[10px] font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest">
-                                            <Clock className="w-3 h-3 text-emerald-500" />
+                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-slate-400" />
                                             ETA: {delivery.eta}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-6">
-                                    <div className="text-right hidden xl:block px-8 border-r border-slate-50">
-                                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-2 italic">{delivery.status}</p>
-                                        <div className="flex gap-1.5 justify-end">
+                                <div className="flex items-center gap-4 justify-between md:justify-end">
+                                    <div className="text-right hidden xl:block pr-4 border-r border-slate-100">
+                                        <p className="text-xs font-semibold text-slate-900 mb-1">{delivery.status}</p>
+                                        <div className="flex gap-1 justify-end">
                                             {[1, 2, 3, 4, 5].map(i => (
-                                                <div key={i} className={cn("h-1.5 w-6 rounded-full transition-all duration-1000",
-                                                    delivery.status === 'Delivered' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.3)]' :
+                                                <div key={i} className={cn("h-1 w-4 rounded-full transition-all duration-300",
+                                                    delivery.status === 'Delivered' ? 'bg-emerald-500' :
                                                         delivery.status === 'Out for Delivery' && i <= 4 ? 'bg-orange-500' :
                                                             delivery.status === 'In Transit' && i <= 2 ? 'bg-blue-500' : 'bg-slate-100'
                                                 )} />
                                             ))}
                                         </div>
                                     </div>
-                                    <button className="h-14 px-8 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-xl shadow-slate-900/10 flex items-center gap-3 active:scale-95">
-                                        <Smartphone className="w-4 h-4 text-emerald-400" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Contact</span>
+                                    <button className="admin-btn-secondary text-xs">
+                                        <Smartphone className="w-3.5 h-3.5" />
+                                        <span>Contact</span>
                                     </button>
                                 </div>
                             </motion.div>
                         ))
                     ) : (
-                        <div className="py-32 text-center">
-                            <Box className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Deliveries Found</h3>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No deliveries found.</p>
+                        <div className="py-20 text-center">
+                            <Box className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                            <h3 className="text-sm font-semibold text-slate-900">No Deliveries Found</h3>
+                            <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">No deliveries found for current filters.</p>
                         </div>
                     )}
                 </div>

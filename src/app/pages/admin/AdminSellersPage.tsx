@@ -125,77 +125,55 @@ export function AdminSellersPage() {
     ];
 
     return (
-        <div className="space-y-12 pb-20">
-            {/* High-Contrast Premium Header: Merchant Network */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
-                <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4 group cursor-default">
-                        <div className="h-2 w-12 bg-emerald-500 rounded-full group-hover:w-16 transition-all duration-700" />
-                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Global Ecosystem</span>
-                    </div>
-                    <h1 className="text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter uppercase font-heading">
-                        Merchant <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500">Network</span>
-                    </h1>
-                    <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-4 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-500" />
-                        Supply Chain Audit & Merchant Onboarding
-                    </p>
+        <div className="space-y-6 pb-20">
+            {/* Page header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-page-title">Sellers</h1>
+                    <p className="admin-page-subtitle">Manage vendor partnerships and approvals</p>
                 </div>
-                <div className="relative z-10" />
             </div>
 
-            {/* Yield Matrix: Visual Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, i) => (
                     <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
                         key={stat.label}
-                        className="bg-white p-10 rounded-[3.5rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:shadow-[0_30px_70px_rgba(0,0,0,0.08)] hover:-translate-y-2 transition-all duration-700"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: i * 0.08 }}
+                        className="admin-stat-card"
                     >
-                        <div className={cn("absolute top-0 right-0 w-32 h-32 rounded-bl-[4rem] group-hover:opacity-10 transition-opacity duration-700", `bg-${stat.color}-50`)} />
-                        <div className="relative z-10">
-                            <div className="flex items-start justify-between mb-10">
-                                <div className={cn(
-                                    "h-16 w-16 rounded-[1.75rem] flex items-center justify-center transition-all duration-700 shadow-lg",
-                                    stat.color === 'emerald' ? "bg-emerald-500 text-white shadow-emerald-500/20" :
-                                    stat.color === 'orange' ? "bg-orange-500 text-white shadow-orange-500/20" :
-                                    stat.color === 'blue' ? "bg-blue-600 text-white shadow-blue-600/20" :
-                                    "bg-purple-600 text-white shadow-purple-600/20"
-                                )}>
-                                    <stat.icon className="w-7 h-7" />
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Telemetry</span>
-                                    <div className="flex items-center justify-end gap-1">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
-                                    </div>
-                                </div>
+                        <div className="flex items-start justify-between mb-3">
+                            <div className={cn(
+                                "h-9 w-9 rounded-lg flex items-center justify-center",
+                                stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                stat.color === 'orange' ? 'bg-orange-50 text-orange-600' :
+                                stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                'bg-purple-50 text-purple-600'
+                            )}>
+                                <stat.icon className="w-4 h-4" />
                             </div>
-                            <h3 className="text-4xl font-black text-slate-900 tracking-tighter mb-2 font-heading">{stat.value}</h3>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">{stat.label}</p>
                         </div>
+                        <p className="admin-stat-value">{stat.value}</p>
+                        <p className="admin-stat-label">{stat.label}</p>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Merchant Ledger Area: Supply Chain Control Center */}
-            <div className="bg-white rounded-[4rem] border border-slate-100 shadow-[0_40px_100px_rgba(0,0,0,0.04)] overflow-hidden">
-                <div className="p-10 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-10 bg-slate-50/30">
-                    <div className="flex items-center gap-3 p-2 bg-white rounded-3xl border border-slate-100 shadow-sm w-fit">
+            {/* Sellers table */}
+            <div className="admin-card">
+                <div className="p-4 md:p-6 border-b border-slate-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-lg border border-slate-100">
                         {['All', 'Pending', 'Verified', 'Suspended'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500",
+                                    "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
                                     activeTab === tab
-                                        ? "bg-slate-900 text-white shadow-[0_10px_25px_rgba(0,0,0,0.2)] scale-105"
-                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                        ? "bg-white text-slate-900 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700"
                                 )}
                             >
                                 {tab}
@@ -203,59 +181,51 @@ export function AdminSellersPage() {
                         ))}
                     </div>
 
-                    <div className="flex flex-col md:flex-row items-center gap-6 flex-1 xl:justify-end">
-                        <div className="relative group flex-1 max-w-md">
-                            <Search className="absolute left-8 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <div className="flex items-center gap-2 flex-1 max-w-xl">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                             <input
                                 type="text"
-                                placeholder="Identify merchant by store or principal..."
-                                className="w-full h-18 pl-18 pr-8 bg-white border border-slate-100 rounded-3xl text-sm font-black text-slate-900 focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all duration-500 shadow-sm"
+                                placeholder="Search by store name or owner…"
+                                className="admin-input pl-9"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <div className="relative flex-1 md:flex-none">
-                                <Filter className="absolute left-6 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value as 'all' | 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'REJECTED')}
-                                    className="h-18 pl-14 pr-10 bg-white border border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-600 focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer min-w-[180px]"
-                                >
-                                    <option value="all">Global Status</option>
-                                    <option value="ACTIVE">Active Node</option>
-                                    <option value="PENDING">Pending Audit</option>
-                                    <option value="SUSPENDED">Suspended Link</option>
-                                    <option value="REJECTED">Blacklisted</option>
-                                </select>
-                            </div>
-                            <div className="relative flex-1 md:flex-none">
-                                <Shield className="absolute left-6 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-                                <select
-                                    value={kycFilter}
-                                    onChange={(e) => setKycFilter(e.target.value as 'all' | 'VERIFIED' | 'PENDING' | 'REJECTED' | 'NOT_SUBMITTED')}
-                                    className="h-18 pl-14 pr-10 bg-white border border-slate-100 rounded-3xl text-[10px] font-black uppercase tracking-widest text-slate-600 focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer min-w-[180px]"
-                                >
-                                    <option value="all">All Compliance</option>
-                                    <option value="VERIFIED">KYC Verified</option>
-                                    <option value="PENDING">KYC Pending</option>
-                                    <option value="REJECTED">KYC Rejected</option>
-                                    <option value="NOT_SUBMITTED">No Submissions</option>
-                                </select>
-                            </div>
-                        </div>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as 'all' | 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'REJECTED')}
+                            className="admin-select"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="ACTIVE">Active</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="SUSPENDED">Suspended</option>
+                            <option value="REJECTED">Rejected</option>
+                        </select>
+                        <select
+                            value={kycFilter}
+                            onChange={(e) => setKycFilter(e.target.value as 'all' | 'VERIFIED' | 'PENDING' | 'REJECTED' | 'NOT_SUBMITTED')}
+                            className="admin-select"
+                        >
+                            <option value="all">All KYC</option>
+                            <option value="VERIFIED">Verified</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="REJECTED">Rejected</option>
+                            <option value="NOT_SUBMITTED">Not Submitted</option>
+                        </select>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-50/50">
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100">Merchant Identity</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100">Compliance Matrix</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100">Yield Analytics</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100 text-center">Taxation/Comm.</th>
-                                <th className="px-12 py-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] border-b border-slate-100 text-right">Operational Link</th>
+                            <tr className="border-b border-slate-100 bg-slate-50">
+                                <th className="admin-th">Seller / Store</th>
+                                <th className="admin-th">Status / KYC</th>
+                                <th className="admin-th">Revenue</th>
+                                <th className="admin-th text-center">Commission</th>
+                                <th className="admin-th text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50">
@@ -273,63 +243,54 @@ export function AdminSellersPage() {
                                             className="group hover:bg-slate-50/80 transition-all cursor-pointer"
                                             onClick={() => setSelectedSeller(seller)}
                                         >
-                                            <td className="px-12 py-10">
-                                                <div className="flex items-center gap-6">
-                                                    <div className="h-20 w-20 rounded-[2.5rem] bg-slate-900 flex items-center justify-center font-black text-2xl text-white shadow-[0_20px_40px_rgba(0,0,0,0.15)] group-hover:scale-110 group-hover:rotate-3 transition-all duration-700 border-4 border-white">
+                                            <td className="admin-td">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-semibold text-sm flex-shrink-0">
                                                         {seller.storeName.charAt(0)}
                                                     </div>
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <span className="text-base font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight font-heading">{seller.storeName}</span>
-                                                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-2">
-                                                            <MapPin className="h-3 w-3 text-emerald-500" />
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-sm font-semibold text-slate-900 truncate max-w-[180px]">{seller.storeName}</span>
+                                                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                            <MapPin className="h-3 w-3 text-slate-400" />
                                                             {seller.location}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
-                                                <div className="flex flex-col gap-3">
-                                                    <span className={cn(
-                                                        "px-5 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest w-fit shadow-sm transition-all duration-700",
-                                                        seller.status === 'ACTIVE' ? 'bg-emerald-500 text-white border-emerald-400 shadow-emerald-500/20' :
-                                                        seller.status === 'PENDING' ? 'bg-orange-500 text-white border-orange-400 shadow-orange-500/20' :
-                                                        'bg-red-500 text-white border-red-400 shadow-red-500/20'
-                                                    )}>
-                                                        {seller.status} NODE
-                                                    </span>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={cn("h-1.5 w-1.5 rounded-full", seller.kycStatus === 'VERIFIED' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-200')} />
-                                                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Protocol: {seller.kycStatus}</span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-12 py-10">
+                                            <td className="admin-td">
                                                 <div className="flex flex-col gap-1">
-                                                    <p className="text-2xl font-black text-slate-900 tracking-tighter font-heading leading-none">₹{(seller.revenue / 1000).toFixed(1)}K</p>
-                                                    <div className="flex items-center gap-3 mt-1">
-                                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{seller.orders} Cycles</span>
-                                                        <div className="h-1 w-1 rounded-full bg-slate-200" />
-                                                        <div className="flex items-center gap-1">
-                                                            <Star className="h-2.5 w-2.5 text-emerald-500 fill-emerald-500" />
-                                                            <span className="text-[10px] font-black text-emerald-600">{seller.rating || 4.2}</span>
-                                                        </div>
-                                                    </div>
+                                                    <span className={cn(
+                                                        seller.status === 'ACTIVE' ? 'admin-badge-emerald' :
+                                                        seller.status === 'PENDING' ? 'admin-badge-amber' :
+                                                        'admin-badge-red'
+                                                    )}>
+                                                        {seller.status}
+                                                    </span>
+                                                    <span className="text-xs text-slate-400">KYC: {seller.kycStatus}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10">
-                                                <div className="flex justify-center">
-                                                    <div className="h-14 px-8 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-[11px] font-black text-slate-900 group-hover:bg-slate-900 group-hover:text-white group-hover:border-slate-900 transition-all duration-500 shadow-sm">
-                                                        {seller.commissionRate}% <span className="text-[8px] text-slate-400 ml-2 uppercase opacity-50">Fee</span>
-                                                    </div>
+                                            <td className="admin-td">
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-semibold text-slate-900">₹{(seller.revenue / 1000).toFixed(1)}K</span>
+                                                    <span className="text-xs text-slate-400">{seller.orders} orders</span>
                                                 </div>
                                             </td>
-                                            <td className="px-12 py-10 text-right">
-                                                <div className="flex items-center justify-end gap-3">
-                                                    <button className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 group/btn">
-                                                        <Smartphone className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                            <td className="admin-td text-center">
+                                                <span className="text-xs font-semibold text-slate-700">{seller.commissionRate}%</span>
+                                            </td>
+                                            <td className="admin-td text-right">
+                                                <div className="flex items-center justify-end gap-2" onClick={e => e.stopPropagation()}>
+                                                    <button 
+                                                        title="Contact Info"
+                                                        className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
+                                                    >
+                                                        <Smartphone className="w-4 h-4" />
                                                     </button>
-                                                    <button className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 hover:shadow-2xl transition-all duration-500 group/btn">
-                                                        <ExternalLink className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                    <button 
+                                                        title="Open Store"
+                                                        className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-slate-50 transition-all"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>

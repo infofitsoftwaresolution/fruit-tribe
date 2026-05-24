@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Leaf, Truck, MapPin, Clock, Users, ShieldCheck, Star } from 'lucide-react';
+import { ArrowRight, Leaf, MapPin, Clock, Users, ShieldCheck, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
 import { useMemo, useState } from 'react';
@@ -159,20 +159,22 @@ export function FreshnessPromise() {
                   Our promise
                 </p>
                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
-                  We don't sell old fruit.<br />
-                  <span className="text-emerald-600">We deliver today's harvest.</span>
+                  No cold storage. No chemicals.
+                  <br />
+                  <span className="text-emerald-600">Just naturally fresh harvest.</span>
                 </h2>
                 <p className="mt-4 text-sm text-slate-500 leading-relaxed max-w-lg">
-                  Every fruit on The Fruit Tribe is sourced directly from partner farms across Bihar and delivered 
-                  within hours — not days. No cold storage, no middlemen, no compromises.
+                  Every fruit on The Fruit Tribe is sourced with freshness and quality in mind from trusted partner
+                  farms. We focus on delivering naturally fresh produce without cold storage or chemical treatment
+                  — just real fruit, the way it's meant to be.
                 </p>
               </div>
 
               <div className="space-y-3">
                 {[
-                  { icon: MapPin, title: 'Sourced locally', desc: 'Partner farms located in Bihar.' },
-                  { icon: ShieldCheck, title: 'Quality guaranteed', desc: 'Every box inspected before it leaves the farm.' },
-                  { icon: Truck, title: 'Same-day delivery', desc: 'Order by the cutoff, receive it today.' },
+                  { icon: MapPin, title: 'Sourced carefully', desc: 'Directly from trusted partner farms.' },
+                  { icon: Leaf, title: 'Naturally fresh', desc: 'No cold storage. No chemical treatment.' },
+                  { icon: ShieldCheck, title: 'Quality guaranteed', desc: 'Every box checked for quality before dispatch.' },
                 ].map((item) => (
                   <div key={item.title} className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">

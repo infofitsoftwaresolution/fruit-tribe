@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
     Percent, Save, AlertCircle, Info, ShieldCheck,
     Globe, Zap, ArrowUpRight, History, Download,
-    Briefcase, Activity, Landmark
+    Briefcase, Activity, Landmark, X
 } from 'lucide-react';
 import { useStore } from '@/app/context/StoreContext';
 import { useAdminData } from '@/app/context/AdminDataContext';
@@ -225,26 +225,18 @@ export function AdminTaxPage() {
     }, [categories, editingRates, taxRates, updateTaxRate, preferences]);
 
     return (
-        <div className="space-y-10 pb-20 max-w-5xl">
-            {/* Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                >
-                    <div className="flex items-center gap-2 mb-2">
-                        <Landmark className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Tax Settings</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Tax Management</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Set tax rates by product category.</p>
-                </motion.div>
-
-                <div className="flex items-center gap-3 flex-wrap">
+        <div className="space-y-6 pb-12 max-w-4xl">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-page-title">Taxation</h1>
+                    <p className="admin-page-subtitle">Configure tax percentage rules across catalog product categories.</p>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
                     <button
                         type="button"
                         onClick={openChangeLogs}
-                        className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2"
+                        className="admin-btn-secondary"
                     >
                         <History className="w-4 h-4" />
                         Change Logs
@@ -252,91 +244,94 @@ export function AdminTaxPage() {
                     <button
                         type="button"
                         onClick={handleDownloadLedger}
-                        className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/10 active:scale-95"
+                        className="admin-btn-primary bg-slate-900 hover:bg-slate-850"
                     >
+                        <Download className="w-4 h-4" />
                         Download Ledger
                     </button>
                 </div>
             </div>
 
-            {/* Compliance Quick Check */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Quick stats check */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                    { label: 'Network Compliance', status: 'Active', color: 'emerald', icon: ShieldCheck },
+                    { label: 'Fiscal Compliance', status: 'Active', color: 'emerald', icon: ShieldCheck },
                     { label: 'Fiscal Updates', status: 'Verified', color: 'blue', icon: Globe },
-                    { label: 'Platform Fee', status: '12%', color: 'purple', icon: Briefcase }
+                    { label: 'Platform GST Rate', status: '18%', color: 'purple', icon: Landmark }
                 ].map((stat, i) => (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                    <div
                         key={stat.label}
-                        className="bg-white p-6 rounded-[2rem] border border-slate-100 flex items-center gap-4 hover:shadow-md transition-shadow"
+                        className="admin-card p-4 flex items-center gap-3"
                     >
-                        <div className={cn("p-3 rounded-2xl", `bg-${stat.color}-50 text-${stat.color}-600`)}>
-                            <stat.icon className="w-5 h-5" />
+                        <div className={cn("p-2 rounded-lg border", 
+                            stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                            stat.color === 'blue' ? 'bg-blue-50 text-blue-600 border-blue-100' :
+                            'bg-purple-50 text-purple-600 border-purple-100'
+                        )}>
+                            <stat.icon className="w-4.5 h-4.5" />
                         </div>
                         <div>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{stat.status}</p>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">{stat.label}</p>
+                            <p className="text-sm font-semibold text-slate-800">{stat.status}</p>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </div>
 
-            {/* Tax rate table */}
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex items-center justify-between">
+            {/* Tax rates table */}
+            <div className="admin-card">
+                <div className="p-4 border-b border-slate-100 bg-slate-50/20 flex items-center justify-between">
                     <div>
-                        <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Tax Rates</h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Rates used during checkout</p>
+                        <h3 className="admin-section-heading">Category Tax Rates</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Category-specific rates applied on checkout</p>
                     </div>
-                    <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                        <Activity className="h-4 w-4 text-emerald-600 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-700 uppercase">Live</span>
+                    <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 border border-emerald-100 rounded-full">
+                        <Activity className="h-3 w-3 text-emerald-600" />
+                        <span className="text-[10px] font-semibold text-emerald-700 uppercase">Live</span>
                     </div>
                 </div>
 
-                <div className="divide-y divide-slate-50">
+                <div className="divide-y divide-slate-100">
                     <AnimatePresence mode='popLayout'>
                         {categories.map((category, idx) => (
                             <motion.div
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                transition={{ delay: idx * 0.05 }}
+                                transition={{ delay: idx * 0.03 }}
                                 key={category}
-                                className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group hover:bg-slate-50/50 transition-all cursor-pointer"
+                                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover:bg-slate-50/30 transition-colors"
                             >
-                                <div className="flex items-center gap-6">
-                                    <div className="h-20 w-20 rounded-[2rem] bg-slate-900 flex items-center justify-center font-black text-2xl text-white shadow-xl shadow-slate-900/10 group-hover:rotate-6 group-hover:scale-110 transition-all duration-500">
-                                        <Percent className="h-8 w-8 text-emerald-400" />
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+                                        <Percent className="h-4.5 w-4.5" />
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-3">
-                                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter tracking-tight">{category}</h3>
-                                            <span className="px-2 py-0.5 bg-slate-100 text-[8px] font-black rounded-md text-slate-400 uppercase tracking-widest">Default</span>
+                                    <div className="space-y-0.5">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-semibold text-slate-900 capitalize">{category}</h3>
+                                            <span className="admin-badge-slate text-[9px] px-1.5 py-0">Default</span>
                                         </div>
-                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic">Applied at checkout</p>
+                                        <p className="text-xs text-slate-400">Checkout applicability enabled</p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-6">
-                                    <div className="relative group">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex items-center">
                                         <input
                                             type="text"
                                             value={editingRates[category]}
                                             onChange={(e) => handleRateChange(category, e.target.value)}
-                                            className="w-44 h-16 rounded-3xl bg-white border border-slate-100 px-8 text-xl font-black text-slate-900 focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm pr-12 text-center"
+                                            className="admin-input w-28 pr-6 text-center font-medium"
                                             placeholder="0.00"
                                         />
-                                        <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 font-black text-lg">%</span>
+                                        <span className="absolute right-2.5 text-slate-400 font-medium text-xs">%</span>
                                     </div>
                                     <button
                                         onClick={() => handleSave(category)}
                                         disabled={parseFloat(editingRates[category]) === taxRates[category]}
-                                        className="h-16 w-16 bg-slate-900 text-white rounded-3xl hover:bg-black disabled:opacity-30 disabled:hover:bg-slate-900 transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center active:scale-95 group/btn"
+                                        className="admin-btn-icon h-9 w-9 bg-slate-900 text-white hover:bg-black hover:text-white border-none disabled:opacity-20 flex items-center justify-center"
+                                        title="Save Rate"
                                     >
-                                        <Save className="h-6 w-6 group-hover/btn:scale-110 transition-transform" />
+                                        <Save className="h-4 w-4" />
                                     </button>
                                 </div>
                             </motion.div>
@@ -344,25 +339,25 @@ export function AdminTaxPage() {
                     </AnimatePresence>
                 </div>
 
-                <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="p-4 bg-slate-50/40 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-2">
                     <button
                         type="button"
                         onClick={handleBulkUpdateRates}
-                        className="w-full sm:w-auto px-10 h-14 bg-white border border-slate-200 rounded-[2rem] text-[10px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all"
+                        className="w-full sm:w-auto admin-btn-secondary"
                     >
                         Bulk Update Rates
                     </button>
                     <button
                         type="button"
                         onClick={handleSaveAllRates}
-                        className="w-full sm:w-auto px-10 h-14 bg-emerald-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20"
+                        className="w-full sm:w-auto admin-btn-primary bg-emerald-600 hover:bg-emerald-700 border-none"
                     >
                         Save All Rates
                     </button>
                 </div>
             </div>
 
-            {/* Compliance note */}
+            {/* Logs Modal */}
             {logModalOpen &&
                 createPortal(
                     <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
@@ -372,31 +367,31 @@ export function AdminTaxPage() {
                             aria-label="Close"
                             onClick={() => setLogModalOpen(false)}
                         />
-                        <div className="relative bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-lg w-full max-h-[80vh] flex flex-col overflow-hidden">
-                            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                                <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">Tax rate change log</h2>
+                        <div className="relative bg-white rounded-xl border border-slate-100 shadow-xl max-w-md w-full max-h-[75vh] flex flex-col overflow-hidden">
+                            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                <h2 className="font-semibold text-slate-900">Tax Rate Logs</h2>
                                 <button
                                     type="button"
                                     onClick={() => setLogModalOpen(false)}
-                                    className="p-2 rounded-xl hover:bg-slate-100 text-slate-500 text-sm font-bold"
+                                    className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700"
                                 >
-                                    Close
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
-                            <div className="p-4 overflow-y-auto flex-1 space-y-2 text-sm">
+                            <div className="p-4 overflow-y-auto flex-1 space-y-2.5 custom-scrollbar">
                                 {changelog.length === 0 ? (
-                                    <p className="text-slate-500 text-center py-8">No changes recorded yet. Saving a category rate creates an entry here.</p>
+                                    <p className="text-slate-400 text-center py-8 text-xs">No tax rate change logs recorded.</p>
                                 ) : (
                                     changelog.map((e, i) => (
                                         <div
                                             key={`${e.ts}-${i}`}
-                                            className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs"
+                                            className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs"
                                         >
-                                            <p className="font-black text-slate-900">{e.category}</p>
-                                            <p className="text-slate-600 mt-1">
-                                                {e.from}% → {e.to}%
+                                            <p className="font-semibold text-slate-800 capitalize">{e.category}</p>
+                                            <p className="text-slate-500 mt-0.5">
+                                                {e.from}% changed to {e.to}%
                                             </p>
-                                            <p className="text-[10px] text-slate-400 mt-1 font-mono">{e.ts}</p>
+                                            <p className="text-[10px] text-slate-400 mt-1 font-mono">{new Date(e.ts).toLocaleString()}</p>
                                         </div>
                                     ))
                                 )}
@@ -406,28 +401,19 @@ export function AdminTaxPage() {
                     document.body,
                 )}
 
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-amber-50 rounded-[3rem] p-12 border border-amber-100 relative overflow-hidden flex flex-col md:flex-row gap-10"
-            >
-                <div className="relative z-10 flex-shrink-0">
-                    <div className="p-6 bg-white rounded-[2.5rem] shadow-sm text-amber-600 flex items-center justify-center">
-                        <AlertCircle className="w-10 h-10" />
-                    </div>
+            {/* Compliance warning banner */}
+            <div className="bg-amber-50/40 rounded-xl p-5 border border-amber-100/60 flex items-start gap-4">
+                <div className="p-2 bg-amber-50 border border-amber-100 rounded-lg text-amber-600 flex-shrink-0">
+                    <AlertCircle className="w-5 h-5" />
                 </div>
-                <div className="relative z-10 space-y-4">
-                    <h3 className="text-2xl font-black text-amber-900 uppercase tracking-tight">Tax Compliance Note</h3>
-                    <p className="text-amber-800/80 text-sm font-bold leading-relaxed max-w-2xl italic">
-                        Tax rates are applied automatically at checkout. Please keep these values aligned with your local tax rules.
+                <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-amber-900">Tax Compliance Protocol</h3>
+                    <p className="text-xs text-amber-800 leading-relaxed max-w-2xl">
+                        Tax rules are computed automatically at checkout. Ensure updates reflect active regional government mandates. Every rate change is logged locally for compliance auditing.
                     </p>
-                    <div className="flex items-center gap-3 mt-4">
-                        <Zap className="w-4 h-4 text-amber-600" />
-                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Changes are tracked in logs</span>
-                    </div>
                 </div>
-                <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-amber-200/40 rounded-full blur-[100px] pointer-events-none" />
-            </motion.div>
+            </div>
         </div>
     );
 }
+

@@ -15,10 +15,10 @@ import {
     Wallet,
     LayoutDashboard,
     Zap,
-    Shield,
     LogOut,
     Sparkles,
     Bell,
+    ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/app/context/StoreContext';
@@ -130,31 +130,29 @@ export function AdminSidebar() {
     };
 
     return (
-        <div className="flex h-screen w-64 flex-col bg-slate-900 text-slate-400 border-r border-white/5 shadow-2xl relative z-50 overflow-hidden">
-            {/* Ambient Background Glows inside sidebar */}
-            <div className="absolute top-0 -left-20 h-40 w-40 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
-            <div className="absolute bottom-0 -right-20 h-40 w-40 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none" />
-
-            {/* Store Brand / Premium Logo Area */}
-            <div className="flex h-20 items-center gap-3 px-4 relative z-10">
-                <div className="relative group">
-                    <div className="absolute inset-0 bg-emerald-500/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                    <img
-                        src="/logo.png"
-                        alt="The Fruit Tribe"
-                        className="h-10 w-10 object-contain flex-shrink-0 rounded-xl relative z-10 shadow-lg"
-                    />
+        <div className="flex h-screen w-64 flex-col bg-[#09090b] text-zinc-400 border-r border-zinc-800/50 select-none font-sans">
+            {/* Brand Header */}
+            <div className="flex h-16 items-center justify-between px-5 border-b border-zinc-800/40 shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-zinc-700 via-zinc-800 to-zinc-950 flex items-center justify-center text-white font-bold text-sm shadow-md border border-zinc-700/30">
+                        <Store className="w-4 h-4 text-emerald-400" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-zinc-100 truncate leading-tight tracking-tight">
+                            {theme.storeName || 'Fruit Tribe'}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 leading-tight mt-0.5 font-bold tracking-widest uppercase">Admin</span>
+                    </div>
                 </div>
-                <div className="flex flex-col min-w-0">
-                    <span className="font-black text-white text-sm tracking-tight uppercase leading-tight font-heading">{theme.storeName || 'Fruit Tribe'}</span>
-                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-0.5 opacity-80">Orchard Control</span>
-                </div>
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)] shrink-0" />
             </div>
 
-            {/* Main Navigation with Premium Hover States */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar relative z-10 space-y-10">
+            {/* Navigation Lists */}
+            <div className="flex-1 overflow-y-auto py-6 px-4 custom-scrollbar space-y-6">
                 <div>
-                    <h3 className="px-4 mb-3 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] opacity-50">Operations</h3>
+                    <p className="px-3 mb-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                        Workspace
+                    </p>
                     <nav className="space-y-1">
                         {filteredSidebarItems.map((item) => {
                             const isActive = location.pathname === item.href;
@@ -165,51 +163,51 @@ export function AdminSidebar() {
                                     onMouseEnter={() => prefetchRouteModule(item.href)}
                                     onFocus={() => prefetchRouteModule(item.href)}
                                     className={cn(
-                                        "group relative flex items-center justify-between rounded-xl px-3 py-2.5 transition-all duration-500",
+                                        "group flex items-center justify-between rounded-xl px-3 py-2 border transition-all duration-200 ease-out",
                                         isActive
-                                            ? "bg-white/5 text-white shadow-[0_4px_20px_rgba(0,0,0,0.2)] border border-white/5"
-                                            : "hover:bg-white/[0.03] text-slate-400 hover:text-slate-200"
+                                            ? "bg-zinc-800/60 border-zinc-700/50 text-zinc-50 font-semibold"
+                                            : "border-transparent text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                                     )}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <div className={cn(
-                                            "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-500 border",
-                                            isActive 
-                                                ? "bg-emerald-500/20 border-emerald-500/20 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]" 
-                                                : "bg-slate-800/50 border-white/5 text-slate-500 group-hover:bg-slate-800 group-hover:text-slate-300"
-                                        )}>
-                                            <item.icon className={cn("h-4 w-4", isActive && "animate-pulse")} />
-                                        </div>
-                                        <span className={cn("text-[10px] font-black tracking-tight uppercase", isActive ? "text-white" : "text-slate-400")}>
-                                            {item.label}
-                                        </span>
+                                        <item.icon className={cn(
+                                            "h-4 w-4 flex-shrink-0 transition-colors duration-200",
+                                            isActive ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-300"
+                                        )} />
+                                        <span className="text-sm tracking-wide">{item.label}</span>
                                     </div>
-                                    
-                                    {isActive && (
-                                        <motion.div
-                                            layoutId="active-pill"
-                                            className="absolute right-2 w-1 h-1 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,1)]"
-                                        />
-                                    )}
 
-                                    {item.badgeKey != null && badges[item.badgeKey] > 0 ? (
-                                        <span className={cn(
-                                            "flex h-4 min-w-[16px] items-center justify-center rounded-md px-1 text-[8px] font-black shadow-sm",
-                                            isActive ? "bg-emerald-500 text-white" : "bg-slate-800 text-slate-400"
-                                        )}>
-                                            {badges[item.badgeKey]}
-                                        </span>
-                                    ) : null}
+                                    <div className="flex items-center gap-2">
+                                        {item.badgeKey != null && badges[item.badgeKey] > 0 ? (
+                                            <span className={cn(
+                                                "flex h-5 min-w-[20px] items-center justify-center rounded-lg px-1.5 text-[10px] font-bold transition-colors duration-200",
+                                                isActive
+                                                    ? "bg-zinc-700 text-zinc-100"
+                                                    : "bg-zinc-900 text-zinc-500 group-hover:bg-zinc-800/50 group-hover:text-zinc-300"
+                                            )}>
+                                                {badges[item.badgeKey]}
+                                            </span>
+                                        ) : null}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="sidebar-active-dot"
+                                                className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                                                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                            />
+                                        )}
+                                    </div>
                                 </Link>
                             );
                         })}
                     </nav>
                 </div>
 
-                {/* Digital Presence / System Sections */}
+                {/* Infrastructure section */}
                 {filteredSalesChannels.length > 0 && (
                     <div>
-                        <h3 className="px-4 mb-3 text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] opacity-50">Infrastructure</h3>
+                        <p className="px-3 mb-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+                            Infrastructure
+                        </p>
                         <nav className="space-y-1">
                             {filteredSalesChannels.map((item) => {
                                 const isActive = location.pathname === item.href;
@@ -220,19 +218,17 @@ export function AdminSidebar() {
                                         onMouseEnter={() => prefetchRouteModule(item.href)}
                                         onFocus={() => prefetchRouteModule(item.href)}
                                         className={cn(
-                                            "group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-500",
-                                            isActive ? "bg-white/5 text-white border border-white/5" : "hover:bg-white/[0.03] text-slate-400 hover:text-slate-200"
+                                            "group flex items-center gap-3 rounded-xl px-3 py-2 border transition-all duration-200 ease-out",
+                                            isActive
+                                                ? "bg-zinc-800/60 border-zinc-700/50 text-zinc-50 font-semibold"
+                                                : "border-transparent text-zinc-400 hover:bg-zinc-900/50 hover:text-zinc-200"
                                         )}
                                     >
-                                        <div className={cn(
-                                            "h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-500 border",
-                                            isActive 
-                                                ? "bg-amber-500/20 border-amber-500/20 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]" 
-                                                : "bg-slate-800/50 border-white/5 text-slate-500 group-hover:text-amber-500"
-                                        )}>
-                                            <item.icon className="h-4 w-4" />
-                                        </div>
-                                        <span className="text-[10px] font-black tracking-tight uppercase">{item.label}</span>
+                                        <item.icon className={cn(
+                                            "h-4 w-4 flex-shrink-0 transition-colors duration-200",
+                                            isActive ? "text-amber-400" : "text-zinc-500 group-hover:text-zinc-300"
+                                        )} />
+                                        <span className="text-sm tracking-wide">{item.label}</span>
                                     </Link>
                                 );
                             })}
@@ -241,40 +237,45 @@ export function AdminSidebar() {
                 )}
             </div>
 
-            {/* Bottom Section: Profile & Logout */}
-            <div className="p-4 border-t border-white/5 bg-slate-950/40 relative z-10">
-                <div className="bg-white/[0.03] backdrop-blur-xl rounded-2xl p-3 mb-3 flex items-center gap-2 border border-white/5 shadow-2xl">
-                    <div className="h-8 w-8 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center relative shadow-lg overflow-hidden group">
-                        <div className="absolute inset-0 bg-emerald-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span className="text-[10px] font-black text-white relative z-10 uppercase">{user?.name.charAt(0)}</span>
+            {/* User Bottom Profile */}
+            <div className="shrink-0 p-4 border-t border-zinc-850/60 bg-zinc-950/40">
+                {/* User card card-premium look inside sidebar */}
+                <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-zinc-900/60 border border-zinc-800/50 mb-3 shadow-inner">
+                    <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-zinc-800 to-zinc-700 border border-zinc-700 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <span className="text-[11px] font-bold text-white uppercase">
+                            {user?.name?.charAt(0) || 'U'}
+                        </span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-black text-white truncate uppercase tracking-tight">{user?.name}</p>
-                        <p className="text-[7px] font-black text-slate-500 uppercase tracking-[0.15em] mt-0.5">{user?.role.replace('_', ' ')}</p>
+                        <p className="text-xs font-semibold text-zinc-200 truncate leading-tight">{user?.name}</p>
+                        <p className="text-[10px] text-zinc-500 capitalize leading-tight mt-0.5 font-medium">
+                            {user?.role?.replace('_', ' ') || 'Admin'}
+                        </p>
                     </div>
                     <Link
                         to={settingsHref}
-                        className="p-2 hover:bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all border border-transparent hover:border-white/10"
+                        className="p-1 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-all border border-transparent hover:border-zinc-700/50"
                         aria-label="Settings"
                     >
                         <Settings className="w-3.5 h-3.5" />
                     </Link>
                 </div>
 
+                {/* View store and signout row */}
                 <div className="grid grid-cols-2 gap-2">
                     <Link
                         to="/"
-                        className="flex items-center justify-center gap-2 h-9 rounded-xl bg-white/[0.03] text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all text-[8px] font-black uppercase tracking-[0.2em] border border-white/5"
+                        className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white hover:bg-zinc-800 hover:border-zinc-750 transition-all duration-200 text-[11px] font-semibold"
                     >
-                        <ExternalLink className="w-3 h-3" />
-                        View
+                        <ExternalLink className="w-3 h-3 text-zinc-500 group-hover:text-zinc-300" />
+                        Store
                     </Link>
                     <button
                         onClick={logout}
-                        className="flex items-center justify-center gap-2 h-9 rounded-xl bg-red-500/5 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[8px] font-black uppercase tracking-[0.2em] shadow-lg shadow-red-500/0 hover:shadow-red-500/20 border border-red-500/10 hover:border-red-500"
+                        className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-red-950/20 text-red-400 hover:bg-red-900/30 hover:text-red-300 border border-red-900/10 transition-all duration-200 text-[11px] font-semibold"
                     >
                         <LogOut className="w-3 h-3" />
-                        Exit
+                        Sign Out
                     </button>
                 </div>
             </div>

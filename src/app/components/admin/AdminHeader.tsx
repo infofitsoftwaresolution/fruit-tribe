@@ -1,6 +1,6 @@
-import { Bell, Search, ExternalLink, Command, Shield, Zap, Activity, Menu } from 'lucide-react';
+import { Bell, Search, Menu } from 'lucide-react';
 import { useAuth } from '@/app/context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, KeyboardEvent, useEffect, useRef } from 'react';
@@ -53,27 +53,27 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
     };
 
     return (
-        <header className="flex h-16 items-center justify-between px-4 md:px-6 sticky top-0 z-[60] backdrop-blur-xl bg-white/70 border-b border-slate-100/50 shadow-sm">
-            {/* Mobile sidebar toggle */}
-            <div className="flex items-center gap-4 flex-1 max-w-2xl">
+        <header className="flex h-14 items-center justify-between px-6 sticky top-0 z-[60] bg-white/80 backdrop-blur-md border-b border-zinc-200/40 shadow-sm shadow-zinc-100/20">
+            {/* Left: mobile toggle + search */}
+            <div className="flex items-center gap-3 flex-1 max-w-lg">
                 <button
                     type="button"
                     onClick={onOpenSidebar}
-                    className="inline-flex md:hidden h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-100 text-slate-600 hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                    className="inline-flex md:hidden h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
                     aria-label="Open admin navigation"
                 >
                     <Menu className="h-4 w-4" />
                 </button>
-                
-                {/* Global Command Center */}
+
+                {/* Search */}
                 <div className="relative group flex-1 hidden sm:block">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                        <Search className="h-3.5 w-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                        <Search className="h-3.5 w-3.5 text-zinc-400 group-focus-within:text-zinc-800 transition-colors" />
                     </div>
                     <input
                         type="text"
-                        placeholder="Search anything..."
-                        className="block w-full h-10 pl-11 pr-4 bg-slate-50/50 border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 transition-all"
+                        placeholder="Type to search orders, products…"
+                        className="block w-full h-8 pl-9 pr-3 bg-zinc-100/60 border border-zinc-200/50 rounded-xl text-xs font-medium text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all duration-200"
                         value={globalSearch}
                         onChange={(e) => setGlobalSearch(e.target.value)}
                         onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
@@ -84,67 +84,57 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
                             }
                         }}
                     />
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1 opacity-40 group-focus-within:opacity-100 transition-opacity">
-                        <kbd className="h-5 px-1 border border-slate-200 bg-white rounded-md text-[9px] font-black text-slate-400 shadow-sm flex items-center justify-center">
-                            ⌘
-                        </kbd>
-                        <kbd className="h-5 px-1 border border-slate-200 bg-white rounded-md text-[9px] font-black text-slate-400 shadow-sm flex items-center justify-center">
-                            K
-                        </kbd>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1 opacity-50 group-focus-within:opacity-0 transition-opacity">
+                        <kbd className="h-4 px-1 border border-zinc-200 bg-white rounded text-[9px] text-zinc-400 font-sans font-bold">⌘K</kbd>
                     </div>
                 </div>
             </div>
 
-            <div className="flex items-center gap-4 md:gap-6 ml-6">
-                {/* Live Status Pulsar */}
-                <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 bg-emerald-50/50 border border-emerald-100 rounded-xl shadow-sm">
-                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                    <span className="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Network Live</span>
-                </div>
-
-                <div className="h-8 w-[1px] bg-slate-100 hidden md:block" />
-
-                {/* Notifications Node */}
+            {/* Right: notifications + user */}
+            <div className="flex items-center gap-3 ml-4">
+                {/* Notifications */}
                 <div className="relative" ref={notificationBoxRef}>
                     <button
                         onClick={() => { void showNotifications(); }}
-                        className="relative h-10 w-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-500 hover:bg-slate-900 hover:text-white hover:shadow-xl transition-all duration-500 group"
+                        className="relative h-8 w-8 flex items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700 transition-colors"
+                        aria-label="Notifications"
                     >
-                        <Bell className="h-4 w-4 transition-transform group-hover:rotate-12" />
+                        <Bell className="h-3.5 w-3.5" />
                         {contactNotifications.length > 0 && (
-                            <span className="absolute top-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white shadow-sm animate-bounce" />
+                            <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-rose-500 shadow-sm" />
                         )}
                     </button>
                     <AnimatePresence>
                         {notificationsOpen && (
                             <motion.div
-                                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                                initial={{ opacity: 0, y: 6, scale: 0.98 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                                className="absolute right-0 mt-2 w-[360px] max-w-[85vw] bg-white border border-slate-100 rounded-2xl shadow-2xl overflow-hidden z-[120]"
+                                exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute right-0 mt-2 w-[340px] max-w-[85vw] bg-white border border-zinc-200/50 rounded-2xl shadow-xl overflow-hidden z-[120]"
                             >
-                                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest">Contact Notifications</p>
+                                <div className="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/50">
+                                    <p className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Contact Messages</p>
                                     <button
                                         type="button"
                                         onClick={() => { void loadNotifications(); }}
-                                        className="text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:underline"
+                                        className="text-xs text-zinc-600 hover:text-zinc-950 font-bold underline underline-offset-2"
                                     >
                                         Refresh
                                     </button>
                                 </div>
-                                <div className="max-h-[360px] overflow-y-auto">
+                                <div className="max-h-[360px] overflow-y-auto custom-scrollbar">
                                     {notificationLoading ? (
-                                        <div className="px-4 py-6 text-[11px] font-bold text-slate-400">Loading...</div>
+                                        <div className="px-4 py-6 text-xs text-zinc-400 font-medium">Loading…</div>
                                     ) : contactNotifications.length === 0 ? (
-                                        <div className="px-4 py-6 text-[11px] font-bold text-slate-400">No contact messages yet.</div>
+                                        <div className="px-4 py-6 text-xs text-zinc-400 font-medium">No contact messages yet.</div>
                                     ) : (
                                         contactNotifications.map((item) => (
-                                            <div key={item.id} className="px-4 py-3 border-b border-slate-50 last:border-b-0">
-                                                <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight truncate">{item.subject}</p>
-                                                <p className="text-[10px] font-bold text-slate-500 truncate">{item.name} • {item.email}</p>
-                                                <p className="text-[10px] text-slate-600 mt-1 line-clamp-2">{item.message}</p>
-                                                <p className="text-[9px] font-bold text-slate-400 mt-1">{new Date(item.submittedAt).toLocaleString()}</p>
+                                            <div key={item.id} className="px-4 py-3 border-b border-zinc-50 last:border-b-0 hover:bg-zinc-50/50 transition-colors">
+                                                <p className="text-xs font-bold text-zinc-900 truncate">{item.subject}</p>
+                                                <p className="text-[10px] text-zinc-400 font-semibold truncate mt-0.5">{item.name} · {item.email}</p>
+                                                <p className="text-xs text-zinc-600 mt-1.5 line-clamp-2 leading-relaxed">{item.message}</p>
+                                                <p className="text-[9px] text-zinc-400 mt-1 font-semibold">{new Date(item.submittedAt).toLocaleString()}</p>
                                             </div>
                                         ))
                                     )}
@@ -154,20 +144,21 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
                     </AnimatePresence>
                 </div>
 
-                {/* User Identity Node */}
-                <button className="flex items-center gap-3 pl-1.5 pr-4 h-11 bg-white border border-slate-100 rounded-xl hover:shadow-xl transition-all duration-500 group relative overflow-hidden">
-                    <div className="absolute inset-0 bg-emerald-500/0 group-hover:bg-emerald-500/5 transition-colors" />
-                    <div className="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center text-white text-[10px] font-black shadow-lg relative z-10 transition-transform group-hover:scale-105 duration-500">
+                {/* Divider */}
+                <div className="h-5 w-px bg-zinc-200/80 hidden md:block" />
+
+                {/* User */}
+                <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-zinc-900 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm">
                         {user?.name?.charAt(0) || 'U'}
                     </div>
-                    <div className="hidden md:block text-left relative z-10">
-                        <p className="text-[10px] font-black text-slate-900 leading-tight uppercase tracking-tight">{user?.name || 'Administrator'}</p>
-                        <p className="text-[7px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-0.5 opacity-80">{user?.role?.replace('_', ' ') || 'Guest'}</p>
+                    <div className="hidden md:block text-left">
+                        <p className="text-xs font-bold text-zinc-900 leading-tight">{user?.name || 'Administrator'}</p>
+                        <p className="text-[10px] text-zinc-400 font-semibold leading-tight capitalize mt-0.5">
+                            {user?.role?.replace('_', ' ') || 'Admin'}
+                        </p>
                     </div>
-                    <div className="hidden md:block ml-1 transition-all group-hover:translate-x-0.5 duration-500">
-                        <Zap className="h-3 w-3 text-emerald-500 fill-emerald-500/10" />
-                    </div>
-                </button>
+                </div>
             </div>
         </header>
     );

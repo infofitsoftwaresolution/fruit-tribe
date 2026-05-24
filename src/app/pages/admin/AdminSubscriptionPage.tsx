@@ -69,7 +69,7 @@ export function AdminSubscriptionPage() {
 
     const resetToDefaults = () => {
         setDraft(cloneConfig(getDefaultSubscriptionPageConfig()));
-        toast.info('Form reset to factory defaults — click Save to apply.');
+        toast.info('Form reset to defaults — click Save to apply.');
     };
 
     const updatePlan = (index: number, patch: Partial<SubscriptionPlanConfig>) => {
@@ -143,60 +143,56 @@ export function AdminSubscriptionPage() {
     };
 
     return (
-        <div className="space-y-10 pb-20 max-w-5xl">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <motion.div initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Sparkles className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Subscription</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter">Subscription page</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg">
-                        Control plans, box options, delivery days, and marketing copy for the public subscription page.
-                    </p>
-                </motion.div>
-                <div className="flex flex-wrap gap-3">
+        <div className="space-y-6 pb-12 max-w-4xl">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-page-title">Subscriptions</h1>
+                    <p className="admin-page-subtitle">Configure plans, catalog box varieties, delivery, and marketing copy.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
                     <button
                         type="button"
                         onClick={() => {
                             if (!draft.enabled) {
-                                toast.info('Turn on “Show subscription page on website” below, then save, to preview.');
+                                toast.info('Turn on subscription page toggle first, then save to preview.');
                                 return;
                             }
                             const base = window.location.href.split('#')[0];
                             window.open(`${base}#/subscription`, '_blank', 'noopener,noreferrer');
                         }}
-                        className="h-12 px-5 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                        className="admin-btn-secondary"
                     >
                         <ExternalLink className="w-4 h-4" />
-                        View live page
+                        View Live Page
                     </button>
                     <button
                         type="button"
                         onClick={resetToDefaults}
-                        className="h-12 px-5 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                        className="admin-btn-secondary"
                     >
                         <RotateCcw className="w-4 h-4" />
-                        Reset form
+                        Reset Defaults
                     </button>
                     <button
                         type="button"
                         disabled={!isDirty || saving}
                         onClick={handleSave}
-                        className="h-12 px-8 rounded-2xl bg-slate-900 text-white text-sm font-black hover:bg-black disabled:opacity-40 flex items-center gap-2 shadow-xl"
+                        className="admin-btn-primary bg-emerald-600 hover:bg-emerald-700 border-none"
                     >
                         <Save className="w-4 h-4" />
-                        {saving ? 'Saving…' : 'Save'}
+                        {saving ? 'Saving...' : 'Save Changes'}
                     </button>
                 </div>
             </div>
 
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+            {/* Visibility Toggle */}
+            <div className="admin-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Storefront</p>
-                    <p className="text-lg font-black text-slate-900 mt-1">Show subscription page on website</p>
-                    <p className="text-sm text-slate-500 mt-0.5 max-w-xl">
-                        When off, customers won’t see Subscription in the nav or promos; opening /subscription sends them home.
+                    <span className="admin-section-label">Storefront Integration</span>
+                    <p className="text-base font-semibold text-slate-900 mt-0.5">Show subscription page on website</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                        When disabled, visitors will not see subscription options in navigation. Opening /subscription will redirect to the home page.
                     </p>
                 </div>
                 <button
@@ -205,102 +201,107 @@ export function AdminSubscriptionPage() {
                     aria-checked={draft.enabled}
                     onClick={() => setDraft((d) => ({ ...d, enabled: !d.enabled }))}
                     className={cn(
-                        'relative h-10 w-[4.5rem] shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50',
-                        draft.enabled ? 'bg-emerald-500' : 'bg-slate-300',
+                        'relative h-7 w-[3.5rem] shrink-0 rounded-full transition-colors focus:outline-none',
+                        draft.enabled ? 'bg-emerald-500' : 'bg-slate-200',
                     )}
                 >
                     <span
                         className={cn(
-                            'absolute top-1 left-1 h-8 w-8 rounded-full bg-white shadow transition-transform',
-                            draft.enabled ? 'translate-x-[2.15rem]' : 'translate-x-0',
+                            'absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform',
+                            draft.enabled ? 'translate-x-[1.65rem]' : 'translate-x-0',
                         )}
                     />
                 </button>
             </div>
 
-            {/* Hero */}
-            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Hero</h2>
-                <div className="grid gap-4 md:grid-cols-2">
+            {/* Hero Copy */}
+            <section className="admin-card p-5 space-y-4">
+                <h2 className="admin-section-heading">Hero Banner Copy</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
                     <Field
-                        label="Badge label"
+                        label="Promo Tagline / Badge"
                         value={draft.badgeLabel}
                         onChange={(v) => setDraft((d) => ({ ...d, badgeLabel: v }))}
                     />
                     <Field
-                        label="Hero prefix (line before gradient)"
+                        label="Headline Prefix"
                         value={draft.heroPrefix}
                         onChange={(v) => setDraft((d) => ({ ...d, heroPrefix: v }))}
                     />
-                    <Field
-                        label="Gradient headline"
-                        value={draft.heroGradientText}
-                        onChange={(v) => setDraft((d) => ({ ...d, heroGradientText: v }))}
-                    />
-                </div>
-                <div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Subtitle</label>
-                    <textarea
-                        value={draft.heroSubtitle}
-                        onChange={(e) => setDraft((d) => ({ ...d, heroSubtitle: e.target.value }))}
-                        rows={2}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                    />
+                    <div className="sm:col-span-2">
+                        <Field
+                            label="Gradient Headline Focus"
+                            value={draft.heroGradientText}
+                            onChange={(v) => setDraft((d) => ({ ...d, heroGradientText: v }))}
+                        />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="text-xs font-semibold text-slate-500 block mb-1">Sub-headline Description</label>
+                        <textarea
+                            value={draft.heroSubtitle}
+                            onChange={(e) => setDraft((d) => ({ ...d, heroSubtitle: e.target.value }))}
+                            rows={2}
+                            className="admin-input h-auto py-2"
+                        />
+                    </div>
                 </div>
             </section>
 
             {/* Plans */}
-            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 space-y-6">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Plans</h2>
+            <section className="admin-card p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 className="admin-section-heading">Subscription Plans</h2>
                     <button
                         type="button"
                         onClick={addPlan}
-                        className="text-xs font-black uppercase text-emerald-600 flex items-center gap-1 hover:underline"
+                        className="admin-btn-secondary h-8 text-xs px-2.5"
                     >
-                        <Plus className="w-4 h-4" /> Add plan
+                        <Plus className="w-3.5 h-3.5" /> 
+                        Add Plan
                     </button>
                 </div>
-                <div className="space-y-8">
+                
+                <div className="space-y-6">
                     {draft.plans.map((plan, i) => (
-                        <div key={plan.id + i} className="border border-slate-100 rounded-2xl p-6 space-y-3 bg-slate-50/50">
-                            <div className="flex justify-between items-start gap-2">
-                                <span className="text-[10px] font-black text-slate-400 uppercase">Plan {i + 1}</span>
+                        <div key={plan.id + i} className="border border-slate-100 rounded-lg p-4 space-y-3 bg-slate-50/30">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs font-semibold text-slate-400">Plan #{i + 1}</span>
                                 {draft.plans.length > 1 && (
                                     <button
                                         type="button"
                                         onClick={() => removePlan(i)}
-                                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                                        className="p-1 text-red-500 hover:bg-red-50 rounded"
                                         aria-label="Remove plan"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
                                 )}
                             </div>
-                            <div className="grid gap-3 md:grid-cols-2">
-                                <Field label="ID (internal)" value={plan.id} onChange={(v) => updatePlan(i, { id: v })} />
-                                <Field label="Name" value={plan.name} onChange={(v) => updatePlan(i, { name: v })} />
+                            
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <Field label="Plan ID (Internal)" value={plan.id} onChange={(v) => updatePlan(i, { id: v })} />
+                                <Field label="Plan Name" value={plan.name} onChange={(v) => updatePlan(i, { name: v })} />
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Price (INR)</label>
+                                    <label className="text-xs font-semibold text-slate-500 block mb-1">Price (₹)</label>
                                     <input
                                         type="number"
                                         min={0}
                                         value={plan.price}
                                         onChange={(e) => updatePlan(i, { price: Number(e.target.value) || 0 })}
-                                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                                        className="admin-input"
                                     />
                                 </div>
                                 <Field
-                                    label='Period label (e.g. "per week")'
+                                    label="Period Label (e.g. per month)"
                                     value={plan.period}
                                     onChange={(v) => updatePlan(i, { period: v })}
                                 />
                                 <div>
-                                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Billing frequency</label>
+                                    <label className="text-xs font-semibold text-slate-500 block mb-1">Billing Frequency</label>
                                     <select
                                         value={plan.frequency}
                                         onChange={(e) => updatePlan(i, { frequency: e.target.value as SubscriptionFrequency })}
-                                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
+                                        className="admin-select w-full"
                                     >
                                         {FREQUENCIES.map((f) => (
                                             <option key={f} value={f}>
@@ -309,23 +310,27 @@ export function AdminSubscriptionPage() {
                                         ))}
                                     </select>
                                 </div>
-                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer md:col-span-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={plan.popular}
-                                        onChange={(e) => updatePlan(i, { popular: e.target.checked })}
-                                        className="rounded border-slate-300 text-emerald-600"
-                                    />
-                                    Highlight as “Tribe Favorite”
-                                </label>
+                                <div className="sm:col-span-2 flex items-center pt-2">
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={plan.popular}
+                                            onChange={(e) => updatePlan(i, { popular: e.target.checked })}
+                                            className="rounded border-slate-350 text-emerald-600 focus:ring-emerald-500/20"
+                                        />
+                                        Highlight Plan (Tribe Favorite Badge)
+                                    </label>
+                                </div>
                             </div>
+                            
                             <Field
-                                label="Short description"
+                                label="Short Summary"
                                 value={plan.description}
                                 onChange={(v) => updatePlan(i, { description: v })}
                             />
+                            
                             <div>
-                                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Features (one per line)</label>
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Plan Features (One per line)</label>
                                 <textarea
                                     value={plan.features.join('\n')}
                                     onChange={(e) =>
@@ -333,8 +338,8 @@ export function AdminSubscriptionPage() {
                                             features: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean),
                                         })
                                     }
-                                    rows={4}
-                                    className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-mono"
+                                    rows={3}
+                                    className="admin-input h-auto py-2 font-mono text-xs"
                                 />
                             </div>
                         </div>
@@ -342,27 +347,33 @@ export function AdminSubscriptionPage() {
                 </div>
             </section>
 
-            {/* Fruits */}
-            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Box varieties</h2>
-                    <button type="button" onClick={addFruit} className="text-xs font-black uppercase text-emerald-600 flex items-center gap-1">
-                        <Plus className="w-4 h-4" /> Add variety
+            {/* Box Varieties */}
+            <section className="admin-card p-5 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 className="admin-section-heading">Box Fruit Varieties</h2>
+                    <button 
+                        type="button" 
+                        onClick={addFruit} 
+                        className="admin-btn-secondary h-8 text-xs px-2.5"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> 
+                        Add Variety
                     </button>
                 </div>
+                
                 <div className="space-y-2">
                     {draft.fruits.map((f, i) => (
-                        <div key={i} className="flex flex-wrap gap-2 items-center p-3 rounded-xl border border-slate-100">
+                        <div key={i} className="flex gap-2 items-center p-2 rounded-lg border border-slate-100 bg-slate-50/50">
                             <input
                                 value={f.name}
                                 onChange={(e) => updateFruit(i, { name: e.target.value })}
-                                className="flex-1 min-w-[140px] rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                placeholder="Name"
+                                className="admin-input flex-1 min-w-[120px] h-8 text-xs"
+                                placeholder="Variety Name"
                             />
                             <input
                                 value={f.category}
                                 onChange={(e) => updateFruit(i, { category: e.target.value })}
-                                className="w-32 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                                className="admin-input w-28 h-8 text-xs"
                                 placeholder="Category"
                             />
                             <input
@@ -371,10 +382,14 @@ export function AdminSubscriptionPage() {
                                 max={100}
                                 value={f.score}
                                 onChange={(e) => updateFruit(i, { score: Number(e.target.value) || 0 })}
-                                className="w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                                title="Freshness score"
+                                className="admin-input w-20 h-8 text-xs"
+                                title="Freshness Score"
                             />
-                            <button type="button" onClick={() => removeFruit(i)} className="p-2 text-red-500 ml-auto">
+                            <button 
+                                type="button" 
+                                onClick={() => removeFruit(i)} 
+                                className="p-1.5 hover:bg-slate-200 rounded text-red-500"
+                            >
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         </div>
@@ -382,84 +397,90 @@ export function AdminSubscriptionPage() {
                 </div>
             </section>
 
-            {/* Modal copy + delivery days */}
-            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Customize modal & delivery</h2>
-                <Field
-                    label="Eyebrow"
-                    value={draft.customizeEyebrow}
-                    onChange={(v) => setDraft((d) => ({ ...d, customizeEyebrow: v }))}
-                />
-                <Field
-                    label="Modal title"
-                    value={draft.customizeTitle}
-                    onChange={(v) => setDraft((d) => ({ ...d, customizeTitle: v }))}
-                />
-                <div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Modal subtitle</label>
-                    <textarea
-                        value={draft.customizeSubtitle}
-                        onChange={(e) => setDraft((d) => ({ ...d, customizeSubtitle: e.target.value }))}
-                        rows={3}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
+            {/* Modal Customizations & Delivery */}
+            <section className="admin-card p-5 space-y-4">
+                <h2 className="admin-section-heading">Checkout Modal & Schedule</h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                        label="Modal Eyebrow Tag"
+                        value={draft.customizeEyebrow}
+                        onChange={(v) => setDraft((d) => ({ ...d, customizeEyebrow: v }))}
                     />
-                </div>
-                <div>
-                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Delivery days (comma-separated)</label>
-                    <input
-                        value={deliveryDaysString}
-                        onChange={(e) => setDeliveryDaysFromInput(e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                        placeholder="Monday, Wednesday, Friday"
+                    <Field
+                        label="Modal Headline Title"
+                        value={draft.customizeTitle}
+                        onChange={(v) => setDraft((d) => ({ ...d, customizeTitle: v }))}
                     />
+                    <div className="sm:col-span-2">
+                        <label className="text-xs font-semibold text-slate-500 block mb-1">Modal Subtitle Description</label>
+                        <textarea
+                            value={draft.customizeSubtitle}
+                            onChange={(e) => setDraft((d) => ({ ...d, customizeSubtitle: e.target.value }))}
+                            rows={2}
+                            className="admin-input h-auto py-2"
+                        />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <label className="text-xs font-semibold text-slate-500 block mb-1">Available Delivery Days (comma-separated)</label>
+                        <input
+                            value={deliveryDaysString}
+                            onChange={(e) => setDeliveryDaysFromInput(e.target.value)}
+                            className="admin-input"
+                            placeholder="Monday, Wednesday, Friday"
+                        />
+                    </div>
                 </div>
             </section>
 
-            {/* Benefits */}
-            <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 space-y-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-slate-400">Bottom benefits (3 cards)</h2>
-                {draft.benefits.map((b, i) => (
-                    <div key={i} className="grid gap-3 md:grid-cols-2 p-4 border border-slate-100 rounded-xl">
-                        <div>
-                            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Icon</label>
-                            <select
-                                value={b.icon}
-                                onChange={(e) => updateBenefit(i, { icon: e.target.value as SubscriptionBenefitConfig['icon'] })}
-                                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
-                            >
-                                {BENEFIT_ICONS.map((ic) => (
-                                    <option key={ic} value={ic}>
-                                        {ic}
-                                    </option>
-                                ))}
-                            </select>
+            {/* Benefits Marketing */}
+            <section className="admin-card p-5 space-y-4">
+                <h2 className="admin-section-heading">Feature/Benefits Marketing Cards (3 Slots)</h2>
+                <div className="space-y-4">
+                    {draft.benefits.map((b, i) => (
+                        <div key={i} className="grid gap-3 sm:grid-cols-2 p-4 border border-slate-100 rounded-lg bg-slate-50/20">
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Icon Representation</label>
+                                <select
+                                    value={b.icon}
+                                    onChange={(e) => updateBenefit(i, { icon: e.target.value as SubscriptionBenefitConfig['icon'] })}
+                                    className="admin-select w-full"
+                                >
+                                    {BENEFIT_ICONS.map((ic) => (
+                                        <option key={ic} value={ic}>
+                                            {ic}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Visual Theme / Color</label>
+                                <select
+                                    value={b.color}
+                                    onChange={(e) => updateBenefit(i, { color: e.target.value as SubscriptionBenefitConfig['color'] })}
+                                    className="admin-select w-full"
+                                >
+                                    {BENEFIT_COLORS.map((c) => (
+                                        <option key={c} value={c}>
+                                            {c}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <Field label="Benefit Title" value={b.title} onChange={(v) => updateBenefit(i, { title: v })} />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Benefit Description</label>
+                                <textarea
+                                    value={b.desc}
+                                    onChange={(e) => updateBenefit(i, { desc: e.target.value })}
+                                    rows={2}
+                                    className="admin-input h-auto py-2"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Color</label>
-                            <select
-                                value={b.color}
-                                onChange={(e) => updateBenefit(i, { color: e.target.value as SubscriptionBenefitConfig['color'] })}
-                                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white"
-                            >
-                                {BENEFIT_COLORS.map((c) => (
-                                    <option key={c} value={c}>
-                                        {c}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <Field label="Title" value={b.title} onChange={(v) => updateBenefit(i, { title: v })} />
-                        <div className="md:col-span-2">
-                            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Description</label>
-                            <textarea
-                                value={b.desc}
-                                onChange={(e) => updateBenefit(i, { desc: e.target.value })}
-                                rows={2}
-                                className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                            />
-                        </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </section>
         </div>
     );
@@ -475,13 +496,14 @@ function Field({
     onChange: (v: string) => void;
 }) {
     return (
-        <div>
-            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">{label}</label>
+        <div className="space-y-1">
+            <label className="text-xs font-semibold text-slate-500 block">{label}</label>
             <input
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm"
+                className="admin-input"
             />
         </div>
     );
 }
+

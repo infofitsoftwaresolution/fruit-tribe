@@ -556,6 +556,7 @@ export function AdminProductsPage() {
             let variantsPayload = normalizedVariants;
             if (normalizedVariants.length === 0) {
                 variantsPayload = [{
+                    id: undefined,
                     sku: formData.sku || `${skuSeed}-1`,
                     attributeValue: 'Default',
                     isBulkVariant: false,
@@ -706,36 +707,21 @@ export function AdminProductsPage() {
     };
 
     return (
-        <div className="space-y-12 pb-20 font-sans relative">
-            {/* Header with improved typography and layout */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                >
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                            <ShoppingBag className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.25em] opacity-80">Catalog Control</span>
-                    </div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter font-heading">
-                        Products & Inventory
-                    </h1>
-                    <p className="text-slate-500 text-sm mt-3 max-w-xl leading-relaxed font-medium">
-                        Manage your digital orchard's assets, monitor stock levels, and coordinate vendor supplies with surgical precision.
-                    </p>
-                </motion.div>
-
-                <div className="flex items-center gap-4">
+        <div className="space-y-6 pb-20 font-sans relative">
+            {/* Page header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-panel-page-title">Products &amp; Inventory</h1>
+                    <p className="admin-panel-page-subtitle">Manage your catalog, stock levels, and vendor products</p>
+                </div>
+                <div className="flex items-center gap-3">
                     <button
                         type="button"
                         onClick={handleExportProductsCsv}
-                        className="h-11 px-5 bg-white border border-slate-100 rounded-xl text-[9px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 hover:shadow-lg transition-all duration-500 flex items-center gap-2"
+                        className="admin-panel-btn-secondary h-9 px-4 rounded-xl text-xs font-bold"
                     >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Export CSV</span>
+                        <Download className="w-4 h-4" />
+                        Export CSV
                     </button>
                     <button
                         onClick={() => {
@@ -754,10 +740,10 @@ export function AdminProductsPage() {
                             });
                             setIsModalOpen(true);
                         }}
-                        className="h-11 px-6 bg-slate-900 border border-slate-800 rounded-xl text-white hover:bg-emerald-600 hover:border-emerald-500 hover:shadow-lg transition-all duration-500 flex items-center gap-2 group"
+                        className="admin-panel-btn-primary h-9 px-4 rounded-xl text-xs font-bold"
                     >
-                        <Plus className="h-4 w-4 group-hover:rotate-90 transition-transform duration-500" />
-                        <span className="text-[9px] font-black uppercase tracking-widest">Add Product</span>
+                        <Plus className="h-4 w-4" />
+                        Add Product
                     </button>
                 </div>
             </div>
@@ -777,41 +763,41 @@ export function AdminProductsPage() {
                         key={stat.label + i}
                         onClick={() => setInventoryFilter(stat.id)}
                         className={cn(
-                            "bg-white p-6 rounded-3xl border shadow-sm relative overflow-hidden group transition-all cursor-pointer hover:shadow-xl",
+                            "bg-white p-6 rounded-2xl border shadow-sm relative overflow-hidden group transition-all cursor-pointer hover:shadow-md",
                             inventoryFilter === stat.id
                                 ? cn(
-                                    "ring-[8px] ring-emerald-500/5 shadow-lg scale-[1.01]",
-                                    stat.color === 'emerald' && "border-emerald-500/50",
-                                    stat.color === 'orange' && "border-orange-500/50",
-                                    stat.color === 'blue' && "border-blue-500/50",
-                                    stat.color === 'red' && "border-red-500/50",
+                                    "ring-4 ring-zinc-900/5 shadow-md scale-[1.01]",
+                                    stat.color === 'emerald' && "border-emerald-500/55 border-2",
+                                    stat.color === 'orange' && "border-amber-500/55 border-2",
+                                    stat.color === 'blue' && "border-blue-500/55 border-2",
+                                    stat.color === 'red' && "border-red-500/55 border-2",
                                 )
-                                : "border-slate-100 hover:border-slate-200"
+                                : "border-zinc-200/50 hover:border-zinc-300"
                         )}
                     >
                         <div className="relative z-10">
                             <div className={cn(
-                                "h-11 w-11 rounded-xl flex items-center justify-center mb-6 border transition-all duration-700 group-hover:scale-110 shadow-lg", 
-                                stat.color === 'emerald' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                                stat.color === 'orange' ? "bg-orange-50 text-orange-600 border-orange-100" :
-                                stat.color === 'blue' ? "bg-blue-50 text-blue-600 border-blue-100" :
-                                "bg-red-50 text-red-600 border-red-100"
+                                "h-9 w-9 rounded-xl flex items-center justify-center mb-4 border transition-all duration-300 group-hover:scale-105", 
+                                stat.color === 'emerald' ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/15" :
+                                stat.color === 'orange' ? "bg-amber-500/10 text-amber-700 border-amber-500/15" :
+                                stat.color === 'blue' ? "bg-blue-500/10 text-blue-700 border-blue-500/15" :
+                                "bg-red-500/10 text-red-700 border-red-500/15"
                             )}>
-                                <stat.icon className="w-5 h-5" />
+                                <stat.icon className="w-4 h-4" />
                             </div>
-                            <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1.5 leading-none font-heading group-hover:translate-x-1 transition-transform">{stat.value}</p>
-                            <div className="flex items-center justify-between">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                                <span className="text-[8px] font-black text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest">{stat.sub}</span>
+                            <p className="text-3xl font-bold text-zinc-900 mb-1 leading-none tracking-tight group-hover:translate-x-0.5 transition-transform">{stat.value}</p>
+                            <div className="flex items-center justify-between mt-1">
+                                <p className="text-xs font-semibold text-zinc-500">{stat.label}</p>
+                                <span className="text-[10px] font-bold text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-wider">{stat.sub}</span>
                             </div>
                         </div>
                         
                         {/* Status Light */}
                         <div className={cn(
-                            "absolute top-8 right-8 h-2 w-2 rounded-full",
+                            "absolute top-5 right-5 h-1.5 w-1.5 rounded-full",
                             inventoryFilter === stat.id ? "animate-ping opacity-100" : "opacity-0",
                             stat.color === 'emerald' ? "bg-emerald-500" :
-                            stat.color === 'orange' ? "bg-orange-500" :
+                            stat.color === 'orange' ? "bg-amber-500" :
                             stat.color === 'blue' ? "bg-blue-500" :
                             "bg-red-500"
                         )} />
@@ -819,19 +805,19 @@ export function AdminProductsPage() {
                 ))}
             </div>
 
-            {/* Main Discovery Interface */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden">
-                <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/30">
-                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar max-w-full">
+            {/* Main table */}
+            <div className="admin-panel-card">
+                <div className="p-4 md:p-6 border-b border-zinc-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-xl border border-zinc-200/50 overflow-x-auto no-scrollbar">
                         {['All', ...categories.map(c => c.name)].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                    "px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all duration-150 whitespace-nowrap",
                                     activeCategory === cat
-                                        ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                                        : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                                        ? "bg-white text-zinc-900 shadow-sm"
+                                        : "text-zinc-500 hover:text-zinc-700"
                                 )}
                             >
                                 {cat}
@@ -839,43 +825,41 @@ export function AdminProductsPage() {
                         ))}
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 items-center flex-1 xl:max-w-2xl">
-                        <div className="relative group flex-1 w-full">
-                            <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
-                                <Search className="h-3.5 w-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
-                            </div>
+                    <div className="flex items-center gap-2 flex-1 max-w-xl">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
                             <input
                                 type="text"
-                                placeholder="Search by SKU, Name, or Vendor..."
-                                className="w-full h-11 pl-12 pr-4 bg-white border border-slate-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-900 placeholder-slate-400 focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 outline-none transition-all shadow-inner"
+                                placeholder="Search by SKU, name, or vendor…"
+                                className="admin-panel-input pl-10 h-10"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
                         <button
                             onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                            className="h-11 px-5 rounded-xl bg-white border border-slate-100 flex items-center gap-3 text-[9px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm group"
+                            className="admin-panel-btn-secondary h-10 px-4 rounded-xl text-xs font-bold"
                         >
-                            <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-400 transition-colors" />
-                            <span>Price {sortOrder === 'asc' ? 'Low-High' : 'High-Low'}</span>
+                            <ArrowUpDown className="w-3.5 h-3.5" />
+                            Price {sortOrder === 'asc' ? '↑' : '↓'}
                         </button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[500px]">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left">
                         <thead>
-                            <tr className="border-b border-slate-50 bg-slate-50/20">
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Asset Detail</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Categorization</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Inventory Depth</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Cycle Status</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valuation</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Market Status</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Management</th>
+                            <tr className="border-b border-zinc-200/50 bg-zinc-50/50">
+                                <th className="admin-panel-th">Product</th>
+                                <th className="admin-panel-th">Category</th>
+                                <th className="admin-panel-th text-right">Stock</th>
+                                <th className="admin-panel-th text-right">Season / Expiry</th>
+                                <th className="admin-panel-th text-right">Price</th>
+                                <th className="admin-panel-th text-center">Status</th>
+                                <th className="admin-panel-th text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-zinc-100">
                             {adminDataLoading && products.length === 0 ? (
                                 <AdminTableSkeletonRows rows={12} cols={7} />
                             ) : (
@@ -896,57 +880,55 @@ export function AdminProductsPage() {
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, scale: 0.98 }}
                                             transition={{ delay: Math.min(idx * 0.03, 0.5) }}
-                                            className="group hover:bg-slate-50/50 transition-all cursor-default"
+                                            className="admin-panel-tr cursor-default"
                                         >
-                                            <td className="px-10 py-10">
-                                                <div className="flex items-center gap-6">
-                                                    <div className="h-20 w-20 rounded-[2.5rem] bg-slate-100 overflow-hidden shadow-xl border border-slate-100 group-hover:scale-105 transition-transform duration-700 relative flex-shrink-0">
+                                            <td className="admin-panel-td">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-10 w-10 rounded-xl bg-zinc-100 overflow-hidden border border-zinc-250/40 relative flex-shrink-0">
                                                         <img
                                                             src={product.image}
-                                                            className="w-full h-full object-cover group-hover:rotate-3 transition-transform duration-700"
+                                                            className="w-full h-full object-cover animate-gradient"
                                                             alt={product.name}
                                                         />
                                                         {product.isOrganic && (
-                                                            <div className="absolute top-2 right-2 h-6 w-6 bg-emerald-500 rounded-xl flex items-center justify-center border-2 border-white shadow-lg">
-                                                                <Zap className="h-3 w-3 text-white fill-white" />
+                                                            <div className="absolute top-0.5 right-0.5 h-3.5 w-3.5 bg-emerald-500 rounded-full flex items-center justify-center border border-white shadow-sm">
+                                                                <Zap className="h-2 w-2 text-white fill-white" />
                                                             </div>
                                                         )}
                                                     </div>
                                                     <div className="flex flex-col min-w-0">
-                                                        <span className="text-base font-black text-slate-900 uppercase tracking-tight group-hover:text-emerald-600 transition-colors truncate max-w-[240px] font-heading">{product.name}</span>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <div className="h-4 w-4 rounded-md bg-slate-100 flex items-center justify-center">
-                                                                <Store className="h-2.5 w-2.5 text-slate-400" />
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest truncate">
+                                                        <span className="text-sm font-semibold text-zinc-900 truncate max-w-[200px]">{product.name}</span>
+                                                        <div className="flex items-center gap-1 mt-0.5">
+                                                            <Store className="h-3 w-3 text-zinc-400" />
+                                                            <span className="text-xs text-zinc-500 truncate max-w-[120px] font-medium">
                                                                 {product.vendor}
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10">
-                                                <div className="flex flex-col gap-2">
-                                                    <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-[10px] font-black text-slate-900 uppercase tracking-widest w-fit border border-slate-100">
+                                            <td className="admin-panel-td">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className="admin-panel-badge-zinc text-[10px] w-fit">
                                                         {product.category}
                                                     </span>
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">SKU: {product.sku}</span>
+                                                    <span className="text-xs text-zinc-450 font-semibold">SKU: {product.sku}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10 text-right">
+                                            <td className="admin-panel-td text-right">
                                                 <div className="flex flex-col items-end">
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2">
                                                         <span className={cn(
-                                                            "text-base font-black tracking-tighter font-heading",
-                                                            (product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) ? 'text-red-600' : 'text-slate-900'
+                                                            "text-sm font-bold tracking-tight",
+                                                            (product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) ? 'text-red-600' : 'text-zinc-900'
                                                         )}>
-                                                            {product.availableStock ?? product.stock} <span className="text-[10px] uppercase text-slate-400 ml-1">{product.unit}s</span>
+                                                            {product.availableStock ?? product.stock} <span className="text-xs text-zinc-400 ml-0.5 font-medium">{product.unit}s</span>
                                                         </span>
                                                         {(product.availableStock ?? product.stock) <= (product.lowStockThreshold ?? 5) && (
-                                                            <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.8)]" />
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
                                                         )}
                                                     </div>
-                                                    <div className="mt-2 w-24 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="mt-1 w-20 h-1 bg-zinc-100 rounded-full overflow-hidden">
                                                         <motion.div 
                                                             initial={{ width: 0 }}
                                                             animate={{ width: `${Math.min(100, ((product.availableStock ?? product.stock) / (product.stock || 1)) * 100)}%` }}
@@ -956,98 +938,87 @@ export function AdminProductsPage() {
                                                             )} 
                                                         />
                                                     </div>
-                                                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">
-                                                        Reserved: {product.reservedStock ?? 0} Units
+                                                    <span className="text-xs text-zinc-400 mt-1 font-medium">
+                                                        Reserved: {product.reservedStock ?? 0}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10 text-right">
+                                            <td className="admin-panel-td text-right">
                                                 <div className="flex flex-col items-end">
                                                     {!product.isSeasonal ? (
-                                                        <span className={cn(
-                                                            "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                                                            isExpired ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                                        )}>
-                                                            <div className={cn("h-1.5 w-1.5 rounded-full", isExpired ? 'bg-red-500' : 'bg-emerald-500')} />
+                                                        <span className={isExpired ? 'admin-panel-badge-red' : 'admin-panel-badge-emerald'}>
+                                                            <span className={cn("h-1.5 w-1.5 rounded-full shadow-[0_0_6px_rgba(0,0,0,0.15)]", isExpired ? 'bg-red-500 shadow-red-500/40' : 'bg-emerald-500 shadow-emerald-500/40')} />
                                                             {isExpired ? 'Expired' : 'Stable Supply'}
                                                         </span>
                                                     ) : (() => {
                                                         const now = new Date();
                                                         const start = product.seasonalStart ? new Date(product.seasonalStart) : null;
                                                         const end = product.seasonalEnd ? new Date(product.seasonalEnd) : null;
-                                                        // Keep seasonal state consistent with backend filtering:
-                                                        // if either boundary is missing, treat window as open-ended.
                                                         const afterStart = !start || now >= start;
                                                         const beforeEnd = !end || now <= end;
                                                         const isInSeason = afterStart && beforeEnd;
                                                         if (isExpired) {
                                                             return (
-                                                                <span className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border bg-red-50 text-red-700 border-red-100">
-                                                                    <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                                <span className="admin-panel-badge-red">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-red-500 shadow-red-500/40" />
                                                                     Expired
                                                                 </span>
                                                             );
                                                         }
                                                         return (
-                                                            <span className={cn(
-                                                                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border",
-                                                                isInSeason ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-slate-50 text-slate-700 border-slate-200'
-                                                            )}>
-                                                                <div className={cn("h-1.5 w-1.5 rounded-full", isInSeason ? 'bg-blue-500 animate-pulse' : 'bg-slate-500')} />
+                                                            <span className={isInSeason ? 'admin-panel-badge-blue' : 'admin-panel-badge-zinc'}>
+                                                                <span className={cn("h-1.5 w-1.5 rounded-full shadow-[0_0_6px_rgba(0,0,0,0.15)]", isInSeason ? 'bg-blue-500 shadow-blue-500/40 animate-pulse' : 'bg-zinc-550')} />
                                                                 {isInSeason ? 'In Peak Season' : 'Seasonal'}
                                                             </span>
                                                         );
                                                     })()}
                                                     {product.expiryDate && (
                                                         <span className={cn(
-                                                            "text-[9px] font-black uppercase tracking-[0.15em] mt-3 italic flex items-center gap-1.5",
-                                                            isExpired || (daysToExpiry != null && daysToExpiry < 3) ? 'text-red-500' : 'text-slate-400'
+                                                            "text-[11px] mt-1.5 flex items-center gap-1 font-semibold",
+                                                            isExpired || (daysToExpiry != null && daysToExpiry < 3) ? 'text-red-500' : 'text-zinc-400'
                                                         )}>
-                                                            <AlertCircle className="h-3 w-3" />
-                                                            {isExpired ? 'Expired' : `${daysToExpiry}d till expiration`}
+                                                            <AlertCircle className="h-3.5 w-3.5" />
+                                                            {isExpired ? 'Expired' : `${daysToExpiry}d left`}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10 text-right">
+                                            <td className="admin-panel-td text-right">
                                                 <div className="flex flex-col items-end">
                                                     {product.discountPrice ? (
-                                                        <div className="flex flex-col items-end gap-1">
-                                                            <span className="text-xl font-black text-emerald-600 tracking-tighter leading-none font-heading">₹{product.discountPrice}</span>
-                                                            <span className="text-[11px] line-through text-slate-300 font-black uppercase tracking-widest">₹{product.price}</span>
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-sm font-bold text-emerald-600 tracking-tight">₹{product.discountPrice}</span>
+                                                            <span className="text-xs line-through text-zinc-300 mt-0.5 font-medium">₹{product.price}</span>
                                                         </div>
                                                     ) : (
-                                                        <span className="text-xl font-black text-slate-900 tracking-tighter leading-none font-heading">₹{product.price}</span>
+                                                        <span className="text-sm font-bold text-zinc-900 tracking-tight">₹{product.price}</span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10">
+                                            <td className="admin-panel-td">
                                                 <div className="flex justify-center">
                                                     <span className={cn(
-                                                        "px-5 py-2.5 rounded-2xl border text-[10px] font-black uppercase tracking-[0.2em] transition-all",
-                                                        isMarketActive
-                                                            ? 'bg-white text-emerald-700 border-emerald-100 shadow-sm' 
-                                                            : isExpired
-                                                                ? 'bg-red-50 text-red-700 border-red-100'
-                                                                : 'bg-slate-50 text-slate-400 border-slate-200'
+                                                        isMarketActive ? 'admin-panel-badge-emerald' : isExpired ? 'admin-panel-badge-red' : 'admin-panel-badge-zinc'
                                                     )}>
                                                         {marketStatusLabel}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="px-10 py-10 text-center">
-                                                <div className="flex items-center justify-center gap-4">
+                                            <td className="admin-panel-td text-center">
+                                                <div className="flex items-center justify-center gap-2">
                                                     <button
                                                         onClick={() => handleOpenEditModal(product)}
-                                                        className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl hover:shadow-slate-900/20 transition-all duration-500 group"
+                                                        className="h-8 w-8 flex items-center justify-center bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm"
+                                                        title="Edit"
                                                     >
-                                                        <Edit2 className="w-5 h-5 transition-transform group-hover:scale-110" />
+                                                        <Edit2 className="w-4 h-4" />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteProduct(product.id, product.name)}
-                                                        className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-red-500 hover:text-white hover:border-red-500 hover:shadow-2xl hover:shadow-red-500/20 transition-all duration-500 group"
+                                                        className="h-8 w-8 flex items-center justify-center bg-white border border-zinc-200 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 transition-all shadow-sm"
+                                                        title="Delete"
                                                     >
-                                                        <Trash2 className="w-5 h-5 transition-transform group-hover:scale-110" />
+                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </div>
                                             </td>
@@ -1066,11 +1037,11 @@ export function AdminProductsPage() {
                             animate={{ opacity: 1 }}
                             className="py-40 text-center"
                         >
-                            <div className="h-24 w-24 rounded-[3rem] bg-slate-50 flex items-center justify-center mx-auto mb-8 border border-dashed border-slate-200">
-                                <ShoppingBag className="w-10 h-10 text-slate-200" />
+                            <div className="h-20 w-20 rounded-2xl bg-zinc-50 flex items-center justify-center mx-auto mb-6 border border-dashed border-zinc-200/50">
+                                <ShoppingBag className="w-8 h-8 text-zinc-350" />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter font-heading">No assets match.</h3>
-                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-4 max-w-xs mx-auto opacity-60">Adjust your categorization or filters <br />to refine the results.</p>
+                            <h3 className="text-base font-bold text-zinc-900 tracking-tight">No assets match.</h3>
+                            <p className="text-zinc-400 text-xs font-semibold mt-1 max-w-xs mx-auto">Adjust your categorization or filters <br />to refine the results.</p>
                         </motion.div>
                     )}
                 </div>
@@ -1095,40 +1066,37 @@ export function AdminProductsPage() {
                             className="relative h-full w-full max-w-3xl bg-white shadow-[0_0_80px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden"
                         >
                             {/* Sheet Header: Premium Glass Backdrop */}
-                            <div className="p-12 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between relative overflow-hidden">
+                            <div className="px-8 py-5 bg-zinc-50 border-b border-zinc-200/50 flex items-center justify-between relative overflow-hidden shrink-0">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
                                 <div className="relative z-10">
-                                    <div className="flex items-center gap-4 mb-3">
-                                        <div className="h-12 w-12 bg-slate-900 rounded-[1.25rem] flex items-center justify-center shadow-2xl shadow-slate-900/20">
-                                            <Package className="w-6 h-6 text-emerald-400" />
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 bg-zinc-900 rounded-xl flex items-center justify-center shadow-md">
+                                            <Package className="w-5 h-5 text-emerald-400" />
                                         </div>
                                         <div>
-                                            <h2 className="text-3xl font-black text-slate-900 tracking-tighter font-heading">
+                                            <h2 className="text-lg font-bold tracking-tight text-zinc-900">
                                                 {editingProduct ? 'Update Asset' : 'New Catalog Entry'}
                                             </h2>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Matrix ID: {editingProduct?.id || 'Pending...'}</p>
                                         </div>
                                     </div>
                                 </div>
                                 <button 
                                     onClick={() => setIsModalOpen(false)} 
-                                    className="relative z-10 h-14 w-14 flex items-center justify-center bg-white border border-slate-200 rounded-[1.5rem] text-slate-300 hover:text-red-500 hover:border-red-100 hover:shadow-2xl transition-all duration-500"
+                                    className="relative z-10 h-10 w-10 flex items-center justify-center bg-white border border-zinc-200 rounded-xl text-zinc-400 hover:text-zinc-700 hover:border-zinc-300 transition-colors"
                                 >
-                                    <X className="h-6 w-6" />
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
 
                             <form onSubmit={handleSubmitProduct} className="flex-1 flex flex-col overflow-hidden">
-                                <div className="flex-1 overflow-y-auto p-12 space-y-16 custom-scrollbar bg-white relative">
+                                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar bg-white relative">
                                     {/* Section 1: Basic Details */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                                                <Zap className="w-4 h-4 text-emerald-500" />
-                                            </div>
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Identity & Valuation</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                            <Zap className="w-4 h-4 text-zinc-500" />
+                                            <h3 className="text-sm font-semibold text-zinc-900">Identity & Valuation</h3>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-8">
+                                        <div className="grid grid-cols-1 gap-6">
                                             <FormInput
                                                 label="Product Designation"
                                                 value={formData.name}
@@ -1136,7 +1104,7 @@ export function AdminProductsPage() {
                                                 placeholder="e.g. Premium Alphonso Mango"
                                                 required
                                             />
-                                            <div className="grid grid-cols-2 gap-8">
+                                            <div className="grid grid-cols-2 gap-6">
                                                 <FormInput
                                                     label="Base Value (₹)"
                                                     type="number"
@@ -1157,14 +1125,12 @@ export function AdminProductsPage() {
                                     </div>
 
                                     {/* Section 2: Stock & Category */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                                                <Activity className="w-4 h-4 text-blue-500" />
-                                            </div>
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Logistics & Categorization</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                            <Activity className="w-4 h-4 text-zinc-500" />
+                                            <h3 className="text-sm font-semibold text-zinc-900">Logistics & Categorization</h3>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-8">
+                                        <div className="grid grid-cols-3 gap-6">
                                             <FormInput
                                                 label="Total Units"
                                                 type="number"
@@ -1200,24 +1166,24 @@ export function AdminProductsPage() {
                                                 ]}
                                             />
                                         </div>
-                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 p-4 bg-slate-50 border border-slate-100 rounded-2xl">
+                                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 p-3 bg-zinc-55/60 border border-zinc-200 rounded-xl items-center">
                                             <input
                                                 value={newCategoryName}
                                                 onChange={(e) => setNewCategoryName(e.target.value)}
                                                 placeholder="Create new category (e.g. Dry Fruits)"
-                                                className="h-11 px-4 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400"
+                                                className="h-10 px-3.5 rounded-lg border border-zinc-200 bg-white text-zinc-900 text-xs focus:outline-none focus:ring-2 focus:ring-zinc-950/5 focus:border-zinc-800 transition-all"
                                             />
                                             <button
                                                 type="button"
                                                 onClick={handleCreateCategory}
                                                 disabled={isCreatingCategory}
-                                                className="h-11 px-4 rounded-xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                                className="admin-panel-btn-primary h-10 px-4 rounded-lg text-xs font-semibold"
                                             >
                                                 {isCreatingCategory ? 'Creating…' : 'Create category'}
                                             </button>
                                         </div>
                                         {!isSeller && (
-                                            <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                                            <div className="p-5 bg-zinc-50/30 border border-zinc-200/50 rounded-xl">
                                                 <FormSelect
                                                     label={editingProduct ? 'Assigned Vendor' : 'Assigned Vendor — required'}
                                                     value={formData.sellerId}
@@ -1227,7 +1193,7 @@ export function AdminProductsPage() {
                                                         ...sellers.map(s => ({ label: s.storeName, value: s.id }))
                                                     ]}
                                                 />
-                                                <p className="mt-4 text-[9px] font-black text-slate-400 uppercase tracking-widest leading-loose">
+                                                <p className="mt-2.5 text-xs text-zinc-400 font-normal">
                                                     Merchant ownership determines storefront visibility and order fulfillment pipeline.
                                                 </p>
                                             </div>
@@ -1235,13 +1201,13 @@ export function AdminProductsPage() {
                                     </div>
 
                                     {/* Section 3: Attributes */}
-                                    <div className="grid grid-cols-2 gap-12">
-                                        <div className="space-y-8">
-                                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                                                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                                                Safety & Type
-                                            </h3>
-                                            <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                                <ShieldCheck className="w-4 h-4 text-zinc-500" />
+                                                <h3 className="text-sm font-semibold text-zinc-900">Safety & Type</h3>
+                                            </div>
+                                            <div className="space-y-3.5">
                                                 <ToggleItem
                                                     label="Certified Organic"
                                                     checked={formData.isOrganic}
@@ -1274,45 +1240,45 @@ export function AdminProductsPage() {
                                                 />
                                             </div>
                                         </div>
-                                        <div className="space-y-8">
-                                            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-3">
-                                                <Binary className="w-4 h-4 text-indigo-500" />
-                                                Quality Matrix
-                                            </h3>
-                                            <FormSelect
-                                                label="Yield Grade"
-                                                value={formData.grade}
-                                                onChange={(v: string) => setFormData({ ...formData, grade: v as any })}
-                                                options={[
-                                                    { label: 'Grade A (Pristine)', value: 'A' },
-                                                    { label: 'Grade B (Standard)', value: 'B' },
-                                                    { label: 'Premium / Reserve', value: 'Premium' }
-                                                ]}
-                                            />
-                                            <FormInput
-                                                label="Expiration Cycle"
-                                                type="date"
-                                                value={formData.expiryDate}
-                                                onChange={(v: string) => setFormData({ ...formData, expiryDate: v })}
-                                            />
-                                            <FormInput
-                                                label="Harvest Timestamp"
-                                                type="date"
-                                                value={formData.harvestDate}
-                                                onChange={(v: string) => setFormData({ ...formData, harvestDate: v })}
-                                            />
+                                        <div className="space-y-6">
+                                            <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                                <Binary className="w-4 h-4 text-zinc-500" />
+                                                <h3 className="text-sm font-semibold text-zinc-900">Quality Matrix</h3>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <FormSelect
+                                                    label="Yield Grade"
+                                                    value={formData.grade}
+                                                    onChange={(v: string) => setFormData({ ...formData, grade: v as any })}
+                                                    options={[
+                                                        { label: 'Grade A (Pristine)', value: 'A' },
+                                                        { label: 'Grade B (Standard)', value: 'B' },
+                                                        { label: 'Premium / Reserve', value: 'Premium' }
+                                                    ]}
+                                                />
+                                                <FormInput
+                                                    label="Expiration Cycle"
+                                                    type="date"
+                                                    value={formData.expiryDate}
+                                                    onChange={(v: string) => setFormData({ ...formData, expiryDate: v })}
+                                                />
+                                                <FormInput
+                                                    label="Harvest Timestamp"
+                                                    type="date"
+                                                    value={formData.harvestDate}
+                                                    onChange={(v: string) => setFormData({ ...formData, harvestDate: v })}
+                                                />
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Section 4: Product Page Content */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                                                <AlertCircle className="w-4 h-4 text-emerald-500" />
-                                            </div>
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Product Page Content</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                            <AlertCircle className="w-4 h-4 text-zinc-500" />
+                                            <h3 className="text-sm font-semibold text-zinc-900">Product Page Content</h3>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-8">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <FormTextarea
                                                 label="Product Details"
                                                 value={formData.description}
@@ -1341,21 +1307,19 @@ export function AdminProductsPage() {
                                     </div>
 
                                     {/* Section 5: Freshness Intelligence */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center border border-emerald-100">
-                                                <Zap className="w-4 h-4 text-emerald-500" />
-                                            </div>
-                                            <h3 className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.2em]">Freshness Intelligence</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                            <Zap className="w-4 h-4 text-zinc-500" />
+                                            <h3 className="text-sm font-semibold text-zinc-900">Freshness Intelligence</h3>
                                         </div>
-                                        <div className="p-10 bg-emerald-50/20 border border-emerald-100 rounded-[3rem] space-y-10 relative overflow-hidden">
+                                        <div className="p-6 bg-emerald-50/10 border border-emerald-500/10 rounded-2xl space-y-6 relative overflow-hidden">
                                             <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-emerald-500/5 blur-[60px]" />
                                             
-                                            <div className="space-y-4">
-                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] ml-1">
+                                            <div className="space-y-2">
+                                                <label className="block text-[11px] font-semibold text-zinc-550 uppercase tracking-wider ml-0.5">
                                                     Freshness Index (1-5)
                                                 </label>
-                                                <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-2.5">
                                                     {[1, 2, 3, 4, 5].map((score) => {
                                                         const current = parseInt(formData.freshnessScore) || 0;
                                                         return (
@@ -1364,10 +1328,10 @@ export function AdminProductsPage() {
                                                                 type="button"
                                                                 onClick={() => setFormData({ ...formData, freshnessScore: String(score) })}
                                                                 className={cn(
-                                                                    "h-14 w-14 rounded-2xl border-2 text-base font-black transition-all duration-500 font-heading",
+                                                                    "h-10 w-10 rounded-xl border text-sm font-semibold transition-all duration-200",
                                                                     current === score
-                                                                        ? "bg-emerald-600 border-emerald-600 text-white shadow-[0_10px_25px_rgba(5,150,105,0.3)] scale-110"
-                                                                        : "bg-white border-slate-100 text-slate-300 hover:border-emerald-300 hover:text-emerald-500"
+                                                                        ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                                                                        : "bg-white border-zinc-200 text-zinc-400 hover:border-emerald-500 hover:text-emerald-600"
                                                                 )}
                                                             >
                                                                 {score}
@@ -1377,7 +1341,7 @@ export function AdminProductsPage() {
                                                 </div>
                                             </div>
                                             
-                                            <div className="grid grid-cols-2 gap-8">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <FormSelect
                                                     label="Ripeness State"
                                                     value={formData.ripenessStage}
@@ -1408,13 +1372,11 @@ export function AdminProductsPage() {
                                     </div>
 
                                     {/* Section 6: Variants */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                                                    <Binary className="w-4 h-4 text-slate-900" />
-                                                </div>
-                                                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Product Variants</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-2.5 pb-1">
+                                                <Binary className="w-4 h-4 text-zinc-500" />
+                                                <h3 className="text-sm font-semibold text-zinc-900">Product Variants</h3>
                                             </div>
                                             <button
                                                 type="button"
@@ -1422,20 +1384,20 @@ export function AdminProductsPage() {
                                                     ...formData,
                                                     variants: [...formData.variants, { name: '', price: '', stock: '', sku: '', lowStockThreshold: '5', isBulkVariant: false }]
                                                 })}
-                                                className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center gap-3 shadow-xl shadow-slate-900/10"
+                                                className="admin-panel-btn-primary h-9 px-4 rounded-lg flex items-center gap-2"
                                             >
-                                                <Plus className="w-4 h-4" />
-                                                Append Variant
+                                                <Plus className="w-3.5 h-3.5" />
+                                                <span>Append Variant</span>
                                             </button>
                                         </div>
 
-                                        <div className="space-y-6">
+                                        <div className="space-y-4">
                                             {formData.variants.map((variant, i) => (
                                                 <motion.div 
                                                     key={i} 
                                                     initial={{ opacity: 0, x: 20 }}
                                                     animate={{ opacity: 1, x: 0 }}
-                                                    className="p-10 bg-slate-50/50 border border-slate-100 rounded-[2.5rem] relative group/var hover:bg-white hover:shadow-2xl transition-all duration-700"
+                                                    className="p-6 bg-zinc-50/30 border border-zinc-200 rounded-2xl relative group/var hover:bg-white hover:border-zinc-300 hover:shadow-sm transition-all duration-300"
                                                 >
                                                     <button
                                                         type="button"
@@ -1444,11 +1406,11 @@ export function AdminProductsPage() {
                                                             n.splice(i, 1);
                                                             setFormData({ ...formData, variants: n });
                                                         }}
-                                                        className="absolute top-8 right-8 h-10 w-10 flex items-center justify-center bg-white border border-slate-100 rounded-xl text-slate-300 hover:text-red-500 hover:border-red-100 transition-all opacity-0 group-hover/var:opacity-100"
+                                                        className="absolute top-5 right-5 h-8 w-8 flex items-center justify-center bg-white border border-zinc-200 rounded-lg text-zinc-400 hover:text-red-650 hover:bg-red-50 hover:border-red-100 transition-all opacity-0 group-hover/var:opacity-100 shadow-sm"
                                                     >
-                                                        <Trash2 className="w-4 h-4" />
+                                                        <Trash2 className="w-3.5 h-3.5" />
                                                     </button>
-                                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                         <FormInput
                                                             label="Descriptor (Size/Weight)"
                                                             value={variant.name}
@@ -1484,7 +1446,7 @@ export function AdminProductsPage() {
                                                             }}
                                                             placeholder="Discount on base price (e.g. 10)"
                                                         />
-                                                        <div className="grid grid-cols-2 gap-8">
+                                                        <div className="grid grid-cols-2 gap-4">
                                                             <FormInput
                                                                 label="Variant Stock"
                                                                 type="number"
@@ -1513,10 +1475,10 @@ export function AdminProductsPage() {
                                                                 This pack has 0 stock — it will be hidden on the shop until you set stock here.
                                                             </p>
                                                         )}
-                                                        <div className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+                                                        <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 md:col-span-2">
                                                             <div>
-                                                                <p className="text-[10px] font-black text-emerald-700 uppercase tracking-[0.15em]">Bulk Variant</p>
-                                                                <p className="text-[10px] text-emerald-600">Enable to show under bulk section and tier pricing.</p>
+                                                                <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-[0.15em]">Bulk Variant</p>
+                                                                <p className="text-xs text-emerald-600 mt-0.5">Enable to show under bulk section and tier pricing.</p>
                                                             </div>
                                                             <button
                                                                 type="button"
@@ -1526,10 +1488,10 @@ export function AdminProductsPage() {
                                                                     setFormData({ ...formData, variants: n });
                                                                 }}
                                                                 className={cn(
-                                                                    'h-8 px-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all',
+                                                                    'h-8 px-4 rounded-lg text-xs font-semibold tracking-wide transition-all duration-200',
                                                                     variant.isBulkVariant
-                                                                        ? 'bg-emerald-600 text-white'
-                                                                        : 'bg-white border border-emerald-200 text-emerald-700',
+                                                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                                                        : 'bg-white border border-emerald-250 text-emerald-750',
                                                                 )}
                                                             >
                                                                 {variant.isBulkVariant ? 'ON' : 'OFF'}
@@ -1539,21 +1501,19 @@ export function AdminProductsPage() {
                                                 </motion.div>
                                             ))}
                                             {formData.variants.length === 0 && (
-                                                <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[3.5rem] bg-slate-50/50">
-                                                    <Binary className="w-12 h-12 text-slate-200 mx-auto mb-4" />
-                                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">No variants mapped for this asset.</p>
+                                                <div className="py-12 text-center border border-dashed border-zinc-200 rounded-2xl bg-zinc-50/20">
+                                                    <Binary className="w-10 h-10 text-zinc-300 mx-auto mb-3" />
+                                                    <p className="text-xs text-zinc-400 font-medium">No variants mapped for this asset.</p>
                                                 </div>
                                             )}
                                         </div>
                                     </div>
 
                                     {/* Section 7: Visual Assets */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-8 w-8 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100">
-                                                <ImageIcon className="w-4 h-4 text-emerald-500" />
-                                            </div>
-                                            <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em]">Visual Identification</h3>
+                                    <div className="space-y-6">
+                                        <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
+                                            <ImageIcon className="w-4 h-4 text-zinc-500" />
+                                            <h3 className="text-sm font-semibold text-zinc-900">Visual Identification</h3>
                                         </div>
                                         <ImageUpload
                                             value={formData.images.filter(Boolean)}
@@ -1568,21 +1528,21 @@ export function AdminProductsPage() {
                                 </div>
 
                                 {/* Action Console */}
-                                <div className="p-12 bg-slate-50 border-t border-slate-100 flex gap-6 shadow-2xl relative z-10">
+                                <div className="px-8 py-5 bg-zinc-50 border-t border-zinc-200/60 flex items-center justify-end gap-3.5 relative z-10 shrink-0">
                                     <button
                                         type="button"
                                         disabled={isSavingProduct}
                                         onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 h-20 bg-white border border-slate-200 text-slate-900 rounded-[2rem] hover:bg-slate-100 text-[11px] font-black uppercase tracking-widest transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 duration-500"
+                                        className="admin-panel-btn-secondary h-11 px-6 rounded-xl flex-shrink-0"
                                     >
-                                        Cancel Cycle
+                                        Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSavingProduct}
-                                        className="flex-[2] h-20 bg-slate-900 text-white rounded-[2rem] hover:bg-emerald-600 text-[11px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-slate-900/20 disabled:opacity-70 disabled:cursor-not-allowed active:scale-95 duration-500"
+                                        className="admin-panel-btn-primary h-11 px-8 rounded-xl"
                                     >
-                                        {isSavingProduct ? 'Synchronizing...' : editingProduct ? 'Commit Changes' : 'Initialize Asset'}
+                                        {isSavingProduct ? 'Saving...' : editingProduct ? 'Save Product' : 'Add Product'}
                                     </button>
                                 </div>
                             </form>
@@ -1598,8 +1558,8 @@ export function AdminProductsPage() {
 // Helper Components for Premium Forms
 function FormInput({ label, type = 'text', value, onChange, placeholder, required }: any) {
     return (
-        <div className="space-y-3 group/field">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within/field:text-emerald-500 transition-colors">
+        <div className="space-y-2 group/field">
+            <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5 group-focus-within/field:text-zinc-950 transition-colors">
                 {label} {required && <span className="text-red-500">*</span>}
             </label>
             <div className="relative">
@@ -1608,7 +1568,7 @@ function FormInput({ label, type = 'text', value, onChange, placeholder, require
                     required={required}
                     value={value}
                     onChange={e => onChange(e.target.value)}
-                    className="w-full h-16 px-8 bg-slate-50 border border-slate-100 rounded-[1.5rem] text-[13px] font-bold text-slate-900 placeholder:text-slate-300 focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 focus:bg-white outline-none transition-all duration-500 shadow-inner"
+                    className="w-full h-11 px-4 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm font-normal text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-zinc-950/5 focus:border-zinc-800 transition-all duration-200 shadow-sm"
                     placeholder={placeholder}
                 />
             </div>
@@ -1618,21 +1578,21 @@ function FormInput({ label, type = 'text', value, onChange, placeholder, require
 
 function FormSelect({ label, value, onChange, options }: any) {
     return (
-        <div className="space-y-3 group/field">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within/field:text-emerald-500 transition-colors">
+        <div className="space-y-2 group/field">
+            <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5 group-focus-within/field:text-zinc-950 transition-colors">
                 {label}
             </label>
             <div className="relative">
                 <select
                     value={value}
                     onChange={e => onChange(e.target.value)}
-                    className="w-full h-16 px-8 bg-slate-50 border border-slate-100 rounded-[1.5rem] text-[11px] font-black text-slate-900 focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 focus:bg-white outline-none transition-all duration-500 shadow-inner appearance-none cursor-pointer uppercase tracking-widest"
+                    className="w-full h-11 pl-4 pr-10 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm font-normal text-zinc-900 focus:outline-none focus:bg-white focus:ring-2 focus:ring-zinc-950/5 focus:border-zinc-800 transition-all duration-200 shadow-sm appearance-none cursor-pointer"
                 >
                     {options.map((opt: any) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>
-                <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-300">
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
                     <ChevronRight className="h-4 w-4 rotate-90" />
                 </div>
             </div>
@@ -1642,15 +1602,15 @@ function FormSelect({ label, value, onChange, options }: any) {
 
 function FormTextarea({ label, value, onChange, placeholder }: any) {
     return (
-        <div className="space-y-3 group/field">
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 group-focus-within/field:text-emerald-500 transition-colors">
+        <div className="space-y-2 group/field">
+            <label className="block text-[11px] font-semibold text-zinc-500 uppercase tracking-wider ml-0.5 group-focus-within/field:text-zinc-950 transition-colors">
                 {label}
             </label>
             <div className="relative">
                 <textarea
                     value={value}
                     onChange={e => onChange(e.target.value)}
-                    className="w-full min-h-[130px] px-8 py-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] text-[13px] font-semibold text-slate-900 placeholder:text-slate-300 focus:ring-[12px] focus:ring-emerald-500/5 focus:border-emerald-500/50 focus:bg-white outline-none transition-all duration-500 shadow-inner resize-y"
+                    className="w-full min-h-[110px] px-4 py-3 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm font-normal text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-zinc-950/5 focus:border-zinc-800 transition-all duration-200 shadow-sm resize-y"
                     placeholder={placeholder}
                 />
             </div>
@@ -1660,15 +1620,15 @@ function FormTextarea({ label, value, onChange, placeholder }: any) {
 
 function ToggleItem({ label, checked, onChange, color }: any) {
     const colors: any = {
-        emerald: 'bg-emerald-500 ring-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.3)]',
-        blue: 'bg-blue-500 ring-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.3)]',
-        orange: 'bg-orange-500 ring-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)]'
+        emerald: 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.2)]',
+        blue: 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.2)]',
+        orange: 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.2)]'
     };
 
     return (
-        <label className="flex items-center justify-between p-6 bg-slate-50 border border-slate-100 rounded-[1.5rem] cursor-pointer group hover:bg-white hover:border-emerald-200 hover:shadow-xl transition-all duration-500">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-slate-900 transition-colors">{label}</span>
-            <div className="relative">
+        <label className="flex items-center justify-between p-4 bg-zinc-50/30 border border-zinc-250/30 rounded-xl cursor-pointer group hover:bg-white hover:border-zinc-300 hover:shadow-sm transition-all duration-200">
+            <span className="text-xs font-semibold text-zinc-550 group-hover:text-zinc-950 transition-colors">{label}</span>
+            <div className="relative shrink-0">
                 <input
                     type="checkbox"
                     className="sr-only"
@@ -1676,12 +1636,12 @@ function ToggleItem({ label, checked, onChange, color }: any) {
                     onChange={e => onChange(e.target.checked)}
                 />
                 <div className={cn(
-                    "w-14 h-8 rounded-full transition-all duration-500",
-                    checked ? colors[color] : 'bg-slate-200'
+                    "w-10 h-6 rounded-full transition-all duration-350",
+                    checked ? colors[color] : 'bg-zinc-200'
                 )} />
                 <div className={cn(
-                    "absolute left-1.5 top-1.5 w-5 h-5 rounded-full bg-white shadow-lg transition-transform duration-500",
-                    checked ? 'translate-x-6' : 'translate-x-0'
+                    "absolute left-1 top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-350",
+                    checked ? 'translate-x-4' : 'translate-x-0'
                 )} />
             </div>
         </label>

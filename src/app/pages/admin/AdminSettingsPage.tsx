@@ -424,43 +424,43 @@ export function AdminSettingsPage() {
     ];
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Ultra-Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-6 pb-20">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Command className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">System Settings</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Command className="w-4 h-4 text-emerald-600" />
+                        <span className="admin-section-label">System Configuration</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Environment Config</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage platform settings and integrations.</p>
+                    <h1 className="admin-page-title">Settings</h1>
+                    <p className="admin-page-subtitle">Manage store identity, payment gateways, delivery options, and serviceable regions.</p>
                 </div>
-                <div className="px-6 py-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center gap-3">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Core Synchronized</span>
+                <div className="px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100 flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-xs font-medium text-emerald-700">All Systems Operational</span>
                 </div>
             </div>
 
             {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                    { label: 'Uptime Reliability', value: '99.99%', icon: Activity, color: 'emerald' },
-                    { label: 'Latency', value: '24ms', icon: Cpu, color: 'blue' },
-                    { label: 'Data Usage', value: '1.2TB', icon: HardDrive, color: 'purple' }
+                    { label: 'System Uptime', value: '99.99%', icon: Activity },
+                    { label: 'API Latency', value: '24ms', icon: Cpu },
+                    { label: 'Data Storage', value: '1.2TB', icon: HardDrive }
                 ].map((stat, i) => (
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.1 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
                         key={stat.label}
-                        className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex items-center gap-6"
+                        className="admin-stat-card flex items-center gap-4"
                     >
-                        <div className={cn("p-4 rounded-3xl", `bg-${stat.color}-50 text-${stat.color}-600`)}>
-                            <stat.icon className="w-6 h-6" />
+                        <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-slate-50 text-slate-600">
+                            <stat.icon className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="text-2xl font-black text-slate-900 tracking-tight">{stat.value}</p>
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            <p className="admin-stat-value">{stat.value}</p>
+                            <p className="admin-stat-label">{stat.label}</p>
                         </div>
                     </motion.div>
                 ))}
@@ -470,365 +470,384 @@ export function AdminSettingsPage() {
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)]"
+                className="admin-card p-6"
             >
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-4 rounded-2xl bg-blue-50 text-blue-600">
-                        <CreditCard className="h-6 w-6" />
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 rounded-lg bg-blue-50 text-blue-600">
+                        <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Razorpay Payment Gateway</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Key ID (public) and Key Secret (private). You can change these anytime.
+                        <h2 className="admin-section-heading">Razorpay Payment Gateway</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Configure active transaction credentials. Key ID (public) and Key Secret (private) can be updated anytime.
                         </p>
                     </div>
                     {hasRazorpayConfigured && (
-                        <span className="ml-auto px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        <span className="ml-auto admin-badge-emerald">
                             Configured
                         </span>
                     )}
                 </div>
-                <form onSubmit={handleSaveRazorpay} className="space-y-6 max-w-2xl">
-                    <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Razorpay Key ID</label>
+                <form onSubmit={handleSaveRazorpay} className="space-y-4 max-w-xl">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Razorpay Key ID</label>
                         <input
                             type="text"
                             value={razorpayKeyId}
                             onChange={(e) => setRazorpayKeyId(e.target.value)}
                             placeholder="e.g. rzp_live_xxxxxxxxxxxx"
-                            className="w-full h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm font-medium"
+                            className="admin-input"
                         />
                     </div>
-                    <div className="space-y-2">
-                        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Razorpay Key Secret</label>
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Razorpay Key Secret</label>
                         <div className="relative">
                             <input
                                 type={showSecret ? 'text' : 'password'}
                                 value={razorpayKeySecret}
                                 onChange={(e) => setRazorpayKeySecret(e.target.value)}
                                 placeholder="Enter key secret"
-                                className="w-full h-12 pl-4 pr-12 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm font-medium"
+                                className="admin-input pr-10"
                             />
                             <button type="button" onClick={() => setShowSecret(!showSecret)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1" aria-label={showSecret ? 'Hide secret' : 'Show secret'}>
-                                {showSecret ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                                {showSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                         </div>
                     </div>
-                    <button type="submit" disabled={saving} className="h-12 px-8 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60">
-                        <Save className="h-4 w-4" />
-                        {saving ? 'Saving…' : 'Save Razorpay credentials'}
-                    </button>
+                    <div className="pt-2">
+                        <button type="submit" disabled={saving} className="admin-btn-primary">
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                            {saving ? 'Saving…' : 'Save Razorpay Credentials'}
+                        </button>
+                    </div>
                 </form>
             </motion.div>
 
-            {/* Delivery charge — applied to every order */}
+            {/* Delivery Charge Settings */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)]"
+                className="admin-card p-6"
             >
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-4 rounded-2xl bg-orange-50 text-orange-600">
-                        <Zap className="h-6 w-6" />
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 rounded-lg bg-orange-50 text-orange-600">
+                        <Zap className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery fee by distance</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Choose slab mode or per-km mode. Flat fee below is only fallback.
+                        <h2 className="admin-section-heading">Delivery Fee Structure</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Set up dynamic delivery rules by distance (via Google Maps routing) or flat-rate fallbacks.
                         </p>
                     </div>
                 </div>
-                <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fee mode</label>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-slate-600">Calculation Method</label>
                         <select
                             value={deliveryFeeMode}
                             onChange={(e) => setDeliveryFeeMode(e.target.value === 'PER_KM' ? 'PER_KM' : 'SLAB')}
-                            className="h-11 w-full px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                            className="admin-select w-full"
                         >
-                            <option value="SLAB">Slab-based</option>
-                            <option value="PER_KM">Per km (distance × rate)</option>
+                            <option value="SLAB">Distance-based Slabs</option>
+                            <option value="PER_KM">Flat Rate Per Kilometer</option>
                         </select>
                     </div>
                     {deliveryFeeMode === 'PER_KM' && (
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rate per km (₹)</label>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-slate-600">Rate per Kilometer (₹)</label>
                             <input
                                 type="number"
                                 min={0}
                                 step={1}
                                 value={deliveryPerKmRate}
                                 onChange={(e) => setDeliveryPerKmRate(e.target.value)}
-                                className="h-11 w-full px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold"
+                                className="admin-input"
                                 placeholder="e.g. 10"
                             />
                         </div>
                     )}
                 </div>
+
                 {deliveryFeeMode === 'SLAB' && (
                     <div className="space-y-3 mb-6">
-                        {deliveryFeeRules.map((rule, index) => (
-                            <div key={`rule-${index}`} className="flex items-center gap-3">
-                                <span className="text-xs font-bold text-slate-500 w-20">Up to (km)</span>
-                                <input
-                                    type="number"
-                                    min={0.1}
-                                    step={0.1}
-                                    value={rule.upToKm}
-                                    onChange={(e) =>
-                                        setDeliveryFeeRules((prev) =>
-                                            prev.map((r, i) => (i === index ? { ...r, upToKm: e.target.value } : r))
-                                        )
-                                    }
-                                    className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
-                                />
-                                <span className="text-xs font-bold text-slate-500">Fee (₹)</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    step={1}
-                                    value={rule.fee}
-                                    onChange={(e) =>
-                                        setDeliveryFeeRules((prev) =>
-                                            prev.map((r, i) => (i === index ? { ...r, fee: e.target.value } : r))
-                                        )
-                                    }
-                                    className="h-10 w-28 px-3 rounded-xl border border-slate-200 bg-slate-50 text-sm"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setDeliveryFeeRules((prev) => prev.filter((_, i) => i !== index))}
-                                    className="h-10 px-3 rounded-xl border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
+                        <label className="text-xs font-semibold text-slate-700 block">Distance Slabs &amp; Fees</label>
+                        <div className="space-y-2">
+                            {deliveryFeeRules.map((rule, index) => (
+                                <div key={`rule-${index}`} className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100 max-w-xl">
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <span className="text-xs text-slate-500">Up to</span>
+                                        <input
+                                            type="number"
+                                            min={0.1}
+                                            step={0.1}
+                                            value={rule.upToKm}
+                                            onChange={(e) =>
+                                                setDeliveryFeeRules((prev) =>
+                                                    prev.map((r, i) => (i === index ? { ...r, upToKm: e.target.value } : r))
+                                                )
+                                            }
+                                            className="admin-input h-8 w-20 px-2"
+                                        />
+                                        <span className="text-xs text-slate-500">km</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <span className="text-xs text-slate-500">Fee (₹)</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            step={1}
+                                            value={rule.fee}
+                                            onChange={(e) =>
+                                                setDeliveryFeeRules((prev) =>
+                                                    prev.map((r, i) => (i === index ? { ...r, fee: e.target.value } : r))
+                                                )
+                                            }
+                                            className="admin-input h-8 w-20 px-2"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeliveryFeeRules((prev) => prev.filter((_, i) => i !== index))}
+                                        className="h-8 w-8 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
                         <button
                             type="button"
                             onClick={() => setDeliveryFeeRules((prev) => [...prev, { upToKm: '', fee: '' }])}
-                            className="h-10 px-4 rounded-xl bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
+                            className="admin-btn-secondary h-8 px-3 text-xs"
                         >
-                            <Plus className="h-4 w-4" />
-                            Add distance slab
+                            <Plus className="h-3.5 w-3.5" />
+                            Add Distance Slab
                         </button>
                     </div>
                 )}
-                <div className="mb-8 p-6 bg-emerald-50/50 rounded-[2rem] border border-emerald-100/50 space-y-5">
+
+                {/* Free delivery rules banner */}
+                <div className="mb-6 p-5 bg-emerald-50/50 rounded-xl border border-emerald-100 space-y-4">
                     <div>
-                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Free delivery rules</p>
-                        <p className="text-xs text-slate-500 max-w-lg">
-                            Set minimum order (₹) and/or max distance (km). When both are set, free delivery applies only if the order meets the amount
-                            <strong> and </strong>
-                            the address is within that distance. Use 0 on either field to ignore that condition.
+                        <h4 className="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Free Delivery Incentives</h4>
+                        <p className="text-xs text-emerald-700/80 mt-1">
+                            Offer free shipping to incentivize larger checkouts. Set thresholds below. If both criteria are set, the order must meet BOTH to qualify. Enter 0 to disable a condition.
                         </p>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Min order value (₹)</label>
-                            <div className="flex items-center gap-2">
-                                <span className="text-emerald-600 font-bold">₹</span>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-emerald-800">Minimum Order Subtotal (₹)</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-emerald-600">₹</span>
                                 <input
                                     type="number"
                                     min={0}
                                     step={1}
                                     value={freeDeliveryThreshold}
                                     onChange={(e) => setFreeDeliveryThreshold(e.target.value)}
-                                    className="h-12 flex-1 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                                    className="admin-input pl-7 border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-500"
                                     placeholder="e.g. 500"
                                 />
                             </div>
-                            <p className="text-[10px] text-slate-400">0 = do not require a minimum order</p>
+                            <p className="text-[10px] text-emerald-600/70">0 = no minimum order threshold</p>
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Within distance (km)</label>
-                            <div className="flex items-center gap-2">
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-emerald-800">Maximum Delivery Distance (km)</label>
+                            <div className="relative">
                                 <input
                                     type="number"
                                     min={0}
                                     step={0.1}
                                     value={freeDeliveryWithinKm}
                                     onChange={(e) => setFreeDeliveryWithinKm(e.target.value)}
-                                    className="h-12 flex-1 px-4 rounded-xl border-2 border-emerald-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium"
+                                    className="admin-input pr-10 border-emerald-200 focus:ring-emerald-500/20 focus:border-emerald-500"
                                     placeholder="e.g. 8"
                                 />
-                                <span className="text-emerald-600 font-bold text-sm">km</span>
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-emerald-600">km</span>
                             </div>
-                            <p className="text-[10px] text-slate-400">0 = any distance (if min order is set)</p>
+                            <p className="text-[10px] text-emerald-600/70">0 = eligible for any distance</p>
                         </div>
                     </div>
-                    <p className="text-xs font-semibold text-emerald-800 bg-emerald-100/60 rounded-xl px-3 py-2">
-                        Example: ₹500 + 8 km → free delivery when subtotal is at least ₹500 and delivery is within 8 km of the store.
-                    </p>
+                    <div className="text-xs font-medium text-emerald-800 bg-white border border-emerald-100 rounded-lg px-3 py-2 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>Example: ₹500 + 8 km means free shipping applies only for orders &ge; ₹500 that reside within 8 km.</span>
+                    </div>
                 </div>
-                <div className="mb-6 p-6 bg-slate-50 rounded-[2rem] border border-slate-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Flat fallback delivery fee</p>
-                            <p className="text-xs text-slate-500 max-w-sm">
-                                Used only when distance cannot be calculated. Distance slabs / per-km above usually apply instead.
-                            </p>
+                            <p className="text-xs font-semibold text-slate-700">Flat Fallback Delivery Fee</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Applied if Google Maps routing distance is unavailable.</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-slate-600 font-bold">₹</span>
+                        <div className="relative shrink-0 w-28">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">₹</span>
                             <input
                                 type="number"
                                 min={0}
                                 step={1}
                                 value={deliveryCharge}
                                 onChange={(e) => setDeliveryCharge(e.target.value)}
-                                className="h-12 w-32 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium"
+                                className="admin-input pl-7"
                                 placeholder="0"
                             />
                         </div>
                     </div>
-                </div>
-                <div className="mb-8 p-6 bg-slate-50/80 rounded-[2rem] border border-dashed border-slate-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Platform fee (optional)</p>
-                            <p className="text-xs text-slate-500 max-w-sm">
-                                Extra handling fee added to every order bill — not free delivery and not the km-based delivery charge. Leave 0 to hide.
-                            </p>
+                            <p className="text-xs font-semibold text-slate-700">Platform Handling Fee</p>
+                            <p className="text-[11px] text-slate-500 mt-0.5">Optional flat surcharge added to every transaction. Leave 0 to hide.</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-slate-600 font-bold">₹</span>
+                        <div className="relative shrink-0 w-28">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500">₹</span>
                             <input
                                 type="number"
                                 min={0}
                                 step={1}
                                 value={platformFee}
                                 onChange={(e) => setPlatformFee(e.target.value)}
-                                className="h-12 w-32 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500 text-sm font-medium"
+                                className="admin-input pl-7"
                                 placeholder="0"
                             />
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-4">
+
+                <div className="flex items-center justify-end border-t border-slate-100 pt-4">
                     <button
                         type="button"
                         onClick={handleSaveDeliveryCharge}
                         disabled={deliverySaving}
-                        className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
+                        className="admin-btn-primary"
                     >
-                        <Save className="h-4 w-4" />
-                        {deliverySaving ? 'Saving…' : 'Save delivery settings'}
+                        {deliverySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {deliverySaving ? 'Saving…' : 'Save Delivery Settings'}
                     </button>
                 </div>
             </motion.div>
 
-            {/* Service areas / Delivery cities - where we sell and deliver */}
+            {/* Service Areas (Cities & Pincodes) */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)]"
+                className="admin-card p-6"
             >
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600">
-                        <MapPin className="h-6 w-6" />
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 rounded-lg bg-emerald-50 text-emerald-600">
+                        <MapPin className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery cities &amp; PIN codes</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Cities gate checkout by name. Optional PIN list: when you add one or more 6-digit PINs, checkout only accepts those PINs (plus city rules).
+                        <h2 className="admin-section-heading">Service Areas</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Manage authorized checkout delivery locations. Pincodes limit shipping options within active cities.
                         </p>
                     </div>
                 </div>
+
                 {citiesLoading ? (
-                    <p className="text-sm text-slate-500">Loading…</p>
+                    <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                        Loading service regions...
+                    </div>
                 ) : (
-                    <>
-                        <div className="flex flex-wrap gap-3 mb-6">
-                            {serviceableCities.map((city, index) => (
-                                <span
-                                    key={`${city}-${index}`}
-                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-sm font-bold"
+                    <div className="space-y-6">
+                        {/* Cities Group */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-700 block mb-2">Serviceable Cities</label>
+                            <div className="flex flex-wrap gap-2 mb-3">
+                                {serviceableCities.length === 0 ? (
+                                    <p className="text-xs text-slate-400 italic">No cities listed. Add at least one city.</p>
+                                ) : (
+                                    serviceableCities.map((city, index) => (
+                                        <span
+                                            key={`${city}-${index}`}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700"
+                                        >
+                                            {city}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveCity(index)}
+                                                className="p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                                aria-label={`Remove ${city}`}
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        </span>
+                                    ))
+                                )}
+                            </div>
+                            <div className="flex gap-2 max-w-md">
+                                <input
+                                    type="text"
+                                    value={newCity}
+                                    onChange={(e) => setNewCity(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCity())}
+                                    placeholder="e.g. Bangalore, Patna"
+                                    className="admin-input flex-1"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleAddCity}
+                                    className="admin-btn-secondary h-9 px-3 shrink-0"
                                 >
-                                    {city}
-                                    <button
-                                        type="button"
-                                        onClick={() => handleRemoveCity(index)}
-                                        className="p-0.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                                        aria-label={`Remove ${city}`}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
-                                </span>
-                            ))}
-                        </div>
-                        <div className="flex flex-wrap gap-3 items-center">
-                            <input
-                                type="text"
-                                value={newCity}
-                                onChange={(e) => setNewCity(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCity())}
-                                placeholder="e.g. Mumbai, Chennai"
-                                className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-medium w-48"
-                            />
-                            <button
-                                type="button"
-                                onClick={handleAddCity}
-                                className="h-12 px-4 rounded-xl bg-slate-100 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all flex items-center gap-2"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Add city
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleSaveServiceableAreas}
-                                disabled={citiesSaving}
-                                className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
-                            >
-                                <Save className="h-4 w-4" />
-                                {citiesSaving ? 'Saving…' : 'Save service areas'}
-                            </button>
+                                    <Plus className="h-4 w-4" />
+                                    Add City
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveServiceableAreas}
+                                    disabled={citiesSaving}
+                                    className="admin-btn-primary h-9 px-4 shrink-0"
+                                >
+                                    {citiesSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                    Save Areas
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="mt-10 pt-8 border-t border-slate-100">
-                            {/* Auto-fetch pincodes by City / District / State */}
-                            <div className="mb-8 p-6 rounded-[2rem] bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border border-emerald-100/80 shadow-sm">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600">
-                                        <Search className="h-5 w-5" />
-                                    </div>
+                        {/* Pincode Lookup and list */}
+                        <div className="border-t border-slate-100 pt-6">
+                            <div className="mb-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+                                <div className="flex items-center gap-2.5 mb-3">
+                                    <Search className="h-5 w-5 text-emerald-600" />
                                     <div>
-                                        <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Auto-Fetch PIN Codes by Area</p>
-                                        <p className="text-[10px] text-slate-500 mt-0.5">Type a city, district, or state — all matching PIN codes are added automatically.</p>
+                                        <h4 className="text-xs font-semibold text-slate-800">Auto-Fetch Pincodes by Territory</h4>
+                                        <p className="text-[11px] text-slate-500 mt-0.5">Quickly import all pincodes within a city, district, or state via postal lookup.</p>
                                     </div>
                                 </div>
-                                <div className="flex flex-wrap gap-3 items-center">
+                                <div className="flex flex-wrap gap-2 items-center">
                                     <select
                                         value={autoFetchType}
                                         onChange={(e) => setAutoFetchType(e.target.value as 'city' | 'district' | 'state')}
-                                        className="h-11 px-3 rounded-xl border border-emerald-200 bg-white text-slate-700 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                                        className="admin-select text-xs h-9"
                                     >
                                         <option value="city">City</option>
                                         <option value="district">District</option>
                                         <option value="state">State</option>
                                     </select>
-                                    <div className="relative flex-1 min-w-[180px]">
+                                    <div className="relative flex-1 min-w-[200px]">
                                         <input
                                             type="text"
                                             value={autoFetchQuery}
-                                            onChange={(e) => { setAutoFetchQuery(e.target.value); setAutoFetchDone(false); setAutoFetchPreview([]); }}
+                                            onChange={(e) => { setAutoFetchQuery(e.target.value); setAutoFetchPreview([]); setAutoFetchDone(false); }}
                                             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), void handleAutoFetchPincodes())}
-                                            placeholder={autoFetchType === 'city' ? 'e.g. Bangalore' : autoFetchType === 'district' ? 'e.g. Mysore' : 'e.g. Karnataka'}
-                                            className="h-11 w-full pl-4 pr-4 rounded-xl border border-emerald-200 bg-white text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm transition-all"
+                                            placeholder={autoFetchType === 'city' ? 'e.g. Patna' : autoFetchType === 'district' ? 'e.g. Muzaffarpur' : 'e.g. Bihar'}
+                                            className="admin-input h-9"
                                         />
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => void handleAutoFetchPincodes()}
                                         disabled={autoFetching}
-                                        className="h-11 px-5 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                        className="admin-btn-primary h-9 text-xs"
                                     >
                                         {autoFetching ? (
                                             <><Loader2 className="h-4 w-4 animate-spin" /> Fetching…</>
                                         ) : autoFetchDone ? (
                                             <><CheckCircle2 className="h-4 w-4" /> Done</>  
                                         ) : (
-                                            <><Search className="h-4 w-4" /> Fetch PINs</>
+                                            <><Search className="h-3.5 w-3.5" /> Fetch PINs</>
                                         )}
                                     </button>
                                 </div>
@@ -838,18 +857,18 @@ export function AdminSettingsPage() {
                                             initial={{ opacity: 0, height: 0 }}
                                             animate={{ opacity: 1, height: 'auto' }}
                                             exit={{ opacity: 0, height: 0 }}
-                                            className="mt-4 overflow-hidden"
+                                            className="mt-3 overflow-hidden"
                                         >
-                                            <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-2">
-                                                {autoFetchPreview.length} PIN codes found for &quot;{autoFetchQuery}&quot;
+                                            <p className="text-[10px] font-semibold text-emerald-700 mb-1.5">
+                                                {autoFetchPreview.length} PIN codes retrieved for &quot;{autoFetchQuery}&quot;
                                             </p>
-                                            <div className="max-h-28 overflow-y-auto rounded-xl bg-white/60 border border-emerald-100 p-3">
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {autoFetchPreview.slice(0, 60).map((pin) => (
-                                                        <span key={pin} className="inline-block font-mono text-[10px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-lg">{pin}</span>
+                                            <div className="max-h-24 overflow-y-auto rounded-lg bg-white border border-emerald-100 p-2 custom-scrollbar">
+                                                <div className="flex flex-wrap gap-1">
+                                                    {autoFetchPreview.slice(0, 50).map((pin) => (
+                                                        <span key={pin} className="inline-block font-mono text-[9px] font-semibold text-emerald-900 bg-emerald-50/50 border border-emerald-100 px-1.5 py-0.5 rounded">{pin}</span>
                                                     ))}
-                                                    {autoFetchPreview.length > 60 && (
-                                                        <span className="inline-block text-[10px] font-bold text-slate-400 px-2 py-1">+{autoFetchPreview.length - 60} more…</span>
+                                                    {autoFetchPreview.length > 50 && (
+                                                        <span className="inline-block text-[9px] font-medium text-slate-400 px-1.5 py-0.5">+{autoFetchPreview.length - 50} more…</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -858,39 +877,37 @@ export function AdminSettingsPage() {
                                 </AnimatePresence>
                             </div>
 
-                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                                 <div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Serviceable PIN codes (optional)</p>
-                                    <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
-                                        Leave empty to allow any 6-digit PIN inside your cities. If you add PINs, checkout only accepts addresses in this list (still combined with city rules above).
-                                    </p>
+                                    <p className="text-xs font-semibold text-slate-700">Specific Delivery Pincodes</p>
+                                    <p className="text-[11px] text-slate-400">Leave blank to enable all pincodes in selected cities. If configured, checkout is restricted to these areas only.</p>
                                 </div>
                                 {serviceablePincodes.length > 0 && (
-                                    <span className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-full bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest">
-                                        {serviceablePincodes.length} PIN{serviceablePincodes.length === 1 ? '' : 's'}
+                                    <span className="admin-badge-slate text-[10px] font-semibold">
+                                        {serviceablePincodes.length} Pincodes Active
                                     </span>
                                 )}
                             </div>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 mb-4">
-                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">Saved PINs</p>
+
+                            <div className="border border-slate-100 bg-slate-50 p-3 rounded-lg mb-3">
                                 {serviceablePincodes.length === 0 ? (
-                                    <p className="text-sm text-slate-400 italic">No PIN restrictions — any valid 6-digit PIN is allowed within your cities.</p>
+                                    <p className="text-xs text-slate-400 italic">No pincode restrictions — all locations within authorized cities can check out.</p>
                                 ) : (
-                                    <div className="max-h-48 overflow-y-auto pr-1">
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                    <div className="max-h-36 overflow-y-auto custom-scrollbar pr-1">
+                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                                             {serviceablePincodes.map((pin, index) => (
                                                 <div
                                                     key={pin}
-                                                    className="flex items-center justify-between gap-2 rounded-xl bg-white border border-slate-200 px-3 py-2 shadow-sm"
+                                                    className="flex items-center justify-between gap-1.5 rounded-lg bg-white border border-slate-200 px-2.5 py-1 shadow-sm"
                                                 >
-                                                    <span className="font-mono text-sm font-bold text-slate-900 tabular-nums tracking-tight">{pin}</span>
+                                                    <span className="font-mono text-xs font-semibold text-slate-700 tabular-nums">{pin}</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => handleRemovePincode(index)}
-                                                        className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0"
+                                                        className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0"
                                                         aria-label={`Remove PIN ${pin}`}
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             ))}
@@ -898,7 +915,8 @@ export function AdminSettingsPage() {
                                     </div>
                                 )}
                             </div>
-                            <div className="flex flex-wrap gap-3 items-center">
+
+                            <div className="flex gap-2 max-w-sm">
                                 <input
                                     type="text"
                                     inputMode="numeric"
@@ -907,151 +925,153 @@ export function AdminSettingsPage() {
                                     onChange={(e) => setNewPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                                     onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPincode())}
                                     placeholder="560001"
-                                    className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-white text-slate-900 font-mono text-sm w-36 shadow-sm"
+                                    className="admin-input w-28"
                                 />
                                 <button
                                     type="button"
                                     onClick={handleAddPincode}
-                                    className="h-12 px-5 rounded-xl bg-emerald-600 text-white font-black text-[10px] uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center gap-2 shadow-sm"
+                                    className="admin-btn-secondary h-9 text-xs"
                                 >
-                                    <Plus className="h-4 w-4" />
-                                    Add PIN
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Add Pincode
                                 </button>
-                                <p className="text-[11px] text-slate-400 w-full sm:w-auto sm:ml-2">Press Enter or Add PIN, then use &quot;Save service areas&quot; above.</p>
                             </div>
                         </div>
-                    </>
+                    </div>
                 )}
             </motion.div>
 
-            {/* Delivery Slots — time windows for deliveries */}
+            {/* Delivery Time Slots */}
             <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)]"
+                className="admin-card p-6"
             >
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="p-4 rounded-2xl bg-orange-50 text-orange-600">
-                        <Clock className="h-6 w-6" />
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-2.5 rounded-lg bg-orange-50 text-orange-600">
+                        <Clock className="h-5 w-5" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Delivery Time Slots</h2>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Available slots shown at checkout. E.g. "Today · 6pm – 8pm"
+                        <h2 className="admin-section-heading">Delivery Time Slots</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                            Configure scheduled delivery slots displayed to buyers during checkout.
                         </p>
                     </div>
                 </div>
-                <div className="flex flex-wrap gap-3 mb-6">
+
+                <div className="flex flex-wrap gap-2 mb-4">
                     {deliverySlots.length === 0 ? (
-                        <p className="text-sm text-slate-400 italic">No custom slots. Checkout will show default slots.</p>
+                        <p className="text-xs text-slate-400 italic">No custom delivery slots configured. Default schedule will be used.</p>
                     ) : (
                         deliverySlots.map((slot, index) => (
                             <span
                                 key={`${slot}-${index}`}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-800 text-xs font-black uppercase"
+                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700"
                             >
                                 {slot}
                                 <button
                                     type="button"
                                     onClick={() => handleRemoveSlot(index)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                    className="p-0.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                                 >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3.5 w-3.5" />
                                 </button>
                             </span>
                         ))
                     )}
                 </div>
-                <div className="flex flex-wrap gap-3 items-center">
+
+                <div className="flex flex-wrap gap-2 items-center">
                     <input
                         type="text"
                         value={newSlot}
                         onChange={(e) => setNewSlot(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSlot())}
                         placeholder="e.g. Tomorrow · 8am – 11am"
-                        className="h-12 px-4 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-sm font-medium w-64"
+                        className="admin-input w-64"
                     />
                     <button
                         type="button"
                         onClick={handleAddSlot}
-                        className="h-12 px-6 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                        className="admin-btn-secondary h-9 text-xs"
                     >
-                        <Plus className="h-4 w-4" />
-                        Add slot
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Slot
                     </button>
                     <button
                         type="button"
                         onClick={handleSaveDeliveryCharge}
                         disabled={deliverySaving}
-                        className="h-12 px-6 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-black transition-all flex items-center gap-2 disabled:opacity-60"
+                        className="admin-btn-primary h-9 text-xs"
                     >
-                        <Save className="h-4 w-4" />
-                        {deliverySaving ? 'Saving…' : 'Save all delivery options'}
+                        {deliverySaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        {deliverySaving ? 'Saving…' : 'Save Delivery Schedule'}
                     </button>
-                    <p className="text-[11px] text-slate-400 w-full italic">Note: "Save all delivery options" applies both Delivery Fee and Time Slots.</p>
                 </div>
+                <p className="text-[10px] text-slate-400 mt-2 italic">Note: Time slots and delivery fees are persisted together using "Save Delivery Schedule".</p>
             </motion.div>
 
-
             {/* Settings Architecture */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {settingsGroups.map((group, i) => (
                     <motion.div
                         key={group.title ?? `settings-group-${i}`}
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
-                        className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] hover:shadow-2xl hover:shadow-slate-200/40 transition-all cursor-pointer group relative overflow-hidden"
+                        className="admin-card p-5 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
                     >
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className={cn("p-5 rounded-[1.75rem] transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-sm", `bg-${group.color}-50 text-${group.color}-600`)}>
-                                    <group.icon className="h-7 w-7" />
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn("p-2 rounded-lg bg-slate-50 text-slate-600 transition-all duration-300 group-hover:bg-emerald-50 group-hover:text-emerald-600")}>
+                                    <group.icon className="h-5 w-5" />
                                 </div>
                                 <span className={cn(
-                                    "px-3 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest border",
-                                    `bg-${group.color}-50/50 border-${group.color}-100 text-${group.color}-700`
+                                    "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                                    group.color === 'emerald' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' :
+                                    group.color === 'blue' ? 'bg-blue-50 border-blue-100 text-blue-700' :
+                                    group.color === 'purple' ? 'bg-purple-50 border-purple-100 text-purple-700' :
+                                    group.color === 'orange' ? 'bg-amber-50 border-amber-100 text-amber-700' :
+                                    group.color === 'pink' ? 'bg-pink-50 border-pink-100 text-pink-700' :
+                                    'bg-slate-100 border-slate-200 text-slate-700'
                                 )}>
                                     {group.status}
                                 </span>
                             </div>
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight mb-2 group-hover:text-emerald-600 transition-colors">{group.title}</h3>
-                            <p className="text-[11px] text-slate-400 font-bold leading-relaxed uppercase tracking-tight">{group.description}</p>
-
-                            <div className="mt-8 flex items-center justify-between pt-6 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-2 group-hover:translate-y-0">
-                                <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Update Settings</span>
-                                <div className="h-8 w-8 bg-slate-900 rounded-full flex items-center justify-center text-white">
-                                    <Zap className="h-4 w-4" />
-                                </div>
-                            </div>
+                            <h3 className="text-sm font-semibold text-slate-900 mb-1 group-hover:text-emerald-600 transition-colors">{group.title}</h3>
+                            <p className="text-xs text-slate-400 leading-normal">{group.description}</p>
                         </div>
-                        <div className={cn("absolute -right-20 -bottom-20 w-48 h-48 blur-[60px] opacity-10 transition-all duration-1000 group-hover:opacity-20 group-hover:scale-150", `bg-${group.color}-400`)} />
+
+                        <div className="mt-4 flex items-center justify-between pt-3 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-all duration-300">
+                            <span className="text-[10px] font-semibold text-slate-900">Manage Parameters</span>
+                            <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                        </div>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Compliance Warning HUD */}
+            {/* Security Clearance Callout */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-slate-900 rounded-[3rem] p-10 flex flex-col md:flex-row md:items-center justify-between gap-8 border border-white/10 shadow-2xl shadow-slate-900/40"
+                className="admin-card p-6 bg-slate-900 border-none text-white flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
-                <div className="flex flex-col md:flex-row md:items-center gap-8">
-                    <div className="h-20 w-20 bg-emerald-500/10 rounded-[2.25rem] border border-emerald-500/20 flex items-center justify-center">
-                        <Lock className="w-8 h-8 text-emerald-400" />
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 shrink-0">
+                        <Lock className="w-6 h-6 text-emerald-400" />
                     </div>
                     <div>
-                        <h4 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Simulated Shell Environment</h4>
-                        <p className="text-emerald-400/60 text-[10px] font-black uppercase tracking-[0.2em] leading-relaxed max-w-md italic">
-                            Most system vectors are currently in read-only mode for this demonstration protocol. Full write access requires Super-Admin clearance.
+                        <h4 className="text-sm font-semibold text-white">Simulated Sandbox Environment</h4>
+                        <p className="text-xs text-slate-400 mt-1 max-w-md">
+                            Hardware sync controls are running in a protected sandbox. Some underlying physical resources may require super-admin credentials to update.
                         </p>
                     </div>
                 </div>
                 <button
-                    onClick={() => toast.success('Authorization Requested')}
-                    className="h-14 px-10 bg-white text-slate-900 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-400 transition-all shadow-xl active:scale-95"
+                    onClick={() => toast.success('Authorization requested successfully!')}
+                    className="admin-btn h-10 px-5 bg-white text-slate-900 hover:bg-emerald-400 hover:text-slate-950 shadow-sm shrink-0"
                 >
-                    Request Write Access
+                    Request Credentials
                 </button>
             </motion.div>
         </div>

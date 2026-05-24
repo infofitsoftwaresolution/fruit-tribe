@@ -256,32 +256,26 @@ export function AdminDashboard() {
     }, [refreshOrders, refreshProducts]);
 
     return (
-        <div className="space-y-12 pb-20 font-sans relative">
-            {/* Header with improved typography and layout */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="space-y-8 pb-20">
+            {/* Page header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    transition={{ duration: 0.4 }}
                 >
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                            <Activity className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.25em] opacity-80">Command Hub</span>
-                    </div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter font-heading">
-                        {isSeller ? `${user?.name} Console` : 'Platform Pulse'}
+                    <h1 className="admin-panel-page-title">
+                        {isSeller ? `${user?.name}'s Dashboard` : 'Dashboard'}
                     </h1>
-                    <p className="text-slate-500 text-sm mt-3 max-w-xl leading-relaxed font-medium">
-                        {isAdmin ? 'Real-time performance analytics and operational control for your orchard ecosystem.' : 'Track your store metrics, inventory health, and customer interactions.'}
+                    <p className="admin-panel-page-subtitle">
+                        {isAdmin ? 'Platform overview — revenue, customers, and inventory at a glance.' : 'Track your store metrics, inventory health, and customer interactions.'}
                     </p>
                 </motion.div>
 
-                <div className="flex items-center gap-4">
-                    <div className="hidden lg:flex items-center gap-3 px-5 py-3 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                        <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping" />
-                        <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest leading-none">System Healthy</span>
+                <div className="flex items-center gap-3">
+                    <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/15 text-emerald-700 text-xs rounded-xl font-bold uppercase tracking-wider">
+                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                        <span>All systems operational</span>
                     </div>
                     <button
                         type="button"
@@ -290,17 +284,17 @@ export function AdminDashboard() {
                             const base = window.location.href.split('#')[0];
                             window.open(`${base}#/`, '_blank', 'noopener,noreferrer');
                         }}
-                        className="h-11 px-5 bg-slate-900 border border-slate-800 rounded-xl text-white hover:bg-emerald-600 hover:border-emerald-500 hover:shadow-lg transition-all duration-500 flex items-center gap-2 group"
+                        className="admin-panel-btn-primary"
                     >
-                        <span className="text-[9px] font-black uppercase tracking-widest">Visit Store</span>
-                        <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Visit Store</span>
                     </button>
                 </div>
             </div>
 
-            {/* Mobile quick nav refinement */}
+            {/* Mobile quick nav */}
             <div className="md:hidden -mx-4">
-                <div className="flex gap-3 overflow-x-auto px-4 pb-4 no-scrollbar">
+                <div className="flex gap-2 overflow-x-auto px-4 pb-2 no-scrollbar">
                     {[
                         { label: 'Overview', href: '/admin' },
                         { label: 'Orders', href: '/admin/orders' },
@@ -310,7 +304,7 @@ export function AdminDashboard() {
                         <button
                             key={item.href}
                             onClick={() => navigate(item.href)}
-                            className="px-6 py-3 rounded-2xl bg-white text-[10px] font-black uppercase tracking-widest border border-slate-100 whitespace-nowrap shadow-sm active:scale-95 transition-all"
+                            className="admin-panel-btn-secondary whitespace-nowrap text-xs"
                         >
                             {item.label}
                         </button>
@@ -350,20 +344,20 @@ export function AdminDashboard() {
                         />
                         <motion.div
                             whileHover={{ y: -4, scale: 1.01 }}
-                            className="bg-slate-900 rounded-3xl p-6 text-white flex flex-col justify-between shadow-xl relative overflow-hidden border border-white/5 group"
+                            className="bg-[#09090b] rounded-2xl p-6 text-white flex flex-col justify-between shadow-sm relative overflow-hidden border border-zinc-800/80 group"
                         >
                             <div className="relative z-10">
                                 <div className="flex items-center justify-between mb-8">
-                                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center">
-                                        <Zap className="w-6 h-6 text-emerald-400 fill-emerald-400/20" />
+                                    <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+                                        <Zap className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
                                     </div>
-                                    <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-[9px] font-black uppercase tracking-widest border border-emerald-500/20">
+                                    <div className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-lg text-[10px] font-bold tracking-wider uppercase border border-emerald-500/15">
                                         Optimal
                                     </div>
                                 </div>
                                 <div>
-                                    <p className="text-[9px] font-black text-white/50 uppercase tracking-widest mb-1 italic">Engine Health</p>
-                                    <p className="text-2xl font-black tracking-tighter mb-3 uppercase italic group-hover:text-emerald-400 transition-colors">98.4% Uptime</p>
+                                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Engine Health</p>
+                                    <p className="text-2xl font-bold mb-3 tracking-tight group-hover:text-emerald-400 transition-colors">98.4% Uptime</p>
                                     <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                                         <motion.div 
                                             initial={{ width: 0 }}
@@ -375,7 +369,7 @@ export function AdminDashboard() {
                                 </div>
                             </div>
                             {/* Decorative Background Elements */}
-                            <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none group-hover:bg-emerald-500/20 transition-all duration-700" />
+                            <div className="absolute -right-12 -bottom-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none group-hover:bg-emerald-500/10 transition-all duration-700" />
                         </motion.div>
                     </>
                 ) : (
@@ -416,21 +410,19 @@ export function AdminDashboard() {
                 )}
             </div>
 
-            {/* Inventory Pulse */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden group">
-                <div className="p-6 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/30">
+            {/* Inventory */}
+            <div className="admin-panel-card">
+                <div className="admin-panel-card-header">
                     <div>
-                        <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight font-heading">Inventory Hub</h3>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 opacity-80">
-                            Live supply chain and stock metrics
-                        </p>
+                        <h3 className="admin-panel-section-title">Inventory</h3>
+                        <p className="text-xs text-zinc-400 mt-1 font-medium">Live stock levels and supply chain status</p>
                     </div>
                     <button
                         onClick={() => navigate('/admin/products')}
-                        className="h-11 px-6 bg-white border border-slate-200 rounded-xl text-[9px] font-black text-slate-900 uppercase tracking-widest hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-xl transition-all duration-500 flex items-center gap-2"
+                        className="admin-panel-btn-secondary h-8 text-[11px]"
                     >
-                        <span>Full Catalog</span>
-                        <ChevronRight className="w-4 h-4" />
+                        <span>View Catalog</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                 </div>
 
@@ -448,45 +440,45 @@ export function AdminDashboard() {
                                 label="Healthy Stock Levels"
                                 value={inventoryIntel.healthy}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
-                                colorClass="bg-emerald-500"
+                                colorClass="bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"
                             />
                             <InventoryBar
                                 label="Reorder Threshold Warning"
                                 value={inventoryIntel.lowStock}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
-                                colorClass="bg-amber-500"
+                                colorClass="bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]"
                             />
                             <InventoryBar
                                 label="Immediate Restock Required"
                                 value={inventoryIntel.outOfStock}
                                 total={Math.max(1, inventoryIntel.totalProducts)}
-                                colorClass="bg-red-500"
+                                colorClass="bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]"
                             />
                         </div>
                     </div>
 
-                    <div className="bg-slate-50/50 border border-slate-100 rounded-3xl p-6 relative overflow-hidden shadow-inner">
+                    <div className="bg-zinc-50 border border-zinc-200/50 rounded-2xl p-5 relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
                         
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                             <Search className="w-3.5 h-3.5 opacity-40" />
                             Fast Filters
                         </p>
                         
-                        <div className="space-y-3 mb-6">
+                        <div className="space-y-3 mb-4">
                             <div className="relative">
                                 <input
                                     value={inventorySearch}
                                     onChange={(e) => setInventorySearch(e.target.value)}
-                                    placeholder="SKU, Name, or Vendor..."
-                                    className="w-full h-10 pl-4 pr-4 rounded-xl border border-slate-200 bg-white text-[10px] font-bold text-slate-900 placeholder:text-slate-400 placeholder:uppercase placeholder:tracking-widest focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 transition-all outline-none"
+                                    placeholder="Search inventory..."
+                                    className="admin-panel-input h-9 pr-8"
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <select
                                     value={inventoryStockFilter}
                                     onChange={(e) => setInventoryStockFilter(e.target.value as 'all' | 'low' | 'out' | 'healthy')}
-                                    className="h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                    className="admin-panel-select h-9 text-xs py-1"
                                 >
                                     <option value="all">Any Stock</option>
                                     <option value="low">Critical</option>
@@ -496,7 +488,7 @@ export function AdminDashboard() {
                                 <select
                                     value={inventoryVendorFilter}
                                     onChange={(e) => setInventoryVendorFilter(e.target.value)}
-                                    className="h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                    className="admin-panel-select h-9 text-xs py-1"
                                 >
                                     <option value="all">All Vendors</option>
                                     {inventoryVendors.map((vendor) => (
@@ -506,7 +498,7 @@ export function AdminDashboard() {
                             </div>
                         </div>
 
-                        <div className="space-y-4 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                        <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
                             {inventoryPreview.length ? inventoryPreview.map((p, i) => (
                                 <motion.button
                                     initial={{ opacity: 0, x: 8 }}
@@ -515,32 +507,29 @@ export function AdminDashboard() {
                                     key={String(p.id)}
                                     type="button"
                                     onClick={() => navigate(`/admin/products?focusProductId=${encodeURIComponent(String(p.id))}`)}
-                                    className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-white border border-slate-100 hover:border-emerald-500/50 hover:shadow-lg transition-all duration-300 text-left group"
+                                    className="w-full flex items-center justify-between gap-3 rounded-xl p-3 bg-white border border-zinc-200/40 hover:border-zinc-350 hover:shadow-sm transition-all duration-300 text-left group"
                                 >
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-black text-slate-900 truncate uppercase tracking-tight group-hover:text-emerald-600 transition-colors">{p.name}</p>
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                                            Limit: {(p.lowStockThreshold ?? 5)}
+                                        <p className="text-sm font-semibold text-zinc-800 truncate group-hover:text-zinc-950 transition-colors">{p.name}</p>
+                                        <p className="text-xs text-zinc-400 mt-0.5 font-medium">
+                                            Limit: {(p.lowStockThreshold ?? 5)} units
                                         </p>
                                     </div>
-                                    <div className="text-right">
-                                        <span className={cn(
-                                            "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
-                                            getLiveAvailableUnits(p) <= (p.lowStockThreshold ?? 5) ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                        )}>
+                                    <div className="text-right shrink-0">
+                                        <span className={getLiveAvailableUnits(p) <= (p.lowStockThreshold ?? 5) ? 'admin-panel-badge-red' : 'admin-panel-badge-emerald'}>
                                             {getLiveAvailableUnits(p)} Units
                                         </span>
                                     </div>
                                 </motion.button>
                             )) : (
                                 <div className="py-10 text-center">
-                                    <Activity className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No matching assets.</p>
+                                    <Activity className="h-10 w-10 text-zinc-350 mx-auto mb-3" />
+                                    <p className="text-xs text-zinc-450 font-medium">No matching assets.</p>
                                     {inventoryStockFilter !== 'all' && (
                                         <button
                                             type="button"
                                             onClick={() => setInventoryStockFilter('all')}
-                                            className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900 hover:border-slate-300 transition-all"
+                                            className="mt-3 admin-panel-btn-secondary text-xs h-8"
                                         >
                                             Show Any Stock
                                         </button>
@@ -552,167 +541,154 @@ export function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Orders and Command Center */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                {/* Recent Orders Refined */}
-                <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden">
-                    <div className="p-6 md:p-8 border-b border-slate-50 bg-slate-50/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Orders + Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Recent Orders */}
+                <div className="admin-panel-card">
+                    <div className="admin-panel-card-header">
                         <div>
-                            <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight font-heading">Transactions</h3>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 opacity-80">Latest order activity pipeline</p>
+                            <h3 className="admin-panel-section-title">Recent Orders</h3>
+                            <p className="text-xs text-zinc-400 mt-1 font-medium">Latest order activity</p>
                         </div>
-                        <Link to="/admin/orders" className="h-10 w-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center hover:bg-slate-900 hover:text-white transition-all duration-500 shadow-sm">
+                        <Link to="/admin/orders" className="admin-panel-btn-secondary h-8 w-8 !p-0 justify-center rounded-xl">
                             <ArrowRight className="h-4 w-4" />
                         </Link>
                     </div>
                     
-                    <div className="p-5 md:p-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                    <div className="p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             <input
                                 value={orderSearch}
                                 onChange={(e) => setOrderSearch(e.target.value)}
                                 placeholder="Customer / Order ID..."
-                                className="w-full h-10 px-4 rounded-xl border border-slate-200 bg-white text-[10px] font-bold text-slate-900 placeholder:text-slate-400 outline-none focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                                className="admin-panel-input h-9"
                             />
                             <div className="flex gap-2">
                                 <select
                                     value={orderWindow}
                                     onChange={(e) => setOrderWindow(e.target.value as 'all' | 'today' | '7d' | '30d')}
-                                    className="flex-1 h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                    className="admin-panel-select h-9 text-xs py-1 flex-1"
                                 >
                                     <option value="all">All Time</option>
                                     <option value="today">Today</option>
                                     <option value="7d">Last Week</option>
+                                    <option value="30d">Last 30 Days</option>
                                 </select>
                                 <select
                                     value={orderStatusFilter}
                                     onChange={(e) => setOrderStatusFilter(e.target.value as 'all' | 'active' | 'DELIVERED' | 'CANCELLED')}
-                                    className="flex-1 h-10 px-2 rounded-xl border border-slate-200 bg-white text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none"
+                                    className="admin-panel-select h-9 text-xs py-1 flex-1"
                                 >
                                     <option value="all">Status</option>
                                     <option value="active">Active</option>
                                     <option value="DELIVERED">Delivered</option>
+                                    <option value="CANCELLED">Cancelled</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {filteredRecentOrders.length > 0 ? filteredRecentOrders.map((order: any, i: number) => (
                                 <motion.div
                                     initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.1 * i }}
+                                    transition={{ delay: 0.05 * i }}
                                     key={order.id}
-                                    className="p-4 flex items-center gap-4 border border-slate-50 hover:border-emerald-500/30 rounded-2xl hover:bg-slate-50/50 transition-all group cursor-pointer"
+                                    className="p-3.5 flex items-center gap-4 border border-zinc-200/40 hover:border-zinc-350 rounded-xl hover:bg-zinc-50/50 transition-all duration-300 group cursor-pointer"
                                     onClick={() => navigate('/admin/orders')}
                                 >
-                                    <div className="h-11 w-11 rounded-xl bg-white border border-slate-100 shadow-sm flex items-center justify-center font-black text-slate-900 group-hover:bg-slate-900 group-hover:text-white transition-all duration-700 text-base">
+                                    <div className="h-9 w-9 rounded-xl bg-zinc-100 border border-zinc-200/40 flex items-center justify-center font-semibold text-zinc-500 group-hover:bg-zinc-900 group-hover:text-white transition-all duration-300 text-xs">
                                         {order.customer.charAt(0)}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
-                                            <span className="px-2.5 py-1 bg-slate-100 text-[9px] font-black rounded-lg text-slate-500 uppercase tracking-widest">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold text-zinc-800 truncate">{order.customer}</span>
+                                            <span className="text-xs text-zinc-400 font-medium">
                                                 {order.orderNumber ? `#${order.orderNumber}` : `ID-${order.id.slice(0,6)}`}
                                             </span>
                                         </div>
-                                        <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mt-1 flex items-center gap-2">
-                                            {order.items} Items <span className="h-0.5 w-0.5 rounded-full bg-slate-200" /> {new Date(order.date).toLocaleDateString()}
+                                        <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5 font-medium">
+                                            <span>{order.items} Items</span>
+                                            <span className="h-1 w-1 rounded-full bg-zinc-300" />
+                                            <span>{new Date(order.date).toLocaleDateString()}</span>
                                         </p>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[14px] font-black text-slate-900">₹{order.total.toLocaleString()}</p>
-                                        <div className={cn(
-                                            "inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
-                                            order.payment === 'Paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                                    <div className="text-right shrink-0">
+                                        <p className="text-sm font-bold text-zinc-900 tracking-tight">₹{order.total.toLocaleString()}</p>
+                                        <span className={cn(
+                                            "mt-1",
+                                            order.payment === 'Paid' ? 'admin-panel-badge-emerald' : 'admin-panel-badge-amber'
                                         )}>
-                                            <div className={cn("h-1.5 w-1.5 rounded-full", order.payment === 'Paid' ? 'bg-emerald-500' : 'bg-amber-500')} />
                                             {order.payment}
-                                        </div>
+                                        </span>
                                     </div>
                                 </motion.div>
                             )) : (
-                                <div className="py-20 text-center bg-slate-50/30 rounded-[2.5rem] border border-dashed border-slate-200">
-                                    <ShoppingCart className="h-12 w-12 text-slate-200 mx-auto mb-4" />
-                                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">No transactions found.</p>
+                                <div className="py-16 text-center">
+                                    <ShoppingCart className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
+                                    <p className="text-sm text-zinc-450 font-medium">No orders found.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Command Center with Gradient Design */}
-                <div className="space-y-8">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.99 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl h-full flex flex-col justify-center min-h-[400px]"
-                    >
-                        {/* Animated Gradient Background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950/40 opacity-90" />
-                        <div className="absolute -top-40 -right-40 h-96 w-96 bg-emerald-500/20 rounded-full blur-[120px] animate-pulse" />
-                        <div className="absolute -bottom-40 -left-40 h-96 w-96 bg-blue-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
-
-                        <div className="relative z-10">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em] mb-6 shadow-lg shadow-emerald-500/5">
-                                <Zap className="h-3.5 w-3.5 fill-emerald-500 animate-bounce" />
-                                Rapid Access
+                {/* Quick Actions */}
+                <div className="space-y-4">
+                    <div className="admin-panel-card p-6 bg-[#09090b] text-white border-zinc-800/80">
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center">
+                                <Zap className="h-4 w-4 text-emerald-400" />
                             </div>
-                            <h3 className="text-3xl font-black mb-4 tracking-tighter leading-none font-heading italic uppercase">Streamline your <br /><span className="text-emerald-400">operations.</span></h3>
-                            <p className="text-slate-400 text-sm mb-8 leading-relaxed max-w-xs font-medium opacity-80">
-                                High-frequency controls to manage your digital inventory and customer logistics with surgical precision.
-                            </p>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <button onClick={() => navigate('/admin/products')} className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-emerald-500/30 transition-all group backdrop-blur-xl">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center border border-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/10">
-                                            <Package className="h-5 w-5" />
-                                        </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest">Inventory</span>
-                                    </div>
-                                    <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-emerald-500 group-hover:translate-x-1.5 transition-all duration-500" />
-                                </button>
-
-                                {!isSeller && (
-                                    <button onClick={() => navigate('/admin/store')} className="flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-blue-500/30 transition-all group backdrop-blur-xl">
-                                        <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 bg-blue-500/20 rounded-xl flex items-center justify-center border border-blue-500/20 text-blue-400 shadow-lg shadow-blue-500/10">
-                                                <LayoutDashboard className="h-5 w-5" />
-                                            </div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest">Storefront</span>
-                                        </div>
-                                        <ArrowRight className="h-4 w-4 text-slate-600 group-hover:text-blue-500 group-hover:translate-x-1.5 transition-all duration-500" />
-                                    </button>
-                                )}
-                            </div>
+                            <h3 className="text-base font-bold text-white tracking-tight">Quick Actions</h3>
                         </div>
-                    </motion.div>
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-5">Jump to common tasks</p>
 
-                    {/* Notification Nodes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <motion.div whileHover={{ y: -4 }} className="p-6 bg-amber-50 rounded-3xl border border-amber-100 flex items-start gap-4 shadow-sm hover:shadow-lg transition-all duration-500">
-                            <div className="p-3 bg-white rounded-xl text-amber-600 shadow-md shadow-amber-900/5">
-                                <AlertCircle className="w-5 h-5" />
+                        <div className="space-y-2">
+                            <button onClick={() => navigate('/admin/products')} className="w-full flex items-center justify-between px-4 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:border-zinc-700/50 transition-all duration-350 ease-out group">
+                                <div className="flex items-center gap-3">
+                                    <Package className="h-4 w-4 text-emerald-400" />
+                                    <span className="text-sm font-medium text-white">Manage Inventory</span>
+                                </div>
+                                <ArrowRight className="h-4 w-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                            </button>
+
+                            {!isSeller && (
+                                <button onClick={() => navigate('/admin/store')} className="w-full flex items-center justify-between px-4 py-3 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:border-zinc-700/50 transition-all duration-350 ease-out group">
+                                    <div className="flex items-center gap-3">
+                                        <LayoutDashboard className="h-4 w-4 text-blue-400" />
+                                        <span className="text-sm font-medium text-white">Curation Space</span>
+                                    </div>
+                                    <ArrowRight className="h-4 w-4 text-zinc-500 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Status alerts */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="flex items-start gap-3.5 p-5 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
+                            <div className="p-2 bg-amber-500/10 border border-amber-500/15 rounded-xl text-amber-700 flex-shrink-0">
+                                <AlertCircle className="w-4 h-4" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-black text-amber-800/50 uppercase tracking-widest mb-1.5 italic">Supply Warning</p>
-                                <p className="text-[13px] font-black text-amber-900 leading-tight">
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-0.5">Stock Alert</p>
+                                <p className="text-xs text-amber-900/80 font-medium leading-relaxed">
                                     {lowStockCount > 0
-                                        ? `${lowStockCount} SKU${lowStockCount === 1 ? '' : 's'} flagged for restock.`
-                                        : 'Orchard supplies are fully optimal.'}
+                                        ? `${lowStockCount} SKU${lowStockCount === 1 ? '' : 's'} need restocking.`
+                                        : 'All stock levels are healthy.'}
                                 </p>
                             </div>
-                        </motion.div>
-                        <motion.div whileHover={{ y: -4 }} className="p-6 bg-purple-50 rounded-3xl border border-purple-100 flex items-start gap-4 shadow-sm hover:shadow-lg transition-all duration-500">
-                            <div className="p-3 bg-white rounded-xl text-purple-600 shadow-md shadow-purple-900/5">
-                                <ShieldCheck className="w-5 h-5" />
+                        </div>
+                        <div className="flex items-start gap-3.5 p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                            <div className="p-2 bg-emerald-500/10 border border-emerald-500/15 rounded-xl text-emerald-700 flex-shrink-0">
+                                <ShieldCheck className="w-4 h-4" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-black text-purple-800/50 uppercase tracking-widest mb-1.5 italic">Integrity Check</p>
-                                <p className="text-[13px] font-black text-purple-900 leading-tight">Platform security protocols are verified.</p>
+                            <div className="min-w-0">
+                                <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-0.5">Security</p>
+                                <p className="text-xs text-emerald-900/80 font-medium leading-relaxed">Platform security protocols verified.</p>
                             </div>
-                        </motion.div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -721,79 +697,66 @@ export function AdminDashboard() {
 }
 
 function MetricGlassCard({ label, value, sub, color, icon: Icon, trend }: any) {
-    const colorMap: any = {
-        emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 ring-emerald-500/10',
-        blue: 'bg-blue-50 text-blue-600 border-blue-100 ring-blue-500/10',
-        purple: 'bg-purple-50 text-purple-600 border-purple-100 ring-purple-500/10',
-        orange: 'bg-orange-50 text-orange-600 border-orange-100 ring-orange-500/10'
+    const iconColorMap: any = {
+        emerald: 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/15',
+        blue: 'bg-blue-500/10 text-blue-700 border border-blue-500/15',
+        purple: 'bg-purple-500/10 text-purple-700 border border-purple-500/15',
+        orange: 'bg-orange-500/10 text-orange-700 border border-orange-500/15'
     };
 
     return (
-        <motion.div
-            whileHover={{ y: -6, scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500"
-        >
-            <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                    <div className={cn("p-4 rounded-xl border transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 shadow-lg", colorMap[color])}>
-                        <Icon className="w-5 h-5" />
-                    </div>
-                    {trend && (
-                        <div className={cn(
-                            "px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest flex items-center gap-1 border",
-                            trend.startsWith('+') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-orange-50 text-orange-600 border-orange-100'
-                        )}>
-                            {trend.startsWith('+') ? <ArrowUpRight className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
-                            {trend}
-                        </div>
-                    )}
+        <div className="admin-panel-stat-card">
+            <div className="flex items-start justify-between mb-4">
+                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", iconColorMap[color])}>
+                    <Icon className="w-5 h-5" />
                 </div>
-                <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1.5 italic opacity-80">{label}</p>
-                    <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1.5 leading-none font-heading">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-60">{sub}</p>
-                </div>
+                {trend && (
+                    <span className={cn(
+                        "admin-panel-badge text-[10px]",
+                        trend.startsWith('+') || color === 'emerald' ? 'admin-panel-badge-emerald' : 'admin-panel-badge-amber'
+                    )}>
+                        {trend.startsWith('+') ? <ArrowUpRight className="h-3 w-3" /> : <TrendingUp className="h-3 w-3" />}
+                        {trend}
+                    </span>
+                )}
             </div>
-            
-            {/* Background Ambient Glow */}
-            <div className={cn(
-                "absolute -right-12 -bottom-12 w-32 h-32 blur-[50px] opacity-10 transition-all duration-700 group-hover:opacity-30 group-hover:scale-150",
-                `bg-${color}-500`
-            )} />
-        </motion.div>
+            <p className="admin-panel-stat-value">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+            <p className="admin-panel-stat-label">{label}</p>
+            {sub && <p className="text-xs text-zinc-400 mt-1 font-medium">{sub}</p>}
+        </div>
     );
 }
 
 function StatPill({ label, value, tone, icon: Icon }: { label: string; value: number; tone: 'slate' | 'emerald' | 'amber' | 'purple'; icon: any }) {
     const tones = {
-        slate: 'bg-slate-50 text-slate-900 border-slate-100',
-        emerald: 'bg-emerald-50 text-emerald-900 border-emerald-100',
-        amber: 'bg-amber-50 text-amber-900 border-amber-100',
-        purple: 'bg-violet-50 text-violet-900 border-violet-100',
+        slate: 'bg-white border-zinc-200/50',
+        emerald: 'bg-emerald-500/5 border-emerald-500/10',
+        amber: 'bg-amber-500/5 border-amber-500/10',
+        purple: 'bg-purple-500/5 border-purple-500/10',
     } as const;
 
     const iconColors = {
-        slate: 'text-slate-400',
-        emerald: 'text-emerald-500',
-        amber: 'text-amber-500',
-        purple: 'text-violet-500',
+        slate: 'text-zinc-400',
+        emerald: 'text-emerald-600',
+        amber: 'text-amber-600',
+        purple: 'text-purple-600',
+    } as const;
+
+    const valueColors = {
+        slate: 'text-zinc-900',
+        emerald: 'text-emerald-950',
+        amber: 'text-amber-950',
+        purple: 'text-purple-950',
     } as const;
 
     return (
-        <motion.div 
-            whileHover={{ y: -4 }}
-            className={cn("p-5 rounded-2xl border relative overflow-hidden group transition-all duration-500", tones[tone])}
-        >
-            <div className="relative z-10">
-                <div className="flex items-center justify-between mb-3">
-                    <p className="text-[8px] font-black uppercase tracking-[0.15em] opacity-50">{label}</p>
-                    <Icon className={cn("w-3.5 h-3.5 opacity-40 group-hover:opacity-100 transition-opacity", iconColors[tone])} />
-                </div>
-                <p className="text-2xl font-black tracking-tighter leading-none font-heading">{value.toLocaleString()}</p>
+        <div className={cn("p-4 rounded-xl border transition-all duration-300 hover:shadow-sm hover:border-zinc-300", tones[tone])}>
+            <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-zinc-500">{label}</p>
+                <Icon className={cn("w-4 h-4", iconColors[tone])} />
             </div>
-            <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </motion.div>
+            <p className={cn("text-xl font-bold tracking-tight", valueColors[tone])}>{value.toLocaleString()}</p>
+        </div>
     );
 }
 
@@ -811,22 +774,20 @@ function InventoryBar({
     const pct = Math.max(0, Math.min(100, Math.round((value / Math.max(1, total)) * 100)));
     const itemLabel = value === 1 ? 'product' : 'products';
     return (
-        <div className="group">
-            <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
-                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[8px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Real-time</span>
-                </div>
-                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">
-                    {value} {itemLabel} <span className="text-slate-300 ml-1">/ {pct}%</span>
+        <div>
+            <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-semibold text-zinc-600">{label}</p>
+                <p className="text-xs text-zinc-500 font-medium">
+                    {value} {itemLabel}
+                    <span className="text-zinc-400 ml-1">({pct}%)</span>
                 </p>
             </div>
-            <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden p-0.5 border border-slate-50 shadow-inner">
-                <motion.div 
+            <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${pct}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn('h-full rounded-full shadow-sm', colorClass)} 
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className={cn('h-full rounded-full', colorClass)}
                 />
             </div>
         </div>

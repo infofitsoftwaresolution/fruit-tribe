@@ -23,86 +23,77 @@ export function AdminPreferencesPage() {
     };
 
     return (
-        <div className="space-y-10 pb-20 max-w-7xl mx-auto">
-            {/* Page header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 sticky top-0 bg-slate-50/80 backdrop-blur-xl z-[100] py-8 border-b border-slate-100 -mx-4 px-4 lg:-mx-8 lg:px-8">
+        <div className="space-y-6 pb-20 max-w-5xl">
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <Terminal className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Store Preferences</span>
+                    <div className="flex items-center gap-2 mb-1">
+                        <Terminal className="w-4 h-4 text-emerald-600" />
+                        <span className="admin-section-label">Preferences</span>
                     </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">Store Settings</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage SEO, social preview, and tracking IDs.</p>
+                    <h1 className="admin-page-title">Preferences</h1>
+                    <p className="admin-page-subtitle">Configure search engine settings (SEO), social media sharing images, and analytics integrations.</p>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex gap-2.5">
                     <button
                         onClick={() => { setFormData(preferences); setIsDirty(false); }}
                         disabled={!isDirty}
-                        className="h-12 px-6 text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white border border-slate-200 rounded-2xl hover:text-slate-900 hover:shadow-lg disabled:opacity-20 transition-all"
+                        className="admin-btn-secondary"
                     >
                         Reset Changes
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={!isDirty}
-                        className="flex items-center gap-3 h-12 px-8 text-[10px] font-black uppercase tracking-widest text-white bg-slate-900 rounded-2xl hover:bg-black disabled:opacity-50 shadow-xl shadow-slate-900/20 transition-all active:scale-95"
+                        className="admin-btn-primary"
                     >
-                        <Zap className="h-4 w-4 text-emerald-400" />
-                        Save Changes
+                        <Zap className="h-4 w-4" />
+                        Save Preferences
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column: Form Controls */}
-                <div className="lg:col-span-2 space-y-10">
-                    {/* SEO Architecture */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden"
-                    >
-                        <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/20">
-                            <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
-                                    <Globe className="h-5 w-5 text-emerald-400" />
+                <div className="lg:col-span-2 space-y-6">
+                    {/* SEO Card */}
+                    <div className="admin-card">
+                        <div className="admin-card-header bg-slate-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded bg-slate-100 text-slate-700">
+                                    <Globe className="h-4.5 w-4.5" />
                                 </div>
-                                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">SEO Settings</h3>
+                                <h3 className="text-xs font-semibold text-slate-900">Search Engine Optimization (SEO)</h3>
                             </div>
-                            <Activity className="h-5 w-5 text-emerald-500 animate-pulse" />
                         </div>
-                        <div className="p-10 space-y-8">
-                            <div className="p-6 bg-slate-900 rounded-3xl border-4 border-slate-50 text-[10px] font-bold text-white/60 leading-relaxed uppercase tracking-widest italic flex gap-4 items-center">
-                                <Info className="h-5 w-5 text-emerald-400 shrink-0" />
-                                These fields control how your store appears in search results.
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Page Title</label>
+                        <div className="p-6 space-y-4">
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-medium text-slate-600">Homepage Title</label>
                                     <span className={cn(
-                                        "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
-                                        formData.homepageTitle.length > 70 ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                        "text-[10px] font-semibold px-2 py-0.5 rounded border",
+                                        formData.homepageTitle.length > 70 ? 'bg-red-50 text-red-700 border-red-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                     )}>
-                                        {formData.homepageTitle.length} / 70
+                                        {formData.homepageTitle.length} / 70 characters
                                     </span>
                                 </div>
                                 <input
                                     name="homepageTitle"
                                     value={formData.homepageTitle || ''}
                                     onChange={handleChange}
-                                    className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black text-slate-900 focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-300"
+                                    className="admin-input"
+                                    placeholder="Enter page title for search engines"
                                 />
                             </div>
 
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center px-1">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Meta Description</label>
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center">
+                                    <label className="text-xs font-medium text-slate-600">Meta Description</label>
                                     <span className={cn(
-                                        "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border",
-                                        formData.homepageMetaDescription.length > 160 ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                        "text-[10px] font-semibold px-2 py-0.5 rounded border",
+                                        formData.homepageMetaDescription.length > 160 ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                     )}>
-                                        {formData.homepageMetaDescription.length} / 320
+                                        {formData.homepageMetaDescription.length} / 320 characters
                                     </span>
                                 </div>
                                 <textarea
@@ -110,149 +101,120 @@ export function AdminPreferencesPage() {
                                     rows={5}
                                     value={formData.homepageMetaDescription || ''}
                                     onChange={handleChange}
-                                    className="w-full p-6 bg-slate-50 border border-slate-100 rounded-[2.5rem] text-sm font-black text-slate-900 focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all resize-none placeholder:text-slate-300"
+                                    className="admin-input h-auto py-2"
+                                    placeholder="Describe your store for search engine snippets"
                                 />
                             </div>
                         </div>
-                    </motion.div>
+                    </div>
 
-                    {/* Social Logic */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden"
-                    >
-                        <div className="p-8 border-b border-slate-50 flex items-center gap-4 bg-slate-50/20">
-                            <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
-                                <MessageSquare className="h-5 w-5 text-emerald-400" />
-                            </div>
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Social Share Image</h3>
-                        </div>
-                        <div className="p-10 flex flex-col md:flex-row gap-10 items-center">
-                            <div className="w-full md:w-80 h-48 bg-slate-900 rounded-[2.5rem] border-4 border-slate-50 flex items-center justify-center overflow-hidden shadow-2xl relative group">
-                                {formData.socialShareImage ? (
-                                    <img src={formData.socialShareImage} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[2s]" alt="Social share" />
-                                ) : (
-                                    <ImageIcon className="h-12 w-12 text-slate-700" />
-                                )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60" />
-                                <div className="absolute bottom-4 left-6 flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-[8px] font-black text-white uppercase tracking-widest">Live Asset Stream</span>
+                    {/* Social Share Image Card */}
+                    <div className="admin-card">
+                        <div className="admin-card-header bg-slate-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded bg-slate-100 text-slate-700">
+                                    <MessageSquare className="h-4.5 w-4.5" />
                                 </div>
+                                <h3 className="text-xs font-semibold text-slate-900">Social Share Image</h3>
                             </div>
-                            <div className="flex-1 space-y-6">
-                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide leading-relaxed">
-                                    Recommended size: <span className="text-slate-900">1200 x 628 px</span>. <br />
-                                    This image appears when your link is shared.
+                        </div>
+                        <div className="p-6 flex flex-col md:flex-row gap-6 items-center">
+                            <div className="w-full md:w-56 h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 relative shadow-sm">
+                                {formData.socialShareImage ? (
+                                    <img src={formData.socialShareImage} className="w-full h-full object-cover" alt="Social share preview" />
+                                ) : (
+                                    <ImageIcon className="h-10 w-10 text-slate-300" />
+                                )}
+                            </div>
+                            <div className="flex-1 space-y-3 w-full">
+                                <p className="text-xs text-slate-400 leading-normal">
+                                    Recommended dimensions: <strong className="text-slate-700">1200 &times; 628 px</strong>. This image is displayed when your storefront URL is shared on platforms like Facebook, WhatsApp, or Twitter.
                                 </p>
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Image URL</label>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-600">Share Image URL</label>
                                     <input
                                         name="socialShareImage"
                                         value={formData.socialShareImage || ''}
                                         onChange={handleChange}
-                                        placeholder="Paste image URL..."
-                                        className="w-full h-14 px-6 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-black text-slate-900 focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all"
+                                        placeholder="https://example.com/share-image.jpg"
+                                        className="admin-input"
                                     />
                                 </div>
                             </div>
                         </div>
-                    </motion.div>
+                    </div>
 
-                    {/* Tracking IDs */}
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden"
-                    >
-                        <div className="p-8 border-b border-slate-50 flex items-center gap-4 bg-slate-50/20">
-                            <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
-                                <Code className="h-5 w-5 text-emerald-400" />
+                    {/* Analytics Card */}
+                    <div className="admin-card">
+                        <div className="admin-card-header bg-slate-50">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded bg-slate-100 text-slate-700">
+                                    <Code className="h-4.5 w-4.5" />
+                                </div>
+                                <h3 className="text-xs font-semibold text-slate-900">Analytics Integrations</h3>
                             </div>
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Analytics IDs</h3>
                         </div>
-                        <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Analytics ID</label>
+                        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-slate-600">Google Analytics (G4) Measurement ID</label>
                                 <input
                                     name="googleAnalyticsId"
                                     value={formData.googleAnalyticsId || ''}
                                     onChange={handleChange}
-                                    placeholder="G-UPLINK-SYNC"
-                                    className="w-full h-14 px-6 bg-slate-900 text-emerald-500 border border-slate-700 rounded-2xl text-sm font-black focus:ring-8 focus:ring-emerald-500/5 outline-none transition-all placeholder:text-slate-700 font-mono"
+                                    placeholder="e.g. G-XXXXXXXXXX"
+                                    className="admin-input font-mono"
                                 />
                             </div>
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Meta Pixel ID</label>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-slate-600">Meta Pixel ID</label>
                                 <input
                                     name="facebookPixelId"
                                     value={formData.facebookPixelId || ''}
                                     onChange={handleChange}
-                                    placeholder="NODE-PX-7741"
-                                    className="w-full h-14 px-6 bg-slate-900 text-blue-400 border border-slate-700 rounded-2xl text-sm font-black focus:ring-8 focus:ring-blue-500/5 outline-none transition-all placeholder:text-slate-700 font-mono"
+                                    placeholder="e.g. 123456789012345"
+                                    className="admin-input font-mono"
                                 />
                             </div>
                         </div>
-                    </motion.div>
+                    </div>
                 </div>
 
                 {/* Right Column: Visualization HUD */}
-                <div className="space-y-8">
-                    {/* Google Search Simulation */}
-                    <div className="sticky top-40 space-y-8">
-                        <div className="p-10 bg-slate-900 rounded-[3.5rem] border border-white/10 shadow-2xl relative overflow-hidden group">
-                            <div className="flex items-center justify-between mb-8 relative z-10">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest">Global SERP Preview</h4>
-                                </div>
-                                <Search className="h-4 w-4 text-emerald-500" />
+                <div className="space-y-4">
+                    {/* Google SERP Preview Card */}
+                    <div className="admin-card p-5 bg-white shadow-sm border border-slate-100">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-50">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-blue-500" />
+                                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Search Engine Snippet</span>
                             </div>
-
-                            <div className="space-y-3 relative z-10">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-5 w-5 rounded-full bg-white/10 border border-white/10 flex items-center justify-center">
-                                        <Globe className="h-2.5 w-2.5 text-white/40" />
-                                    </div>
-                                    <span className="text-[11px] text-white/50 font-bold tracking-tight">https://thefruittribe.com</span>
-                                </div>
-                                <h3 className="text-2xl font-black text-emerald-400 leading-none tracking-tight group-hover:underline cursor-pointer">
-                                    {formData.homepageTitle || 'The Fruit Tribe'}
-                                </h3>
-                                <p className="text-xs font-medium text-white/40 leading-relaxed line-clamp-3">
-                                    {formData.homepageMetaDescription || 'Configuration pending... Primary meta-description required for optimal ecosystem surfacing.'}
-                                </p>
-                            </div>
-
-                            {/* Decorative Grid Background */}
-                            <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-                            <div className="absolute -right-20 -bottom-20 h-64 w-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
+                            <Search className="h-3.5 w-3.5 text-slate-400" />
                         </div>
 
-                        {/* Ecology Sync Guard */}
-                        <div className="p-8 bg-emerald-50 rounded-[2.5rem] border border-emerald-100 flex items-start gap-4">
-                            <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100">
-                                <ShieldCheck className="h-6 w-6" />
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <div className="h-5 w-5 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center">
+                                    <Globe className="h-3 w-3 text-slate-400" />
+                                </div>
+                                <span className="text-xs text-slate-600 truncate">https://thefruittribe.com</span>
                             </div>
-                            <div className="flex-1">
-                                <h4 className="text-[10px] font-black text-emerald-900 uppercase tracking-widest mb-1">System Status</h4>
-                                <p className="text-[11px] font-bold text-emerald-700/70 leading-relaxed uppercase">All global meta-signals are currently synchronized with the regional CDN. Performance optimal.</p>
-                            </div>
+                            <h4 className="text-base font-semibold text-blue-800 leading-tight hover:underline cursor-pointer">
+                                {formData.homepageTitle || 'The Fruit Tribe'}
+                            </h4>
+                            <p className="text-xs text-slate-500 leading-relaxed line-clamp-3">
+                                {formData.homepageMetaDescription || 'Configure your meta description under SEO settings to display custom text in search engine results.'}
+                            </p>
                         </div>
+                    </div>
 
-                        {/* System Telemetry (Secondary UI) */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-6 bg-slate-100/50 rounded-3xl border border-slate-100">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">Index Latency</p>
-                                <p className="text-xl font-black text-slate-900 tracking-tighter uppercase">0.42ms</p>
-                            </div>
-                            <div className="p-6 bg-slate-100/50 rounded-3xl border border-slate-100">
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 italic">UX Health</p>
-                                <p className="text-xl font-black text-slate-900 tracking-tighter uppercase">99.2%</p>
-                            </div>
+                    {/* Ecology System Callout */}
+                    <div className="p-4 bg-emerald-50/50 rounded-xl border border-emerald-100/50 flex items-start gap-3">
+                        <div className="h-9 w-9 bg-white rounded-lg flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm shrink-0">
+                            <ShieldCheck className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-[10px] font-semibold text-emerald-800 uppercase tracking-wider">SEO Compliance</h4>
+                            <p className="text-[11px] text-emerald-700/80 leading-relaxed mt-0.5">Title tags are ideally under 60 characters and description tags under 160 characters for standard previews.</p>
                         </div>
                     </div>
                 </div>

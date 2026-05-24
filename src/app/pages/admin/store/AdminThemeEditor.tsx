@@ -169,8 +169,8 @@ export function AdminThemeEditor() {
                 <div className="p-6 border-b border-slate-700 bg-slate-900/95 sticky top-0 z-20 shrink-0">
                     <div className="flex items-center justify-between gap-4 mb-6">
                         <div className="min-w-0">
-                            <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Design system</p>
-                            <h2 className="text-xl font-bold text-white truncate">Theme editor</h2>
+                            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Customizer</p>
+                            <h2 className="text-lg font-semibold text-white truncate">Theme Editor</h2>
                         </div>
                         <AnimatePresence mode="wait">
                             {isDirty ? (
@@ -220,7 +220,7 @@ export function AdminThemeEditor() {
                                     />
                                 )}
                                 <tab.icon className={cn("relative z-10 h-5 w-5 shrink-0", sidebarTab === tab.id ? "text-emerald-600" : "text-inherit")} />
-                                <span className="relative z-10 text-[10px] font-semibold uppercase tracking-wide truncate w-full text-center">{tab.label}</span>
+                                <span className="relative z-10 text-xs font-medium truncate w-full text-center">{tab.label}</span>
                                 {sidebarTab === tab.id && (
                                     <motion.div layoutId="tab-underline" className="relative z-10 h-0.5 w-6 bg-emerald-500 rounded-full" />
                                 )}
@@ -467,13 +467,13 @@ export function AdminThemeEditor() {
 
                 <div className="p-6 border-t border-slate-700 bg-slate-900 shrink-0">
                     <div className="flex gap-4 mb-6">
-                        <div className="flex-1 flex flex-col gap-1 items-center justify-center p-3 bg-white/5 rounded-xl border border-white/5">
-                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Status</span>
-                            <span className="text-[10px] font-bold text-white">Ready</span>
+                        <div className="flex-1 flex flex-col gap-1 items-center justify-center p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Status</span>
+                            <span className="text-xs font-medium text-white">Ready</span>
                         </div>
-                        <div className="flex-1 flex flex-col gap-1 items-center justify-center p-3 bg-white/5 rounded-xl border border-white/5">
-                            <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Preview</span>
-                            <span className="text-[10px] font-bold text-white">Live</span>
+                        <div className="flex-1 flex flex-col gap-1 items-center justify-center p-2 bg-white/5 rounded-lg border border-white/5">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Preview</span>
+                            <span className="text-xs font-medium text-emerald-400">Live Sync</span>
                         </div>
                     </div>
 

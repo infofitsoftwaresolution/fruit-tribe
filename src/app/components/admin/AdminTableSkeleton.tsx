@@ -16,7 +16,7 @@ export function AdminTableSkeletonRows({
       {Array.from({ length: rows }).map((_, i) => (
         <tr key={i} className={cn('animate-pulse', className)}>
           {Array.from({ length: cols }).map((_, j) => (
-            <td key={j} className="px-6 py-5">
+            <td key={j} className="px-4 py-3">
               <div className={cn('h-3 rounded bg-slate-200/80', widths[j % widths.length])} />
             </td>
           ))}
@@ -32,7 +32,7 @@ export function AdminStatsSkeleton({ cards = 4 }: { cards?: number }) {
       {Array.from({ length: cards }).map((_, i) => (
         <div
           key={i}
-          className="rounded-3xl border border-slate-100 bg-white p-6 shadow-lg animate-pulse"
+          className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm animate-pulse"
         >
           <div className="h-2.5 w-24 rounded bg-slate-200 mb-3" />
           <div className="h-8 w-32 rounded bg-slate-200/90 mb-2" />

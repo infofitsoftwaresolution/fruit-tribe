@@ -227,7 +227,7 @@ export function AdminOrdersPage() {
         };
     }, [orders]);
 
-    const patchLocalOrder = useCallback((id: string, patch: Partial<Order>) => {
+    const patchLocalOrder = useCallback((id: string, patch: any) => {
         setLocalDraftOrders((prev) => {
             const idx = prev.findIndex((o) => String((o as any).id) === String(id));
             if (idx >= 0) {
@@ -288,7 +288,7 @@ export function AdminOrdersPage() {
 
     const handleAssignDelivery = useCallback(async (orderId: string, partnerId: string) => {
         if (!partnerId) return;
-        const current = orders.find((o) => String((o as any).id) === String(orderId));
+        const current = orders.find((o) => String((o as any).id) === String(orderId)) as any;
         const partnerName = deliveryPartners.find((p) => String(p.id) === String(partnerId))?.name || current?.courierName || null;
         if (current) {
             patchLocalOrder(orderId, {
@@ -591,91 +591,72 @@ export function AdminOrdersPage() {
     };
 
     return (
-        <div className="space-y-12 pb-20">
-            {/* Ultra-Premium Header: Logistics Command Hub */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 relative">
-                <div className="absolute -top-24 -left-24 w-96 h-96 bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
-                <div className="relative z-10">
-                    <div className="flex items-center gap-3 mb-4 group cursor-default">
-                        <div className="h-2 w-12 bg-emerald-500 rounded-full group-hover:w-16 transition-all duration-700" />
-                        <span className="text-[11px] font-black text-emerald-600 uppercase tracking-[0.3em]">Logistics Command Hub</span>
-                    </div>
-                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase font-heading">
-                        Fulfillment <span className="text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500">Pipeline</span>
-                    </h1>
-                    <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mt-4 flex items-center gap-2">
-                        <Activity className="w-4 h-4 text-emerald-500" />
-                        Real-time Transactional Telemetry & Flow Control
-                    </p>
+        <div className="space-y-6 pb-20">
+            {/* Page header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="admin-panel-page-title">Orders</h1>
+                    <p className="admin-panel-page-subtitle">Manage and track all customer orders</p>
                 </div>
-                <div className="flex items-center gap-4 relative z-10">
+                <div className="flex items-center gap-3">
                     <button
                         onClick={handleOpenModal}
-                        className="h-11 px-8 rounded-xl bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all duration-700 shadow-xl shadow-slate-900/20 active:scale-95 flex items-center gap-2 group"
+                        className="admin-panel-btn-primary h-9 px-4 rounded-xl text-xs font-bold"
                     >
-                        <Plus className="h-4 w-4 transition-transform group-hover:rotate-90 duration-500" />
-                        Fresh Entry
+                        <Plus className="h-4 w-4" />
+                        New Order
                     </button>
                 </div>
             </div>
 
-            {/* Performance Matrix: High-Contrast Discovery Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Stats */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                    { label: 'Pipeline Load', value: stats.total, icon: ShoppingBag, color: 'emerald', trend: 'Active Nodes', sub: 'In-flight orders' },
-                    { label: 'Staging Area', value: stats.pending, icon: Clock, color: 'orange', trend: 'Critical Path', sub: 'Awaiting fulfillment' },
-                    { label: 'Net Revenue', value: `₹${(stats.revenue / 1000).toFixed(1)}K`, icon: Zap, color: 'blue', trend: 'Verified Flow', sub: 'Settled transactions' },
-                    { label: 'Unit Throughput', value: stats.vols, icon: Box, color: 'purple', trend: 'Operational', sub: 'Total units moved' }
+                    { label: 'Active Orders', value: stats.total, icon: ShoppingBag, color: 'emerald', sub: 'In-flight orders' },
+                    { label: 'Awaiting Fulfillment', value: stats.pending, icon: Clock, color: 'orange', sub: 'Not yet dispatched' },
+                    { label: 'Net Revenue', value: `₹${(stats.revenue / 1000).toFixed(1)}K`, icon: Zap, color: 'blue', sub: 'Settled transactions' },
+                    { label: 'Total Units', value: stats.vols, icon: Box, color: 'purple', sub: 'Units in pipeline' }
                 ].map((stat, i) => (
                     <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.7, delay: i * 0.1, ease: [0.23, 1, 0.32, 1] }}
                         key={stat.label}
-                        className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.02)] relative overflow-hidden group hover:shadow-xl hover:-translate-y-1 transition-all duration-700"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, delay: i * 0.08 }}
+                        className="admin-panel-stat-card"
                     >
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-[4rem] group-hover:bg-emerald-50 transition-colors duration-700" />
-                        <div className="relative z-10">
-                            <div className="flex items-start justify-between mb-8">
-                                <div className={cn(
-                                    "h-12 w-12 rounded-xl flex items-center justify-center transition-all duration-700 shadow-lg",
-                                    stat.color === 'emerald' ? "bg-emerald-500 text-white shadow-emerald-500/20" :
-                                    stat.color === 'orange' ? "bg-orange-500 text-white shadow-orange-500/20" :
-                                    stat.color === 'blue' ? "bg-blue-600 text-white shadow-blue-600/20" :
-                                    "bg-purple-600 text-white shadow-purple-600/20"
-                                )}>
-                                    <stat.icon className="w-5 h-5" />
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">{stat.trend}</span>
-                                    <div className="flex items-center justify-end gap-1">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Live</span>
-                                    </div>
-                                </div>
+                        <div className="flex items-start justify-between mb-3">
+                            <div className={cn(
+                                "h-9 w-9 rounded-xl flex items-center justify-center border",
+                                stat.color === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/15 text-emerald-700' :
+                                stat.color === 'orange' ? 'bg-amber-500/10 border-amber-500/15 text-amber-700' :
+                                stat.color === 'blue' ? 'bg-blue-500/10 border-blue-500/15 text-blue-700' :
+                                'bg-purple-500/10 border-purple-500/15 text-purple-700'
+                            )}>
+                                <stat.icon className="w-4 h-4" />
                             </div>
-                            <h3 className="text-3xl font-black text-slate-900 tracking-tighter mb-1.5 font-heading">{stat.value}</h3>
-                            <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-                            <p className="text-[10px] font-bold text-slate-300 italic">{stat.sub}</p>
+                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         </div>
+                        <p className="admin-panel-stat-value">{stat.value}</p>
+                        <p className="admin-panel-stat-label">{stat.label}</p>
+                        <p className="text-xs text-zinc-400 mt-1 font-medium">{stat.sub}</p>
                     </motion.div>
                 ))}
             </div>
 
-            {/* Fulfillment Pipeline: Interactive Data Table */}
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-premium overflow-hidden relative">
-                <div className="p-6 md:p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/30">
-                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
+            {/* Orders table */}
+            <div className="admin-panel-card">
+                <div className="p-4 md:p-6 border-b border-zinc-100 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                    {/* Tabs */}
+                    <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-xl border border-zinc-200/50 overflow-x-auto no-scrollbar">
                         {['All', 'Unfulfilled', 'Unpaid', 'Open', 'Closed'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-[0.2em] transition-all duration-500 whitespace-nowrap",
+                                    "px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all duration-150 whitespace-nowrap",
                                     activeTab === tab
-                                        ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 scale-105"
-                                        : "text-slate-400 hover:text-slate-900 hover:bg-slate-50"
+                                        ? "bg-white text-zinc-900 shadow-sm"
+                                        : "text-zinc-500 hover:text-zinc-700"
                                 )}
                             >
                                 {tab}
@@ -683,32 +664,38 @@ export function AdminOrdersPage() {
                         ))}
                     </div>
 
-                    <div className="relative group flex-1 max-w-2xl">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-emerald-500 transition-all duration-500 group-focus-within:scale-110" />
-                        <input
-                            type="text"
-                            placeholder="Search by order ID, customer or merchant..."
-                            className="w-full h-11 pl-14 pr-6 bg-white border border-slate-100 rounded-xl text-[11px] font-bold text-slate-900 focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500/50 outline-none transition-all duration-500 shadow-inner"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
+                    {/* Search + export */}
+                    <div className="flex items-center gap-2 flex-1 max-w-xl">
+                        <div className="relative group flex-1">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                            <input
+                                type="text"
+                                placeholder="Search by order, customer, or vendor…"
+                                className="admin-panel-input pl-10 h-10"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <button onClick={handleExportLedger} className="admin-panel-btn-secondary flex-shrink-0 h-10 px-4 rounded-xl text-xs font-bold">
+                            Export CSV
+                        </button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[600px] custom-scrollbar">
+                <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Flow Node</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Customer Entity</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Merchant Nodes</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Fiscal State</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Logistic Phase</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valuation</th>
-                                <th className="px-6 py-5 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Action Console</th>
+                            <tr className="border-b border-zinc-200/50 bg-zinc-50/50">
+                                <th className="admin-panel-th">Order</th>
+                                <th className="admin-panel-th">Customer</th>
+                                <th className="admin-panel-th">Vendor(s)</th>
+                                <th className="admin-panel-th">Payment</th>
+                                <th className="admin-panel-th">Status</th>
+                                <th className="admin-panel-th text-right">Total</th>
+                                <th className="admin-panel-th text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-zinc-100">
                             {ordersLoading ? (
                                 <AdminTableSkeletonRows rows={10} cols={7} />
                             ) : (
@@ -719,72 +706,65 @@ export function AdminOrdersPage() {
                                         return (
                                             <motion.tr
                                                 key={order.id}
-                                                initial={{ opacity: 0, x: -10 }}
+                                                initial={{ opacity: 0, x: -8 }}
                                                 animate={{ opacity: 1, x: 0 }}
-                                                exit={{ opacity: 0, x: 10 }}
-                                                transition={{ duration: 0.5, delay: idx * 0.03, ease: [0.23, 1, 0.32, 1] }}
-                                                className="group hover:bg-slate-50/50 transition-all duration-500 cursor-pointer relative"
+                                                exit={{ opacity: 0, x: 8 }}
+                                                transition={{ duration: 0.25, delay: idx * 0.03 }}
+                                                className="admin-panel-tr cursor-pointer"
                                                 onClick={() => handleViewDetails(order)}
                                             >
-                                                <td className="px-12 py-10">
+                                                <td className="admin-panel-td">
                                                     <div className="flex flex-col">
-                                                        <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{displayId}</span>
-                                                        <div className="flex items-center gap-2 mt-2">
-                                                            <Clock className="w-3 h-3 text-slate-300" />
-                                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{order.date}</span>
-                                                        </div>
+                                                        <span className="text-sm font-semibold text-zinc-900 hover:text-emerald-600 transition-colors">#{displayId}</span>
+                                                        <span className="text-xs text-zinc-400 mt-1 flex items-center gap-1 font-medium">
+                                                            <Clock className="w-3 h-3 text-zinc-450" />
+                                                            {order.date}
+                                                        </span>
                                                     </div>
                                                 </td>
-                                                <td className="px-12 py-10">
-                                                    <div className="flex items-center gap-5">
-                                                        <div className="h-14 w-14 rounded-[1.5rem] bg-slate-900 text-white flex items-center justify-center font-black text-xl shadow-2xl shadow-slate-900/10 group-hover:scale-110 group-hover:rotate-6 transition-all duration-700 font-heading">
+                                                <td className="admin-panel-td">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <div className="h-8 w-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0 border border-zinc-800">
                                                             {order.customer.charAt(0)}
                                                         </div>
                                                         <div className="flex flex-col">
-                                                            <span className="text-[13px] font-black text-slate-900 uppercase tracking-tight">{order.customer}</span>
-                                                            <div className="flex items-center gap-2 mt-2">
-                                                                <div className="h-4 w-4 rounded-md bg-emerald-50 flex items-center justify-center">
-                                                                    <ExternalLink className="h-2 w-2 text-emerald-600" />
-                                                                </div>
-                                                                <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">
-                                                                    {order.channel}
-                                                                </span>
-                                                            </div>
+                                                            <span className="text-sm font-semibold text-zinc-800 leading-snug">{order.customer}</span>
+                                                            <span className="text-xs text-zinc-400 font-medium leading-none mt-0.5">{order.channel}</span>
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-12 py-10">
+                                                <td className="admin-panel-td" onClick={e => e.stopPropagation()}>
                                                     {((order as any).vendorNames || []).length > 0 ? (
-                                                        <div className="flex flex-wrap gap-2 max-w-[150px]">
+                                                        <div className="flex flex-wrap gap-1">
                                                             {(((order as any).vendorNames || []) as string[]).slice(0, 2).map((vendorName) => (
                                                                 <span
                                                                     key={vendorName}
-                                                                    className="inline-flex items-center px-4 py-1.5 rounded-xl bg-slate-50 border border-slate-100 text-[9px] font-black uppercase tracking-[0.1em] text-slate-600 group-hover:bg-white group-hover:border-slate-200 transition-all duration-500"
+                                                                    className="admin-panel-badge-zinc text-[10px]"
                                                                 >
                                                                     {vendorName}
                                                                 </span>
                                                             ))}
                                                             {(((order as any).vendorNames || []) as string[]).length > 2 && (
-                                                                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-900 text-[9px] font-black uppercase tracking-widest text-white shadow-lg">
+                                                                <span className="admin-panel-badge-zinc text-[10px]">
                                                                     +{(((order as any).vendorNames || []) as string[]).length - 2}
                                                                 </span>
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">—</span>
+                                                        <span className="text-xs text-zinc-350 font-medium">—</span>
                                                     )}
                                                 </td>
-                                                <td className="px-12 py-10">
-                                                    <div className="flex items-center gap-4 group/select" onClick={e => e.stopPropagation()}>
+                                                <td className="admin-panel-td">
+                                                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                                         <div className={cn(
-                                                            "h-4 w-4 rounded-full border-4 border-white shadow-2xl transition-all duration-500", 
-                                                            order.payment === 'Paid' ? 'bg-emerald-500 shadow-emerald-500/40 scale-110' :
+                                                            "h-1.5 w-1.5 rounded-full shadow-[0_0_6px_rgba(0,0,0,0.15)]", 
+                                                            order.payment === 'Paid' ? 'bg-emerald-500 shadow-emerald-500/40' :
                                                             order.payment === 'Pending' ? 'bg-amber-500 shadow-amber-500/40' : 'bg-red-500 shadow-red-500/40'
                                                         )} />
                                                         <select
                                                             value={order.payment}
                                                             onChange={(e) => handlePaymentStatusChange(order.id, e.target.value as any)}
-                                                            className="bg-white text-[10px] font-black uppercase tracking-[0.15em] text-slate-900 outline-none cursor-pointer px-4 py-2 rounded-xl transition-all border border-slate-100 hover:border-slate-300 hover:shadow-lg focus:ring-4 focus:ring-emerald-500/5"
+                                                            className="h-8 px-2 py-0 rounded-xl border border-zinc-200/60 bg-zinc-55 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all cursor-pointer font-semibold"
                                                         >
                                                             {['Pending', 'Paid', 'Refunded'].map(p => (
                                                                 <option key={p} value={p}>{p}</option>
@@ -792,17 +772,21 @@ export function AdminOrdersPage() {
                                                         </select>
                                                     </div>
                                                 </td>
-                                                <td className="px-12 py-10">
-                                                    <div className="flex items-center gap-4 group/select" onClick={e => e.stopPropagation()}>
+                                                <td className="admin-panel-td">
+                                                    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                                                         <div className={cn(
-                                                            "h-4 w-4 rounded-full border-4 border-white shadow-2xl transition-all duration-500", 
-                                                            `bg-${variant.color}-500 shadow-${variant.color}-500/40`,
-                                                            order.status === 'Delivered' ? 'scale-110' : ''
+                                                            "h-1.5 w-1.5 rounded-full shadow-[0_0_6px_rgba(0,0,0,0.15)]", 
+                                                            variant.color === 'emerald' ? 'bg-emerald-500 shadow-emerald-500/40' :
+                                                            variant.color === 'amber' ? 'bg-amber-500 shadow-amber-500/40' :
+                                                            variant.color === 'blue' ? 'bg-blue-500 shadow-blue-500/40' :
+                                                            variant.color === 'indigo' ? 'bg-indigo-500 shadow-indigo-500/40' :
+                                                            variant.color === 'purple' ? 'bg-purple-500 shadow-purple-500/40' :
+                                                            'bg-red-500 shadow-red-500/40'
                                                         )} />
                                                         <select
                                                             value={order.status}
                                                             onChange={(e) => handleStatusChange(order.id, e.target.value as any)}
-                                                            className="bg-white text-[10px] font-black uppercase tracking-[0.15em] text-slate-900 outline-none cursor-pointer px-4 py-2 rounded-xl transition-all border border-slate-100 hover:border-slate-300 hover:shadow-lg focus:ring-4 focus:ring-emerald-500/5"
+                                                            className="h-8 px-2 py-0 rounded-xl border border-zinc-200/60 bg-zinc-55 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all cursor-pointer font-semibold"
                                                         >
                                                             {['Created', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Cancelled'].map(s => (
                                                                 <option key={s} value={s}>{getStatusVariant(s).label}</option>
@@ -810,25 +794,26 @@ export function AdminOrdersPage() {
                                                         </select>
                                                     </div>
                                                 </td>
-                                                <td className="px-12 py-10 text-right">
+                                                <td className="admin-panel-td text-right">
                                                     <div className="flex flex-col items-end">
-                                                        <span className="text-xl font-black text-slate-900 tracking-tighter leading-none font-heading">₹{order.total.toLocaleString()}</span>
+                                                        <span className="text-sm font-bold text-zinc-900 tracking-tight">₹{order.total.toLocaleString()}</span>
                                                         {typeof (order as any).distanceKm === 'number' && (
-                                                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-1">
-                                                                <Truck className="h-2.5 w-2.5" />
+                                                            <span className="text-xs text-zinc-400 flex items-center gap-1 mt-1 font-semibold">
+                                                                <Truck className="h-3.5 w-3.5 text-zinc-450" />
                                                                 {(order as any).distanceKm.toFixed(1)} km
                                                             </span>
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-12 py-10">
-                                                    <div className="flex flex-col items-center gap-4" onClick={e => e.stopPropagation()}>
-                                                        <div className="flex items-center justify-center gap-3">
+                                                <td className="admin-panel-td">
+                                                    <div className="flex flex-col sm:flex-row items-center justify-center gap-2" onClick={e => e.stopPropagation()}>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
                                                             <button
                                                                 onClick={() => handleViewDetails(order)}
-                                                                className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 group/btn"
+                                                                title="View Details"
+                                                                className="h-8 w-8 flex items-center justify-center bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-all shadow-sm"
                                                             >
-                                                                <Eye className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                                <Eye className="w-4 h-4" />
                                                             </button>
                                                             {order.payment !== 'Paid' && (
                                                                 <button
@@ -836,14 +821,15 @@ export function AdminOrdersPage() {
                                                                         e.stopPropagation();
                                                                         handleGeneratePaymentLink(order);
                                                                     }}
-                                                                    className="h-12 w-12 flex items-center justify-center bg-white border border-slate-100 rounded-2xl text-slate-400 hover:bg-orange-500 hover:text-white hover:border-orange-500 hover:shadow-2xl transition-all duration-500 group/btn"
+                                                                    title="Payment Link"
+                                                                    className="h-8 w-8 flex items-center justify-center bg-white border border-zinc-200 rounded-xl text-zinc-500 hover:text-orange-600 hover:bg-zinc-100 transition-all shadow-sm"
                                                                 >
-                                                                    <CreditCard className="w-5 h-5 transition-transform group-hover/btn:scale-110" />
+                                                                    <CreditCard className="w-4 h-4" />
                                                                 </button>
                                                             )}
                                                         </div>
                                                         {user?.role === 'admin' && order.status !== 'Delivered' && order.status !== 'Cancelled' && (
-                                                            <div className="relative group/rider w-full min-w-[260px]">
+                                                            <div className="relative w-full max-w-[180px] shrink-0">
                                                                 {(() => {
                                                                     const assignedIdRaw = (order as any).deliveryPartnerId as string | null | undefined;
                                                                     const assignedName = (order as any).courierName as string | null | undefined;
@@ -863,9 +849,7 @@ export function AdminOrdersPage() {
                                                                           : '';
                                                                     if (merged.length === 0) {
                                                                         return (
-                                                                            <div className="mx-auto min-w-[220px] bg-slate-900 text-white text-[10px] font-black uppercase rounded-2xl border border-slate-800 shadow-2xl h-12 px-6 flex items-center justify-center tracking-[0.12em]">
-                                                                                No rider online
-                                                                            </div>
+                                                                            <span className="text-[11px] text-zinc-400 font-semibold">No rider online</span>
                                                                         );
                                                                     }
                                                                     return (
@@ -876,7 +860,7 @@ export function AdminOrdersPage() {
                                                                                 if (!partnerId) return;
                                                                                 handleAssignDelivery(order.id, partnerId);
                                                                             }}
-                                                                            className="w-full min-w-[260px] bg-slate-900 text-white text-[9px] font-black uppercase tracking-[0.12em] px-4 py-3 rounded-2xl border border-slate-800 shadow-2xl cursor-pointer hover:bg-emerald-600 transition-all duration-500 appearance-none text-center"
+                                                                            className="w-full h-8 px-2 py-0 rounded-xl border border-zinc-200/60 bg-zinc-55 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all cursor-pointer font-semibold"
                                                                         >
                                                                             {!currentValue ? (
                                                                                 <option value="">Deploy Rider (Online)</option>
@@ -900,17 +884,13 @@ export function AdminOrdersPage() {
                     </table>
 
                     {displayedOrders.length === 0 && !ordersLoading && (
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="py-40 text-center"
-                        >
-                            <div className="h-24 w-24 rounded-[3rem] bg-slate-50 flex items-center justify-center mx-auto mb-8 border border-dashed border-slate-200">
-                                <Box className="w-10 h-10 text-slate-200" />
+                        <div className="py-20 text-center">
+                            <div className="h-16 w-16 bg-zinc-50 rounded-2xl border border-zinc-200/50 flex items-center justify-center mx-auto mb-4">
+                                <Box className="w-8 h-8 text-zinc-350" />
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tighter font-heading">Pipeline is empty.</h3>
-                            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-4 max-w-xs mx-auto opacity-60">Adjust your telemetry parameters <br />to capture transactional data.</p>
-                        </motion.div>
+                            <h3 className="text-base font-bold text-zinc-900 tracking-tight">No orders found</h3>
+                            <p className="text-xs text-zinc-400 mt-1 font-semibold">Try adjusting your filters or search terms.</p>
+                        </div>
                     )}
                 </div>
             </div>
@@ -932,67 +912,63 @@ export function AdminOrdersPage() {
                             transition={{ type: 'spring', damping: 35, stiffness: 300, mass: 1 }}
                             className="relative h-full w-full max-w-3xl bg-white/95 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden border-l border-white/20"
                         >
-                            {/* Sheet Header: Static Control Node */}
-                            <div className="flex-shrink-0 sticky top-0 z-20 p-12 bg-white/50 backdrop-blur-md border-b border-slate-100 flex items-center justify-between">
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-14 w-14 bg-slate-900 rounded-[1.75rem] flex items-center justify-center shadow-2xl shadow-slate-900/20 rotate-3">
-                                            <FileText className="w-6 h-6 text-emerald-400" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter font-heading">
-                                                Flow Node <span className="text-emerald-600">#{(selectedOrder as any).orderNumber || selectedOrder.id}</span>
-                                            </h2>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mt-1">Payload Analysis & Flow Control v4.5</p>
-                                        </div>
+                            {/* Sheet header */}
+                            <div className="flex-shrink-0 sticky top-0 z-20 px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center">
+                                        <FileText className="w-5 h-5 text-emerald-400" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-slate-900">
+                                            Order #{(selectedOrder as any).orderNumber || selectedOrder.id}
+                                        </h2>
+                                        <p className="text-xs text-slate-400 mt-0.5">Order details &amp; status management</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-4">
+                                <div className="flex gap-2">
                                     {selectedOrder.payment !== 'Paid' && (
                                         <button 
                                             onClick={() => handleGeneratePaymentLink(selectedOrder)} 
-                                            className="h-14 w-14 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-orange-500 hover:border-orange-500 hover:shadow-2xl hover:shadow-orange-500/10 transition-all duration-500 flex items-center justify-center group"
+                                            className="admin-btn-icon"
+                                            title="Generate payment link"
                                         >
-                                            <CreditCard className="h-6 w-6 transition-transform group-hover:scale-110" />
+                                            <CreditCard className="h-4 w-4" />
                                         </button>
                                     )}
-                                    <button onClick={() => setIsDetailOpen(false)} className="h-14 w-14 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group">
-                                        <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
+                                    <button onClick={() => setIsDetailOpen(false)} className="admin-btn-icon">
+                                        <X className="h-4 w-4" />
                                     </button>
                                 </div>
                             </div>
 
                             <div className="flex-1 min-h-0 overflow-y-auto p-12 space-y-16 custom-scrollbar">
-                                {/* Telemetry Matrix: Quick Stats */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {/* Order quick stats */}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {[
-                                        { label: 'Logistic Phase', value: selectedOrder.status, color: 'blue' },
-                                        { label: 'Fiscal State', value: selectedOrder.payment, color: 'emerald' },
-                                        { label: 'Origin Point', value: selectedOrder.channel, color: 'purple' },
-                                        { label: 'Net Asset Value', value: `₹${selectedOrder.total.toLocaleString()}`, color: 'slate', highlight: true }
+                                        { label: 'Status', value: selectedOrder.status },
+                                        { label: 'Payment', value: selectedOrder.payment },
+                                        { label: 'Channel', value: selectedOrder.channel },
+                                        { label: 'Total', value: `₹${selectedOrder.total.toLocaleString()}`, highlight: true }
                                     ].map((item, i) => (
                                         <div key={i} className={cn(
-                                            "p-6 rounded-[2rem] border transition-all duration-500",
-                                            item.highlight ? "bg-slate-900 border-slate-800 text-white shadow-2xl shadow-slate-900/20" : "bg-slate-50 border-slate-100 hover:border-slate-300"
+                                            "p-4 rounded-xl border",
+                                            item.highlight ? "bg-slate-900 border-slate-800 text-white" : "bg-slate-50 border-slate-100"
                                         )}>
-                                            <p className={cn("text-[9px] font-black uppercase tracking-widest mb-3", item.highlight ? "text-slate-500" : "text-slate-400")}>{item.label}</p>
-                                            <p className={cn("text-[13px] font-black uppercase tracking-tight font-heading", item.highlight ? "text-emerald-400" : "text-slate-900")}>{item.value}</p>
+                                            <p className={cn("text-xs font-medium mb-1.5", item.highlight ? "text-slate-400" : "text-slate-500")}>{item.label}</p>
+                                            <p className={cn("text-sm font-semibold", item.highlight ? "text-emerald-400" : "text-slate-900")}>{item.value}</p>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Payload Composition: Items List */}
-                                <div className="space-y-8">
+                                {/* Order items */}
+                                <div className="space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
-                                            <div className="h-1.5 w-8 bg-emerald-500 rounded-full" />
-                                            Payload Composition
-                                        </h3>
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-4 py-2 rounded-full border border-slate-100">
-                                            {selectedOrder.itemsDetails?.length} Distinct Entities
+                                        <h3 className="admin-section-heading">Order Items</h3>
+                                        <span className="admin-badge-slate">
+                                            {selectedOrder.itemsDetails?.length} item{selectedOrder.itemsDetails?.length !== 1 ? 's' : ''}
                                         </span>
                                     </div>
-                                    <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-3">
                                         {selectedOrder.itemsDetails?.map((item, idx) => {
                                             const product = products.find(p => String(p.id) === String(item.productId));
                                             const productName = String((item as any).productName || product?.name || 'Unknown Product');

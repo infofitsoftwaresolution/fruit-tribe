@@ -7,8 +7,7 @@ import {
     ArrowDownRight, CheckCircle2, Clock, AlertCircle,
     Search, Filter, Download, MoreHorizontal, Store,
     ChevronRight, Wallet, History, ShieldCheck, CreditCard,
-    DollarSign, Percent, Activity, Zap, FileText, X,
-    MoreVertical, ArrowRightLeft, Shield
+    FileText, X, MoreVertical, ArrowRightLeft, Shield, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
@@ -33,6 +32,7 @@ export function AdminPayoutsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState('All');
     const [selectedPayout, setSelectedPayout] = useState<Payout | null>(null);
+
     const payouts = useMemo(() => {
         if (!orders) return [];
         const generated: Payout[] = [];
@@ -57,14 +57,13 @@ export function AdminPayoutsPage() {
                  vendor = order.seller.storeName || order.seller.name || vendor;
             }
 
-            // Normalize status: backend may send 'Delivered', 'DELIVERED', 'Created', etc.
             const rawStatus = (order.status ?? '').toUpperCase();
             const isPaid = (order.paymentStatus ?? '').toUpperCase() === 'PAID';
             
             const payoutStatus: Payout['status'] =
                 rawStatus === 'DELIVERED' ? 'Processed'
                 : (rawStatus === 'CANCELLED' || rawStatus === 'RETURNED') ? 'Flagged'
-                : isPaid ? 'Scheduled' // Paid but not yet delivered
+                : isPaid ? 'Scheduled'
                 : 'Pending';
 
             generated.push({
@@ -84,11 +83,12 @@ export function AdminPayoutsPage() {
     }, [orders]);
 
     const totalRevenue = useMemo(() => orders.reduce((s, o) => s + Number(o.payableAmount ?? o.totalAmount ?? 0), 0), [orders]);
+    
     const statsCards = useMemo(() => [
         { label: 'Next Settlement', value: '₹0', sub: '—', icon: Wallet, color: 'emerald', trend: 'Projected' },
-        { label: 'Platform Revenue', value: `₹${(totalRevenue / 1000).toFixed(0)}K`, sub: 'All time', icon: TrendingUp, color: 'blue', trend: 'Verified' },
-        { label: 'Pending payouts', value: `${sellers.length} Vendors`, sub: sellers.length ? 'Action required' : 'None', icon: Clock, color: 'orange', trend: 'Queued' },
-        { label: 'Total Settled', value: payouts.length ? `₹${payouts.reduce((s, p) => s + (p.status === 'Processed' ? p.netAmount : 0), 0).toLocaleString()}` : '₹0', sub: 'Settlements', icon: Shield, color: 'purple', trend: 'Audited' }
+        { label: 'Platform Revenue', value: `₹${(totalRevenue / 1000).toFixed(1)}K`, sub: 'All time', icon: TrendingUp, color: 'blue', trend: 'Verified' },
+        { label: 'Pending Payouts', value: `${sellers.length} Vendors`, sub: sellers.length ? 'Action required' : 'None', icon: Clock, color: 'amber', trend: 'Queued' },
+        { label: 'Total Settled', value: payouts.length ? `₹${payouts.reduce((s, p) => s + (p.status === 'Processed' ? p.netAmount : 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '₹0', sub: 'Settlements', icon: Shield, color: 'purple', trend: 'Audited' }
     ], [totalRevenue, sellers.length, payouts]);
 
     const filteredPayouts = useMemo(() => {
@@ -102,27 +102,26 @@ export function AdminPayoutsPage() {
     }, [payouts, searchQuery, activeTab]);
 
     return (
-        <div className="space-y-10 pb-20">
-            {/* Ultra-Premium Header */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-6 pb-12">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <div className="flex items-center gap-2 mb-2">
-                        <ArrowRightLeft className="w-5 h-5 text-emerald-600" />
-                        <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Payout Management</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase">Merchant Payouts</h1>
-                    <p className="text-slate-500 text-sm mt-1 max-w-lg italic">Manage seller payouts and settlement history.</p>
+                    <h1 className="admin-page-title">Payouts</h1>
+                    <p className="admin-page-subtitle">Manage seller payouts and settlement history.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button className="h-12 px-6 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-600 hover:shadow-xl transition-all flex items-center gap-2 shadow-sm">
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => toast.info('Generating tax report...')}
+                        className="admin-btn-secondary"
+                    >
                         <FileText className="w-4 h-4" />
                         Tax Report
                     </button>
                     <button
                         onClick={() => toast.info('Opening batch payout...')}
-                        className="h-12 px-8 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center gap-2"
+                        className="admin-btn-primary bg-emerald-600 hover:bg-emerald-700 border-none"
                     >
-                        <Zap className="h-4 w-4 text-emerald-300" />
+                        <Zap className="h-4 w-4" />
                         Run Payout Batch
                     </button>
                 </div>
@@ -134,37 +133,45 @@ export function AdminPayoutsPage() {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        transition={{ delay: i * 0.05 }}
                         key={stat.label}
-                        className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group hover:ring-2 ring-transparent hover:ring-emerald-500/10 transition-all cursor-default"
+                        className="admin-stat-card flex flex-col justify-between"
                     >
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-8">
-                                <div className={cn("p-4 rounded-3xl shadow-sm", `bg-${stat.color}-50 text-${stat.color}-600`)}>
+                        <div>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className={cn(
+                                    "p-2 rounded-lg",
+                                    stat.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' :
+                                    stat.color === 'blue' ? 'bg-blue-50 text-blue-600' :
+                                    stat.color === 'amber' ? 'bg-amber-50 text-amber-600' :
+                                    'bg-purple-50 text-purple-600'
+                                )}>
                                     <stat.icon className="w-5 h-5" />
                                 </div>
-                                <span className="text-[10px] font-black text-slate-400 border border-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter">{stat.trend}</span>
+                                <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full">
+                                    {stat.trend}
+                                </span>
                             </div>
-                            <p className="text-3xl font-black text-slate-900 tracking-tighter mb-1">{stat.value}</p>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                            <p className="admin-stat-value">{stat.value}</p>
+                            <p className="admin-stat-label">{stat.label}</p>
                         </div>
                     </motion.div>
                 ))}
             </div>
 
             {/* Payout table */}
-            <div className="bg-white rounded-[3rem] border border-slate-100 shadow-[0_20px_60px_rgba(0,0,0,0.03)] overflow-hidden">
-                <div className="p-8 border-b border-slate-50 flex flex-col xl:flex-row xl:items-center justify-between gap-6 bg-slate-50/20">
-                    <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto no-scrollbar">
-                        {['All', 'Pending', 'Processed', 'Audits'].map((tab) => (
+            <div className="admin-card">
+                <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/20">
+                    <div className="flex items-center gap-1.5 p-1 bg-white rounded-lg border border-slate-200 overflow-x-auto">
+                        {['All', 'Pending', 'Processed'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
                                 className={cn(
-                                    "px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                    "px-3.5 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap",
                                     activeTab === tab
-                                        ? "bg-slate-900 text-white shadow-lg"
-                                        : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                        ? "bg-slate-900 text-white shadow-sm"
+                                        : "text-slate-500 hover:text-slate-950 hover:bg-slate-50"
                                 )}
                             >
                                 {tab}
@@ -172,104 +179,108 @@ export function AdminPayoutsPage() {
                         ))}
                     </div>
 
-                    <div className="relative group flex-1 max-w-2xl">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+                    <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Search by payout ID or seller..."
-                            className="w-full h-14 pl-14 pr-6 bg-white border border-slate-100 rounded-2xl text-sm font-medium focus:ring-8 focus:ring-emerald-500/5 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                            className="admin-input pl-9"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
 
-                <div className="overflow-x-auto min-h-[500px]">
-                    <table className="w-full text-left">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="border-b border-slate-50 bg-slate-50/50">
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Transaction Ref</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Seller</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black">Gross Amount</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Platform Fee</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-right">Net Settlement</th>
-                                <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest font-black text-center">Status</th>
+                            <tr className="border-b border-slate-100 bg-slate-50/50">
+                                <th className="admin-th">Payout Ref</th>
+                                <th className="admin-th">Seller</th>
+                                <th className="admin-th">Gross Amount</th>
+                                <th className="admin-th">Platform Fee</th>
+                                <th className="admin-th text-right">Net Settlement</th>
+                                <th className="admin-th text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody className="divide-y divide-slate-100">
                             {loading ? (
-                                <tr><td colSpan={6} className="px-10 py-16 text-center text-slate-400 text-sm">Loading...</td></tr>
+                                <tr>
+                                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
+                                        Loading payouts...
+                                    </td>
+                                </tr>
                             ) : null}
-                            <AnimatePresence>
-                                {filteredPayouts.map((payout, idx) => (
-                                    <motion.tr
-                                        key={payout.id}
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        exit={{ opacity: 0 }}
-                                        transition={{ delay: idx * 0.05 }}
-                                        className="group hover:bg-slate-50/50 transition-all cursor-pointer"
-                                        onClick={() => setSelectedPayout(payout)}
-                                    >
-                                        <td className="px-10 py-10">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-black text-slate-900 group-hover:text-emerald-600 transition-colors uppercase tracking-tight">#{payout.id}</span>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 italic">{payout.date}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-10 py-10">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-12 w-12 rounded-[1.25rem] bg-slate-900 text-white flex items-center justify-center font-black text-lg shadow-xl shadow-slate-900/10 group-hover:rotate-6 transition-transform">
-                                                    {payout.vendor.charAt(0)}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-black text-slate-900 uppercase tracking-tight">{payout.vendor}</span>
-                                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1 mt-1">
-                                                        <Calendar className="h-2.5 w-2.5" />
-                                                        {payout.period}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-10 py-10">
-                                            <span className="text-sm font-bold text-slate-400 line-through group-hover:text-slate-600 transition-colors tracking-tight">₹{payout.amount.toLocaleString()}</span>
-                                        </td>
-                                        <td className="px-10 py-10 text-center">
-                                            <span className="text-[10px] font-black text-red-500 bg-red-50 px-3 py-1.5 rounded-xl border border-red-100 uppercase tracking-widest">
-                                                -{payout.platformFee.toLocaleString()}
+                            
+                            {!loading && filteredPayouts.map((payout, idx) => (
+                                <tr
+                                    key={payout.id}
+                                    className="admin-tr cursor-pointer"
+                                    onClick={() => setSelectedPayout(payout)}
+                                >
+                                    <td className="admin-td">
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-slate-900 hover:text-emerald-600 transition-colors">
+                                                #{payout.id}
                                             </span>
-                                        </td>
-                                        <td className="px-10 py-10 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-lg font-black text-slate-900 tracking-tighter leading-none">₹{payout.netAmount.toLocaleString()}</span>
-                                                <span className="text-[9px] text-emerald-500 font-black uppercase tracking-widest flex items-center gap-1 mt-1.5">
-                                                    <ShieldCheck className="h-2.5 w-2.5" />
-                                                    Audited Settlement
+                                            <span className="text-xs text-slate-400 mt-0.5">{payout.date}</span>
+                                        </div>
+                                    </td>
+                                    <td className="admin-td">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-semibold text-sm">
+                                                {payout.vendor.charAt(0)}
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium text-slate-900">{payout.vendor}</span>
+                                                <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                                    <Calendar className="h-3 w-3" />
+                                                    {payout.period}
                                                 </span>
                                             </div>
-                                        </td>
-                                        <td className="px-10 py-10 text-center">
-                                            <span className={cn(
-                                                "px-4 py-2 rounded-2xl border text-[9px] font-black uppercase tracking-widest transition-all",
-                                                payout.status === 'Processed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100 shadow-sm' :
-                                                    payout.status === 'Pending' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                                        payout.status === 'Flagged' ? 'bg-red-50 text-red-700 border-red-100' :
-                                                            'bg-blue-50 text-blue-700 border-blue-100'
-                                            )}>
-                                                {payout.status}
+                                        </div>
+                                    </td>
+                                    <td className="admin-td">
+                                        <span className="text-slate-400 line-through">
+                                            ₹{payout.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </td>
+                                    <td className="admin-td">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-700 border border-red-100">
+                                            -₹{payout.platformFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </span>
+                                    </td>
+                                    <td className="admin-td text-right">
+                                        <div className="flex flex-col items-end">
+                                            <span className="font-semibold text-slate-900 text-base">
+                                                ₹{payout.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </span>
-                                        </td>
-                                    </motion.tr>
-                                ))}
-                            </AnimatePresence>
+                                            <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1 mt-0.5">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                Verified
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td className="admin-td text-center">
+                                        <span className={cn(
+                                            payout.status === 'Processed' ? 'admin-badge-emerald' :
+                                            payout.status === 'Pending' ? 'admin-badge-amber' :
+                                            payout.status === 'Flagged' ? 'admin-badge-red' :
+                                            'admin-badge-blue'
+                                        )}>
+                                            {payout.status}
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
 
-                    {filteredPayouts.length === 0 && (
-                        <div className="py-32 text-center">
-                            <History className="w-20 h-20 text-slate-100 mx-auto mb-6" />
-                            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">No Payouts Found</h3>
-                            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-2 max-w-xs mx-auto">No payouts match the current filters.</p>
+                    {!loading && filteredPayouts.length === 0 && (
+                        <div className="py-16 text-center">
+                            <History className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                            <h3 className="text-sm font-semibold text-slate-900">No Payouts Found</h3>
+                            <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">No payouts match the current filter criteria.</p>
                         </div>
                     )}
                 </div>
@@ -283,7 +294,7 @@ export function AdminPayoutsPage() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+                            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
                             onClick={() => setSelectedPayout(null)}
                         />
                         <motion.div
@@ -291,99 +302,102 @@ export function AdminPayoutsPage() {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', damping: 30, stiffness: 200 }}
-                            className="relative h-full w-full max-w-2xl bg-white shadow-2xl flex flex-col overflow-hidden"
+                            className="relative h-full w-full max-w-lg bg-white shadow-2xl flex flex-col overflow-hidden"
                         >
                             {/* Sheet Header */}
-                            <div className="p-10 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 bg-slate-900 rounded-2xl flex items-center justify-center">
-                                            <IndianRupee className="w-5 h-5 text-emerald-400" />
-                                        </div>
-                                        <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">
-                                            Payout: #{selectedPayout.id}
-                                        </h2>
+                            <div className="p-6 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="h-8 w-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-700">
+                                        <IndianRupee className="w-4 h-4 text-emerald-600" />
                                     </div>
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payout Details</p>
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-slate-900">
+                                            Payout Details
+                                        </h2>
+                                        <p className="text-xs text-slate-500">Ref: #{selectedPayout.id}</p>
+                                    </div>
                                 </div>
-                                <button onClick={() => setSelectedPayout(null)} className="p-4 bg-white border border-slate-200 rounded-3xl text-slate-300 hover:text-red-500 hover:shadow-xl transition-all">
-                                    <X className="h-6 w-6" />
+                                <button 
+                                    onClick={() => setSelectedPayout(null)} 
+                                    className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"
+                                >
+                                    <X className="h-5 w-5" />
                                 </button>
                             </div>
 
-                            <div className="flex-1 overflow-y-auto p-12 space-y-12 custom-scrollbar bg-white">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                                 {/* Merchant Entity Profile */}
-                                <div className="p-10 bg-slate-900 rounded-[3rem] text-white flex items-center gap-8 shadow-2xl shadow-slate-900/20 relative overflow-hidden group">
-                                    <div className="h-24 w-24 rounded-[2rem] bg-white text-slate-900 flex items-center justify-center text-4xl font-black relative z-10 shadow-lg group-hover:rotate-6 transition-transform">
-                                        {selectedPayout.vendor.charAt(0)}
-                                    </div>
-                                    <div className="relative z-10 flex-1">
-                                        <h3 className="text-3xl font-black uppercase tracking-tighter leading-none mb-2">{selectedPayout.vendor}</h3>
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                                            <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">Secure Settlement Node verified</p>
+                                <div className="p-5 bg-slate-900 rounded-xl text-white relative overflow-hidden group">
+                                    <div className="flex items-center gap-4 relative z-10">
+                                        <div className="h-14 w-14 rounded-lg bg-white text-slate-900 flex items-center justify-center text-2xl font-semibold shadow-sm">
+                                            {selectedPayout.vendor.charAt(0)}
                                         </div>
-                                        <div className="mt-6 flex items-center gap-6">
-                                            <div className="text-[10px] opacity-40 uppercase font-black tracking-widest">ID: TXN-SEC-{selectedPayout.id}</div>
-                                            <div className="h-4 w-[1px] bg-white/10" />
-                                            <div className="text-[10px] opacity-40 uppercase font-black tracking-widest">Protocol: {selectedPayout.method}</div>
+                                        <div className="flex-1">
+                                            <h3 className="text-lg font-semibold leading-tight">{selectedPayout.vendor}</h3>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                                <p className="text-emerald-400 text-xs">Verified Partner Farm</p>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]" />
+                                    <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-white/60 relative z-10">
+                                        <span>TXN: SEC-{selectedPayout.id}</span>
+                                        <span>Method: {selectedPayout.method}</span>
+                                    </div>
+                                    <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-[40px]" />
                                 </div>
 
                                 {/* Fiscal Breakdown */}
-                                <div className="space-y-8">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Activity className="w-4 h-4" />
-                                        Profit & Loss Analysis
+                                <div className="space-y-3">
+                                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                                        Payment Breakdown
                                     </h3>
-                                    <div className="space-y-2">
+                                    <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden">
                                         {[
-                                            { label: 'Merchant Value Yield', value: selectedPayout.amount, mode: 'plus' },
-                                            { label: 'Network Commission (10%)', value: -selectedPayout.platformFee, mode: 'minus' },
-                                            { label: 'Fiscal Compliance (GST/TDS)', value: -selectedPayout.tax, mode: 'minus' }
+                                            { label: 'Gross Revenue', value: selectedPayout.amount, mode: 'plus' },
+                                            { label: 'Platform Commission (10%)', value: -selectedPayout.platformFee, mode: 'minus' },
+                                            { label: 'Tax Compliance (GST/TDS)', value: -selectedPayout.tax, mode: 'minus' }
                                         ].map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-6 px-10 rounded-[1.75rem] hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group">
-                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-slate-900 transition-colors">{item.label}</span>
-                                                <span className={cn("text-lg font-black tracking-tighter", item.mode === 'plus' ? 'text-slate-900' : 'text-red-500')}>
-                                                    {item.mode === 'minus' ? '-' : ''}₹{Math.abs(item.value).toLocaleString()}
+                                            <div key={idx} className="flex items-center justify-between p-3.5 px-4 bg-white hover:bg-slate-50/50 transition-colors">
+                                                <span className="text-sm text-slate-500">{item.label}</span>
+                                                <span className={cn("text-sm font-medium", item.mode === 'plus' ? 'text-slate-900' : 'text-red-600')}>
+                                                    {item.mode === 'minus' ? '-' : ''}₹{Math.abs(item.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </span>
                                             </div>
                                         ))}
-                                        <div className="h-[2px] bg-slate-50 mx-10 my-6" />
-                                        <div className="flex items-center justify-between p-10 bg-emerald-900 rounded-[3rem] text-white shadow-2xl shadow-emerald-900/20 relative overflow-hidden group">
-                                            <span className="text-xs font-black uppercase tracking-widest relative z-10 text-emerald-300">Net Final Settlement Authorized</span>
-                                            <span className="text-4xl font-black tracking-tighter relative z-10 text-white">₹{selectedPayout.netAmount.toLocaleString()}</span>
-                                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-600 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                                        
+                                        <div className="flex items-center justify-between p-4 bg-emerald-50/50 text-emerald-950">
+                                            <span className="text-sm font-semibold text-emerald-900">Net Settlement Amount</span>
+                                            <span className="text-xl font-bold text-emerald-900">
+                                                ₹{selectedPayout.netAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Audit Progression */}
-                                <div className="space-y-10 pt-6">
-                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <History className="w-4 h-4" />
+                                {/* Settlement Timeline */}
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
                                         Settlement Timeline
                                     </h3>
-                                    <div className="relative pl-12 space-y-12">
-                                        <div className="absolute left-[23px] top-0 bottom-0 w-[1px] bg-slate-100" />
+                                    <div className="relative pl-6 space-y-6">
+                                        <div className="absolute left-[11px] top-2 bottom-2 w-[1.5px] bg-slate-100" />
                                         {[
-                                            { status: 'Funds Authorized', time: 'Oct 20 at 09:12 AM', icon: CheckCircle2, active: selectedPayout.status === 'Processed' },
-                                            { status: 'Security Audit Passed', time: 'Oct 19 at 04:30 PM', icon: ShieldCheck, active: true },
-                                            { status: 'Batch Protocol Generated', time: 'Oct 19 at 10:15 AM', icon: Zap, active: true },
-                                            { status: 'Cycle Execution Start', time: 'Oct 15 at Midnight', icon: Activity, active: true },
+                                            { status: 'Payout Processed', time: 'Oct 20 at 09:12 AM', icon: CheckCircle2, active: selectedPayout.status === 'Processed' },
+                                            { status: 'Quality & Audit Passed', time: 'Oct 19 at 04:30 PM', icon: ShieldCheck, active: true },
+                                            { status: 'Settlement Batch Generated', time: 'Oct 19 at 10:15 AM', icon: Zap, active: true },
+                                            { status: 'Order Delivered / Initiated', time: 'Oct 15 at Midnight', icon: Clock, active: true },
                                         ].map((step, idx) => (
-                                            <div key={idx} className={cn("flex flex-col relative z-10 transition-all duration-700", step.active ? "opacity-100" : "opacity-20")}>
+                                            <div key={idx} className={cn("flex flex-col relative z-10 transition-opacity duration-350", step.active ? "opacity-100" : "opacity-30")}>
                                                 <div className={cn(
-                                                    "absolute -left-[45px] top-0 h-11 w-11 rounded-3xl border-4 border-white shadow-xl flex items-center justify-center",
+                                                    "absolute -left-[21px] top-0 h-[22px] w-[22px] rounded-full border-2 border-white shadow-sm flex items-center justify-center",
                                                     step.active ? "bg-slate-900 text-emerald-400" : "bg-white text-slate-300"
                                                 )}>
-                                                    <step.icon className="h-5 w-5" />
+                                                    <step.icon className="h-3.5 w-3.5" />
                                                 </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">{step.status}</p>
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">{step.time}</p>
+                                                <div className="pl-4">
+                                                    <p className="text-sm font-semibold text-slate-900">{step.status}</p>
+                                                    <p className="text-xs text-slate-400 mt-0.5">{step.time}</p>
                                                 </div>
                                             </div>
                                         ))}
@@ -392,14 +406,19 @@ export function AdminPayoutsPage() {
                             </div>
 
                             {/* Sheet Actions */}
-                            <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-6">
-                                <button className="h-16 w-16 bg-white border border-slate-200 rounded-3xl text-slate-400 hover:text-red-500 transition-all shadow-sm flex items-center justify-center">
-                                    <AlertCircle className="w-6 h-6" />
+                            <div className="p-4 bg-slate-50 border-t border-slate-100 flex gap-2">
+                                <button 
+                                    onClick={() => toast.info('Opening query details...')}
+                                    className="admin-btn-icon"
+                                    title="Report Issue"
+                                >
+                                    <AlertCircle className="w-4 h-4 text-slate-500 hover:text-red-600" />
                                 </button>
                                 <button
-                                    className="flex-1 h-16 bg-slate-900 text-white rounded-[2rem] hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-3"
+                                    onClick={() => toast.success('Exported compliance ledger.')}
+                                    className="flex-1 admin-btn-primary justify-center bg-slate-900 hover:bg-slate-850"
                                 >
-                                    <Download className="w-5 h-5 text-emerald-400" />
+                                    <Download className="w-4 h-4 text-emerald-400" />
                                     Export Compliance Ledger
                                 </button>
                             </div>
@@ -411,3 +430,4 @@ export function AdminPayoutsPage() {
         </div>
     );
 }
+

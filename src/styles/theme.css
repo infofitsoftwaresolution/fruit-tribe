@@ -228,4 +228,249 @@
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
   }
+
+  /* ─── Admin Design System ─── */
+
+  /* Page header */
+  .admin-page-title {
+    @apply text-2xl font-semibold text-slate-900 tracking-tight;
+  }
+
+  .admin-page-subtitle {
+    @apply text-sm text-slate-500 mt-1;
+  }
+
+  /* Section headings inside cards */
+  .admin-section-heading {
+    @apply text-base font-semibold text-slate-900;
+  }
+
+  .admin-section-label {
+    @apply text-xs font-medium text-slate-400 uppercase tracking-wider;
+  }
+
+  /* Cards */
+  .admin-card {
+    @apply bg-white border border-zinc-200/50 rounded-2xl shadow-sm hover:shadow-md hover:border-zinc-300/60 transition-all duration-300 ease-out overflow-hidden;
+  }
+
+  .admin-card-header {
+    @apply px-6 py-5 border-b border-zinc-100 flex items-center justify-between;
+  }
+
+  /* Tables */
+  .admin-th {
+    @apply px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-left bg-zinc-50/50 border-b border-zinc-200/50 whitespace-nowrap;
+  }
+
+  .admin-td {
+    @apply px-6 py-4 text-sm text-zinc-700 whitespace-nowrap align-middle;
+  }
+
+  .admin-tr {
+    @apply border-b border-zinc-100 hover:bg-zinc-50/30 transition-colors duration-150;
+  }
+
+  /* Badges */
+  .admin-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border;
+  }
+
+  .admin-badge-emerald {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-emerald-500/10 text-emerald-700 border-emerald-500/15;
+  }
+
+  .admin-badge-amber {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-amber-500/10 text-amber-700 border-amber-500/15;
+  }
+
+  .admin-badge-red {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-red-500/10 text-red-700 border-red-500/15;
+  }
+
+  .admin-badge-blue {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-blue-500/10 text-blue-700 border-blue-500/15;
+  }
+
+  .admin-badge-purple {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-purple-500/10 text-purple-700 border-purple-500/15;
+  }
+
+  .admin-badge-slate {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-zinc-500/10 text-zinc-700 border-zinc-500/15;
+  }
+
+  /* Buttons */
+  .admin-btn {
+    @apply inline-flex items-center gap-2 rounded-xl text-xs font-semibold tracking-wider uppercase transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-red-50 border border-red-200 text-red-700 hover:bg-red-600 hover:text-white text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 text-xs font-semibold tracking-wider uppercase transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-btn-icon {
+    @apply inline-flex items-center justify-center gap-2 h-10 w-10 rounded-xl bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50 shadow-sm transition-all active:scale-[0.97];
+  }
+
+  /* Inputs */
+  .admin-input {
+    @apply w-full h-10 px-4 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all;
+  }
+
+  .admin-select {
+    @apply h-10 px-4 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all cursor-pointer appearance-none;
+  }
+
+  /* Stat cards */
+  .admin-stat-card {
+    @apply bg-white border border-zinc-200/50 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-zinc-300/60 transition-all duration-300 ease-out;
+  }
+
+  .admin-stat-value {
+    @apply text-3xl font-bold text-zinc-900 tracking-tight tabular-nums;
+  }
+
+  .admin-stat-label {
+    @apply text-xs font-medium text-zinc-500 mt-1;
+  }
+
+  /* Responsive table container to prevent horizontal overflow */
+  .admin-responsive-table-container {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     🌟 COMPLETE VISUAL REDESIGN SYSTEM (.admin-panel-*)
+     Inspired by high-end minimal SaaS dashboards (Linear/Vercel)
+     ────────────────────────────────────────────────────────── */
+
+  /* Page Structure */
+  .admin-panel-page-title {
+    @apply text-2xl font-bold tracking-tight text-zinc-900;
+  }
+
+  .admin-panel-page-subtitle {
+    @apply text-sm text-zinc-500 mt-1;
+  }
+
+  .admin-panel-section-title {
+    @apply text-base font-semibold text-zinc-900 tracking-tight;
+  }
+
+  .admin-panel-section-subtitle {
+    @apply text-xs font-medium text-zinc-400 uppercase tracking-widest;
+  }
+
+  /* Premium Minimal Cards */
+  .admin-panel-card {
+    @apply bg-white border border-zinc-200/50 rounded-2xl shadow-sm hover:shadow-md hover:border-zinc-300/60 transition-all duration-300 ease-out overflow-hidden;
+  }
+
+  .admin-panel-card-header {
+    @apply px-6 py-5 border-b border-zinc-100 flex items-center justify-between;
+  }
+
+  .admin-panel-card-content {
+    @apply p-6;
+  }
+
+  /* Crisp Ledgers (Tables) */
+  .admin-panel-table-wrapper {
+    @apply w-full overflow-x-auto border border-zinc-200/50 rounded-2xl bg-white shadow-sm overflow-hidden;
+  }
+
+  .admin-panel-th {
+    @apply px-6 py-4 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-left bg-zinc-50/50 border-b border-zinc-200/50 whitespace-nowrap;
+  }
+
+  .admin-panel-td {
+    @apply px-6 py-4 text-sm text-zinc-700 whitespace-nowrap align-middle;
+  }
+
+  .admin-panel-tr {
+    @apply border-b border-zinc-100 hover:bg-zinc-50/30 transition-colors duration-150;
+  }
+
+  /* Translucent Minimal Badges */
+  .admin-panel-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border;
+  }
+
+  .admin-panel-badge-emerald {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-emerald-500/10 text-emerald-700 border-emerald-500/15;
+  }
+
+  .admin-panel-badge-amber {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-amber-500/10 text-amber-700 border-amber-500/15;
+  }
+
+  .admin-panel-badge-red {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-red-500/10 text-red-700 border-red-500/15;
+  }
+
+  .admin-panel-badge-blue {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-blue-500/10 text-blue-700 border-blue-500/15;
+  }
+
+  .admin-panel-badge-purple {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-purple-500/10 text-purple-700 border-purple-500/15;
+  }
+
+  .admin-panel-badge-zinc {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-wider uppercase border bg-zinc-500/10 text-zinc-700 border-zinc-500/15;
+  }
+
+  /* Minimal Crisp Controls */
+  .admin-panel-input {
+    @apply w-full h-10 px-4 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all;
+  }
+
+  .admin-panel-select {
+    @apply h-10 px-4 rounded-xl border border-zinc-200 bg-white text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-zinc-900/5 focus:border-zinc-800 transition-all cursor-pointer appearance-none;
+  }
+
+  /* Premium Workspace Buttons */
+  .admin-panel-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-zinc-900 text-white hover:bg-zinc-800 text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-panel-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:border-zinc-300 text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-panel-btn-danger {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-5 rounded-xl bg-red-50 border border-red-200 text-red-700 hover:bg-red-600 hover:text-white text-xs font-semibold tracking-wider uppercase shadow-sm transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .admin-panel-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 text-xs font-semibold tracking-wider uppercase transition-all active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  /* Premium Stat Cards */
+  .admin-panel-stat-card {
+    @apply bg-white border border-zinc-200/50 rounded-2xl p-6 shadow-sm hover:shadow-md hover:border-zinc-300/60 transition-all duration-300 ease-out;
+  }
+
+  .admin-panel-stat-value {
+    @apply text-3xl font-bold text-zinc-900 tracking-tight tabular-nums;
+  }
+
+  .admin-panel-stat-label {
+    @apply text-xs font-medium text-zinc-500 mt-1;
+  }
 }
