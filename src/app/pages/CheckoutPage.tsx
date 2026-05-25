@@ -508,13 +508,13 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
   useEffect(() => {
     if (!offersDropdownOpen) return;
-    const onPointerDown = (e: MouseEvent) => {
+    const onDocumentClick = (e: MouseEvent) => {
       if (!offersDropdownRef.current?.contains(e.target as Node)) {
         setOffersDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', onPointerDown);
-    return () => document.removeEventListener('mousedown', onPointerDown);
+    document.addEventListener('click', onDocumentClick);
+    return () => document.removeEventListener('click', onDocumentClick);
   }, [offersDropdownOpen]);
   const [formData, setFormData] = useState({
     firstName: user?.name?.split(' ')[0] || '',
@@ -2127,13 +2127,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       </div>
   );
 
-  const couponsAndDeliveryCards = (
-    <>
-      {couponsCard}
-      {deliveryItemsCard}
-    </>
-  );
-
   const desktopPayButton = (
     <button
       type="button"
@@ -2358,8 +2351,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               </div>
             </div>
           </details>
-          <div className="hidden md:block">{couponsCard}</div>
-          <div className="md:hidden space-y-4">{couponsAndDeliveryCards}</div>
+          {couponsCard}
+          <div className="md:hidden">{deliveryItemsCard}</div>
 
           </div> {/* End of Left Column */}
 

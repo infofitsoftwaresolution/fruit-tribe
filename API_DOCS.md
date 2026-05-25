@@ -1,5 +1,7 @@
 # The Fruit Tribe - API Documentation (v1)
 
+For full end-to-end process guides (checkout, admin, payments, etc.), see **[docs/WORKFLOWS.md](./docs/WORKFLOWS.md)**.
+
 ## Base URL
 `https://api.thefruittribe.com/v1`
 

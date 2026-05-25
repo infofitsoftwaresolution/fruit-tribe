@@ -25,9 +25,12 @@ This repository contains a production-grade, scalable, and secure e-commerce pla
 - **Infrastructure**: Docker, Docker Compose.
 
 ## 📖 Documentation
+- [**Complete Workflows (step-by-step)**](./docs/WORKFLOWS.md) — customer checkout, admin, payments, delivery, deploy
 - [Architecture & Design Decisions](./ARCHITECTURE.md)
 - [Database Schema](./schema.sql)
 - [API Reference](./API_DOCS.md)
+- [Payments (Razorpay)](./docs/PAYMENTS.md)
+- [Production Deployment](./docs/DEPLOYMENT.md)
 
 ## 🚦 Getting Started
 1. Clone the repository.
