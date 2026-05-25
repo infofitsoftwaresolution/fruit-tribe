@@ -5,6 +5,7 @@ import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { formatFreeDeliveryHint } from '@/lib/deliveryFeeUtils';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
 interface CartItem {
   id: string | number;
@@ -164,8 +165,9 @@ export function CartDrawer({ isOpen, onClose, items, onUpdateQuantity, onRemoveI
                       {/* Image */}
                       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-md">
                         <img
-                          src={item.image}
+                          src={(item.image || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
                           alt={item.name}
+                          onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
                           className="w-full h-full object-cover"
                         />
                       </div>

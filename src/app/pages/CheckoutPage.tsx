@@ -29,6 +29,7 @@ import { ensureRazorpayScript } from '@/lib/razorpayLoader';
 import { computeDeliveryFeeByDistanceKm, qualifiesForFreeDelivery } from '@/lib/deliveryFeeUtils';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { getUserErrorMessage } from '@/lib/userError';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 import { toast } from 'sonner';
 
 interface CheckoutPageProps {
@@ -2104,7 +2105,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             return (
               <div key={item.id} className="flex gap-3 items-center">
                 <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                  <img src={getImageDisplayUrl(item.image || '')} alt={item.name} className="w-full h-full object-cover" />
+                  <img
+                    src={(item.image || '').trim() ? getImageDisplayUrl(item.image) : PRODUCT_PLACEHOLDER_IMAGE}
+                    alt={item.name}
+                    onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>

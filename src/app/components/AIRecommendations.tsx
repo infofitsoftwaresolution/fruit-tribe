@@ -4,6 +4,7 @@ import { Sparkles, BrainCircuit } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { Product } from '@/lib/api';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
 interface AIRecommendationsProps {
     currentProductId?: string | number;
@@ -57,7 +58,8 @@ export function AIRecommendations({ currentProductId, limit = 4, onAddToCart }: 
                         <Link to={`/product/${product.id}`} className="block">
                             <div className="aspect-[4/5] rounded-[2rem] overflow-hidden bg-gray-50 border border-gray-100 shadow-sm transition-all group-hover:shadow-xl group-hover:border-emerald-200 group-hover:-translate-y-2 relative">
                                 <img
-                                    src={product.image}
+                                    src={(product.image || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
+                                    onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     alt={product.name}
                                 />

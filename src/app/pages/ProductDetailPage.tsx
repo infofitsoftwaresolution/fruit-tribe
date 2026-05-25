@@ -12,6 +12,7 @@ import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, formatInr } from '@/lib/utils';
 import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
 import type { Product } from '@/lib/api';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 import { NotFoundPage } from './NotFoundPage';
 
 interface ProductDetailPageProps {
@@ -169,7 +170,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
   useEffect(() => {
     if (product && !activeImage) {
-      setActiveImage(product.image || product.images?.[0] || null);
+      setActiveImage(product.image || product.images?.[0] || PRODUCT_PLACEHOLDER_IMAGE);
     }
   }, [product, activeImage]);
 
@@ -439,7 +440,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           <div className="absolute inset-0 pointer-events-none [background:radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.12),transparent_45%),radial-gradient(circle_at_80%_80%,rgba(251,146,60,0.12),transparent_45%)]" />
           <div className="relative">
             <div className="rounded-3xl overflow-hidden bg-white border border-black/5 shadow-sm aspect-square">
-              <img src={activeImage || ''} alt={product.name} className="w-full h-full object-cover" />
+              <img
+                src={activeImage || PRODUCT_PLACEHOLDER_IMAGE}
+                alt={product.name}
+                onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
+                className="w-full h-full object-cover"
+              />
             </div>
 
             <div className="absolute right-4 bottom-4 flex gap-2">
@@ -452,7 +458,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           <div className="mt-4 flex gap-2 overflow-x-auto">
             {images.map((img, idx) => (
               <button key={idx} onClick={() => setActiveImage(img)} className={cn('h-16 w-16 rounded-xl overflow-hidden border-2 shrink-0', activeImage === img ? 'border-emerald-600' : 'border-transparent')}>
-                <img src={img} alt={`${product.name}-${idx}`} className="w-full h-full object-cover" />
+                <img
+                  src={(img || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
+                  alt={`${product.name}-${idx}`}
+                  onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
+                  className="w-full h-full object-cover"
+                />
               </button>
             ))}
           </div>

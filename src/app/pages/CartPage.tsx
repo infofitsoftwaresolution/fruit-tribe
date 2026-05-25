@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { formatFreeDeliveryHint } from '@/lib/deliveryFeeUtils';
+import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
 import { useStore, type CartItem } from '@/app/context/StoreContext';
 import { useAuth } from '@/app/context/AuthContext';
@@ -144,8 +145,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                         {/* Image Thumbnail */}
                         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl border border-zinc-200/60 overflow-hidden flex-shrink-0 relative group bg-zinc-50">
                           <img
-                            src={item.image}
+                            src={(item.image || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
                             alt={item.name}
+                            onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         </div>
