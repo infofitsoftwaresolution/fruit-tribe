@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import Masonry, { ResponsiveMasonry } from "react-responsive-masonry";
 import { motion, AnimatePresence } from "framer-motion";
 import { Camera, Maximize2, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from "@/app/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { cn } from '@/lib/utils';
 
 const GALLERY_IMAGES = [
   { url: '/images/hero.jpeg', alt: 'Premium Farm Selection' },
@@ -66,53 +66,50 @@ export function GalleryPage() {
       </section>
 
       {/* Gallery Section */}
-      <section className="py-12 md:py-16 bg-white">
+      <section className="py-12 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ResponsiveMasonry
-            columnsCountBreakPoints={{ 350: 1, 750: 2, 900: 3, 1200: 4 }}
-          >
-            <Masonry gutter="24px">
-              {GALLERY_IMAGES.map((image, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ 
-                    duration: 0.5, 
-                    delay: (index % 4) * 0.1,
-                    ease: "easeOut"
-                  }}
-                  className="relative group cursor-pointer overflow-hidden rounded-3xl bg-slate-100 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/10 transition-all duration-500"
-                  onClick={() => setSelectedImage(image.url)}
-                >
-                  <img
-                    src={image.url}
-                    alt={image.alt}
-                    className="w-full h-auto object-cover transform group-hover:scale-105 transition-transform duration-1000"
-                    loading="lazy"
-                  />
-                  
-                  {/* Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-6">
-                    <motion.div 
-                      initial={{ y: 20, opacity: 0 }}
-                      whileHover={{ y: 0, opacity: 1 }}
-                      className="flex items-center justify-between"
-                    >
-                      <div>
-                        <p className="text-white font-bold text-sm tracking-tight">{image.alt}</p>
-                        <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest mt-1">Grade A Quality</p>
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white">
-                        <Maximize2 className="w-5 h-5" />
-                      </div>
-                    </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {GALLERY_IMAGES.map((image, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ 
+                  duration: 0.6, 
+                  delay: (index % 4) * 0.08,
+                  ease: "easeOut"
+                }}
+                className={cn(
+                  "relative group cursor-pointer overflow-hidden rounded-[2rem] bg-slate-50 border border-slate-100 hover:shadow-2xl hover:shadow-emerald-950/5 hover:border-emerald-100/50 transition-all duration-500",
+                  index === 0
+                    ? "sm:col-span-2 sm:aspect-[16/9] md:col-span-2 md:row-span-2 md:h-full md:aspect-square lg:col-span-2 lg:row-span-2 lg:h-full lg:aspect-square"
+                    : "aspect-[4/3]"
+                )}
+                onClick={() => setSelectedImage(image.url)}
+              >
+                <img
+                  src={image.url}
+                  alt={image.alt}
+                  className="w-full h-full object-cover transform group-hover:scale-[1.03] transition-transform duration-[1.2s] ease-out"
+                  loading="lazy"
+                />
+                
+                {/* Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-6 md:p-8">
+                  <div className="flex items-center justify-between translate-y-3 group-hover:translate-y-0 transition-transform duration-500 ease-out">
+                    <div>
+                      <p className="text-white font-extrabold text-sm md:text-base tracking-tight">{image.alt}</p>
+                      <p className="text-emerald-400 text-[10px] font-black uppercase tracking-wider mt-1">Grade A Quality</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-white shrink-0 shadow-lg shadow-black/25 transform group-hover:scale-110 transition-transform duration-500 ease-out">
+                      <Maximize2 className="w-4 h-4" />
+                    </div>
                   </div>
-                </motion.div>
-              ))}
-            </Masonry>
-          </ResponsiveMasonry>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -1215,7 +1215,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     if (deliveryStats.estimatedMins == null) return '';
     const etaMin = Math.max(20, Math.round(deliveryStats.estimatedMins * 0.8));
     const etaMax = Math.max(etaMin + 10, Math.round(deliveryStats.estimatedMins * 1.2));
-    return `${etaMin}-${etaMax} mins`;
+    
+    const formatMins = (m: number) => {
+      if (m <= 60) {
+        return `${m} ${m === 1 ? 'min' : 'mins'}`;
+      }
+      const hrs = Math.floor(m / 60);
+      const rem = m % 60;
+      const hrStr = hrs === 1 ? '1 hr' : `${hrs} hrs`;
+      if (rem === 0) return hrStr;
+      const minStr = rem === 1 ? '1 min' : `${rem} mins`;
+      return `${hrStr} ${minStr}`;
+    };
+
+    if (etaMax <= 60) {
+      return `${etaMin}–${etaMax} mins`;
+    }
+    return `${formatMins(etaMin)} – ${formatMins(etaMax)}`;
   }, [deliveryStats.estimatedMins]);
 
   const distanceLabel = useMemo(() => {
@@ -1917,220 +1933,239 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   }
 
   const couponsCard = (
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-        <div className="bg-blue-50 text-blue-600 p-2.5 rounded-lg text-xs font-semibold mb-4 flex items-center gap-1.5">
-          <span className="bg-blue-600 text-white text-[9px] font-bold px-1 py-0.5 rounded uppercase">New</span>
-          Apply coupons + payment offers & save more
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-50">
+        <div className="w-8 h-8 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 shrink-0">
+          <Tag className="w-4 h-4" />
         </div>
-
-        <div className="font-bold text-sm text-slate-900 mb-3">Coupons & offers</div>
-
-        {availableOffers.length > 0 ? (
-          <div ref={offersDropdownRef} className="relative">
-            <div className="flex gap-2 items-stretch">
-              <button
-                type="button"
-                onClick={() => setOffersDropdownOpen((o) => !o)}
-                className={cn(
-                  'flex-1 min-w-0 flex items-center justify-between gap-2 min-h-[44px] px-3 py-2.5 rounded-lg border text-left text-xs font-semibold transition-colors',
-                  'border-slate-200 bg-slate-50 text-slate-800 hover:border-pink-200 hover:bg-white',
-                )}
-                aria-expanded={offersDropdownOpen}
-                aria-haspopup="listbox"
-              >
-                <span className="truncate">
-                  {appliedCoupon
-                    ? `Applied: ${appliedCoupon.code}`
-                    : `Select a coupon · ${availableOffers.length} offer${availableOffers.length !== 1 ? 's' : ''}`}
-                </span>
-                <ChevronDown
-                  className={cn('w-4 h-4 text-slate-500 shrink-0 transition-transform', offersDropdownOpen && 'rotate-180')}
-                />
-              </button>
-              {appliedCoupon && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleRemovePromo();
-                    setOffersDropdownOpen(false);
-                  }}
-                  className="shrink-0 px-3 min-h-[44px] rounded-lg border border-slate-200 bg-white text-[11px] font-bold text-slate-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-
-            {offersDropdownOpen && (
-              <div
-                className="absolute left-0 right-0 z-[100] mt-1 max-h-[min(18rem,70vh)] touch-pan-y overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white shadow-lg py-1 [-webkit-overflow-scrolling:touch]"
-                role="listbox"
-                onWheel={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                {availableOffers.map((offer) => {
-                  const isLocked = offer.minOrderValue != null && subtotalOnly < offer.minOrderValue;
-                  const needed = offer.minOrderValue != null ? Math.max(0, offer.minOrderValue - subtotalOnly) : 0;
-                  const appliedNorm = appliedCoupon?.code?.trim().toUpperCase() ?? '';
-                  const offerNorm = String(offer.code ?? '').trim().toUpperCase();
-                  const isApplied = Boolean(appliedNorm) && appliedNorm === offerNorm;
-                  return (
-                    <div
-                      key={offer.code}
-                      className="px-3 py-3 border-b border-slate-100 last:border-b-0"
-                      role="option"
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 shrink-0 mt-0.5">
-                          <Percent className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1.5">
-                          <p className="text-xs font-bold text-slate-900">
-                            Save {offer.discountType === 'PERCENTAGE' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
-                          </p>
-                          <p className="text-[10px] font-bold text-slate-700">
-                            Code: <span className="text-emerald-600">{offer.code}</span>
-                          </p>
-                          {isApplied ? (
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                              <p className="text-[9px] font-semibold text-emerald-700">Applied to this order</p>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                  Active
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleRemovePromo();
-                                    setOffersDropdownOpen(false);
-                                  }}
-                                  className="text-[9px] font-bold text-slate-500 hover:text-red-700 underline underline-offset-2"
-                                >
-                                  Remove
-                                </button>
-                              </div>
-                            </div>
-                          ) : isLocked ? (
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                              <p className="text-[9px] font-semibold text-orange-600 leading-tight">
-                                Shop for ₹{needed.toFixed(2)} more
-                              </p>
-                              <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
-                                Locked
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                              <p className="text-[9px] font-semibold text-emerald-600">Eligible on this order</p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setPromoCode(offer.code);
-                                  setOffersDropdownOpen(false);
-                                  void applyPromoCode(offer.code);
-                                }}
-                                className="px-2.5 py-1 bg-emerald-600 text-white rounded-md text-[10px] font-bold hover:bg-emerald-700 shrink-0"
-                              >
-                                Apply
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center text-xs font-semibold text-slate-500 py-2">
-            No available offers at the moment.
-          </div>
-        )}
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">Coupons & Offers</h3>
+          <p className="text-[10px] font-semibold text-slate-500">Apply code to save more on your order</p>
+        </div>
       </div>
-  );
 
-  const deliveryItemsCard = (
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-slate-600 shrink-0">
-              <Clock className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-slate-900">Delivering in {etaLabel || '15 mins'}</p>
-              <p className="text-[10px] font-semibold text-slate-500">{items.length} item{items.length !== 1 ? 's' : ''}</p>
-            </div>
-          </div>
+      {/* Manual Input Field */}
+      <div className="flex gap-2 mb-4">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Enter promo code"
+            value={promoCode}
+            onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+            className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+          />
+          {appliedCoupon && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-4 h-4 bg-emerald-100 text-emerald-800 rounded-full text-[8px] font-black">
+              ✓
+            </span>
+          )}
+        </div>
+        {appliedCoupon && promoCode === appliedCoupon.code ? (
           <button
             type="button"
-            onClick={() => setShowSlots(!showSlots)}
-            className="px-3 py-1.5 border border-amber-200 rounded-lg text-xs font-bold text-amber-600 flex items-center gap-1 hover:bg-amber-50"
+            onClick={handleRemovePromo}
+            className="px-4 rounded-xl border border-red-200 bg-red-50 text-xs font-bold text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors cursor-pointer"
           >
-            <Calendar className="w-3.5 h-3.5" /> Schedule
+            Remove
           </button>
-        </div>
+        ) : (
+          <button
+            type="button"
+            onClick={handleApplyPromo}
+            disabled={applyingPromo || !promoCode.trim()}
+            className="px-4 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-black transition-colors disabled:opacity-40 cursor-pointer"
+          >
+            {applyingPromo ? 'Applying...' : 'Apply'}
+          </button>
+        )}
+      </div>
 
-        {showSlots && (
-          <div className="mb-4 p-3 bg-amber-50 rounded-lg border border-amber-100">
-            <p className="text-xs font-bold text-amber-800 mb-2">Select Delivery Slot</p>
-            <div className="space-y-2">
-              {deliverySlotOptions.map((slot: string) => (
-                <button
-                  key={slot}
-                  type="button"
-                  onClick={() => {
-                    setDeliverySlot(slot);
-                    setShowSlots(false);
-                  }}
+      {/* Available Coupons List (No dropdown, no scrolling) */}
+      {availableOffers.length > 0 ? (
+        <div className="space-y-2.5">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Available Coupons</p>
+          <div className="grid grid-cols-1 gap-2.5">
+            {availableOffers.map((offer) => {
+              const isLocked = offer.minOrderValue != null && subtotalOnly < offer.minOrderValue;
+              const needed = offer.minOrderValue != null ? Math.max(0, offer.minOrderValue - subtotalOnly) : 0;
+              const appliedNorm = appliedCoupon?.code?.trim().toUpperCase() ?? '';
+              const offerNorm = String(offer.code ?? '').trim().toUpperCase();
+              const isApplied = Boolean(appliedNorm) && appliedNorm === offerNorm;
+
+              return (
+                <div
+                  key={offer.code}
                   className={cn(
-                    'w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all',
-                    deliverySlot === slot
-                      ? 'bg-amber-600 text-white'
-                      : 'bg-white text-slate-700 border border-amber-200 hover:bg-amber-100',
+                    'p-3 rounded-xl border transition-all flex items-start gap-3',
+                    isApplied
+                      ? 'border-emerald-500 bg-emerald-50/30 shadow-sm'
+                      : isLocked
+                      ? 'border-slate-100 bg-slate-50/50 opacity-75'
+                      : 'border-slate-200 hover:border-pink-200 bg-white hover:bg-pink-50/10'
                   )}
                 >
-                  {slot}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
+                      isApplied
+                        ? 'bg-emerald-600 text-white'
+                        : isLocked
+                        ? 'bg-slate-200 text-slate-400'
+                        : 'bg-pink-100 text-pink-600'
+                    )}
+                  >
+                    <Percent className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-slate-900 text-white font-bold text-[9px] tracking-wide mb-1 select-all">
+                          {offer.code}
+                        </span>
+                        <p className="text-xs font-extrabold text-slate-900">
+                          Save {offer.discountType === 'PERCENTAGE' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+                        </p>
+                      </div>
 
-        <div className="space-y-4">
-          {items.map((item) => {
-            const lineKey = `${String(item.id)}::${String((item as any).selectedVariantSku || (item as any).selectedVariantId || '')}`;
-            return (
-              <div key={item.id} className="flex gap-3 items-center">
-                <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-100">
-                  <img
-                    src={(item.image || '').trim() ? getImageDisplayUrl(item.image) : PRODUCT_PLACEHOLDER_IMAGE}
-                    alt={item.name}
-                    onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
-                  <p className="text-[10px] font-semibold text-slate-500">{item.selectedVariantName || '1 pc'}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center border border-pink-200 rounded-lg bg-pink-50 text-pink-600 text-xs font-bold">
-                    <button type="button" onClick={() => item.quantity <= 1 ? handleRemoveItem(lineKey) : handleUpdateQuantity(lineKey, -1)} className="p-1 px-2 hover:bg-pink-100 rounded-l-lg">-</button>
-                    <span className="px-1">{item.quantity}</span>
-                    <button type="button" onClick={() => handleUpdateQuantity(lineKey, 1)} className="p-1 px-2 hover:bg-pink-100 rounded-r-lg">+</button>
+                      <div className="shrink-0">
+                        {isApplied ? (
+                          <button
+                            type="button"
+                            onClick={handleRemovePromo}
+                            className="px-2.5 py-1 bg-red-100 text-red-700 rounded-lg text-[10px] font-bold hover:bg-red-200 transition-colors cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        ) : isLocked ? (
+                          <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-lg">
+                            Locked
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPromoCode(offer.code);
+                              void applyPromoCode(offer.code);
+                            }}
+                            className="px-2.5 py-1 bg-pink-600 text-white rounded-lg text-[10px] font-bold hover:bg-pink-700 transition-colors shadow-sm shadow-pink-600/10 cursor-pointer"
+                          >
+                            Apply
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Status / Details */}
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      {isApplied ? (
+                        <p className="text-[9px] font-bold text-emerald-700">Applied & active on this order</p>
+                      ) : isLocked ? (
+                        <p className="text-[9px] font-semibold text-orange-600 leading-tight">
+                          Shop for ₹{needed.toFixed(2)} more to unlock
+                        </p>
+                      ) : (
+                        <p className="text-[9px] font-semibold text-slate-500">
+                          {offer.minOrderValue ? `Valid on orders above ₹${offer.minOrderValue}` : 'No minimum order required'}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right min-w-[50px]">
-                    <p className="text-xs font-bold text-emerald-600">₹{(item.price * item.quantity).toFixed(2)}</p>
-                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center text-xs font-semibold text-slate-400 py-4 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+          No available offers at the moment.
+        </div>
+      )}
+    </div>
+  );
+
+  const deliverySlotCard = (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+        <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center text-amber-600 shrink-0">
+          <Clock className="w-4.5 h-4.5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-slate-900">Delivery Slot</h3>
+          <p className="text-[10px] font-semibold text-slate-500">
+            {etaLabel ? `Delivering in ${etaLabel}` : 'Choose your preferred delivery slot'}
+          </p>
         </div>
       </div>
+
+      <div className="space-y-2">
+        {deliverySlotOptions.map((slot: string) => {
+          const isSelected = deliverySlot === slot;
+          return (
+            <button
+              key={slot}
+              type="button"
+              onClick={() => setDeliverySlot(slot)}
+              className={cn(
+                'w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer',
+                isSelected
+                  ? 'bg-amber-600 border-amber-600 text-white shadow-sm shadow-amber-600/10'
+                  : 'bg-white text-slate-700 border-amber-100 hover:bg-slate-50',
+              )}
+            >
+              {slot}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const cartSummaryCard = (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 flex flex-col">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-50 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center text-pink-600">
+            <ShoppingBag className="w-4.5 h-4.5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Order Items</h3>
+            <p className="text-[10px] font-semibold text-slate-500">{items.length} item{items.length !== 1 ? 's' : ''} in cart</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4 max-h-[180px] overflow-y-auto pr-1 custom-scrollbar">
+        {items.map((item) => {
+          const lineKey = `${String(item.id)}::${String((item as any).selectedVariantSku || (item as any).selectedVariantId || '')}`;
+          return (
+            <div key={item.id} className="flex gap-3.5 items-center">
+              <div className="w-12 h-12 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100 relative group">
+                <img
+                  src={(item.image || '').trim() ? getImageDisplayUrl(item.image) : PRODUCT_PLACEHOLDER_IMAGE}
+                  alt={item.name}
+                  onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-900 truncate">{item.name}</p>
+                <p className="text-[10px] font-semibold text-slate-500">{item.selectedVariantName || '1 pc'}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center border border-pink-100 rounded-xl bg-pink-50/30 text-pink-600 text-xs font-extrabold shadow-sm overflow-hidden">
+                  <button type="button" onClick={() => item.quantity <= 1 ? handleRemoveItem(lineKey) : handleUpdateQuantity(lineKey, -1)} className="py-1 px-3 hover:bg-pink-100/50 transition-colors cursor-pointer">-</button>
+                  <span className="px-1 text-slate-800 min-w-[1.25rem] text-center">{item.quantity}</span>
+                  <button type="button" onClick={() => handleUpdateQuantity(lineKey, 1)} className="py-1 px-3 hover:bg-pink-100/50 transition-colors cursor-pointer">+</button>
+                </div>
+                <div className="text-right min-w-[60px]">
+                  <p className="text-xs font-bold text-emerald-600 font-mono">₹{(item.price * item.quantity).toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 
   const desktopPayButton = (
@@ -2138,468 +2173,608 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       type="button"
       onClick={() => void submitCheckout()}
       disabled={submitting || !isCheckoutFormReady}
-      className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
+      className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-sm hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 mt-4 cursor-pointer"
     >
-      {submitting ? 'Processing…' : `Pay ₹${payableGrandTotal.toFixed(2)}`}
+      {submitting ? (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          <span>Processing…</span>
+        </>
+      ) : (
+        <>
+          <ShieldCheck className="w-4 h-4" />
+          <span>{paymentMethod === 'cod' ? 'Place Order' : `Pay ₹${payableGrandTotal.toFixed(2)}`}</span>
+        </>
+      )}
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 selection:bg-pink-200 selection:text-pink-900 overflow-x-hidden">
-      <div className="max-w-md md:max-w-6xl mx-auto bg-white md:bg-slate-50 min-h-screen flex flex-col">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-100 p-4 flex items-center gap-3 z-10 md:hidden">
-          <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-slate-50 rounded-full">
+    <div className="min-h-screen bg-slate-50/50 selection:bg-pink-200 selection:text-pink-900 overflow-x-hidden antialiased">
+      <div className="max-w-md lg:max-w-7xl mx-auto bg-white lg:bg-slate-50/30 min-h-screen flex flex-col">
+        {/* Mobile Header (Hidden on desktop) */}
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-slate-100 p-4 flex items-center gap-3.5 z-20 lg:hidden shadow-sm">
+          <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-slate-50 rounded-full transition-colors">
             <ChevronLeft className="w-5 h-5 text-slate-700" />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-1">
-              <h1 className="text-sm font-bold text-slate-900 truncate">
+              <h1 className="text-xs font-black text-slate-900 truncate uppercase tracking-wider">
                 {selectedSavedAddressId ? savedAddresses.find(a => a.id === selectedSavedAddressId)?.label || 'Saved Address' : 'Deliver to'}
               </h1>
             </div>
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-xs text-slate-500 truncate font-semibold">
               {formData.flatHouse ? `${formData.flatHouse}, ` : ''}{formData.address || 'Select or add address'}
             </p>
           </div>
         </div>
 
-        {/* Savings Banner */}
-        <div className="bg-emerald-50 text-emerald-700 px-4 py-2 text-center text-xs font-semibold flex items-center justify-center gap-1 md:hidden">
-          <span>Yay! You saved ₹{(discountAmount || 0).toFixed(2)} on this order</span>
-          <ChevronDown className="w-3 h-3" />
-        </div>
-
-        {/* Stats Bar (Sticky below header) */}
-        <div className="bg-white border-b border-slate-100 p-3 grid grid-cols-3 gap-2 text-center text-xs sticky top-[61px] z-10 shadow-sm md:hidden">
-          <div>
-            <p className="text-slate-500 font-semibold uppercase text-[8px] tracking-wider">Distance</p>
-            <p className="text-slate-900 font-bold flex items-center justify-center gap-0.5">
-              <Navigation className="w-3 h-3 text-pink-500" />
-              {distanceLabel}
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-500 font-semibold uppercase text-[8px] tracking-wider">On-Time</p>
-            <p className="text-emerald-600 font-bold flex items-center justify-center gap-0.5">
-              <Zap className="w-3 h-3 fill-emerald-500" />
-              {deliveryStats.onTimeRate != null ? `${deliveryStats.onTimeRate}%` : '…'}
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-500 font-semibold uppercase text-[8px] tracking-wider">ETA</p>
-            <p className="text-slate-900 font-bold flex items-center justify-center gap-0.5">
-              <Clock className="w-3 h-3 text-blue-500" />
-              {etaLabel || '…'}
-            </p>
-          </div>
-        </div>
-
         {/* Desktop Header (Visible only on desktop) */}
-        <div className="hidden md:flex items-center justify-between p-6 bg-white border-b border-slate-100">
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => navigate(-1)} className="p-2 hover:bg-slate-50 rounded-full border border-slate-200">
-              <ChevronLeft className="w-5 h-5 text-slate-700" />
+        <div className="hidden lg:flex items-center justify-between p-5 bg-white border-b border-slate-100 shrink-0">
+          <div className="flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-slate-50 rounded-full border border-slate-200 transition-all active:scale-95 cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-700" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Checkout</h1>
-              <p className="text-sm text-slate-500">Review your order and pay</p>
+              <h1 className="text-lg font-black text-slate-900 tracking-tight">Complete Checkout</h1>
+              <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Secure, frictionless payments in 1-click</p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <div className="text-right">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Delivering to</p>
-              <p className="text-sm font-bold text-slate-900 truncate max-w-[200px]">
-                {formData.flatHouse ? `${formData.flatHouse}, ` : ''}{formData.address || 'Select address'}
-              </p>
-            </div>
-            <div className="h-10 border-l border-slate-200" />
-            <div className="text-right min-w-[4.5rem]">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Distance</p>
-              <p className="text-sm font-bold text-slate-900 flex items-center justify-end gap-1 tabular-nums">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Distance</p>
+              <p className="text-xs font-black text-slate-900 flex items-center justify-end gap-1.5 mt-0.5">
                 <Navigation className="w-3.5 h-3.5 text-pink-500 shrink-0" />
-                {distanceLabel}
+                <span className="tabular-nums font-mono">{distanceLabel}</span>
               </p>
             </div>
-            <div className="h-10 border-l border-slate-200" />
-            <div className="text-right min-w-[5.5rem]">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">ETA</p>
-              <p className="text-sm font-bold text-slate-900 tabular-nums">{etaLabel || '…'}</p>
+            <div className="h-8 border-l border-slate-100" />
+            <div className="text-right">
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Estimated Time</p>
+              <p className="text-xs font-black text-emerald-600 flex items-center justify-end gap-1 mt-0.5">
+                <Zap className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 shrink-0" />
+                <span className="tabular-nums font-mono">{etaLabel || '…'}</span>
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 p-4 md:p-6 grid grid-cols-1 md:grid-cols-3 md:items-start gap-6 custom-scrollbar pb-32 md:pb-10">
-          <div className="md:col-span-2 space-y-4">
-            {/* Address Form Card (Collapsible) */}
-          <details className="bg-white rounded-xl shadow-sm border border-slate-100 group marker:content-['']" open={!selectedSavedAddressId}>
-            <summary className="flex items-center justify-between cursor-pointer list-none p-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 shrink-0">
-                  <MapPin className="w-5 h-5" />
+        {/* Savings Banner */}
+        {discountAmount > 0 && (
+          <div className="bg-emerald-500/10 text-emerald-700 border-b border-emerald-500/10 px-4 py-2 text-center text-xs font-bold flex items-center justify-center gap-1.5 lg:hidden">
+            <span>Yay! You saved ₹{(discountAmount || 0).toFixed(2)} on this order</span>
+            <ChevronDown className="w-3 h-3 animate-bounce mt-0.5" />
+          </div>
+        )}
+
+        {/* Mobile Stats Bar (Sticky below header) */}
+        <div className="bg-white border-b border-slate-100 p-3 grid grid-cols-3 gap-2.5 text-center text-xs sticky top-[61px] z-10 shadow-sm lg:hidden">
+          <div className="bg-slate-50/80 p-1.5 rounded-xl border border-slate-100/50">
+            <p className="text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-0.5">Distance</p>
+            <p className="text-slate-800 font-extrabold flex items-center justify-center gap-1">
+              <Navigation className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+              <span className="tabular-nums">{distanceLabel}</span>
+            </p>
+          </div>
+          <div className="bg-slate-50/80 p-1.5 rounded-xl border border-slate-100/50">
+            <p className="text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-0.5">On-Time</p>
+            <p className="text-emerald-600 font-extrabold flex items-center justify-center gap-1">
+              <Zap className="w-3.5 h-3.5 fill-emerald-500 text-emerald-500 shrink-0" />
+              <span className="tabular-nums">{deliveryStats.onTimeRate != null ? `${deliveryStats.onTimeRate}%` : '…'}</span>
+            </p>
+          </div>
+          <div className="bg-slate-50/80 p-1.5 rounded-xl border border-slate-100/50">
+            <p className="text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-0.5">ETA</p>
+            <p className="text-slate-800 font-extrabold flex items-center justify-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span className="tabular-nums">{etaLabel || '…'}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Redesigned 3-Column Grid for Desktop & Natural Linear Stack for Mobile */}
+        <div className="flex-1 p-4 lg:p-5 grid grid-cols-1 lg:grid-cols-3 items-start gap-5 lg:h-[calc(100vh-76px)] lg:overflow-hidden pb-32 lg:pb-5">
+          
+          {/* Column 1: Delivery Address & Slot Selection */}
+          <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+            {/* Address Selection Container */}
+            {selectedSavedAddressId ? (
+              /* Delivering To (Sleek Space-saving summary card) */
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md">
+                <div className="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center text-pink-600 shrink-0">
+                      <MapPin className="w-4.5 h-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Delivering To</p>
+                      <h3 className="text-xs font-black text-slate-900 mt-0.5 truncate max-w-[130px]">
+                        {formData.firstName ? `${formData.firstName} ${formData.lastName}` : 'Default Address'}
+                      </h3>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSavedAddressPick('')}
+                    className="text-[10px] font-black uppercase text-pink-600 hover:text-pink-700 bg-pink-50 hover:bg-pink-100/70 px-2.5 py-1.5 rounded-xl border border-pink-100/50 transition-all active:scale-95 cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="px-1.5 py-0.5 rounded bg-slate-950 text-white font-extrabold text-[8px] tracking-wide uppercase mt-0.5 shrink-0 select-none">
+                    {savedAddresses.find(a => a.id === selectedSavedAddressId)?.label || 'Saved'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-slate-700 leading-relaxed">
+                      {formData.flatHouse ? `${formData.flatHouse}, ` : ''}{formData.address}
+                      {formData.landmark ? ` (Landmark: ${formData.landmark})` : ''}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 mt-1">{formData.phone}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Grid of Saved Addresses & Collapsible Entry Form */
+              <div className="space-y-4">
+                {/* Saved Addresses Panel */}
+                {savedAddresses.length > 0 && (
+                  <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+                    <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-50">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center text-pink-600 shrink-0">
+                          <MapPin className="w-4.5 h-4.5" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Saved Addresses</h3>
+                          <p className="text-[9px] font-semibold text-slate-400">Select an address to use</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {savedAddresses.map((addr) => {
+                        const isSelected = selectedSavedAddressId === addr.id;
+                        return (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => handleSavedAddressPick(addr.id)}
+                            className={cn(
+                              "text-left p-3.5 rounded-xl border-2 transition-all flex flex-col justify-between relative group cursor-pointer hover:border-pink-200",
+                              isSelected
+                                ? "border-pink-500 bg-pink-50/10 shadow-sm"
+                                : "border-slate-100 bg-white"
+                            )}
+                          >
+                            {addr.isDefault && (
+                              <span className="absolute right-3 top-3 px-1.5 py-0.5 rounded bg-slate-900 text-white font-bold text-[8px] tracking-wide uppercase">
+                                Default
+                              </span>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-extrabold text-[8px] uppercase">
+                                  {addr.label || 'Address'}
+                                </span>
+                                <p className="text-xs font-extrabold text-slate-900 truncate max-w-[125px]">{addr.name}</p>
+                              </div>
+                              <p className="text-[10px] font-semibold text-slate-600 line-clamp-2 mb-2 leading-relaxed">
+                                {addr.addressLine1}
+                                {addr.addressLine2 ? `, ${addr.addressLine2}` : ''}
+                                {`, ${addr.city}, ${addr.pincode}`}
+                              </p>
+                            </div>
+                            <p className="text-[9px] font-bold text-slate-400 group-hover:text-slate-600 transition-colors">{addr.phone}</p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Collapsible custom address form details */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                  <div className="p-5 pb-3 border-b border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 bg-pink-50 rounded-lg flex items-center justify-center text-pink-600 shrink-0">
+                        <MapPin className="w-4.5 h-4.5" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">New Address Details</h3>
+                        <p className="text-[9px] font-semibold text-slate-400">Fill in your delivery address</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-4">
+                    {/* Address Type Selectors */}
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Address Type</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAddressType('home')}
+                          className={cn(
+                            "py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border cursor-pointer",
+                            addressType === 'home'
+                              ? "border-pink-500 bg-pink-50 text-pink-700 shadow-sm"
+                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          <Home className="w-3.5 h-3.5" /> Home
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAddressType('work')}
+                          className={cn(
+                            "py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border cursor-pointer",
+                            addressType === 'work'
+                              ? "border-pink-500 bg-pink-50 text-pink-700 shadow-sm"
+                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          <Building2 className="w-3.5 h-3.5" /> Work
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAddressType('other')}
+                          className={cn(
+                            "py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border cursor-pointer",
+                            addressType === 'other'
+                              ? "border-pink-500 bg-pink-50 text-pink-700 shadow-sm"
+                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                          )}
+                        >
+                          <Navigation className="w-3.5 h-3.5" /> Other
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Full name*</label>
+                      <input
+                        type="text"
+                        value={fullNameInput}
+                        onChange={(e) => handleFullNameChange(e.target.value)}
+                        onBlur={() => {
+                          const firstError = validateField('firstName', formData.firstName);
+                          const lastError = validateField('lastName', formData.lastName);
+                          setFieldErrors((prev) => ({ ...prev, firstName: firstError, lastName: lastError }));
+                        }}
+                        required
+                        placeholder="Priya Sharma"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+                      />
+                      {(fieldErrors.firstName || fieldErrors.lastName) && (
+                        <p className="text-[10px] text-red-600 font-bold">{fieldErrors.firstName || fieldErrors.lastName}</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Phone number*</label>
+                      <input
+                        type="tel"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        onBlur={handleFieldBlur}
+                        required
+                        placeholder="+91 98765 43210"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+                      />
+                      {fieldErrors.phone && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.phone}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Flat / House no.*</label>
+                      <input
+                        type="text"
+                        name="flatHouse"
+                        value={formData.flatHouse}
+                        onChange={handleChange}
+                        onBlur={handleFieldBlur}
+                        required
+                        placeholder="Flat 4B, Green Towers"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+                      />
+                      {fieldErrors.flatHouse && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.flatHouse}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Area / Street*</label>
+                      <input
+                        type="text"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        onBlur={handleFieldBlur}
+                        required
+                        placeholder="HSR Layout Sector 2"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+                      />
+                      {fieldErrors.address && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.address}</p>}
+                      {addressCityConflict && (
+                        <p className="text-[10px] font-semibold text-amber-700 leading-snug bg-amber-50 border border-amber-100 p-2.5 rounded-lg">
+                          This street mentions {addressCityConflict} but delivery is Bengaluru-only. Use your local area name and a matching PIN (e.g. 560102 for HSR).
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Pin code*</label>
+                        <input
+                          type="text"
+                          name="zipCode"
+                          value={formData.zipCode}
+                          onChange={handleChange}
+                          onBlur={handleFieldBlur}
+                          placeholder="560102"
+                          maxLength={6}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-bold placeholder:text-slate-400"
+                        />
+                        {fieldErrors.zipCode && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.zipCode}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">City</label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={formData.city}
+                          readOnly
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed text-xs font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Save address switch */}
+                    {user?.id && (
+                      <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">Save address to account</p>
+                          <p className="text-[9px] font-semibold text-slate-400">Save for faster checkout next time</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={saveNewAddressToAccount}
+                            onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-pink-600"></div>
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Default address switch */}
+                    {user?.id && saveNewAddressToAccount && (
+                      <div className="pt-2 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">Set as default address</p>
+                          <p className="text-[9px] font-semibold text-slate-400">Use this address by default next time</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={setAsDefaultAddress}
+                            onChange={(e) => setSetAsDefaultAddress(e.target.checked)}
+                            className="sr-only peer"
+                          />
+                          <div className="w-8 h-4.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-pink-600"></div>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery Slot Selection Card */}
+            {deliverySlotCard}
+          </div>
+
+          {/* Column 2: Payment Method & Coupons Selection */}
+          <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+            {/* Payment Method Selector Card */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-50">
+                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 shrink-0">
+                  <CreditCard className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Delivery Address</p>
-                  <p className="text-[10px] font-semibold text-slate-500">Edit or add new address</p>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Payment Method</h3>
+                  <p className="text-[9px] font-semibold text-slate-400">Choose how you want to pay</p>
                 </div>
-              </div>
-              <ChevronDown className="w-4 h-4 text-slate-400 transition-transform group-open:-rotate-180" />
-            </summary>
-            <div className="p-4 pt-2 border-t border-slate-50 space-y-3">
-              {/* Address Type Selectors */}
-              <div className="grid grid-cols-3 gap-2 mb-1">
-                <button type="button" className="py-1.5 border-2 border-pink-500 bg-pink-50 text-pink-700 rounded-lg text-xs font-bold flex items-center justify-center gap-1">
-                  <Home className="w-3.5 h-3.5" /> Home
-                </button>
-                <button type="button" className="py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-50">
-                  <Building2 className="w-3.5 h-3.5" /> Work
-                </button>
-                <button type="button" className="py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center justify-center gap-1 hover:bg-slate-50">
-                  <Navigation className="w-3.5 h-3.5" /> Other
-                </button>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Full name*</label>
-                <input
-                  type="text"
-                  value={fullNameInput}
-                  onChange={(e) => handleFullNameChange(e.target.value)}
-                  onBlur={() => {
-                    const firstError = validateField('firstName', formData.firstName);
-                    const lastError = validateField('lastName', formData.lastName);
-                    setFieldErrors((prev) => ({ ...prev, firstName: firstError, lastName: lastError }));
-                  }}
-                  required
-                  placeholder="Priya Sharma"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-semibold placeholder:text-slate-400"
-                />
-                {(fieldErrors.firstName || fieldErrors.lastName) && (
-                  <p className="text-[10px] text-red-600 font-bold">{fieldErrors.firstName || fieldErrors.lastName}</p>
-                )}
-              </div>
-              
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Phone number*</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  onBlur={handleFieldBlur}
-                  required
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-semibold placeholder:text-slate-400"
-                />
-                {fieldErrors.phone && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.phone}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Flat / House no.*</label>
-                <input
-                  type="text"
-                  name="flatHouse"
-                  value={formData.flatHouse}
-                  onChange={handleChange}
-                  onBlur={handleFieldBlur}
-                  required
-                  placeholder="Flat 4B, Green Towers"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-semibold placeholder:text-slate-400"
-                />
-                {fieldErrors.flatHouse && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.flatHouse}</p>}
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Area / Street*</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  onBlur={handleFieldBlur}
-                  required
-                  placeholder="HSR Layout Sector 2"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-semibold placeholder:text-slate-400"
-                />
-                {fieldErrors.address && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.address}</p>}
-                {addressCityConflict && (
-                  <p className="text-[10px] font-semibold text-amber-700 leading-snug">
-                    This street mentions {addressCityConflict} but delivery is Bengaluru-only. Use your local area name and a matching PIN (e.g. 560102 for HSR).
-                  </p>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pin code*</label>
-                  <input
-                    type="text"
-                    name="zipCode"
-                    value={formData.zipCode}
-                    onChange={handleChange}
-                    onBlur={handleFieldBlur}
-                    placeholder="560102"
-                    maxLength={6}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-500/15 transition-all text-xs font-semibold placeholder:text-slate-400"
-                  />
-                  {fieldErrors.zipCode && <p className="text-[10px] text-red-600 font-bold">{fieldErrors.zipCode}</p>}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">City</label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={formData.city}
-                    readOnly
-                    className="w-full px-3 py-2 rounded-lg border border-slate-100 bg-slate-50 text-slate-500 cursor-not-allowed text-xs font-semibold"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('online')}
+                  className={cn(
+                    'p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all text-left group cursor-pointer hover:scale-[1.01] hover:border-emerald-100',
+                    paymentMethod === 'online'
+                      ? 'border-emerald-500 bg-emerald-50/20 shadow-sm'
+                      : 'border-slate-100 bg-white text-slate-400 hover:bg-slate-50/20',
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0',
+                      paymentMethod === 'online' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
+                    )}
+                  >
+                    <CreditCard className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cn('font-black text-xs uppercase tracking-tight', paymentMethod === 'online' ? 'text-slate-900' : 'text-slate-400')}>
+                      Pay Online
+                    </p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 truncate">UPI, Cards, Net</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!codAllowedForCart}
+                  onClick={() => setPaymentMethod('cod')}
+                  className={cn(
+                    'p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all text-left group cursor-pointer hover:scale-[1.01]',
+                    !codAllowedForCart
+                      ? 'opacity-40 cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                      : paymentMethod === 'cod'
+                      ? 'border-emerald-500 bg-emerald-50/20 shadow-sm'
+                      : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100 hover:bg-slate-50/20',
+                  )}
+                >
+                  <div
+                    className={cn(
+                      'w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0',
+                      !codAllowedForCart ? 'bg-slate-100 text-slate-300' : paymentMethod === 'cod' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
+                    )}
+                  >
+                    <Banknote className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={cn('font-black text-xs uppercase tracking-tight', !codAllowedForCart ? 'text-slate-300' : paymentMethod === 'cod' ? 'text-slate-900' : 'text-slate-400')}>
+                      COD
+                    </p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5 truncate">
+                      {!codAllowedForCart ? 'Unavailable' : 'Pay at Door'}
+                    </p>
+                  </div>
+                </button>
               </div>
             </div>
-          </details>
-          {couponsCard}
-          <div className="md:hidden">{deliveryItemsCard}</div>
 
-          </div> {/* End of Left Column */}
+            {/* Inline Coupons Card */}
+            {couponsCard}
+          </div>
 
-          <div className="md:col-span-1 space-y-4 md:sticky md:top-6 md:self-start">
-            {/* Desktop: payment → items/qty → bill (previous stack) */}
-            <div className="hidden md:block space-y-4">
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-                <p className="text-xs font-bold text-slate-900 mb-3">Payment Method</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('online')}
-                    className={cn(
-                      'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
-                      paymentMethod === 'online'
-                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                        : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-200',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                        paymentMethod === 'online' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
-                      )}
-                    >
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className={cn('font-black text-[10px] uppercase tracking-tight', paymentMethod === 'online' ? 'text-slate-900' : 'text-slate-400')}>
-                        Pay online
-                      </p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">UPI, Card, Net</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('cod')}
-                    className={cn(
-                      'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
-                      paymentMethod === 'cod'
-                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                        : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-200',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                        paymentMethod === 'cod' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
-                      )}
-                    >
-                      <Banknote className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className={cn('font-black text-[10px] uppercase tracking-tight', paymentMethod === 'cod' ? 'text-slate-900' : 'text-slate-400')}>
-                        Cash on delivery
-                      </p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">Pay at door</p>
-                    </div>
-                  </button>
+          {/* Column 3: Cart summary, Bill details, and Action button */}
+          <div className="lg:col-span-1 lg:h-full lg:overflow-y-auto pr-1 space-y-4 custom-scrollbar">
+            {/* Cart summary list */}
+            {cartSummaryCard}
+
+            {/* Billing calculations and checkout CTA */}
+            <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+              <div className="flex items-center gap-2.5 mb-4 pb-3 border-b border-slate-50">
+                <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 shrink-0">
+                  <FileText className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Bill Details</h3>
+                  <p className="text-[9px] font-semibold text-slate-400">Review your final order calculation</p>
                 </div>
               </div>
 
-              {deliveryItemsCard}
+              <div className="space-y-3 text-xs font-bold text-slate-600">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Subtotal</span>
+                  <span className="text-slate-900 font-extrabold font-mono">₹{subtotalOnly.toFixed(2)}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500">Delivery charges</span>
+                  <span>
+                    {isDeliveryOutOfRange ? (
+                      <span className="text-orange-600">Out of range</span>
+                    ) : hasFreeDeliveryApplied ? (
+                      <span className="text-emerald-600 font-black bg-emerald-50 px-2 py-0.5 rounded text-[9px] tracking-wide uppercase select-none">FREE</span>
+                    ) : (
+                      <span className="text-slate-900 font-extrabold font-mono">₹{shippingFeeForDistance.toFixed(2)}</span>
+                    )}
+                  </span>
+                </div>
 
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
-                    <FileText className="w-4 h-4" />
+                {platformFee > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Platform fee</span>
+                    <span className="text-slate-900 font-extrabold font-mono">₹{platformFee.toFixed(2)}</span>
                   </div>
-                  <p className="text-xs font-bold text-slate-900">Bill Details</p>
+                )}
+
+                {orderTaxAmount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Estimated Taxes</span>
+                    <span className="text-slate-900 font-extrabold font-mono">₹{orderTaxAmount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-emerald-600">Coupon Discount</span>
+                    <span className="text-emerald-600 font-extrabold font-mono">-₹{discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+
+                <div className="border-t border-slate-100 pt-3 flex justify-between items-center text-slate-900 text-sm font-black">
+                  <span>Total Payable</span>
+                  <span className="text-base text-slate-900 font-black font-mono">₹{payableGrandTotal.toFixed(2)}</span>
                 </div>
-                <div className="space-y-2 text-xs font-semibold text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>₹{subtotalOnly.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Delivery charges</span>
-                    <span>
-                      {isDeliveryOutOfRange ? (
-                        <span className="text-orange-600">Out of range</span>
-                      ) : hasFreeDeliveryApplied ? (
-                        <span className="text-emerald-600 font-bold">FREE</span>
-                      ) : (
-                        `₹${shippingFeeForDistance.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Discount</span>
-                      <span>-₹{discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-slate-100 pt-2 flex justify-between font-bold text-slate-900 text-sm">
-                    <span>Total amount</span>
-                    <span>₹{payableGrandTotal.toFixed(2)}</span>
-                  </div>
+              </div>
+
+              {hasFreeDeliveryApplied && (
+                <div className="mt-4 p-2.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-xl flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
+                  <span>Yay! Free delivery applied to this order!</span>
                 </div>
-                {hasFreeDeliveryApplied ? (
-                  <p className="mt-2 text-[10px] font-semibold text-emerald-600">Free delivery applied for this order.</p>
-                ) : null}
-                {addressCityConflict ? (
-                  <p className="mt-2 text-[10px] font-semibold text-amber-700 leading-snug">
-                    Street mentions {addressCityConflict} but city is Bengaluru — update street to match your PIN.
-                  </p>
-                ) : null}
-                {isDeliveryOutOfRange ? (
-                  <p className="mt-2 text-[10px] font-semibold text-orange-600 leading-snug">
-                    Address looks too far — use a Bengaluru PIN that matches your street.
-                  </p>
-                ) : null}
+              )}
+
+              {addressCityConflict && (
+                <p className="mt-3 text-[9px] font-semibold text-amber-700 leading-snug bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                  Street mentions {addressCityConflict} but city is fixed to Bengaluru. Update address pin to match your area.
+                </p>
+              )}
+
+              {isDeliveryOutOfRange && (
+                <p className="mt-3 text-[9px] font-semibold text-orange-600 leading-snug bg-orange-50/50 p-2 rounded-lg border border-orange-100">
+                  Address is too far — please enter a Bengaluru PIN in our service zone.
+                </p>
+              )}
+
+              {/* Desktop Pay Button */}
+              <div className="hidden lg:block">
                 {desktopPayButton}
                 {checkoutPayBlockReason && !submitting ? (
-                  <p className="mt-1.5 text-center text-[10px] text-slate-500 leading-tight">{checkoutPayBlockReason}</p>
+                  <p className="mt-2 text-center text-[10px] text-slate-400 font-semibold leading-tight">{checkoutPayBlockReason}</p>
                 ) : null}
               </div>
             </div>
-
-            {/* Mobile: payment + bill in main flow */}
-            <div className="md:hidden space-y-4">
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-                <p className="text-xs font-bold text-slate-900 mb-3">Payment Method</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('online')}
-                    className={cn(
-                      'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
-                      paymentMethod === 'online'
-                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                        : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-200',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                        paymentMethod === 'online' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
-                      )}
-                    >
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className={cn('font-black text-[10px] uppercase tracking-tight', paymentMethod === 'online' ? 'text-slate-900' : 'text-slate-400')}>
-                        Pay online
-                      </p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">UPI, Card, Net</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('cod')}
-                    className={cn(
-                      'p-3 rounded-xl border-2 flex items-center gap-2.5 transition-all text-left group',
-                      paymentMethod === 'cod'
-                        ? 'border-emerald-500 bg-emerald-50 shadow-sm'
-                        : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-200',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-                        paymentMethod === 'cod' ? 'bg-slate-900 text-emerald-400' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200',
-                      )}
-                    >
-                      <Banknote className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className={cn('font-black text-[10px] uppercase tracking-tight', paymentMethod === 'cod' ? 'text-slate-900' : 'text-slate-400')}>
-                        Cash on delivery
-                      </p>
-                      <p className="text-[8px] font-bold text-slate-400 uppercase">Pay at door</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
-                    <FileText className="w-4 h-4" />
-                  </div>
-                  <p className="text-xs font-bold text-slate-900">Bill Details</p>
-                </div>
-                <div className="space-y-2 text-xs font-semibold text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span>₹{subtotalOnly.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Delivery charges</span>
-                    <span>
-                      {isDeliveryOutOfRange ? (
-                        <span className="text-orange-600">Out of range</span>
-                      ) : hasFreeDeliveryApplied ? (
-                        <span className="text-emerald-600 font-bold">FREE</span>
-                      ) : (
-                        `₹${shippingFeeForDistance.toFixed(2)}`
-                      )}
-                    </span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>Discount</span>
-                      <span>-₹{discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="border-t border-slate-100 pt-2 flex justify-between font-bold text-slate-900 text-sm">
-                    <span>Total amount</span>
-                    <span>₹{payableGrandTotal.toFixed(2)}</span>
-                  </div>
-                </div>
-                {hasFreeDeliveryApplied ? (
-                  <p className="mt-2 text-[10px] font-semibold text-emerald-600">Free delivery applied for this order.</p>
-                ) : null}
-                {isDeliveryOutOfRange ? (
-                  <p className="mt-2 text-[10px] font-semibold text-orange-600 leading-snug">
-                    Address looks too far — use a Bengaluru PIN that matches your street.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div> {/* End of Right Column */}
-
+          </div>
 
         </div>
 
-        {/* Bottom Bar */}
-        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 p-4 z-10 md:hidden">
+        {/* Mobile Sticky Bottom Pay Bar (Hidden on desktop) */}
+        <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 p-4 z-20 lg:hidden flex flex-col gap-2 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
           <button
             type="button"
             onClick={() => void submitCheckout()}
             disabled={submitting || !isCheckoutFormReady}
-            className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold text-sm hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
           >
-            {submitting ? 'Processing…' : `Pay ₹${payableGrandTotal.toFixed(2)}`}
+            {submitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Processing…</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="w-4 h-4" />
+                <span>{paymentMethod === 'cod' ? 'Place Order' : `Pay ₹${payableGrandTotal.toFixed(2)}`}</span>
+              </>
+            )}
           </button>
           {checkoutPayBlockReason && !submitting ? (
-            <p className="mt-1.5 text-center text-[10px] text-slate-500 leading-tight">{checkoutPayBlockReason}</p>
+            <p className="text-center text-[10px] text-slate-400 font-semibold leading-tight">{checkoutPayBlockReason}</p>
           ) : null}
         </div>
-    </div>
+      </div>
 
       {orderPlacedOptimistically && (
         <CheckoutSuccessOverlay 
