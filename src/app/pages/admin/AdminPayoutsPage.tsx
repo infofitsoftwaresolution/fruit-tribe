@@ -46,9 +46,10 @@ export function AdminPayoutsPage() {
             const amount = Number(order.payableAmount ?? order.totalAmount ?? 0);
             if (amount <= 0) return;
 
-            const platformFee = amount * 0.10;
-            const tax = amount * 0.05;
-            const netAmount = amount - platformFee - tax;
+            /** Use amounts stored on the order (same as checkout/settings), not a hardcoded %. */
+            const platformFee = Math.max(0, Number(order.platformFee ?? 0));
+            const tax = Math.max(0, Number(order.taxAmount ?? 0));
+            const netAmount = Math.max(0, amount - platformFee - tax);
 
             let vendor = 'The Fruit Tribe';
             if (order.items?.length > 0 && order.items[0]?.seller) {
@@ -83,13 +84,24 @@ export function AdminPayoutsPage() {
     }, [orders]);
 
     const totalRevenue = useMemo(() => orders.reduce((s, o) => s + Number(o.payableAmount ?? o.totalAmount ?? 0), 0), [orders]);
-    
+    const totalPlatformFees = useMemo(
+        () => payouts.reduce((s, p) => s + p.platformFee, 0),
+        [payouts],
+    );
+
     const statsCards = useMemo(() => [
         { label: 'Next Settlement', value: '₹0', sub: '—', icon: Wallet, color: 'emerald', trend: 'Projected' },
-        { label: 'Platform Revenue', value: `₹${(totalRevenue / 1000).toFixed(1)}K`, sub: 'All time', icon: TrendingUp, color: 'blue', trend: 'Verified' },
+        {
+            label: 'Platform Revenue',
+            value: totalPlatformFees >= 1000 ? `₹${(totalPlatformFees / 1000).toFixed(1)}K` : `₹${totalPlatformFees.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+            sub: 'Handling fees collected',
+            icon: TrendingUp,
+            color: 'blue',
+            trend: 'Verified',
+        },
         { label: 'Pending Payouts', value: `${sellers.length} Vendors`, sub: sellers.length ? 'Action required' : 'None', icon: Clock, color: 'amber', trend: 'Queued' },
         { label: 'Total Settled', value: payouts.length ? `₹${payouts.reduce((s, p) => s + (p.status === 'Processed' ? p.netAmount : 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '₹0', sub: 'Settlements', icon: Shield, color: 'purple', trend: 'Audited' }
-    ], [totalRevenue, sellers.length, payouts]);
+    ], [totalRevenue, totalPlatformFees, sellers.length, payouts]);
 
     const filteredPayouts = useMemo(() => {
         return payouts.filter(p => {
@@ -355,7 +367,11 @@ export function AdminPayoutsPage() {
                                     <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden">
                                         {[
                                             { label: 'Gross Revenue', value: selectedPayout.amount, mode: 'plus' },
-                                            { label: 'Platform Commission (10%)', value: -selectedPayout.platformFee, mode: 'minus' },
+                                            {
+                                                label: selectedPayout.platformFee > 0 ? 'Platform Handling Fee' : 'Platform Handling Fee (none)',
+                                                value: -selectedPayout.platformFee,
+                                                mode: 'minus',
+                                            },
                                             { label: 'Tax Compliance (GST/TDS)', value: -selectedPayout.tax, mode: 'minus' }
                                         ].map((item, idx) => (
                                             <div key={idx} className="flex items-center justify-between p-3.5 px-4 bg-white hover:bg-slate-50/50 transition-colors">
