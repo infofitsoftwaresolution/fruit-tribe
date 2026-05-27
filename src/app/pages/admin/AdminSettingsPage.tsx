@@ -99,6 +99,15 @@ export function AdminSettingsPage() {
     const [deliverySlots, setDeliverySlots] = useState<string[]>(preferences.deliverySlots ?? []);
     const [newSlot, setNewSlot] = useState('');
 
+    // Keep local Razorpay fields in sync with persisted preferences/state refreshes.
+    useEffect(() => {
+        setRazorpayKeyId(preferences.razorpayKeyId ?? '');
+    }, [preferences.razorpayKeyId]);
+
+    useEffect(() => {
+        setRazorpayKeySecret(preferences.razorpayKeySecret ?? '');
+    }, [preferences.razorpayKeySecret]);
+
     useEffect(() => {
         let cancelled = false;
         getServiceableAreas()

@@ -108,8 +108,16 @@ export function AdminDiscountsPage() {
             };
         }
         const count = scope.productIds?.length ?? 0;
+        const productNames = (scope?.productIds ?? [])
+            .map((id) => products.find((p) => String(p.id) === String(id))?.name)
+            .filter((name): name is string => Boolean(name));
         return {
-            label: count > 0 ? `Products: ${count}` : 'Products: N/A',
+            label:
+                count > 0
+                    ? productNames.length > 0
+                        ? `Products: ${productNames.slice(0, 2).join(', ')}${productNames.length > 2 ? ` +${productNames.length - 2}` : ''}`
+                        : `Products: ${count}`
+                    : 'Products: N/A',
             tone: 'admin-badge-purple',
         };
     };
@@ -212,10 +220,11 @@ export function AdminDiscountsPage() {
                 }
                 return [saved, ...prev];
             });
+            await updateCouponScopes(nextScopes);
             setScopes(nextScopes);
             setIsModalOpen(false);
             toast.success(editing ? 'Coupon updated' : 'Coupon created');
-            void Promise.allSettled([updateCouponScopes(nextScopes), loadData(true)]);
+            await loadData(true);
         } catch (e: any) {
             toast.error(getUserErrorMessage(e, 'Failed to save coupon'));
         } finally {
@@ -546,6 +555,11 @@ export function AdminDiscountsPage() {
                                 
                                 {form.scopeType === 'PRODUCT' && (
                                     <div className="max-h-36 overflow-y-auto grid grid-cols-1 gap-1.5 border border-slate-100 rounded-lg p-3 bg-slate-50/30">
+                                        {products.length === 0 && (
+                                            <p className="text-[11px] text-slate-400">
+                                                No products loaded yet. Refresh products and try again.
+                                            </p>
+                                        )}
                                         {products.map((p) => (
                                             <label key={String(p.id)} className="text-xs text-slate-600 flex items-center gap-2 cursor-pointer">
                                                 <input

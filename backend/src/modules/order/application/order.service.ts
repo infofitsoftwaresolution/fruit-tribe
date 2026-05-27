@@ -77,11 +77,13 @@ export class OrderService {
         const rows = await tx.$queryRawUnsafe<Array<{ id: string; stock: number; reservedKg: number }>>(
             `SELECT p.id,
                     p.stock::float AS stock,
-                    COALESCE(SUM(pv.reserved_quantity), 0)::float AS "reservedKg"
+                    COALESCE((
+                        SELECT SUM(pv.reserved_quantity)::float
+                        FROM product_variants pv
+                        WHERE pv.product_id = p.id
+                    ), 0)::float AS "reservedKg"
              FROM products p
-             LEFT JOIN product_variants pv ON pv.product_id = p.id
              WHERE p.id = ANY($1::uuid[])
-             GROUP BY p.id, p.stock
              ${lockClause}`,
             productIds,
         );
