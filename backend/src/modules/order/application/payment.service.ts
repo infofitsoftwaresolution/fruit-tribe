@@ -69,17 +69,34 @@ export class PaymentService {
                 where: { orderId, status: 'PENDING' },
             });
 
+            const variantIds = reservations.map((r) => r.variantId);
+            const variants = variantIds.length
+                ? await tx.productVariant.findMany({
+                      where: { id: { in: variantIds } },
+                      select: { id: true, productId: true },
+                  })
+                : [];
+            const productByVariant = new Map(variants.map((v) => [String(v.id), String(v.productId)]));
+            const kgByProduct = new Map<string, number>();
             for (const res of reservations) {
                 await tx.stockReservation.update({
                     where: { id: res.id },
                     data: { status: 'COMPLETED' },
                 });
+                const pid = productByVariant.get(String(res.variantId));
+                if (!pid) continue;
+                kgByProduct.set(pid, (kgByProduct.get(pid) || 0) + Number(res.quantity));
+            }
+            for (const [productId, kg] of kgByProduct.entries()) {
+                await tx.product.update({
+                    where: { id: productId },
+                    data: { stock: { decrement: kg } },
+                });
+            }
+            for (const res of reservations) {
                 await tx.productVariant.update({
                     where: { id: res.variantId },
-                    data: {
-                        stockQuantity: { decrement: res.quantity },
-                        reservedQuantity: { decrement: res.quantity },
-                    },
+                    data: { reservedQuantity: { decrement: res.quantity } },
                 });
                 await tx.inventoryLog.create({
                     data: {

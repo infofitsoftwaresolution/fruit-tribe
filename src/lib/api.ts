@@ -2,6 +2,8 @@
  * API client for backend. All data comes from the database via these endpoints.
  */
 import type { SavedDeliveryAddress } from './deliveryAddressUtils';
+import { PRODUCT_PLACEHOLDER_IMAGE } from './productPlaceholder';
+import { parsePackQtyKg } from './inventoryPool';
 
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
@@ -271,7 +273,7 @@ export interface Product {
 export function mapApiProductToProduct(p: ApiProduct): Product {
   const price = typeof p.basePrice === 'object' ? Number(p.basePrice) : (typeof p.basePrice === 'string' ? parseFloat(p.basePrice) : p.basePrice);
   const primaryImage = p.images?.find((i) => i.isPrimary) || p.images?.[0];
-  const imageUrl = primaryImage?.imageUrl || '';
+  const imageUrl = String(primaryImage?.imageUrl ?? '').trim();
   const firstVariant = p.variants?.[0];
   return {
     id: p.id,
@@ -279,18 +281,14 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     price,
     category: p.category?.name ?? 'Uncategorized',
     stock: p.stock ?? 0,
-    availableStock: (() => {
-      const variantTotal = (p.variants || []).reduce(
-        (sum, v) => sum + Math.max(0, Number(v.availableQuantity ?? v.stockQuantity ?? 0)),
-        0,
-      );
-      const productLevel = Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0));
-      return Math.max(productLevel, variantTotal);
-    })(),
+    availableStock: Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0)),
     reservedStock: p.reservedQuantity ?? 0,
     lowStockThreshold: p.lowStockThreshold ?? 5,
-    image: getImageDisplayUrl(imageUrl),
-    images: p.images?.map((i) => i.imageUrl) ?? [],
+    image: imageUrl ? getImageDisplayUrl(imageUrl) : PRODUCT_PLACEHOLDER_IMAGE,
+    images: (p.images ?? [])
+      .map((i) => String(i.imageUrl ?? '').trim())
+      .filter(Boolean)
+      .map((url) => getImageDisplayUrl(url)),
     vendor: p.seller?.storeName ?? 'Store',
     sellerId: p.seller?.id,
     status: p.isActive ? 'Active' : 'Draft',
@@ -315,13 +313,12 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     variants: p.variants?.map((v) => {
       const labelRaw = String(v.attributeValue || '').trim();
       const label = labelRaw.toLowerCase();
-      const packMatch = label.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
-      let packQty = 1;
-      if (packMatch) {
-        const rawQty = Number(packMatch[1]);
-        packQty = ['g', 'gm', 'grams'].includes(packMatch[2]) ? rawQty / 1000 : rawQty;
-        if (!Number.isFinite(packQty) || packQty <= 0) packQty = 1;
-      }
+      const packQty = parsePackQtyKg(labelRaw);
+      const productAvailableKg = Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0));
+      const packsFromApi = Number(v.availableQuantity);
+      const packsAvailable = Number.isFinite(packsFromApi) && packsFromApi >= 0
+        ? packsFromApi
+        : Math.floor(productAvailableKg / Math.max(0.001, packQty));
       const override = v.priceOverride != null
         ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : Number(v.priceOverride)))
         : NaN;
@@ -332,8 +329,8 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
       id: v.id,
       name: labelRaw,
       price: variantPrice,
-      stock: v.stockQuantity ?? 0,
-      availableStock: v.availableQuantity ?? v.stockQuantity,
+      stock: packsAvailable,
+      availableStock: packsAvailable,
       reservedStock: v.reservedQuantity ?? 0,
       sku: v.sku,
       isBulkVariant: Boolean(v.isBulkVariant),
@@ -341,8 +338,12 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     }),
     bulkDiscountTiers: (p.variants || [])
       .map((v) => {
-        const availableQty = Number((v as any).availableQuantity ?? (v as any).stockQuantity ?? 0);
-        if (!(availableQty > 0)) return null;
+        const packKg = parsePackQtyKg(String(v.attributeValue || v.sku || ''));
+        const packsAvail = Number((v as any).availableQuantity);
+        const tierInStock = Number.isFinite(packsAvail)
+          ? packsAvail > 0
+          : Math.floor(Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0)) / Math.max(0.001, packKg)) > 0;
+        if (!tierInStock) return null;
         const labelRaw = String(v.attributeValue || v.sku || '');
         const label = labelRaw.toLowerCase();
         if (label.includes('(archived)')) return null;
@@ -1006,6 +1007,7 @@ export async function createProduct(body: {
   sellerId: string;
   categoryId: string;
   unit?: string;
+  stock?: number;
   harvestDate?: string;
   expiryDate?: string;
   isSeasonal?: boolean;
@@ -1044,6 +1046,7 @@ export async function updateProduct(
     basePrice: number;
     sellerId: string;
     categoryId: string;
+    stock: number;
     harvestDate: string | null;
     expiryDate: string | null;
     isSeasonal: boolean;

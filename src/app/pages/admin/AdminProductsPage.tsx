@@ -28,6 +28,7 @@ import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
 import { getUserErrorMessage } from '@/lib/userError';
 import { buildVariantSku, normalizeVariantLabel } from '@/lib/variantPackLabel';
+import { PRODUCT_PLACEHOLDER_IMAGE, resolveProductImageSrc } from '@/lib/productPlaceholder';
 
 const PDP_META_PREFIX = '[PDP_META]';
 type PdpMeta = {
@@ -151,7 +152,7 @@ export function AdminProductsPage() {
         ripenessStage: '',
         farmName: '',
         farmState: '',
-        variants: [] as { id?: string; name: string; price: string; stock: string; sku: string; lowStockThreshold?: string; isBulkVariant?: boolean }[]
+        variants: [] as { id?: string; name: string; price: string; sku: string; lowStockThreshold?: string; isBulkVariant?: boolean }[]
     });
 
     const isSeller = user?.role === 'seller';
@@ -395,11 +396,7 @@ export function AdminProductsPage() {
             name: product.name,
             price: product.price.toString(),
             discountPrice: product.discountPrice?.toString() || '',
-            stock: String(
-                product.variants?.length
-                    ? product.variants.reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0)
-                    : product.stock
-            ),
+            stock: String(product.availableStock ?? product.stock ?? 0),
             category: product.category,
             categoryId,
             sellerId,
@@ -446,7 +443,6 @@ export function AdminProductsPage() {
                     const discountPct = ((baseTotal - variantPrice) / baseTotal) * 100;
                     return String(Math.round(discountPct * 100) / 100);
                 })(),
-                stock: String(Math.max(0, Number(v.stockQuantity ?? v.stock ?? 0))), 
                 sku: v.sku || '',
                 lowStockThreshold: String(v.lowStockThreshold ?? 5),
                 isBulkVariant: Boolean(v.isBulkVariant),
@@ -516,9 +512,7 @@ export function AdminProductsPage() {
                     const rawName = normalizeVariantLabel(String(v.name || '').trim(), formData.unit || 'kg');
                     const rawSku = String(v.sku || '').trim().toUpperCase();
                     const rawDiscountPct = String(v.price || '').trim();
-                    const rawStock = String(v.stock || '').trim();
-                    const parsedVariantStock = rawStock === '' ? NaN : parseInt(rawStock, 10);
-                    const hasUserInput = !!(rawName || rawSku || rawDiscountPct || rawStock);
+                    const hasUserInput = !!(rawName || rawSku || rawDiscountPct);
                     if (!hasUserInput) return null;
                     const discountPct = Math.max(0, Math.min(100, parseFloat(rawDiscountPct) || 0));
                     const multiplier = getVariantQuantityMultiplier(rawName || `Option ${index + 1}`);
@@ -535,10 +529,7 @@ export function AdminProductsPage() {
                         attributeValue: rawName || `Option ${index + 1}`,
                         isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: variantPriceOverride,
-                        stockQuantity: Math.max(
-                            0,
-                            Number.isFinite(parsedVariantStock) ? parsedVariantStock : 0,
-                        ),
+                        stockQuantity: 0,
                         lowStockThreshold: v.lowStockThreshold ? parseInt(v.lowStockThreshold, 10) : 5,
                     };
                 })
@@ -550,9 +541,6 @@ export function AdminProductsPage() {
                 faqInfo: formData.faqInfo || '',
             });
 
-            // Keep stock truly wired to what backend persists (variants).
-            // - No variants: create one default variant from stock field.
-            // - Single variant: stock field controls that variant's stock.
             let variantsPayload = normalizedVariants;
             if (normalizedVariants.length === 0) {
                 variantsPayload = [{
@@ -561,26 +549,9 @@ export function AdminProductsPage() {
                     attributeValue: 'Default',
                     isBulkVariant: false,
                     priceOverride: undefined,
-                    stockQuantity: parsedStock,
+                    stockQuantity: 0,
                     lowStockThreshold: 5,
                 }];
-            } else if (normalizedVariants.length === 1) {
-                variantsPayload = normalizedVariants.map(v => ({ ...v, stockQuantity: parsedStock }));
-            }
-
-            // If user edits top-level stock for multi-variant products, keep backend in sync by
-            // applying the delta to the first variant instead of silently ignoring it.
-            if (variantsPayload.length > 1) {
-                const currentTotal = variantsPayload.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
-                const diff = parsedStock - currentTotal;
-                if (diff !== 0) {
-                    const first = variantsPayload[0];
-                    const nextFirstStock = Math.max(0, (first.stockQuantity || 0) + diff);
-                    variantsPayload = [
-                        { ...first, stockQuantity: nextFirstStock },
-                        ...variantsPayload.slice(1),
-                    ];
-                }
             }
 
             // Prevent accidental "Default" variant override from masking base price.
@@ -623,6 +594,7 @@ export function AdminProductsPage() {
                     description: composedDescription,
                     basePrice: parseFloat(formData.price),
                     categoryId,
+                    stock: parsedStock,
                     ...(isSeller ? {} : { sellerId: sellerId as string }),
                     harvestDate: formData.harvestDate || null,
                     expiryDate: formData.expiryDate || null,
@@ -643,7 +615,7 @@ export function AdminProductsPage() {
                 });
                 const updated = updatedApi;
                 const updatedVariantCount = updated.variants?.length ?? variantsPayload.length;
-                const updatedStock = Number(updated.stock ?? variantsPayload.reduce((sum, v) => sum + (v.stockQuantity || 0), 0));
+                const updatedStock = Number(updated.stock ?? parsedStock);
                 const previousStock = Number(editingProduct.stock ?? 0);
                 const stockChanged = updatedStock !== previousStock;
                 toast.success(`${formData.name} updated`, {
@@ -665,6 +637,7 @@ export function AdminProductsPage() {
                     basePrice: parseFloat(formData.price),
                     sellerId: sellerId as string,
                     categoryId,
+                        stock: parsedStock,
                     harvestDate: formData.harvestDate,
                     expiryDate: formData.expiryDate,
                     isSeasonal: formData.isSeasonal,
@@ -886,7 +859,8 @@ export function AdminProductsPage() {
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 rounded-xl bg-zinc-100 overflow-hidden border border-zinc-250/40 relative flex-shrink-0">
                                                         <img
-                                                            src={product.image}
+                                                            src={resolveProductImageSrc(product.image)}
+                                                            onError={(e) => { e.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE; }}
                                                             className="w-full h-full object-cover animate-gradient"
                                                             alt={product.name}
                                                         />
@@ -1132,13 +1106,18 @@ export function AdminProductsPage() {
                                         </div>
                                         <div className="grid grid-cols-3 gap-6">
                                             <FormInput
-                                                label="Total Units"
+                                                label="Inventory (kg)"
                                                 type="number"
                                                 value={formData.stock}
                                                 onChange={(v: string) => setFormData({ ...formData, stock: v })}
                                                 placeholder="0"
                                                 required
                                             />
+                                            {formData.variants.length > 0 && (
+                                                <p className="col-span-3 text-xs text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2">
+                                                    Pack sizes and discounts are set per variant. Stock is shared: a 10kg pack is in stock only when at least 10kg remains in inventory.
+                                                </p>
+                                            )}
                                             <FormSelect
                                                 label="Unit Metric"
                                                 value={formData.unit}
@@ -1382,7 +1361,7 @@ export function AdminProductsPage() {
                                                 type="button"
                                                 onClick={() => setFormData({
                                                     ...formData,
-                                                    variants: [...formData.variants, { name: '', price: '', stock: '', sku: '', lowStockThreshold: '5', isBulkVariant: false }]
+                                                    variants: [...formData.variants, { name: '', price: '', sku: '', lowStockThreshold: '5', isBulkVariant: false }]
                                                 })}
                                                 className="admin-panel-btn-primary h-9 px-4 rounded-lg flex items-center gap-2"
                                             >
@@ -1446,35 +1425,17 @@ export function AdminProductsPage() {
                                                             }}
                                                             placeholder="Discount on base price (e.g. 10)"
                                                         />
-                                                        <div className="grid grid-cols-2 gap-4">
-                                                            <FormInput
-                                                                label="Variant Stock"
-                                                                type="number"
-                                                                value={variant.stock}
-                                                                onChange={(v: string) => {
-                                                                    const n = [...formData.variants];
-                                                                    n[i].stock = v === '' ? '' : String(Math.max(0, Number(v)));
-                                                                    setFormData({ ...formData, variants: n });
-                                                                }}
-                                                                placeholder="0"
-                                                            />
-                                                            <FormInput
-                                                                label="Low Alert"
-                                                                type="number"
-                                                                value={variant.lowStockThreshold || ''}
-                                                                onChange={(v: string) => {
-                                                                    const n = [...formData.variants];
-                                                                    n[i].lowStockThreshold = v;
-                                                                    setFormData({ ...formData, variants: n });
-                                                                }}
-                                                                placeholder="5"
-                                                            />
-                                                        </div>
-                                                        {Number(variant.stock) === 0 && (
-                                                            <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                                                                This pack has 0 stock — it will be hidden on the shop until you set stock here.
-                                                            </p>
-                                                        )}
+                                                        <FormInput
+                                                            label="Low Alert"
+                                                            type="number"
+                                                            value={variant.lowStockThreshold || ''}
+                                                            onChange={(v: string) => {
+                                                                const n = [...formData.variants];
+                                                                n[i].lowStockThreshold = v;
+                                                                setFormData({ ...formData, variants: n });
+                                                            }}
+                                                            placeholder="5"
+                                                        />
                                                         <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-emerald-50/40 px-4 py-3 md:col-span-2">
                                                             <div>
                                                                 <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-[0.15em]">Bulk Variant</p>

@@ -88,6 +88,16 @@ export class CreateProductDto {
     @IsBoolean()
     isOrganic?: boolean;
 
+    @ApiProperty({
+        example: 1000,
+        required: false,
+        description: 'Total physical stock units for the product. The sum of variant stockQuantity cannot exceed this.',
+    })
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    stock?: number;
+
     @ApiProperty({ example: '2024-03-01T00:00:00Z', required: false })
     @IsOptional()
     @IsString()

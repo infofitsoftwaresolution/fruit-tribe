@@ -13,6 +13,7 @@ import { CreateManualOrderDto } from '../interface/dtos/create-manual-order.dto'
 import * as crypto from 'crypto';
 import { userCityMatchesServiceList } from '../../../common/utils/indian-city-aliases';
 import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
+import { parsePackQtyKg as parsePackQtyKgUtil } from '../../catalog/application/inventory-pool.util';
 
 @Injectable()
 export class OrderService {
@@ -62,17 +63,198 @@ export class OrderService {
     }
 
     private parsePackQtyKg(rawValue: string | null | undefined): number {
-        const raw = String(rawValue || '').trim().toLowerCase();
-        if (!raw) return 1;
-        const m = raw.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|kilogram|kilograms|g|gm|grams)\b/);
-        if (!m) {
-            if (raw === 'default' || raw.includes('default')) return 1;
-            return 1;
+        return parsePackQtyKgUtil(rawValue);
+    }
+
+    /** Return sellable kg (physical stock minus pending reservations). */
+    private async loadProductAvailableKgMap(
+        tx: { $queryRawUnsafe: PrismaService['$queryRawUnsafe'] },
+        productIds: string[],
+        forUpdate = true,
+    ): Promise<Map<string, number>> {
+        if (!productIds.length) return new Map();
+        const lockClause = forUpdate ? 'FOR UPDATE' : '';
+        const rows = await tx.$queryRawUnsafe<Array<{ id: string; stock: number; reservedKg: number }>>(
+            `SELECT p.id,
+                    p.stock::float AS stock,
+                    COALESCE(SUM(pv.reserved_quantity), 0)::float AS "reservedKg"
+             FROM products p
+             LEFT JOIN product_variants pv ON pv.product_id = p.id
+             WHERE p.id = ANY($1::uuid[])
+             GROUP BY p.id, p.stock
+             ${lockClause}`,
+            productIds,
+        );
+        const map = new Map<string, number>();
+        for (const row of rows) {
+            map.set(String(row.id), Math.max(0, Number(row.stock) - Number(row.reservedKg)));
         }
-        const q = Number(m[1]);
-        if (!Number.isFinite(q) || q <= 0) return 1;
-        const u = String(m[2]).toLowerCase();
-        return ['g', 'gm', 'grams'].includes(u) ? q / 1000 : q;
+        return map;
+    }
+
+    private assertProductStockForLines(
+        availableByProduct: Map<string, number>,
+        lines: Array<{ productId: string; stockUnits: number; sku?: string | null; variantId?: string }>,
+    ): void {
+        const requiredByProduct = new Map<string, number>();
+        for (const line of lines) {
+            const pid = String(line.productId);
+            requiredByProduct.set(pid, (requiredByProduct.get(pid) || 0) + line.stockUnits);
+        }
+        for (const [pid, requiredKg] of requiredByProduct.entries()) {
+            const availableKg = availableByProduct.get(pid) ?? 0;
+            if (availableKg < requiredKg) {
+                throw new BadRequestException(
+                    `Insufficient inventory. Available: ${availableKg} kg, required: ${requiredKg} kg.`,
+                );
+            }
+        }
+        for (const line of lines) {
+            const availableKg = availableByProduct.get(String(line.productId)) ?? 0;
+            if (availableKg < line.stockUnits) {
+                throw new BadRequestException(
+                    `Insufficient stock for SKU ${line.sku || line.variantId || 'variant'}. Available: ${availableKg} kg, required: ${line.stockUnits} kg.`,
+                );
+            }
+        }
+    }
+
+    private async commitPhysicalStock(
+        tx: any,
+        lines: Array<{ productId: string; variantId: string; stockUnits: number; orderId: string; reason: string }>,
+    ): Promise<void> {
+        for (const line of lines) {
+            await tx.product.update({
+                where: { id: line.productId },
+                data: { stock: { decrement: line.stockUnits } },
+            });
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: line.variantId,
+                    changeAmount: -line.stockUnits,
+                    reason: line.reason,
+                    referenceId: line.orderId,
+                },
+            });
+        }
+    }
+
+    private async reserveStockHold(
+        tx: any,
+        lines: Array<{ variantId: string; stockUnits: number; orderId: string }>,
+    ): Promise<void> {
+        for (const line of lines) {
+            await tx.productVariant.update({
+                where: { id: line.variantId },
+                data: { reservedQuantity: { increment: line.stockUnits } },
+            });
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: line.variantId,
+                    changeAmount: -line.stockUnits,
+                    reason: 'ORDER_RESERVED_ONLINE',
+                    referenceId: line.orderId,
+                },
+            });
+        }
+    }
+
+    private async restorePhysicalStock(
+        tx: any,
+        reservations: Array<{ variantId: string; quantity: number; productId?: string }>,
+        orderId: string,
+        reason: string,
+    ): Promise<void> {
+        const variantIds = reservations.map((r) => r.variantId);
+        const variants = await tx.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { id: true, productId: true },
+        });
+        const productByVariant = new Map(variants.map((v) => [String(v.id), String(v.productId)]));
+        const kgByProduct = new Map<string, number>();
+        for (const res of reservations) {
+            const pid = String(res.productId || productByVariant.get(String(res.variantId)) || '');
+            if (!pid) continue;
+            kgByProduct.set(pid, (kgByProduct.get(pid) || 0) + Number(res.quantity));
+        }
+        for (const [productId, kg] of kgByProduct.entries()) {
+            await tx.product.update({
+                where: { id: String(productId) },
+                data: { stock: { increment: kg } },
+            });
+        }
+        for (const res of reservations) {
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: res.variantId,
+                    changeAmount: res.quantity,
+                    reason,
+                    referenceId: orderId,
+                },
+            });
+        }
+    }
+
+    private async releaseReservedStock(
+        tx: any,
+        reservations: Array<{ variantId: string; quantity: number }>,
+        orderId: string,
+        reason: string,
+    ): Promise<void> {
+        for (const res of reservations) {
+            await tx.productVariant.update({
+                where: { id: res.variantId },
+                data: { reservedQuantity: { decrement: res.quantity } },
+            });
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: res.variantId,
+                    changeAmount: res.quantity,
+                    reason,
+                    referenceId: orderId,
+                },
+            });
+        }
+    }
+
+    private async commitReservedToPhysical(
+        tx: any,
+        reservations: Array<{ variantId: string; quantity: number }>,
+        orderId: string,
+        reason: string,
+    ): Promise<void> {
+        const variantIds = reservations.map((r) => r.variantId);
+        const variants = await tx.productVariant.findMany({
+            where: { id: { in: variantIds } },
+            select: { id: true, productId: true },
+        });
+        const productByVariant = new Map(variants.map((v) => [String(v.id), String(v.productId)]));
+        const kgByProduct = new Map<string, number>();
+        for (const res of reservations) {
+            const pid = String(productByVariant.get(String(res.variantId)) || '');
+            if (!pid) continue;
+            kgByProduct.set(pid, (kgByProduct.get(pid) || 0) + Number(res.quantity));
+        }
+        for (const [productId, kg] of kgByProduct.entries()) {
+            await tx.product.update({
+                where: { id: String(productId) },
+                data: { stock: { decrement: kg } },
+            });
+        }
+        for (const res of reservations) {
+            await tx.productVariant.update({
+                where: { id: res.variantId },
+                data: { reservedQuantity: { decrement: res.quantity } },
+            });
+            await tx.inventoryLog.create({
+                data: {
+                    variantId: res.variantId,
+                    changeAmount: -res.quantity,
+                    reason,
+                    referenceId: orderId,
+                },
+            });
+        }
     }
 
     private async getAdminTaxRates(): Promise<Record<string, number>> {
@@ -161,20 +343,25 @@ export class OrderService {
         const orderNumber = `FT-MN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
         return this.prisma.$transaction(async (tx) => {
-            // Validate Stock
-            for (const item of dto.items) {
-                const variant = await tx.productVariant.findUnique({
-                    where: { id: item.variantId },
-                    select: { id: true, availableQuantity: true, attributeValue: true },
-                });
+            const manualVariants = await tx.productVariant.findMany({
+                where: { id: { in: dto.items.map((i) => i.variantId) } },
+                select: { id: true, productId: true, attributeValue: true, sku: true },
+            });
+            const manualVariantMap = new Map(manualVariants.map((v) => [String(v.id), v]));
+            const manualStockLines = dto.items.map((item) => {
+                const variant = manualVariantMap.get(String(item.variantId));
                 const packQty = this.parsePackQtyKg(variant?.attributeValue);
                 const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
-                if (!variant || variant.availableQuantity < stockUnits) {
-                    throw new BadRequestException(
-                        `Insufficient stock for variant ${item.variantId}. Available: ${variant?.availableQuantity ?? 0}`,
-                    );
-                }
-            }
+                return {
+                    productId: String(variant?.productId || item.productId),
+                    variantId: String(item.variantId),
+                    stockUnits,
+                    sku: variant?.sku,
+                };
+            });
+            const manualProductIds = Array.from(new Set(manualStockLines.map((l) => l.productId)));
+            const manualAvailable = await this.loadProductAvailableKgMap(tx, manualProductIds);
+            this.assertProductStockForLines(manualAvailable, manualStockLines);
 
             const initialStatus = (dto.status || 'CREATED').toUpperCase();
             const paymentStatus = (dto.paymentStatus || 'PENDING').toUpperCase();
@@ -213,53 +400,37 @@ export class OrderService {
                 },
             });
 
-            // Handle stock reservations
-            for (const item of dto.items) {
-                const isFinalized = paymentStatus === 'PAID' || initialStatus === 'CONFIRMED';
-                const variant = await tx.productVariant.findUnique({
-                    where: { id: item.variantId },
-                    select: { attributeValue: true },
-                });
-                const packQty = this.parsePackQtyKg(variant?.attributeValue);
-                const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
-                
+            const isFinalized = paymentStatus === 'PAID' || initialStatus === 'CONFIRMED';
+            for (const line of manualStockLines) {
                 await tx.stockReservation.create({
                     data: {
-                        variantId: item.variantId,
+                        variantId: line.variantId,
                         orderId: order.id,
                         userId: targetUser.id,
-                        quantity: stockUnits,
+                        quantity: line.stockUnits,
                         expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000),
-                        status: isFinalized ? 'COMPLETED' : 'PENDING'
-                    }
-                });
-
-                if (isFinalized) {
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: {
-                            stockQuantity: { decrement: stockUnits },
-                            availableQuantity: { decrement: stockUnits }
-                        }
-                    });
-                } else {
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: {
-                            reservedQuantity: { increment: stockUnits },
-                            availableQuantity: { decrement: stockUnits }
-                        }
-                    });
-                }
-
-                await tx.inventoryLog.create({
-                    data: {
-                        variantId: item.variantId,
-                        changeAmount: -stockUnits,
-                        reason: isFinalized ? 'MANUAL_ORDER_PAID_OR_CONFIRMED_COMMIT' : 'MANUAL_ORDER_RESERVED',
-                        referenceId: order.id,
+                        status: isFinalized ? 'COMPLETED' : 'PENDING',
                     },
                 });
+            }
+            if (isFinalized) {
+                await this.commitPhysicalStock(
+                    tx,
+                    manualStockLines.map((line) => ({
+                        ...line,
+                        orderId: order.id,
+                        reason: 'MANUAL_ORDER_PAID_OR_CONFIRMED_COMMIT',
+                    })),
+                );
+            } else {
+                await this.reserveStockHold(
+                    tx,
+                    manualStockLines.map((line) => ({
+                        variantId: line.variantId,
+                        stockUnits: line.stockUnits,
+                        orderId: order.id,
+                    })),
+                );
             }
 
             // Log status
@@ -317,6 +488,7 @@ export class OrderService {
         );
         const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
         const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
+        const preOrderAvailableKg = await this.loadProductAvailableKgMap(this.prisma, productIds, false);
         const tierRows = await this.prisma.$queryRawUnsafe<Array<{
             productId: string;
             minWeight: number | string;
@@ -408,11 +580,6 @@ export class OrderService {
             const packQty = this.parsePackQtyKg(variant.attributeValue);
             const unitPrice = basePrice * packQty;
             const stockUnits = Math.max(1, Number(item.quantity) || 1) * packQty;
-            if (variant.availableQuantity < stockUnits) {
-                throw new BadRequestException(
-                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, required units: ${stockUnits}.`,
-                );
-            }
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
@@ -421,8 +588,18 @@ export class OrderService {
                 grossUnitPrice: unitPrice,
                 stockUnits,
                 subtotal: unitPrice * item.quantity,
+                sku: variant.sku,
             };
         });
+        this.assertProductStockForLines(
+            preOrderAvailableKg,
+            canonicalGrossItems.map((item) => ({
+                productId: item.productId,
+                stockUnits: item.stockUnits,
+                sku: item.sku,
+                variantId: item.variantId,
+            })),
+        );
         const discountPctByProduct = new Map<string, number>();
         for (const productId of productIds) {
             const totalWeight = totalWeightByProduct.get(productId) || 0;
@@ -646,23 +823,16 @@ export class OrderService {
 
             const orderNumber = `FT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-            // 1. Batch Row-level Lock all variants and Validate Stock
-            const txLockedVariants = await tx.$queryRawUnsafe<any[]>(
-                `SELECT id, sku, available_quantity as "availableQuantity"
-                 FROM product_variants
-                 WHERE id = ANY($1::uuid[])
-                 FOR UPDATE`,
-                canonicalItems.map((i) => i.variantId)
+            const txProductIds = Array.from(new Set(canonicalItems.map((i) => String(i.productId))));
+            const txAvailableKg = await this.loadProductAvailableKgMap(tx, txProductIds);
+            this.assertProductStockForLines(
+                txAvailableKg,
+                canonicalItems.map((item) => ({
+                    productId: String(item.productId),
+                    stockUnits: item.stockUnits,
+                    variantId: String(item.variantId),
+                })),
             );
-            const txVariantMap = new Map(txLockedVariants.map(v => [String(v.id), v]));
-            for (const item of canonicalItems) {
-                const variant = txVariantMap.get(String(item.variantId));
-                if (!variant || variant.availableQuantity < item.stockUnits) {
-                    throw new BadRequestException(
-                        `Insufficient stock for SKU ${variant?.sku || item.variantId}. Available: ${variant?.availableQuantity ?? 0}, required units: ${item.stockUnits}.`,
-                    );
-                }
-            }
 
             const initialOrderStatus = isCod ? 'CONFIRMED' : 'ON_HOLD';
             const order = await tx.order.create({
@@ -699,52 +869,39 @@ export class OrderService {
                 include: { items: true },
             });
 
-            // Decrement stock for each variant (Professional approach: RESERVE STOCK vs COMMIT)
-            
             for (const item of canonicalItems) {
-                // If COD, we commit immediately. If online, we reserve.
                 const reservationStatus = isCod ? 'COMPLETED' : 'PENDING';
-                
                 await tx.stockReservation.create({
                     data: {
                         variantId: item.variantId,
                         orderId: order.id,
                         userId,
                         quantity: item.stockUnits,
-                        expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000), // 10-minute hold
-                        status: reservationStatus
-                    }
-                });
-
-                if (isCod) {
-                    // COD: Physically reduce total stock immediately
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: {
-                            stockQuantity: { decrement: item.stockUnits },
-                            availableQuantity: { decrement: item.stockUnits }
-                        }
-                    });
-                    
-                } else {
-                    // Online: Just reserve, don't reduce physical stock yet
-                    await tx.productVariant.update({
-                        where: { id: item.variantId },
-                        data: {
-                            reservedQuantity: { increment: item.stockUnits },
-                            availableQuantity: { decrement: item.stockUnits }
-                        }
-                    });
-                }
-
-                await tx.inventoryLog.create({
-                    data: {
-                        variantId: item.variantId,
-                        changeAmount: -item.stockUnits,
-                        reason: isCod ? 'ORDER_PLACED_COD_COMMIT' : 'ORDER_RESERVED_ONLINE',
-                        referenceId: order.id,
+                        expiresAt: new Date(Date.now() + OrderService.ONLINE_HOLD_MINUTES * 60000),
+                        status: reservationStatus,
                     },
                 });
+            }
+            if (isCod) {
+                await this.commitPhysicalStock(
+                    tx,
+                    canonicalItems.map((item) => ({
+                        productId: String(item.productId),
+                        variantId: String(item.variantId),
+                        stockUnits: item.stockUnits,
+                        orderId: order.id,
+                        reason: 'ORDER_PLACED_COD_COMMIT',
+                    })),
+                );
+            } else {
+                await this.reserveStockHold(
+                    tx,
+                    canonicalItems.map((item) => ({
+                        variantId: String(item.variantId),
+                        stockUnits: item.stockUnits,
+                        orderId: order.id,
+                    })),
+                );
             }
 
             // Increment coupon usage
@@ -888,6 +1045,7 @@ export class OrderService {
         );
         const variantMap = new Map(lockedVariants.map((v) => [v.id, v]));
         const productIds = Array.from(new Set(lockedVariants.map((v) => String(v.productId))));
+        const simulateAvailableKg = await this.loadProductAvailableKgMap(this.prisma, productIds, false);
         const tierRows = await this.prisma.$queryRawUnsafe<Array<{
             productId: string;
             minWeight: number | string;
@@ -972,19 +1130,25 @@ export class OrderService {
             const packQty = this.parsePackQtyKg(variant.attributeValue);
             const unitPrice = basePrice * Math.max(1, packQty);
             const stockUnits = Math.max(1, Number(item.quantity) || 1) * Math.max(1, packQty);
-            if (variant.availableQuantity < stockUnits) {
-                throw new BadRequestException(
-                    `Insufficient stock for SKU ${variant.sku || item.variantId}. Available: ${variant.availableQuantity}, required units: ${stockUnits}.`,
-                );
-            }
             return {
                 productId: String(variant.productId),
                 variantId: String(variant.id),
                 quantity: item.quantity,
                 grossUnitPrice: unitPrice,
+                stockUnits,
                 subtotal: unitPrice * item.quantity,
+                sku: variant.sku,
             };
         });
+        this.assertProductStockForLines(
+            simulateAvailableKg,
+            canonicalGrossItems.map((item) => ({
+                productId: item.productId,
+                stockUnits: item.stockUnits,
+                sku: item.sku,
+                variantId: item.variantId,
+            })),
+        );
         const discountPctByProduct = new Map<string, number>();
         for (const productId of productIds) {
             const totalWeight = totalWeightByProduct.get(productId) || 0;
@@ -1596,46 +1760,28 @@ export class OrderService {
                     where: { orderId: orderId, status: { in: ['PENDING', 'COMPLETED'] } }
                 });
 
+                const completedReservations = reservations.filter((r) => r.status === 'COMPLETED');
+                const pendingReservations = reservations.filter((r) => r.status === 'PENDING');
+                if (completedReservations.length) {
+                    await this.restorePhysicalStock(
+                        tx,
+                        completedReservations.map((r) => ({ variantId: r.variantId, quantity: r.quantity })),
+                        orderId,
+                        'ORDER_CANCELLED_RESTORE_PHYSICAL',
+                    );
+                }
+                if (pendingReservations.length) {
+                    await this.releaseReservedStock(
+                        tx,
+                        pendingReservations.map((r) => ({ variantId: r.variantId, quantity: r.quantity })),
+                        orderId,
+                        'ORDER_CANCELLED_RELEASE_RESERVATION',
+                    );
+                }
                 for (const res of reservations) {
-                    if (res.status === 'COMPLETED') {
-                        // Order was already confirmed/paid, restore physical stock
-                        await tx.productVariant.update({
-                            where: { id: res.variantId },
-                            data: {
-                                stockQuantity: { increment: res.quantity },
-                                availableQuantity: { increment: res.quantity }
-                            }
-                        });
-                        await tx.inventoryLog.create({
-                            data: {
-                                variantId: res.variantId,
-                                changeAmount: res.quantity,
-                                reason: 'ORDER_CANCELLED_RESTORE_PHYSICAL',
-                                referenceId: orderId
-                            }
-                        });
-                    } else if (res.status === 'PENDING') {
-                        // Order was just reserved, release the hold
-                        await tx.productVariant.update({
-                            where: { id: res.variantId },
-                            data: {
-                                reservedQuantity: { decrement: res.quantity },
-                                availableQuantity: { increment: res.quantity }
-                            }
-                        });
-                        await tx.inventoryLog.create({
-                            data: {
-                                variantId: res.variantId,
-                                changeAmount: res.quantity,
-                                reason: 'ORDER_CANCELLED_RELEASE_RESERVATION',
-                                referenceId: orderId
-                            }
-                        });
-                    }
-                    
                     await tx.stockReservation.update({
                         where: { id: res.id },
-                        data: { status: 'CANCELLED' }
+                        data: { status: 'CANCELLED' },
                     });
                 }
             }
@@ -1653,21 +1799,14 @@ export class OrderService {
                         where: { id: res.id },
                         data: { status: 'COMPLETED' },
                     });
-                    await tx.productVariant.update({
-                        where: { id: res.variantId },
-                        data: {
-                            stockQuantity: { decrement: res.quantity },
-                            reservedQuantity: { decrement: res.quantity },
-                        },
-                    });
-                    await tx.inventoryLog.create({
-                        data: {
-                            variantId: res.variantId,
-                            changeAmount: -res.quantity,
-                            reason: 'AUTO_DELIVERED_PAYMENT_COMMIT',
-                            referenceId: orderId,
-                        },
-                    });
+                }
+                if (reservations.length) {
+                    await this.commitReservedToPhysical(
+                        tx,
+                        reservations.map((r) => ({ variantId: r.variantId, quantity: r.quantity })),
+                        orderId,
+                        'AUTO_DELIVERED_PAYMENT_COMMIT',
+                    );
                 }
             }
 
@@ -1741,25 +1880,16 @@ export class OrderService {
                 for (const res of reservations) {
                     await tx.stockReservation.update({
                         where: { id: res.id },
-                        data: { status: 'COMPLETED' }
+                        data: { status: 'COMPLETED' },
                     });
-
-                    await tx.productVariant.update({
-                        where: { id: res.variantId },
-                        data: {
-                            stockQuantity: { decrement: res.quantity },
-                            reservedQuantity: { decrement: res.quantity }
-                        }
-                    });
-
-                    await tx.inventoryLog.create({
-                        data: {
-                            variantId: res.variantId,
-                            changeAmount: -res.quantity,
-                            reason: 'MANUAL_PAYMENT_PAID_COMMIT',
-                            referenceId: orderId
-                        }
-                    });
+                }
+                if (reservations.length) {
+                    await this.commitReservedToPhysical(
+                        tx,
+                        reservations.map((r) => ({ variantId: r.variantId, quantity: r.quantity })),
+                        orderId,
+                        'MANUAL_PAYMENT_PAID_COMMIT',
+                    );
                 }
             }
 
@@ -1803,22 +1933,15 @@ export class OrderService {
                 const reservations = await tx.stockReservation.findMany({
                     where: { orderId: order.id, status: 'PENDING' },
                 });
+                if (reservations.length) {
+                    await this.releaseReservedStock(
+                        tx,
+                        reservations.map((r) => ({ variantId: r.variantId, quantity: r.quantity })),
+                        order.id,
+                        'ORDER_HOLD_EXPIRED_RELEASE',
+                    );
+                }
                 for (const res of reservations) {
-                    await tx.productVariant.update({
-                        where: { id: res.variantId },
-                        data: {
-                            reservedQuantity: { decrement: res.quantity },
-                            availableQuantity: { increment: res.quantity },
-                        },
-                    });
-                    await tx.inventoryLog.create({
-                        data: {
-                            variantId: res.variantId,
-                            changeAmount: res.quantity,
-                            reason: 'ORDER_HOLD_EXPIRED_RELEASE',
-                            referenceId: order.id,
-                        },
-                    });
                     await tx.stockReservation.update({
                         where: { id: res.id },
                         data: { status: 'CANCELLED' },

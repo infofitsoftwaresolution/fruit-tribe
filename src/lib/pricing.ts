@@ -23,22 +23,21 @@ export type ProductLikeForBulk = ProductPricingInput & {
   variants?: { price: number; availableStock?: number; stock?: number }[];
 };
 
-/** Best-effort sellable units (product-level or sum of variant availability). */
+/** Sellable inventory in kg (shared pool across variants). */
 export function productAvailableStock(
   product: { availableStock?: number; stock?: number; variants?: Array<{ availableStock?: number; stock?: number }> },
 ): number {
-  const variantTotal = (product.variants || []).reduce(
-    (sum, v) => sum + Math.max(0, Number(v.availableStock ?? v.stock ?? 0)),
-    0,
-  );
-  const productLevel = Math.max(0, Number(product.availableStock ?? product.stock ?? 0));
-  return Math.max(productLevel, variantTotal);
+  return Math.max(0, Number(product.availableStock ?? product.stock ?? 0));
 }
 
 export function isProductInStock(
   product: { availableStock?: number; stock?: number; variants?: Array<{ availableStock?: number; stock?: number }> },
 ): boolean {
-  return productAvailableStock(product) > 0;
+  const availKg = productAvailableStock(product);
+  if (availKg <= 0) return false;
+  const variants = product.variants || [];
+  if (!variants.length) return true;
+  return variants.some((v) => Number(v.availableStock ?? v.stock ?? 0) > 0);
 }
 
 function normalizeBulkTiers(input: {

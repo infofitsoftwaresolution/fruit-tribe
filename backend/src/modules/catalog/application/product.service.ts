@@ -3,6 +3,12 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../../infrastructure/prisma/prisma.service';
 import { CreateProductDto } from '../interface/dtos/create-product.dto';
+import {
+    getProductAvailableKg,
+    parsePackQtyKg,
+    variantInStock,
+    variantPacksAvailable,
+} from './inventory-pool.util';
 import { ProductFilterDto } from '../interface/dtos/product-filter.dto';
 
 @Injectable()
@@ -266,6 +272,10 @@ export class ProductService {
         return this.prisma.$transaction(async (tx) => {
             const slug = await this.resolveUniqueSlug(tx, dto.name);
             const bulk = this.parseBulkTier(dto.bulkDiscountQty, dto.bulkDiscountPrice);
+            const requestedTotalUnits = dto.stock != null ? Number(dto.stock) : 0;
+            if (!Number.isFinite(requestedTotalUnits) || requestedTotalUnits < 0) {
+                throw new BadRequestException('Invalid total stock quantity');
+            }
             const actorSellerId = await this.resolveActorSellerId(actor);
             const effectiveSellerId =
                 actorSellerId ??
@@ -299,7 +309,7 @@ export class ProductService {
                     ripenessStage: dto.ripenessStage ?? undefined,
                     farmName: dto.farmName ?? undefined,
                     farmState: dto.farmState ?? undefined,
-                    stock: dto.variants?.reduce((sum, v) => sum + (v.stockQuantity || 0), 0) || 0,
+                    stock: requestedTotalUnits,
                 },
             });
 
@@ -313,7 +323,6 @@ export class ProductService {
                               attributeValue: 'Default',
                               isBulkVariant: false,
                               priceOverride: undefined as number | undefined,
-                              stockQuantity: 0,
                               lowStockThreshold: 5,
                           },
                       ];
@@ -327,8 +336,8 @@ export class ProductService {
                         attributeValue: v.attributeValue,
                         isBulkVariant: Boolean(v.isBulkVariant),
                         priceOverride: v.priceOverride,
-                        stockQuantity: Math.max(0, Number(v.stockQuantity) || 0),
-                        availableQuantity: Math.max(0, Number(v.stockQuantity) || 0),
+                        stockQuantity: 0,
+                        availableQuantity: 0,
                         lowStockThreshold: v.lowStockThreshold || 5,
                     })),
                 });
@@ -377,6 +386,7 @@ export class ProductService {
         const bulk = this.parseBulkTier(mergedBulkQty, mergedBulkPrice);
 
         return this.prisma.$transaction(async (tx) => {
+            const requestedTotalUnits = dto.stock != null ? Number(dto.stock) : undefined;
             const variantSyncStats = {
                 created: 0,
                 updated: 0,
@@ -433,6 +443,20 @@ export class ProductService {
                 const incomingVariants = dto.variants;
                 const existingVariants = await tx.productVariant.findMany({ where: { productId: id } });
                 const matchedExistingIds = new Set<string>();
+                if (requestedTotalUnits != null) {
+                    if (!Number.isFinite(requestedTotalUnits) || requestedTotalUnits < 0) {
+                        throw new BadRequestException('Invalid total stock quantity');
+                    }
+                    const reservedSum = existingVariants.reduce(
+                        (sum, v) => sum + Math.max(0, Number(v.reservedQuantity) || 0),
+                        0,
+                    );
+                    if (requestedTotalUnits < reservedSum) {
+                        throw new BadRequestException(
+                            `Total stock (${requestedTotalUnits}) cannot be less than currently reserved stock (${reservedSum}).`,
+                        );
+                    }
+                }
 
                 for (const incoming of incomingVariants) {
                     const match = this.findExistingVariantForIncoming(incoming, existingVariants, matchedExistingIds);
@@ -471,7 +495,7 @@ export class ProductService {
                             where: { id: variantId },
                             data: {
                                 attributeValue: archivedLabel,
-                                stockQuantity: reserved,
+                                stockQuantity: 0,
                                 availableQuantity: 0,
                                 lowStockThreshold: 0,
                             },
@@ -498,19 +522,15 @@ export class ProductService {
                     }
                     usedSkus.add(sku);
 
-                    const stockQty = Math.max(0, Number(incoming.stockQuantity) || 0);
-                    const reserved = Math.max(0, Number(existing?.reservedQuantity) || 0);
-                    const nextAvailable = Math.max(0, stockQty - reserved);
-
                     const rowData = {
                         sku,
                         attributeName: incoming.attributeName || 'Quantity',
                         attributeValue: incoming.attributeValue,
                         isBulkVariant: Boolean(incoming.isBulkVariant),
                         priceOverride: incoming.priceOverride,
-                        stockQuantity: stockQty,
+                        stockQuantity: 0,
                         lowStockThreshold: incoming.lowStockThreshold ?? 5,
-                        availableQuantity: nextAvailable,
+                        availableQuantity: 0,
                     };
 
                     if (existing) {
@@ -546,13 +566,12 @@ export class ProductService {
             );
             await this.replaceTierPricingRows(tx, id, tierRows);
 
-            // Sync total stock summary
-            const allVariants = await tx.productVariant.findMany({ where: { productId: id } });
-            const totalStock = allVariants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
-            await tx.product.update({
-                where: { id },
-                data: { stock: totalStock }
-            });
+            if (requestedTotalUnits != null) {
+                await tx.product.update({
+                    where: { id },
+                    data: { stock: requestedTotalUnits },
+                });
+            }
 
             const result = await tx.product.findUnique({
                 where: { id },
@@ -807,25 +826,36 @@ export class ProductService {
     }
 
     private mapStats(product: any) {
-        const availableQuantity = product.variants?.length > 0
-            ? product.variants.reduce((sum, v) => sum + (v.availableQuantity || 0), 0)
-            : product.stock || 0;
-        const reservedQuantity = product.variants?.length > 0
-            ? product.variants.reduce((sum, v) => sum + (v.reservedQuantity || 0), 0)
-            : 0;
-        const totalStock = product.variants?.length > 0
-            ? product.variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0)
-            : product.stock || 0;
-        const lowStockThreshold = product.variants?.length > 0
-            ? Math.min(...product.variants.map((v: any) => v.lowStockThreshold || 5))
+        const variants = product.variants || [];
+        const reservedQuantity = variants.reduce(
+            (sum: number, v: any) => sum + Math.max(0, Number(v.reservedQuantity) || 0),
+            0,
+        );
+        const availableKg = getProductAvailableKg(Number(product.stock) || 0, variants);
+        const lowStockThreshold = variants.length > 0
+            ? Math.min(...variants.map((v: any) => v.lowStockThreshold || 5))
             : 5;
-        
+
+        const enrichedVariants = variants.map((v: any) => {
+            const packKg = parsePackQtyKg(v.attributeValue);
+            const packsAvailable = variantPacksAvailable(availableKg, packKg);
+            return {
+                ...v,
+                stockQuantity: 0,
+                availableQuantity: packsAvailable,
+                inStock: variantInStock(availableKg, packKg),
+                packKg,
+                packsAvailable,
+            };
+        });
+
         return {
             ...product,
-            availableQuantity,
+            variants: enrichedVariants,
+            availableQuantity: availableKg,
             reservedQuantity,
-            stock: totalStock,
-            lowStockThreshold
+            stock: Math.max(0, Number(product.stock) || 0),
+            lowStockThreshold,
         };
     }
 

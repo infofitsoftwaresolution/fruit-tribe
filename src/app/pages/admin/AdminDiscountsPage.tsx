@@ -159,15 +159,22 @@ export function AdminDiscountsPage() {
         }
     };
 
-    const handleDelete = async (coupon: AdminCoupon) => {
-        if (!confirm(`Delete coupon "${coupon.code}"? This cannot be undone.`)) return;
-        try {
-            await deleteAdminCoupon(coupon.id);
-            toast.success(`Coupon ${coupon.code} deleted`);
-            await loadData(true);
-        } catch (e: any) {
-            toast.error(getUserErrorMessage(e, 'Failed to delete coupon'));
-        }
+    const handleDelete = (coupon: AdminCoupon) => {
+        toast(`Delete coupon "${coupon.code}"?`, {
+            description: 'This cannot be undone.',
+            action: {
+                label: 'Delete',
+                onClick: async () => {
+                    try {
+                        await deleteAdminCoupon(coupon.id);
+                        toast.success(`Coupon ${coupon.code} deleted`);
+                        await loadData(true);
+                    } catch (e: any) {
+                        toast.error(getUserErrorMessage(e, 'Failed to delete coupon'));
+                    }
+                },
+            },
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -364,7 +371,7 @@ export function AdminDiscountsPage() {
                                                 )}
                                                 <button 
                                                     type="button" 
-                                                    onClick={() => void handleDelete(coupon)} 
+                                                    onClick={() => handleDelete(coupon)} 
                                                     className="admin-btn-danger h-8 text-xs px-2.5"
                                                 >
                                                     <Trash2 className="w-3 h-3" />

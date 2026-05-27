@@ -169,10 +169,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   }, [apiProduct, activeVariant]);
 
   useEffect(() => {
-    if (product && !activeImage) {
-      setActiveImage(product.image || product.images?.[0] || PRODUCT_PLACEHOLDER_IMAGE);
-    }
-  }, [product, activeImage]);
+    if (!product) return;
+    const gallery = (product.images || []).map((img) => String(img || '').trim()).filter(Boolean);
+    const primary = String(product.image || '').trim();
+    const next = primary || gallery[0] || PRODUCT_PLACEHOLDER_IMAGE;
+    setActiveImage(next);
+  }, [product?.image, product?.images, id]);
 
   useEffect(() => {
     setPackKind('retail');
@@ -255,8 +257,10 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const displayTotalPrice = hasLegacyBulkPack && packKind === 'bulk'
     ? Math.max(0, Number(bulkPriceVal ?? currentPrice))
     : tierUnitPrice * totalTierQty;
+  /** Hero price block always shows catalog base rate per unit (e.g. ₹/kg), not selected pack total. */
+  const baseUnitPrice = getRetailUnitReference(apiProduct);
   const tiers = ((apiProduct as any)?.bulkDiscountTiers || (product as any)?.bulkDiscountTiers || []) as Array<{ qty: number; totalPrice: number; unitPrice?: number }>;
-  const retailForRecommendation = getRetailUnitReference(apiProduct);
+  const retailForRecommendation = baseUnitPrice;
   const recommendedTier = [...tiers]
     .map((t) => {
       const qty = Number(t.qty);
@@ -281,7 +285,13 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     const suffix = formatPerUnitPackDiscountSuffix(retailForRecommendation, parsed.packQty, total);
     return `${parsed.label} pack · ${formatInr(total)}${suffix}`;
   };
-  const images = [product.image, ...(product.images || [])].filter(Boolean) as string[];
+  const images = useMemo(() => {
+    const list = [product.image, ...(product.images || [])]
+      .map((img) => String(img || '').trim())
+      .filter(Boolean);
+    const unique = Array.from(new Set(list));
+    return unique.length > 0 ? unique : [PRODUCT_PLACEHOLDER_IMAGE];
+  }, [product.image, product.images]);
   const reviewAverage = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : '0.0';
@@ -483,8 +493,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-end gap-4">
             <div>
-              <p className="text-4xl font-serif font-bold text-emerald-900">{formatInr(displayTotalPrice)}</p>
-              <p className="text-xs text-slate-500">per {hasLegacyBulkPack && packKind === 'bulk' ? `${bulkQty || 1} ${product.unit || 'unit'} pack` : `${product.unit || 'unit'}`}</p>
+              <p className="text-4xl font-serif font-bold text-emerald-900">{formatInr(baseUnitPrice)}</p>
+              <p className="text-xs text-slate-500">per {product.unit || 'kg'}</p>
               {recommendedTier && recommendedSavingPct > 0 && (
                 <p className="text-xs font-semibold text-emerald-700 mt-1">
                   {`${Number(recommendedTier.qty)} ${product.unit || 'kg'} pack has ${recommendedSavingPct}% discount`}
