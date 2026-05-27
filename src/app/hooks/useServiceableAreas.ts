@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getServiceableAreas } from '@/lib/api';
 
 export function useServiceableAreas() {
@@ -29,7 +29,7 @@ export function useServiceableAreas() {
     };
   }, []);
 
-  const isCityServiceable = (city: string) => {
+  const isCityServiceable = useCallback((city: string) => {
     if (!city?.trim()) return false;
     if (!cities.length) return true;
     const normalized = city.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -44,15 +44,15 @@ export function useServiceableAreas() {
       const b = aliases[normalized] || [];
       return a.includes(normalized) || b.includes(cn);
     });
-  };
+  }, [cities]);
 
   /** When the admin list is non-empty, checkout PIN (6 digits) must match. */
-  const isPincodeServiceable = (zip: string) => {
+  const isPincodeServiceable = useCallback((zip: string) => {
     if (!pincodes.length) return true;
     const digits = String(zip || '').replace(/\D/g, '');
     if (digits.length !== 6) return false;
     return pincodes.includes(digits);
-  };
+  }, [pincodes]);
 
   return { cities, pincodes, loading, isCityServiceable, isPincodeServiceable };
 }

@@ -18,6 +18,7 @@ export type CheckoutAddressFormShape = {
   lastName: string;
   email: string;
   phone: string;
+  flatHouse: string;
   address: string;
   city: string;
   state: string;
@@ -31,12 +32,19 @@ export function savedAddressToCheckoutForm(
   const parts = addr.name.trim().split(/\s+/);
   const firstName = parts[0] || '';
   const lastName = parts.slice(1).join(' ') || '';
-  const address = [addr.addressLine1, addr.addressLine2].filter(Boolean).join(', ');
+  const segments = String(addr.addressLine1 || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const flatHouse = segments.length > 1 ? segments[0] : '';
+  const addressLine1 = segments.length > 1 ? segments.slice(1).join(', ') : String(addr.addressLine1 || '');
+  const address = [addressLine1, addr.addressLine2].filter(Boolean).join(', ');
   return {
     firstName,
     lastName,
     email: emailFallback,
     phone: addr.phone,
+    flatHouse,
     address,
     city: addr.city,
     state: addr.state?.trim() || 'Karnataka',

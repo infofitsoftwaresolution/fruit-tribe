@@ -66,6 +66,8 @@ const DELIVERY_STATE_FIXED = 'Karnataka';
  * not MG Road — using the city centre made HSR (~560102) look ~20km from a south-side warehouse.
  */
 const BENGALURU_PIN_FALLBACK_COORDS: Record<string, { lat: number; lng: number }> = {
+  /** Central Bengaluru postal area — not HSR; avoids generic 560xxx centroid when geocode fails. */
+  '560002': { lat: 12.963522, lng: 77.578832 },
   '560102': { lat: 12.9143784, lng: 77.6432565 },
   '560034': { lat: 12.9352, lng: 77.6245 },
   '560038': { lat: 12.9784, lng: 77.6408 },
@@ -169,11 +171,23 @@ type NominatimHit = {
   address?: Record<string, string>;
 };
 
+function nominatimHitPostcode(hit: NominatimHit): string {
+  return String(hit.address?.postcode || '').replace(/\D/g, '').slice(0, 6);
+}
+
+/** OSM reports a different 6-digit PIN than checkout — street text geocoded to the wrong area. */
+function nominatimHitConflictsWithPin(hit: NominatimHit, pinDigits: string): boolean {
+  if (pinDigits.length !== 6) return false;
+  const hp = nominatimHitPostcode(hit);
+  if (hp.length !== 6) return false;
+  return hp !== pinDigits;
+}
+
 function scoreNominatimHit(hit: NominatimHit, city: string, hints: string[], pinDigits: string): number {
   const d = String(hit.display_name || '').toLowerCase();
   const cityTok = normalizeLocationToken(city);
   let score = 0;
-  const hitPostcode = String(hit.address?.postcode || '').replace(/\D/g, '');
+  const hitPostcode = nominatimHitPostcode(hit);
   if (pinDigits.length === 6 && hitPostcode === pinDigits) {
     score += 100;
   }
@@ -501,14 +515,24 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   useEffect(() => {
     const fetchOffers = async () => {
       try {
-        const offers = await getAvailableOffers();
+        const cartProductIds = Array.from(
+          new Set(items.map((i) => String((i as any).productId ?? i.id)).filter(Boolean)),
+        );
+        const cartCategoryNames = Array.from(
+          new Set(
+            items
+              .map((item) => products.find((p) => String(p.id) === String((item as any).productId ?? item.id))?.category)
+              .filter((name): name is string => !!name),
+          ),
+        );
+        const offers = await getAvailableOffers({ cartProductIds, cartCategoryNames });
         setAvailableOffers(offers);
       } catch (err) {
         console.error('Failed to fetch offers:', err);
       }
     };
     void fetchOffers();
-  }, []);
+  }, [items, products]);
 
   useEffect(() => {
     if (!offersDropdownOpen) return;
@@ -689,6 +713,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const geocodeRequestSeqRef = useRef(0);
   /** Street/city hit applied — block late PIN provisional `.then` from overwriting. */
   const pinProvisionalBlockRef = useRef(false);
+  /** Street geocode pointed to a different PIN than the user entered (fee uses PIN centroid instead). */
+  const [pinStreetGeocodeMismatch, setPinStreetGeocodeMismatch] = useState(false);
   /** Flat + street + city (no PIN): when this changes, clear the pin until the new address resolves — avoids showing the previous street's location. */
   const lastSuccessfulGeocodeShapeKeyRef = useRef<string>('');
   /** Clears stale km when the resolved 6-digit PIN changes while waiting for live postal geocode. */
@@ -1150,6 +1176,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         const lat = parseFloat(pinPick.lat);
         const lng = parseFloat(pinPick.lon);
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+        setPinStreetGeocodeMismatch(false);
         updateDeliveryFromCoordinates(lat, lng, { source: 'postcode_area' });
         const flatR = fd.flatHouse.trim();
         const streetR = fd.address.trim();
@@ -1322,14 +1349,27 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             }
           }
 
+          const streetEligible =
+            pinDigits.length === 6
+              ? streetCandidates.filter((h) => !nominatimHitConflictsWithPin(h, pinDigits))
+              : streetCandidates;
           const streetPick =
-            streetCandidates.length > 0
-              ? pickBestNominatimHit(streetCandidates, cityForScoring, hints, pinDigits)
+            streetEligible.length > 0
+              ? pickBestNominatimHit(streetEligible, cityForScoring, hints, pinDigits)
               : null;
 
           if (streetPick) {
+            if (requestSeq === geocodeRequestSeqRef.current) {
+              setPinStreetGeocodeMismatch(false);
+            }
             resolved = applyGeocodeHit(streetPick, 'geocode');
             if (resolved) pinProvisionalBlockRef.current = true;
+          } else if (
+            pinDigits.length === 6 &&
+            streetCandidates.some((h) => nominatimHitConflictsWithPin(h, pinDigits)) &&
+            requestSeq === geocodeRequestSeqRef.current
+          ) {
+            setPinStreetGeocodeMismatch(true);
           }
         }
 
@@ -1342,6 +1382,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               ? pickBestNominatimHit(pinAreaHits, cityForScoring, hints, pinDigits) ?? pinAreaHits[0]
               : null;
           if (pinPick) {
+            if (requestSeq === geocodeRequestSeqRef.current) {
+              setPinStreetGeocodeMismatch(false);
+            }
             resolved = applyGeocodeHit(pinPick, 'postcode_area');
             if (resolved) pinProvisionalBlockRef.current = true;
           }
@@ -1642,7 +1685,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     }
     setApplyingPromo(true);
     try {
-      const cartProductIds = items.map((i) => String(i.id));
+      const cartProductIds = Array.from(
+        new Set(items.map((i) => String((i as any).productId ?? i.id)).filter(Boolean)),
+      );
       const cartCategoryNames = items
         .map((item) => products.find((p) => String(p.id) === String(item.id))?.category)
         .filter((name): name is string => !!name);
@@ -1738,7 +1783,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
   const validateField = useCallback((name: keyof typeof formData, value: string): string => {
     const trimmed = String(value || '').trim();
     if (
-      ['firstName', 'flatHouse', 'address', 'city', 'state', 'zipCode', 'phone', 'email'].includes(name) &&
+      ['firstName', 'address', 'city', 'state', 'zipCode', 'phone', 'email'].includes(name) &&
       !trimmed
     ) {
       return 'This field is required.';
@@ -2092,6 +2137,9 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           ? 'Not deliverable — this PIN is not in our service area.'
           : '';
       setFieldErrors((prev) => ({ ...prev, zipCode: zipMsg }));
+      pinProvisionalBlockRef.current = false;
+      lastDistancePinRef.current = '';
+      setPinStreetGeocodeMismatch(false);
       return;
     }
 
@@ -2314,6 +2362,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               key={slot}
               type="button"
               onClick={() => setDeliverySlot(slot)}
+              onDoubleClick={() => {
+                if (isSelected) setDeliverySlot('');
+              }}
+              title={isSelected ? 'Double-click to remove this slot' : undefined}
               className={cn(
                 'w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer',
                 isSelected
@@ -3219,6 +3271,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               {addressCityConflict && (
                 <p className="mt-3 text-[9px] font-semibold text-amber-700 leading-snug bg-amber-50/50 p-2 rounded-lg border border-amber-100">
                   Street mentions {addressCityConflict} but city is fixed to Bengaluru. Update address pin to match your area.
+                </p>
+              )}
+
+              {pinStreetGeocodeMismatch && (
+                <p className="mt-3 text-[9px] font-semibold text-amber-700 leading-snug bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                  Your street area does not match this PIN — delivery distance uses the PIN area. Use the PIN for your locality (e.g. 560102 for HSR Layout).
                 </p>
               )}
 
