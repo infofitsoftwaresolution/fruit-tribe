@@ -426,9 +426,9 @@ export function AdminDashboard() {
                     </button>
                 </div>
 
-                <div className="p-6 grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="p-4 sm:p-6 grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
                     <div className="xl:col-span-2 space-y-6">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                             <StatPill label="Product Lines" value={inventoryIntel.totalProducts} tone="slate" icon={Package} />
                             <StatPill label="Total Units" value={inventoryIntel.totalUnits} tone="emerald" icon={Zap} />
                             <StatPill label="Low Supply" value={inventoryIntel.lowStock} tone="amber" icon={AlertCircle} />
@@ -457,7 +457,7 @@ export function AdminDashboard() {
                         </div>
                     </div>
 
-                    <div className="bg-zinc-50 border border-zinc-200/50 rounded-2xl p-5 relative overflow-hidden">
+                    <div className="bg-zinc-50 border border-zinc-200/50 rounded-2xl p-4 sm:p-5 relative overflow-hidden">
                         <div className="absolute top-0 right-0 h-40 w-40 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
                         
                         <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -555,7 +555,7 @@ export function AdminDashboard() {
                         </Link>
                     </div>
                     
-                    <div className="p-6">
+                    <div className="p-4 sm:p-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                             <input
                                 value={orderSearch}

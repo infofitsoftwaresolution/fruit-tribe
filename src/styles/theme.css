@@ -203,6 +203,22 @@
     background: rgba(0, 0, 0, 0.2);
   }
 
+  /* Hide scrollbar visually while keeping scroll functionality */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Responsive horizontal scroll wrapper for wide tables on mobile */
+  .responsive-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* Glassmorphism */
   .glass {
     @apply backdrop-blur-md bg-white/70 border border-white/20;

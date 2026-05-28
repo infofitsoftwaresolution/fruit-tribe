@@ -910,10 +910,10 @@ export function AdminOrdersPage() {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', damping: 35, stiffness: 300, mass: 1 }}
-                            className="relative h-full w-full max-w-3xl bg-white/95 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden border-l border-white/20"
+                            className="relative h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-white/95 backdrop-blur-3xl shadow-[0_0_100px_rgba(0,0,0,0.2)] flex flex-col overflow-hidden border-l border-white/20"
                         >
                             {/* Sheet header */}
-                            <div className="flex-shrink-0 sticky top-0 z-20 px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
+                            <div className="flex-shrink-0 sticky top-0 z-20 px-4 sm:px-6 py-4 bg-white border-b border-slate-100 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-10 w-10 bg-slate-900 rounded-xl flex items-center justify-center">
                                         <FileText className="w-5 h-5 text-emerald-400" />
@@ -941,7 +941,7 @@ export function AdminOrdersPage() {
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-0 overflow-y-auto p-12 space-y-16 custom-scrollbar">
+                            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 md:p-12 space-y-8 sm:space-y-12 md:space-y-16 custom-scrollbar">
                                 {/* Order quick stats */}
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                     {[
@@ -979,17 +979,17 @@ export function AdminOrdersPage() {
                                             const unitPrice = Number((item as any).pricePerUnit || 0);
                                             const subtotal = Number((item as any).subtotal || (unitPrice * qty));
                                             return (
-                                                <div key={idx} className="flex items-center gap-8 p-8 rounded-[3rem] bg-white border border-slate-100 hover:border-emerald-200 hover:shadow-[0_30px_60px_rgba(0,0,0,0.05)] transition-all duration-700 group">
-                                                    <div className="h-24 w-24 rounded-[2.5rem] bg-slate-50 overflow-hidden shadow-2xl shadow-slate-900/5 group-hover:scale-105 group-hover:rotate-2 transition-all duration-700 border border-slate-100">
+                                                <div key={idx} className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 p-4 sm:p-6 rounded-2xl bg-white border border-slate-100 hover:border-emerald-200 transition-all duration-700 group">
+                                                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-slate-50 overflow-hidden border border-slate-100 flex-shrink-0">
                                                         <img src={productImage} className="w-full h-full object-cover" />
                                                     </div>
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <p className="text-xl font-black text-slate-900 uppercase tracking-tighter truncate font-heading">{productName}</p>
-                                                            <p className="text-lg font-black text-slate-900 tracking-tighter font-heading">₹{subtotal.toLocaleString()}</p>
+                                                    <div className="flex-1 min-w-0 w-full">
+                                                        <div className="flex items-center justify-between mb-2 gap-2">
+                                                            <p className="text-base sm:text-lg font-black text-slate-900 uppercase tracking-tighter truncate font-heading">{productName}</p>
+                                                            <p className="text-sm sm:text-lg font-black text-slate-900 tracking-tighter font-heading shrink-0">₹{subtotal.toLocaleString()}</p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
-                                                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100">
+                                                            <div className="flex items-center gap-2 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-100">
                                                                 <Zap className="h-3 w-3 text-emerald-600" />
                                                                 <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">{vendorName}</span>
                                                             </div>
@@ -1007,33 +1007,33 @@ export function AdminOrdersPage() {
                                 </div>
 
                                 {/* Identity & Logistics Nodes */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                                     {/* Identity Node */}
-                                    <div className="p-10 rounded-[3.5rem] bg-slate-50 border border-slate-100 space-y-10 relative overflow-hidden group">
+                                    <div className="p-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] bg-slate-50 border border-slate-100 space-y-6 sm:space-y-10 relative overflow-hidden group">
                                         <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-bl-[4rem] pointer-events-none transition-all duration-700 group-hover:bg-emerald-500/5" />
-                                        <div className="relative z-10 flex items-center gap-5">
-                                            <div className="h-16 w-16 rounded-[2rem] bg-slate-900 text-white flex items-center justify-center font-black text-2xl shadow-2xl shadow-slate-900/20 font-heading">
+                                        <div className="relative z-10 flex items-center gap-4 sm:gap-5">
+                                            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-xl sm:rounded-[2rem] bg-slate-900 text-white flex items-center justify-center font-black text-lg sm:text-2xl shadow-2xl shadow-slate-900/20 font-heading flex-shrink-0">
                                                 {selectedOrder.customer.charAt(0)}
                                             </div>
-                                            <div>
-                                                <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Receiver Entity</p>
-                                                <p className="text-xl font-black text-slate-900 uppercase tracking-tight font-heading">{selectedOrder.customer}</p>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Receiver Entity</p>
+                                                <p className="text-lg sm:text-xl font-black text-slate-900 uppercase tracking-tight font-heading truncate">{selectedOrder.customer}</p>
                                             </div>
                                         </div>
-                                        <div className="relative z-10 space-y-5">
-                                            <div className="flex items-center gap-5 text-slate-600 group/item cursor-default">
-                                                <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-emerald-500 group-hover/item:border-emerald-500 transition-all duration-500">
-                                                    <Mail className="w-5 h-5" />
+                                        <div className="relative z-10 space-y-4 sm:space-y-5 min-w-0">
+                                            <div className="flex items-center gap-4 sm:gap-5 text-slate-600 group/item cursor-default min-w-0">
+                                                <div className="h-9 w-9 sm:h-10 sm:w-10 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-emerald-500 group-hover/item:border-emerald-500 transition-all duration-500 flex-shrink-0">
+                                                    <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
-                                                <span className="text-xs font-black uppercase tracking-tight">
+                                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-tight truncate min-w-0" title={(selectedOrder as any).userEmail || 'NO EMAIL AVAILABLE'}>
                                                     {(selectedOrder as any).userEmail || 'NO EMAIL AVAILABLE'}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-5 text-slate-600 group/item cursor-default">
-                                                <div className="h-10 w-10 bg-white rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-blue-500 group-hover/item:border-blue-500 transition-all duration-500">
-                                                    <Phone className="w-5 h-5" />
+                                            <div className="flex items-center gap-4 sm:gap-5 text-slate-600 group/item cursor-default min-w-0">
+                                                <div className="h-9 w-9 sm:h-10 sm:w-10 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center text-slate-400 border border-slate-100 group-hover/item:text-blue-500 group-hover/item:border-blue-500 transition-all duration-500 flex-shrink-0">
+                                                    <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
-                                                <span className="text-xs font-black uppercase tracking-tight">
+                                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-tight truncate min-w-0">
                                                     {(selectedOrder as any).userPhone || 'NO PHONE AVAILABLE'}
                                                 </span>
                                             </div>
@@ -1041,15 +1041,15 @@ export function AdminOrdersPage() {
                                     </div>
 
                                     {/* Logistic Node */}
-                                    <div className="p-10 rounded-[3.5rem] bg-slate-900 border border-slate-800 space-y-8 relative overflow-hidden group text-white">
+                                    <div className="p-5 sm:p-8 md:p-10 rounded-2xl sm:rounded-[2.5rem] md:rounded-[3.5rem] bg-slate-900 border border-slate-800 space-y-6 sm:space-y-8 relative overflow-hidden group text-white">
                                         <div className="relative z-10">
-                                            <div className="flex items-center gap-4 mb-8">
-                                                <div className="h-10 w-10 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10">
-                                                    <MapPin className="w-5 h-5" />
+                                            <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                                                <div className="h-9 w-9 sm:h-10 sm:w-10 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10">
+                                                    <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                                                 </div>
-                                                <span className="text-[11px] font-black uppercase tracking-[0.2em]">Shipping Terminal</span>
+                                                <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.2em]">Shipping Terminal</span>
                                             </div>
-                                            <p className="text-[13px] font-black uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-700 min-h-[80px]">
+                                            <p className="text-[12px] sm:text-[13px] font-black uppercase leading-relaxed tracking-tight group-hover:text-emerald-400 transition-colors duration-700 sm:min-h-[80px]">
                                                 {(() => {
                                                     const addr = (selectedOrder as any).shippingAddress || {};
                                                     const parts = [
@@ -1058,18 +1058,18 @@ export function AdminOrdersPage() {
                                                         addr.city || '',
                                                         addr.state || '',
                                                         addr.pincode || addr.zipCode || '',
-                                                    ].filter((v: string) => v && String(v).trim());
-                                                    return parts.length ? parts.join(', ') : 'Terminal location undefined';
-                                                })()}
+                                                     ].filter((v: string) => v && String(v).trim());
+                                                     return parts.length ? parts.join(', ') : 'Terminal location undefined';
+                                                 })()}
                                             </p>
-                                            <div className="pt-8 border-t border-white/5 flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-10 w-10 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20">
-                                                        <Truck className="w-5 h-5" />
+                                            <div className="pt-6 sm:pt-8 border-t border-white/5 flex items-center justify-between">
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="h-9 w-9 sm:h-10 sm:w-10 bg-emerald-500 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-emerald-500/20 flex-shrink-0">
+                                                        <Truck className="w-4 h-4 sm:w-5 sm:h-5" />
                                                     </div>
-                                                    <div>
-                                                        <p className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Carrier Unit</p>
-                                                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                                    <div className="min-w-0">
+                                                        <p className="text-[8px] sm:text-[9px] font-black text-white/40 uppercase tracking-widest mb-0.5">Carrier Unit</p>
+                                                        <p className="text-[9px] sm:text-[10px] font-black text-emerald-400 uppercase tracking-widest truncate">
                                                             {(selectedOrder as any).courierName || 'Standby for deployment'}
                                                         </p>
                                                     </div>
@@ -1114,15 +1114,15 @@ export function AdminOrdersPage() {
                             </div>
 
                             {/* Control Actions: Fixed Footer */}
-                            <div className="flex-shrink-0 p-12 bg-slate-50/50 backdrop-blur-md border-t border-slate-100 flex gap-6">
+                            <div className="flex-shrink-0 p-4 sm:p-8 md:p-12 bg-slate-50/50 backdrop-blur-md border-t border-slate-100 flex flex-col sm:flex-row gap-3 sm:gap-6">
                                 <button
                                     onClick={() => handleStatusChange(selectedOrder.id, 'Cancelled')}
-                                    className="flex-1 h-18 bg-white border border-slate-200 text-slate-400 rounded-3xl hover:bg-red-50 hover:text-red-500 hover:border-red-200 font-black text-[11px] uppercase tracking-widest transition-all duration-500 hover:shadow-2xl shadow-sm"
+                                    className="w-full sm:flex-1 h-12 sm:h-14 bg-white border border-slate-200 text-slate-400 rounded-2xl sm:rounded-3xl hover:bg-red-50 hover:text-red-500 hover:border-red-200 font-black text-[11px] uppercase tracking-widest transition-all duration-500 hover:shadow-2xl shadow-sm"
                                 >
                                     Abort Session
                                 </button>
                                 <button
-                                    className="flex-[2] h-18 bg-slate-900 text-white rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
+                                    className="w-full sm:flex-[2] h-12 sm:h-14 bg-slate-900 text-white rounded-2xl sm:rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
                                 >
                                     <Zap className="w-5 h-5 text-emerald-400 transition-transform group-hover:scale-110" />
                                     Initiate Fulfillment Flow
@@ -1203,7 +1203,7 @@ export function AdminOrdersPage() {
             {/* Direct Entry Node: Manual Order Generation */}
             {isModalOpen && createPortal(
                 <AnimatePresence>
-                    <div className="fixed inset-0 z-[130] flex items-center justify-center p-6 md:p-12">
+                    <div className="fixed inset-0 z-[130] flex items-end sm:items-center justify-center p-0 sm:p-4 md:p-6 lg:p-12">
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
@@ -1216,26 +1216,26 @@ export function AdminOrdersPage() {
                             animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 50, rotateX: 10 }}
                             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                            className="relative bg-white/95 backdrop-blur-3xl rounded-[4rem] shadow-[0_40px_120px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden border border-white/20 flex flex-col max-h-[90vh]"
+                            className="relative bg-white/95 backdrop-blur-3xl rounded-t-[2rem] sm:rounded-[3rem] lg:rounded-[4rem] shadow-[0_40px_120px_rgba(0,0,0,0.3)] w-full max-w-4xl overflow-hidden border border-white/20 flex flex-col max-h-[95vh] sm:max-h-[90vh]"
                         >
                             {/* Modal Header */}
-                            <div className="flex-shrink-0 p-12 border-b border-slate-100 bg-white/50 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase font-heading">Direct <span className="text-emerald-600">Entry</span></h2>
+                            <div className="flex-shrink-0 p-5 sm:p-8 md:p-12 border-b border-slate-100 bg-white/50 flex items-center justify-between gap-4">
+                                <div className="min-w-0">
+                                    <h2 className="text-xl sm:text-3xl md:text-4xl font-black text-slate-900 tracking-tighter uppercase font-heading">Direct <span className="text-emerald-600">Entry</span></h2>
                                     <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em] mt-2 flex items-center gap-2">
-                                        <Activity className="w-3 h-3 text-emerald-500" />
-                                        High-Tier Commercial Order Generation
+                                        <Activity className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                        <span className="truncate">High-Tier Commercial Order Generation</span>
                                     </p>
                                 </div>
                                 <button 
                                     onClick={() => setIsModalOpen(false)}
-                                    className="h-14 w-14 bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group"
+                                    className="h-10 w-10 sm:h-14 sm:w-14 bg-slate-50 border border-slate-100 rounded-xl sm:rounded-2xl text-slate-400 hover:bg-slate-900 hover:text-white hover:border-slate-900 hover:shadow-2xl transition-all duration-500 flex items-center justify-center group flex-shrink-0"
                                 >
-                                    <X className="h-6 w-6 transition-transform group-hover:rotate-90" />
+                                    <X className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:rotate-90" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSubmitOrder} className="flex-1 overflow-y-auto p-12 space-y-12 custom-scrollbar">
+                            <form onSubmit={handleSubmitOrder} className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-12 space-y-8 sm:space-y-12 custom-scrollbar">
                                 {/* Customer Identity Module */}
                                 <div className="space-y-8">
                                     <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center gap-3">
@@ -1456,18 +1456,18 @@ export function AdminOrdersPage() {
                             </form>
 
                             {/* Modal Footer Actions */}
-                            <div className="flex-shrink-0 p-12 bg-white border-t border-slate-100 flex gap-6">
+                            <div className="flex-shrink-0 p-4 sm:p-8 md:p-12 bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-3 sm:gap-6">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 h-18 bg-white border border-slate-200 text-slate-400 rounded-3xl hover:bg-slate-50 hover:text-slate-900 font-black text-[11px] uppercase tracking-widest transition-all duration-500"
+                                    className="w-full sm:flex-1 h-12 sm:h-14 bg-white border border-slate-200 text-slate-400 rounded-2xl sm:rounded-3xl hover:bg-slate-50 hover:text-slate-900 font-black text-[11px] uppercase tracking-widest transition-all duration-500"
                                 >
                                     Abort Entry
                                 </button>
                                 <button
                                     onClick={handleSubmitOrder}
                                     type="submit"
-                                    className="flex-[2.5] h-18 bg-slate-900 text-white rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
+                                    className="w-full sm:flex-[2.5] h-12 sm:h-14 bg-slate-900 text-white rounded-2xl sm:rounded-3xl hover:bg-emerald-600 font-black text-[11px] uppercase tracking-widest transition-all duration-700 shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-4 group"
                                 >
                                     <Zap className="w-5 h-5 text-emerald-400 transition-transform group-hover:scale-110" />
                                     Generate Flow Node

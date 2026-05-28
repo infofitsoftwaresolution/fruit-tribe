@@ -1037,10 +1037,10 @@ export function AdminProductsPage() {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', damping: 30, stiffness: 200, mass: 0.8 }}
-                            className="relative h-full w-full max-w-3xl bg-white shadow-[0_0_80px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden"
+                            className="relative h-full w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-white shadow-[0_0_80px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden"
                         >
                             {/* Sheet Header: Premium Glass Backdrop */}
-                            <div className="px-8 py-5 bg-zinc-50 border-b border-zinc-200/50 flex items-center justify-between relative overflow-hidden shrink-0">
+                            <div className="px-4 sm:px-8 py-5 bg-zinc-50 border-b border-zinc-200/50 flex items-center justify-between relative overflow-hidden shrink-0">
                                 <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
                                 <div className="relative z-10">
                                     <div className="flex items-center gap-3">
@@ -1063,7 +1063,7 @@ export function AdminProductsPage() {
                             </div>
 
                             <form onSubmit={handleSubmitProduct} className="flex-1 flex flex-col overflow-hidden">
-                                <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar bg-white relative">
+                                <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 sm:space-y-10 custom-scrollbar bg-white relative">
                                     {/* Section 1: Basic Details */}
                                     <div className="space-y-6">
                                         <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-150/80">
@@ -1078,7 +1078,7 @@ export function AdminProductsPage() {
                                                 placeholder="e.g. Premium Alphonso Mango"
                                                 required
                                             />
-                                            <div className="grid grid-cols-2 gap-6">
+                                            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 gap-4 sm:gap-6">
                                                 <FormInput
                                                     label="Base Value (₹)"
                                                     type="number"
@@ -1104,17 +1104,19 @@ export function AdminProductsPage() {
                                             <Activity className="w-4 h-4 text-zinc-500" />
                                             <h3 className="text-sm font-semibold text-zinc-900">Logistics & Categorization</h3>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-6">
-                                            <FormInput
-                                                label="Inventory (kg)"
-                                                type="number"
-                                                value={formData.stock}
-                                                onChange={(v: string) => setFormData({ ...formData, stock: v })}
-                                                placeholder="0"
-                                                required
-                                            />
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                                            <div className="col-span-1">
+                                                <FormInput
+                                                    label="Inventory (kg)"
+                                                    type="number"
+                                                    value={formData.stock}
+                                                    onChange={(v: string) => setFormData({ ...formData, stock: v })}
+                                                    placeholder="0"
+                                                    required
+                                                />
+                                            </div>
                                             {formData.variants.length > 0 && (
-                                                <p className="col-span-3 text-xs text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2">
+                                                <p className="col-span-1 sm:col-span-3 text-xs text-zinc-600 bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2">
                                                     Pack sizes and discounts are set per variant. Stock is shared: a 10kg pack is in stock only when at least 10kg remains in inventory.
                                                 </p>
                                             )}
@@ -1489,19 +1491,19 @@ export function AdminProductsPage() {
                                 </div>
 
                                 {/* Action Console */}
-                                <div className="px-8 py-5 bg-zinc-50 border-t border-zinc-200/60 flex items-center justify-end gap-3.5 relative z-10 shrink-0">
+                                <div className="px-4 sm:px-8 py-4 sm:py-5 bg-zinc-50 border-t border-zinc-200/60 flex items-center justify-end gap-3 sm:gap-3.5 relative z-10 shrink-0">
                                     <button
                                         type="button"
                                         disabled={isSavingProduct}
                                         onClick={() => setIsModalOpen(false)}
-                                        className="admin-panel-btn-secondary h-11 px-6 rounded-xl flex-shrink-0"
+                                        className="admin-panel-btn-secondary h-10 sm:h-11 px-4 sm:px-6 rounded-xl flex-shrink-0 text-xs"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={isSavingProduct}
-                                        className="admin-panel-btn-primary h-11 px-8 rounded-xl"
+                                        className="admin-panel-btn-primary h-10 sm:h-11 px-5 sm:px-8 rounded-xl text-xs"
                                     >
                                         {isSavingProduct ? 'Saving...' : editingProduct ? 'Save Product' : 'Add Product'}
                                     </button>

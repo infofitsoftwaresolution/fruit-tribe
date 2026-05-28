@@ -459,7 +459,34 @@ export const ProductCard = memo(({
           )}
         </div>
         <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{name}</h3>
-        <p className="text-xs text-slate-400">{product?.unit ? `Per ${product.unit}` : 'Per kg'}</p>
+        {!isOutOfStock && (hasBulk || variantOptions.length > 0) ? (
+          <div className="relative self-start mt-0.5 max-w-full">
+            <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-[11px] font-semibold hover:bg-slate-100 transition-all select-none">
+              <span className="truncate max-w-[85px]">{selectedPackLabel.split(' · ')[0]}</span>
+              <ChevronDown className="h-3 w-3.5 text-slate-500 shrink-0" />
+            </div>
+            <select
+              value={bulkDealMode ? 'bulk' : packKind}
+              disabled={bulkDealMode}
+              onChange={(e) => {
+                setPackKind(e.target.value);
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              {sortedPackSelectOptions.map((opt) => (
+                <option
+                  key={opt.value}
+                  value={opt.value}
+                  disabled={opt.disabled}
+                >
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-400">{product?.unit ? `Per ${product.unit}` : 'Per kg'}</p>
+        )}
         {effectiveFarmName && (
           <div className="flex items-center gap-1 text-[10px] text-slate-400">
             <MapPin className="h-2.5 w-2.5 shrink-0" />

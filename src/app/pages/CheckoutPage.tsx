@@ -3134,7 +3134,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('online')}

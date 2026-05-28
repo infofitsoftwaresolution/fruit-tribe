@@ -445,8 +445,8 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-2">
-        <section className="relative bg-emerald-50/70 border-r border-black/5 p-6 sm:p-10">
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 bg-[#fdf8f2]">
+        <section className="relative bg-emerald-50/70 border-b lg:border-b-0 lg:border-r border-black/5 p-4 sm:p-6 lg:p-10">
           <div className="absolute inset-0 pointer-events-none [background:radial-gradient(circle_at_20%_20%,rgba(16,185,129,0.12),transparent_45%),radial-gradient(circle_at_80%_80%,rgba(251,146,60,0.12),transparent_45%)]" />
           <div className="relative">
             <div className="rounded-3xl overflow-hidden bg-white border border-black/5 shadow-sm aspect-square">
@@ -465,9 +465,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 overflow-x-auto">
+          <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar">
             {images.map((img, idx) => (
-              <button key={idx} onClick={() => setActiveImage(img)} className={cn('h-16 w-16 rounded-xl overflow-hidden border-2 shrink-0', activeImage === img ? 'border-emerald-600' : 'border-transparent')}>
+              <button key={idx} onClick={() => setActiveImage(img)} className={cn('h-16 w-16 rounded-xl overflow-hidden border-2 shrink-0 cursor-pointer', activeImage === img ? 'border-emerald-600' : 'border-transparent')}>
                 <img
                   src={(img || '').trim() || PRODUCT_PLACEHOLDER_IMAGE}
                   alt={`${product.name}-${idx}`}
@@ -479,7 +479,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           </div>
         </section>
 
-        <section className="p-6 sm:p-10 bg-[#fdf8f2] space-y-5">
+        <section className="p-4 sm:p-6 lg:p-10 bg-[#fdf8f2] space-y-5">
           <div className="flex flex-wrap items-center gap-2">
             {product.isSeasonal && <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold uppercase">Peak season</span>}
             {product.isOrganic && <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold uppercase">Organic</span>}
@@ -487,7 +487,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           </div>
 
           <div>
-            <h1 className="text-4xl sm:text-5xl font-serif font-bold leading-tight text-emerald-900">{product.name}</h1>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold leading-tight text-emerald-900">{product.name}</h1>
             <p className="text-sm text-slate-500 mt-1">{product.category} {product.origin ? `• ${product.origin}` : ''}</p>
           </div>
 
@@ -512,21 +512,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
           {sortedSelectableVariants.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Select option</p>
+              
+              {/* Responsive pill buttons wrapping cleanly on all viewport sizes */}
               <div className="flex flex-wrap gap-2 items-center">
-                <div className="relative">
-                  <select
-                    value={activeVariant ?? (firstInStockVariantSku || sortedSelectableVariants[0]?.sku || '')}
-                    onChange={(e) => setActiveVariant(e.target.value || null)}
-                    className="h-10 min-w-[220px] rounded-xl border border-slate-200 bg-white px-3 pr-9 text-sm font-semibold text-slate-800 shadow-sm outline-none appearance-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all"
-                  >
-                    {sortedSelectableVariants.map((variant) => (
-                      <option key={variant.sku} value={variant.sku} disabled={!variant.inStock}>
-                        {variantChoiceLabel(variant)}{!variant.inStock ? ' (Out of stock)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                </div>
                 {sortedSelectableVariants.map((variant) => (
                   <button
                     key={variant.sku}
@@ -534,13 +522,13 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
                     disabled={!variant.inStock}
                     onClick={() => variant.inStock && setActiveVariant(variant.sku)}
                     className={cn(
-                      'px-4 h-10 rounded-xl border text-sm transition-colors',
+                      'px-3 sm:px-4 h-9 sm:h-10 rounded-xl border text-xs sm:text-sm transition-colors cursor-pointer',
                       !variant.inStock && 'opacity-50 cursor-not-allowed',
                       activeVariant === variant.sku
-                        ? 'bg-emerald-900 text-white border-emerald-900'
+                        ? 'bg-emerald-900 text-white border-emerald-900 shadow-sm'
                         : variant.isBulkVariant
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : 'bg-white border-slate-200 text-slate-700',
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/50'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50',
                     )}
                   >
                     {variantChoiceLabel(variant)}
@@ -649,7 +637,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             )}
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <div className="p-3 bg-white rounded-xl border border-slate-200">
               <p className="text-xs font-semibold text-slate-800">Farm to doorstep</p>
               <p className="text-[11px] text-slate-500 mt-1">Sourced directly from partner farms.</p>
@@ -672,7 +660,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
       <section className="bg-white border-t border-black/5 mt-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
-          <div className="flex gap-2 sm:gap-4 overflow-x-auto border-b border-slate-200">
+          <div className="flex gap-2 sm:gap-4 overflow-x-auto border-b border-slate-200 no-scrollbar">
             {[
               ['details', 'Product Details'],
               ['storage', 'Storage & Usage'],
@@ -707,12 +695,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
 
       <section className="bg-white border-t border-black/5 py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
-          <div className="flex items-end justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6">
             <div>
               <h2 className="text-2xl sm:text-3xl font-serif font-bold text-emerald-900">Customer reviews</h2>
               <p className="text-sm text-slate-500 mt-1">Real feedback from buyers of this product.</p>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <p className="text-2xl font-bold text-slate-900">{reviewAverage}</p>
               <p className="text-xs text-slate-500">{reviews.length} {reviews.length === 1 ? 'review' : 'reviews'}</p>
             </div>

@@ -480,22 +480,22 @@ export function ProfilePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Dashboard Header HUD */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-16">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Zap className="w-5 h-5 text-emerald-600 fill-emerald-600" />
               <span className="text-[10px] font-semibold text-emerald-600 uppercase tracking-[0.3em]">Your account</span>
             </div>
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              {(user?.name ?? 'My').split(' ')[0] || 'My'}<span className="text-emerald-500">'s</span> <br /> Profile
+              {(user?.name ?? 'My').split(' ')[0] || 'My'}<span className="text-emerald-500">'s</span> <br />Profile
             </h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             {typeof user.loyaltyPoints === 'number' && (
-              <div className="p-6 bg-white rounded-xl border border-slate-100 shadow-xl flex items-center gap-4">
-                <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-                  <Leaf className="w-6 h-6" />
+              <div className="p-4 sm:p-6 bg-white rounded-xl border border-slate-100 shadow-xl flex items-center gap-3 sm:gap-4 min-w-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 flex-shrink-0">
+                  <Leaf className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-500">Rewards points</p>
                   <p className="text-xl font-semibold text-slate-900 tracking-tighter">{user.loyaltyPoints}</p>
                 </div>
@@ -506,10 +506,10 @@ export function ProfilePage() {
               onClick={handleLogout}
               title="Log out"
               aria-label="Log out"
-              className="h-20 w-24 shrink-0 bg-slate-900 text-white rounded-xl flex flex-col items-center justify-center gap-1.5 hover:bg-red-600 transition-all shadow-2xl px-2"
+              className="h-16 sm:h-20 w-20 sm:w-24 shrink-0 bg-slate-900 text-white rounded-xl flex flex-col items-center justify-center gap-1 sm:gap-1.5 hover:bg-red-600 transition-all shadow-2xl px-2"
             >
-              <LogOut className="w-6 h-6 shrink-0" aria-hidden />
-              <span className="text-[8px] font-semibold text-sm leading-tight text-center">Log out</span>
+              <LogOut className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" aria-hidden />
+              <span className="text-[8px] font-semibold text-xs leading-tight text-center">Log out</span>
             </button>
           </div>
         </div>
@@ -1129,7 +1129,7 @@ export function ProfilePage() {
                 )}
               </div>
 
-              <div className="bg-slate-900 rounded-[3rem] p-6 sm:p-8 md:p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6 md:gap-10">
+              <div className="bg-slate-900 rounded-2xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 text-white flex flex-col md:flex-row items-center justify-between gap-6 md:gap-10">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10">
                     <Navigation className="w-8 h-8" />

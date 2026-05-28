@@ -53,20 +53,20 @@ export function AdminHeader({ onOpenSidebar }: AdminHeaderProps) {
     };
 
     return (
-        <header className="flex h-14 items-center justify-between px-6 sticky top-0 z-[60] bg-white/80 backdrop-blur-md border-b border-zinc-200/40 shadow-sm shadow-zinc-100/20">
+        <header className="flex h-14 items-center justify-between px-3 sm:px-6 sticky top-0 z-[60] bg-white/80 backdrop-blur-md border-b border-zinc-200/40 shadow-sm shadow-zinc-100/20">
             {/* Left: mobile toggle + search */}
-            <div className="flex items-center gap-3 flex-1 max-w-lg">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-lg">
                 <button
                     type="button"
                     onClick={onOpenSidebar}
-                    className="inline-flex md:hidden h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors"
+                    className="inline-flex md:hidden h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 transition-colors flex-shrink-0"
                     aria-label="Open admin navigation"
                 >
                     <Menu className="h-4 w-4" />
                 </button>
 
                 {/* Search */}
-                <div className="relative group flex-1 hidden sm:block">
+                <div className="relative group flex-1 hidden sm:block min-w-0">
                     <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
                         <Search className="h-3.5 w-3.5 text-zinc-400 group-focus-within:text-zinc-800 transition-colors" />
                     </div>
