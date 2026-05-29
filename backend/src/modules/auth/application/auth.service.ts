@@ -180,7 +180,7 @@ export class AuthService {
             if (phoneTaken.otpCode && phoneTaken.otpExpiry && phoneTaken.isActive === false) {
                 throw new ConflictException({
                     message: 'PHONE_PENDING_VERIFICATION',
-                    email: phoneTaken.email,
+                    phone: normalizedPhone,
                 });
             }
             throw new ConflictException('PHONE_ALREADY_REGISTERED');

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
+import { parseAuthVerificationFromResponse } from '@/lib/authVerification';
 import { getUserErrorMessage } from '@/lib/userError';
 
 export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
@@ -150,31 +151,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) {
         let message = 'Invalid credentials.';
-        let verifyEmail: string | undefined;
+        let verifyIdentifier: string | undefined;
+        let verifyChannel: 'sms' | 'email' | undefined;
         try {
           const data = await res.json();
-          if (typeof data?.email === 'string' && data.email.trim()) {
-            verifyEmail = data.email.trim();
-          }
-          if (!verifyEmail && typeof data?.phone === 'string' && data.phone.trim()) {
-            verifyEmail = data.phone.trim();
-          }
-          const backendMessage = Array.isArray(data?.message)
-            ? data.message.join('; ')
-            : (data?.message || '');
+          const parsed = parseAuthVerificationFromResponse(data);
+          verifyIdentifier = parsed.verifyIdentifier;
+          verifyChannel = parsed.verifyChannel;
           if (
-            backendMessage === 'EMAIL_PENDING_VERIFICATION_OTP_RESENT' ||
-            backendMessage === 'PHONE_PENDING_VERIFICATION_OTP_RESENT'
+            parsed.message === 'EMAIL_PENDING_VERIFICATION_OTP_RESENT' ||
+            parsed.message === 'PHONE_PENDING_VERIFICATION_OTP_RESENT'
           ) {
-            message = 'Your account is not verified yet. We sent a new OTP to your phone or email.';
-          } else if (typeof backendMessage === 'string' && backendMessage.trim()) {
-            message = backendMessage;
+            message =
+              verifyChannel === 'sms'
+                ? 'Your account is not verified yet. We sent a new OTP to your mobile number.'
+                : 'Your account is not verified yet. We sent a new OTP to your email.';
+          } else if (parsed.message) {
+            message = parsed.message;
           }
         } catch {
           // ignore parse errors and keep default message
         }
-        const err = new Error(message) as Error & { verifyEmail?: string };
-        if (verifyEmail) err.verifyEmail = verifyEmail;
+        const err = new Error(message) as Error & {
+          verifyEmail?: string;
+          verifyIdentifier?: string;
+          verifyChannel?: 'sms' | 'email';
+        };
+        if (verifyIdentifier) {
+          err.verifyIdentifier = verifyIdentifier;
+          err.verifyChannel = verifyChannel;
+          err.verifyEmail = verifyIdentifier;
+        }
         throw err;
       }
 
@@ -212,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error(getUserErrorMessage(error, 'Login failed. Please check your email or mobile and password.'));
+      toast.error(getUserErrorMessage(error, 'Login failed. Please check your email and password.'));
       throw error;
     }
   };
@@ -232,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // ignore storage failures
       }
-      toast.success('Account created. We sent an OTP to your phone or email.', {
+      toast.success('Account created. We sent an OTP to your mobile number.', {
         description: 'Enter the OTP to complete your registration.',
       });
     } catch (error) {

@@ -81,14 +81,22 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       await login(formData.email, formData.password);
       redirectAfterLogin();
     } catch (err: any) {
-      const msg = getUserErrorMessage(err, 'Invalid email, mobile, or password. Please try again.');
-      if (msg.includes('not verified') || msg.includes('verification code')) {
-        toast.info('Enter the OTP we sent to your phone or email.');
-        const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail || formData.email;
-        navigate(`/verify-email?email=${encodeURIComponent(verifyEmail)}&next=${encodeURIComponent('/login')}`);
+      const msg = getUserErrorMessage(err, 'Invalid email or password. Please try again.');
+      if (msg.includes('not verified') || msg.includes('verification code') || msg.includes('OTP')) {
+        const authErr = err as Error & { verifyIdentifier?: string; verifyChannel?: 'sms' | 'email' };
+        const identifier = authErr.verifyIdentifier || formData.email.trim();
+        const channel = authErr.verifyChannel || (identifier.includes('@') ? 'email' : 'sms');
+        toast.info(
+          channel === 'sms'
+            ? 'Enter the OTP we sent to your mobile number.'
+            : 'Enter the OTP we sent to your email.',
+        );
+        navigate(
+          `/verify-email?identifier=${encodeURIComponent(identifier)}&channel=${channel}&next=${encodeURIComponent('/login')}`,
+        );
         return;
       }
-      setError(msg || 'Invalid email, mobile, or password. Please try again.');
+      setError(msg || 'Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -303,18 +311,18 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
               >
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-1">
-                    Email or mobile
+                    Email
                   </label>
                   <input
                     id="email"
-                    type="text"
+                    type="email"
                     name="email"
                     autoComplete="username"
                     value={formData.email}
                     onChange={handleChange}
                     required
                     className="w-full h-11 px-4 bg-white/50 backdrop-blur-sm border border-white/60 rounded-lg text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/60 focus:border-emerald-400 transition-all text-sm"
-                    placeholder="you@example.com or 9876543210"
+                    placeholder="you@example.com"
                   />
                 </div>
 

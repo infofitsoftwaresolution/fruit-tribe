@@ -2,6 +2,7 @@
  * API client for backend. All data comes from the database via these endpoints.
  */
 import type { SavedDeliveryAddress } from './deliveryAddressUtils';
+import { parseAuthVerificationFromResponse } from './authVerification';
 import { PRODUCT_PLACEHOLDER_IMAGE } from './productPlaceholder';
 import { parsePackQtyKg, variantPacksAvailable } from './inventoryPool';
 
@@ -861,18 +862,27 @@ export async function registerUser(payload: {
   });
   if (!res.ok) {
     let message = res.statusText;
-    let verifyEmail: string | undefined;
+    let verifyIdentifier: string | undefined;
+    let verifyChannel: 'sms' | 'email' | undefined;
     try {
       const data = await res.json();
-      if (typeof data?.email === 'string' && data.email.trim()) verifyEmail = data.email.trim();
-      const raw = data?.message;
-      if (typeof raw === 'string' && raw.trim()) message = raw;
-      else if (Array.isArray(raw)) message = raw.join('; ');
+      const parsed = parseAuthVerificationFromResponse(data);
+      if (parsed.message) message = parsed.message;
+      verifyIdentifier = parsed.verifyIdentifier;
+      verifyChannel = parsed.verifyChannel;
     } catch {
       message = await res.text().catch(() => res.statusText);
     }
-    const err = new Error(message || 'Signup failed') as Error & { verifyEmail?: string };
-    if (verifyEmail) err.verifyEmail = verifyEmail;
+    const err = new Error(message || 'Signup failed') as Error & {
+      verifyEmail?: string;
+      verifyIdentifier?: string;
+      verifyChannel?: 'sms' | 'email';
+    };
+    if (verifyIdentifier) {
+      err.verifyIdentifier = verifyIdentifier;
+      err.verifyChannel = verifyChannel;
+      err.verifyEmail = verifyIdentifier;
+    }
     throw err;
   }
   return res.json();

@@ -73,27 +73,36 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
 
     try {
       await signup(formData.name, formData.email, formData.phone, formData.password);
-      navigate(`/verify-email?email=${encodeURIComponent(formData.phone)}&next=${encodeURIComponent(next)}`);
+      navigate(
+        `/verify-email?identifier=${encodeURIComponent(formData.phone)}&channel=sms&next=${encodeURIComponent(next)}`,
+      );
     } catch (err) {
       const msg = String((err as Error)?.message || '');
-      const verifyEmail = (err as Error & { verifyEmail?: string }).verifyEmail;
+      const authErr = err as Error & {
+        verifyIdentifier?: string;
+        verifyChannel?: 'sms' | 'email';
+        verifyEmail?: string;
+      };
+      const verifyId = authErr.verifyIdentifier || authErr.verifyEmail;
       if (msg === 'EMAIL_PENDING_VERIFICATION') {
         toast.info('This email is already registered but not verified. Enter the code we sent, or resend below.');
-        navigate(`/verify-email?email=${encodeURIComponent(formData.email)}&next=${encodeURIComponent(next)}`, {
-          replace: true,
-        });
+        navigate(
+          `/verify-email?identifier=${encodeURIComponent(formData.email)}&channel=email&next=${encodeURIComponent(next)}`,
+          { replace: true },
+        );
       } else if (msg === 'EMAIL_ALREADY_REGISTERED') {
         setError('This email is already in use. Sign in or use a different email.');
       } else if (msg === 'PHONE_ALREADY_REGISTERED') {
         setError('This mobile number is already in use. Sign in or use a different number.');
       } else if (msg === 'PHONE_PENDING_VERIFICATION') {
-        const emailForVerify = verifyEmail?.trim() || formData.phone;
+        const phoneForVerify = verifyId?.trim() || formData.phone;
         toast.info(
           'This mobile number is already linked to an account that has not finished verification. Continue and verify with OTP.',
         );
-        navigate(`/verify-email?email=${encodeURIComponent(emailForVerify)}&next=${encodeURIComponent(next)}`, {
-          replace: true,
-        });
+        navigate(
+          `/verify-email?identifier=${encodeURIComponent(phoneForVerify)}&channel=sms&next=${encodeURIComponent(next)}`,
+          { replace: true },
+        );
       } else {
         setError(msg || 'Sign up failed. Please try again.');
       }
