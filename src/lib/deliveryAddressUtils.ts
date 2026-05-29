@@ -1,4 +1,14 @@
 /** Saved address row from GET /addresses */
+/** Single-line display for profile / invoices */
+export function formatSavedAddressLine(addr: SavedDeliveryAddress): string {
+  const parts = [
+    addr.addressLine1,
+    addr.addressLine2,
+    `${addr.city}, ${addr.state} ${addr.pincode}`,
+  ].filter((p) => typeof p === 'string' && p.trim());
+  return parts.join(', ');
+}
+
 export type SavedDeliveryAddress = {
   id: string;
   label: string | null;

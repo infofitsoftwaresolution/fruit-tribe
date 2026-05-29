@@ -18,6 +18,7 @@ import {
   getEffectiveApiBase,
 } from '@/lib/api';
 import type { SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
+import { formatSavedAddressLine } from '@/lib/deliveryAddressUtils';
 import {
   User, Mail, Phone, MapPin, LogOut, Edit2, Save, X, Leaf, Plus, Trash2,
   Package, Truck, CheckCircle, Clock, ChevronRight, Box,
@@ -400,6 +401,9 @@ export function ProfilePage() {
             });
             toast.success('Payment successful.');
             await loadOrders();
+            navigate('/order-confirmation', {
+              state: { orderId: order.orderId, orderNumber: order.id, allOrders: [order.orderId] },
+            });
           } catch (err: any) {
             toast.error(getUserErrorMessage(err, 'Payment verification failed.'));
           }
@@ -414,7 +418,7 @@ export function ProfilePage() {
     } catch (err: any) {
       toast.error(getUserErrorMessage(err, 'Unable to start payment.'));
     }
-  }, [loadOrders]);
+  }, [loadOrders, navigate]);
 
   const loadSavedAddresses = useCallback(async () => {
     if (!user) {
@@ -440,6 +444,18 @@ export function ProfilePage() {
   useEffect(() => {
     if (!user) navigate('/login');
   }, [user, navigate]);
+
+  const prefetchProduct = useCallback((productId: string | number) => {
+    if (!productId) return;
+    void getProduct(String(productId)).catch(() => undefined);
+  }, []);
+
+  const profileDisplayAddress = useMemo(() => {
+    if (formData.address?.trim()) return formData.address.trim();
+    const preferred = savedAddrs.find((a) => a.isDefault) || savedAddrs[0];
+    if (preferred) return formatSavedAddressLine(preferred);
+    return '';
+  }, [formData.address, savedAddrs]);
 
   if (!user) {
     return null;
@@ -469,11 +485,6 @@ export function ProfilePage() {
     logout();
     navigate('/');
   };
-
-  const prefetchProduct = useCallback((productId: string | number) => {
-    if (!productId) return;
-    void getProduct(String(productId)).catch(() => undefined);
-  }, []);
 
   return (
     <div className="pt-20 pb-20 min-h-screen bg-slate-50 selection:bg-emerald-500 selection:text-white">
@@ -578,7 +589,7 @@ export function ProfilePage() {
                   { label: 'Name', value: formData.name, name: 'name', icon: User },
                   { label: 'Email', value: formData.email, name: 'email', icon: Mail },
                   { label: 'Phone', value: formData.phone, name: 'phone', icon: Phone },
-                  { label: 'Address', value: formData.address, name: 'address', icon: MapPin },
+                  { label: 'Address', value: profileDisplayAddress, name: 'address', icon: MapPin },
                 ].map((field) => (
                   <div key={field.name} className="space-y-2">
                     <div className="flex items-center gap-2 pl-2">
@@ -831,18 +842,13 @@ export function ProfilePage() {
                 <div className="max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
                   <div className="space-y-6">
                   {displayedOrders.map((order, idx) => (
+                    <div key={order.id} className="space-y-3">
                     <motion.div
-                      key={order.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: Math.min(idx, 4) * 0.03, duration: 0.22 }}
-                      className="p-4 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 group hover:border-emerald-200 transition-all cursor-pointer relative overflow-hidden"
-                      onClick={() => setTrackingOrder(order)}
+                      className="p-4 sm:p-6 bg-slate-50 rounded-2xl sm:rounded-[2.5rem] border border-slate-100 relative overflow-hidden"
                     >
-                      <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-0 group-hover:opacity-10 transition-opacity">
-                        <Navigation className="w-16 h-16 sm:w-24 sm:h-24 text-emerald-900" />
-                      </div>
-
                       <div className="flex flex-col gap-4 sm:gap-6 relative z-10">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                           <div>
@@ -930,6 +936,15 @@ export function ProfilePage() {
                         </div>
                       </div>
                     </motion.div>
+                    <button
+                      type="button"
+                      onClick={() => setTrackingOrder(order)}
+                      className="w-full py-3 sm:py-3.5 rounded-2xl border-2 border-emerald-200 bg-white text-emerald-700 font-semibold text-[10px] uppercase tracking-widest hover:bg-emerald-50 hover:border-emerald-300 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      Track order
+                    </button>
+                    </div>
                   ))}
                   {displayedOrders.length < userOrders.length && (
                     <div

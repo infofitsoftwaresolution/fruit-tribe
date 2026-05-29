@@ -313,7 +313,9 @@ export function CartPage({ items, onUpdateQuantity, onRemoveItem }: CartPageProp
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Congrats! You've unlocked free delivery.
+                          {freeWithinKm > 0
+                            ? `Cart meets ₹${threshold}+ — free delivery at checkout if your address is within ${freeWithinKm} km.`
+                            : "Congrats! You've unlocked free delivery."}
                         </div>
                         <div className="h-1.5 w-full bg-emerald-100 rounded-full overflow-hidden">
                           <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />

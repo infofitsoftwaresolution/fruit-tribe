@@ -3,7 +3,7 @@
  */
 import type { SavedDeliveryAddress } from './deliveryAddressUtils';
 import { PRODUCT_PLACEHOLDER_IMAGE } from './productPlaceholder';
-import { parsePackQtyKg } from './inventoryPool';
+import { parsePackQtyKg, variantPacksAvailable } from './inventoryPool';
 
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
@@ -315,10 +315,8 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
       const label = labelRaw.toLowerCase();
       const packQty = parsePackQtyKg(labelRaw);
       const productAvailableKg = Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0));
-      const packsFromApi = Number(v.availableQuantity);
-      const packsAvailable = Number.isFinite(packsFromApi) && packsFromApi >= 0
-        ? packsFromApi
-        : Math.floor(productAvailableKg / Math.max(0.001, packQty));
+      // Shared kg pool: every variant's sellable packs derive from total remaining kg.
+      const packsAvailable = variantPacksAvailable(productAvailableKg, packQty);
       const override = v.priceOverride != null
         ? (typeof v.priceOverride === 'object' ? Number(v.priceOverride) : (typeof v.priceOverride === 'string' ? parseFloat(v.priceOverride) : Number(v.priceOverride)))
         : NaN;
@@ -339,10 +337,8 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     bulkDiscountTiers: (p.variants || [])
       .map((v) => {
         const packKg = parsePackQtyKg(String(v.attributeValue || v.sku || ''));
-        const packsAvail = Number((v as any).availableQuantity);
-        const tierInStock = Number.isFinite(packsAvail)
-          ? packsAvail > 0
-          : Math.floor(Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0)) / Math.max(0.001, packKg)) > 0;
+        const productAvailableKg = Math.max(0, Number(p.availableQuantity ?? p.stock ?? 0));
+        const tierInStock = variantPacksAvailable(productAvailableKg, packKg) > 0;
         if (!tierInStock) return null;
         const labelRaw = String(v.attributeValue || v.sku || '');
         const label = labelRaw.toLowerCase();
@@ -567,6 +563,13 @@ export async function reactivateSeller(sellerId: string): Promise<void> {
 
 export async function getOrders(): Promise<any[]> {
   const res = await fetch(`${getEffectiveApiBase()}/orders`, { headers: getAuthHeaders() });
+  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  return res.json();
+}
+
+/** Fetch a single order by id (auth required). */
+export async function getOrder(orderId: string): Promise<any> {
+  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }

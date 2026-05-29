@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { cn, formatInr } from '@/lib/utils';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
+import { variantPacksAvailable } from '@/lib/inventoryPool';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
 
@@ -139,7 +140,8 @@ export const ProductCard = memo(({
         const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
         const total = Number(v.price || retailRef);
         const discountSuffix = formatPerUnitPackDiscountSuffix(retailRef, parsed.packQty, total);
-        const availableStock = Number(v.availableStock ?? v.stock ?? 0);
+        const poolKg = Math.max(0, Number(product?.availableStock ?? product?.stock ?? stock ?? 0));
+        const availableStock = variantPacksAvailable(poolKg, parsed.packQty);
         const variantId = String((v as any).id || '');
         const sku = String(v.sku || '');
         return {

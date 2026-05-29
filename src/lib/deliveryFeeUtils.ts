@@ -33,6 +33,77 @@ export function qualifiesForFreeDelivery(
     return false;
 }
 
+/** Why free delivery did or did not apply (checkout / cart). */
+export function explainFreeDeliveryEligibility(
+    orderValue: number | undefined | null,
+    distanceKm: number | undefined | null,
+    freeThreshold?: number,
+    freeWithinKm?: number,
+): { qualifies: boolean; message: string | null } {
+    const threshold = Number(freeThreshold) || 0;
+    const withinKm = Number(freeWithinKm) || 0;
+    const order = Number(orderValue);
+    const dist = Number(distanceKm);
+    const qualifies = qualifiesForFreeDelivery(orderValue, distanceKm, freeThreshold, freeWithinKm);
+
+    if (qualifies) {
+        return { qualifies: true, message: null };
+    }
+    if (threshold <= 0 && withinKm <= 0) {
+        return { qualifies: false, message: null };
+    }
+
+    const meetsSubtotal = threshold <= 0 || (Number.isFinite(order) && order >= threshold);
+    const hasDistance =
+        Number.isFinite(dist) && dist >= 0;
+    const meetsDistance =
+        withinKm <= 0 || (hasDistance && dist <= withinKm);
+
+    if (threshold > 0 && withinKm > 0) {
+        if (!meetsSubtotal) {
+            const need = Math.max(0, threshold - (Number.isFinite(order) ? order : 0));
+            return {
+                qualifies: false,
+                message: `Free delivery on orders ₹${threshold}+ within ${withinKm} km. Add ₹${need.toFixed(0)} more to your cart.`,
+            };
+        }
+        if (!hasDistance) {
+            return {
+                qualifies: false,
+                message: `Free delivery on orders ₹${threshold}+ within ${withinKm} km. Enter your delivery address at checkout to check distance.`,
+            };
+        }
+        if (!meetsDistance) {
+            return {
+                qualifies: false,
+                message: `Your order meets the ₹${threshold} minimum, but free delivery only applies within ${withinKm} km. Your address is ${dist.toFixed(1)} km away.`,
+            };
+        }
+    }
+    if (threshold > 0 && !meetsSubtotal) {
+        const need = Math.max(0, threshold - (Number.isFinite(order) ? order : 0));
+        return {
+            qualifies: false,
+            message: `Add ₹${need.toFixed(0)} more to unlock free delivery (orders ₹${threshold}+).`,
+        };
+    }
+    if (withinKm > 0) {
+        if (!hasDistance) {
+            return {
+                qualifies: false,
+                message: `Free delivery within ${withinKm} km. Enter your delivery address to check eligibility.`,
+            };
+        }
+        if (!meetsDistance) {
+            return {
+                qualifies: false,
+                message: `Free delivery applies within ${withinKm} km only. Your address is ${dist.toFixed(1)} km away.`,
+            };
+        }
+    }
+    return { qualifies: false, message: null };
+}
+
 /** Customer-facing hint for cart / promos. */
 export function formatFreeDeliveryHint(freeThreshold?: number, freeWithinKm?: number): string | null {
     const threshold = Number(freeThreshold) || 0;

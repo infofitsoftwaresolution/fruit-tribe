@@ -1,3 +1,5 @@
+import { parsePackQtyKg, variantPacksAvailable } from './inventoryPool';
+
 /** Product fields needed for bulk / retail unit pricing. */
 export type ProductPricingInput = {
   price: number;
@@ -31,13 +33,20 @@ export function productAvailableStock(
 }
 
 export function isProductInStock(
-  product: { availableStock?: number; stock?: number; variants?: Array<{ availableStock?: number; stock?: number }> },
+  product: {
+    availableStock?: number;
+    stock?: number;
+    variants?: Array<{ availableStock?: number; stock?: number; name?: string; attributeValue?: string }>;
+  },
 ): boolean {
   const availKg = productAvailableStock(product);
   if (availKg <= 0) return false;
   const variants = product.variants || [];
   if (!variants.length) return true;
-  return variants.some((v) => Number(v.availableStock ?? v.stock ?? 0) > 0);
+  return variants.some((v) => {
+    const packKg = parsePackQtyKg(String(v.name ?? v.attributeValue ?? ''));
+    return variantPacksAvailable(availKg, packKg) > 0;
+  });
 }
 
 function normalizeBulkTiers(input: {

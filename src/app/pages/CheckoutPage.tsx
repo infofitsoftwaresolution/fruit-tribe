@@ -23,13 +23,15 @@ import {
   deleteUserAddress,
   setDefaultUserAddress,
   getEffectiveApiBase,
+  invalidateProductsListCache,
+  invalidateOrdersCache,
   getImageDisplayUrl,
   getAvailableOffers,
 } from '@/lib/api';
 import { savedAddressToCheckoutForm, type SavedDeliveryAddress } from '@/lib/deliveryAddressUtils';
 import { cn, getRoundedClass, motionTapTransition } from '@/lib/utils';
 import { ensureRazorpayScript } from '@/lib/razorpayLoader';
-import { computeDeliveryFeeByDistanceKm, qualifiesForFreeDelivery } from '@/lib/deliveryFeeUtils';
+import { computeDeliveryFeeByDistanceKm, qualifiesForFreeDelivery, explainFreeDeliveryEligibility } from '@/lib/deliveryFeeUtils';
 import { estimateCartLineTotalsWithTierDiscount } from '@/lib/pricing';
 import { getUserErrorMessage } from '@/lib/userError';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
@@ -1580,6 +1582,23 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
     );
   }, [subtotalOnly, deliveryDistance, effectivePricing.freeDeliveryThreshold, effectivePricing.freeDeliveryWithinKm]);
 
+  const freeDeliveryExplanation = useMemo(() => {
+    if (hasFreeDeliveryApplied || isDeliveryOutOfRange) return null;
+    return explainFreeDeliveryEligibility(
+      subtotalOnly,
+      deliveryDistance,
+      effectivePricing.freeDeliveryThreshold,
+      effectivePricing.freeDeliveryWithinKm,
+    ).message;
+  }, [
+    hasFreeDeliveryApplied,
+    isDeliveryOutOfRange,
+    subtotalOnly,
+    deliveryDistance,
+    effectivePricing.freeDeliveryThreshold,
+    effectivePricing.freeDeliveryWithinKm,
+  ]);
+
   const vendorSummaries = useMemo(() => {
     const entries = Object.entries(groupedItems);
     return entries.map(([vendor, vendorItems], i) => {
@@ -2010,6 +2029,8 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
       });
 
       clearCart();
+      invalidateProductsListCache();
+      invalidateOrdersCache();
 
       if (paymentMethod === 'cod') {
         toast.success('Order placed. Pay when you receive.', {
@@ -3265,6 +3286,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 <div className="mt-4 p-2.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-xl flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shrink-0" />
                   <span>Yay! Free delivery applied to this order!</span>
+                </div>
+              )}
+
+              {freeDeliveryExplanation && (
+                <div className="mt-4 p-2.5 bg-amber-50 text-amber-800 text-[10px] font-semibold rounded-xl leading-snug border border-amber-100">
+                  {freeDeliveryExplanation}
                 </div>
               )}
 

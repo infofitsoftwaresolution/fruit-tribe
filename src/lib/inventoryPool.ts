@@ -15,3 +15,7 @@ export function variantPacksAvailable(productAvailableKg: number, packKg: number
   const pack = Math.max(0.001, packKg);
   return Math.floor(Math.max(0, productAvailableKg) / pack);
 }
+
+export function variantInStockFromPool(productAvailableKg: number, packKg: number): boolean {
+  return variantPacksAvailable(productAvailableKg, packKg) > 0;
+}

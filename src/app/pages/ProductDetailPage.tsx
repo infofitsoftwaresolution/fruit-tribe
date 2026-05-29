@@ -5,6 +5,7 @@ import { Share2, Minus, Plus, ChevronRight, ChevronDown, ShieldCheck, Truck, Sta
 import { toast } from 'sonner';
 
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
+import { variantPacksAvailable } from '@/lib/inventoryPool';
 import { useAuth } from '@/app/context/AuthContext';
 import { useProduct } from '@/app/hooks/useProducts';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
@@ -118,15 +119,19 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const sortedSelectableVariants = useMemo((): Array<NonNullable<Product['variants']>[number] & { inStock: boolean }> => {
     if (!apiProduct) return [];
     const unit = apiProduct.unit || 'kg';
+    const poolKg = Math.max(0, Number(apiProduct.availableStock ?? apiProduct.stock ?? 0));
     return (apiProduct.variants || [])
       .filter((v) => {
         const label = String(v.name || '').trim().toLowerCase();
         return !label.includes('(archived)');
       })
-      .map((v) => ({
-        ...v,
-        inStock: Number((v as any).availableStock ?? (v as any).stock ?? 0) > 0,
-      }))
+      .map((v) => {
+        const packKg = parseVariantPackDescriptor(String(v.name || ''), unit).packQty;
+        return {
+          ...v,
+          inStock: variantPacksAvailable(poolKg, packKg) > 0,
+        };
+      })
       .sort((a, b) => {
         const wa = parseVariantPackDescriptor(String(a.name || ''), unit).packQty;
         const wb = parseVariantPackDescriptor(String(b.name || ''), unit).packQty;
@@ -167,6 +172,15 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
       ].filter(Boolean) as string[],
     };
   }, [apiProduct, activeVariant]);
+
+  const images = useMemo(() => {
+    if (!product) return [PRODUCT_PLACEHOLDER_IMAGE];
+    const list = [product.image, ...(product.images || [])]
+      .map((img) => String(img || '').trim())
+      .filter(Boolean);
+    const unique = Array.from(new Set(list));
+    return unique.length > 0 ? unique : [PRODUCT_PLACEHOLDER_IMAGE];
+  }, [product?.image, product?.images]);
 
   useEffect(() => {
     if (!product) return;
@@ -285,13 +299,6 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
     const suffix = formatPerUnitPackDiscountSuffix(retailForRecommendation, parsed.packQty, total);
     return `${parsed.label} pack · ${formatInr(total)}${suffix}`;
   };
-  const images = useMemo(() => {
-    const list = [product.image, ...(product.images || [])]
-      .map((img) => String(img || '').trim())
-      .filter(Boolean);
-    const unique = Array.from(new Set(list));
-    return unique.length > 0 ? unique : [PRODUCT_PLACEHOLDER_IMAGE];
-  }, [product.image, product.images]);
   const reviewAverage = reviews.length
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : '0.0';

@@ -20,20 +20,13 @@ export function sumReservedKg(
     );
 }
 
-/** Physical kg in warehouse minus kg reserved for pending orders. */
+/** Physical kg in warehouse minus kg reserved for pending orders (shared pool on product.stock). */
 export function getProductAvailableKg(
     productStockKg: number,
-    variants: Array<{ reservedQuantity?: number | null; stockQuantity?: number | null }> | null | undefined,
+    variants: Array<{ reservedQuantity?: number | null }> | null | undefined,
 ): number {
     const reserved = sumReservedKg(variants);
-    let physical = Math.max(0, Number(productStockKg) || 0);
-    const legacyVariantKg = (variants ?? []).reduce(
-        (sum, v) => sum + Math.max(0, Number(v.stockQuantity) || 0),
-        0,
-    );
-    if (physical <= 0 && legacyVariantKg > 0) {
-        physical = legacyVariantKg;
-    }
+    const physical = Math.max(0, Number(productStockKg) || 0);
     return Math.max(0, physical - reserved);
 }
 
