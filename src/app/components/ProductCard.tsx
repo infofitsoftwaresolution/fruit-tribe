@@ -209,7 +209,7 @@ export const ProductCard = memo(({
   }, [dealVariantOptions, retailRef]);
 
   /** Single sorted list: retail (1 unit), bulk slab, and variants — all ordered by pack weight. */
-  const sortedPackSelectOptions = useMemo(() => {
+  const sortedPackSelectOptions = useMemo((): Array<{ value: string; label: string; sortQty: number; disabled?: boolean }> => {
     if (bulkDealMode) {
       if (dealVariantOptions.length > 0) {
         return dealVariantOptions.map((v) => ({
@@ -461,6 +461,11 @@ export const ProductCard = memo(({
           )}
         </div>
         <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{name}</h3>
+        {/* Delivery Starts June 15 Notice */}
+        <div className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50/70 border border-amber-100 px-1.5 py-0.5 rounded-md self-start mt-0.5 select-none">
+          <CalendarDays className="h-2.5 w-2.5 text-amber-600 shrink-0" />
+          <span>Delivery starts from 15 June</span>
+        </div>
         {!isOutOfStock && (hasBulk || variantOptions.length > 0) ? (
           <div className="relative self-start mt-0.5 max-w-full">
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-[11px] font-semibold hover:bg-slate-100 transition-all select-none">
@@ -555,15 +560,20 @@ export const ProductCard = memo(({
       <div className="p-4 flex flex-col flex-1 gap-2.5">
 
         {/* Product name */}
-        <Link to={`/product/${id}`} className="flex-1">
-          <h3 className="text-base font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5">
+        <Link to={`/product/${id}`} className="flex-1 flex flex-col items-start">
+          <h3 className="text-base font-bold text-slate-900 leading-snug group-hover:text-emerald-700 transition-colors line-clamp-2 mb-0.5 text-left">
             {name}
           </h3>
           {cleanDescription && (
-            <p className="text-xs text-slate-500 leading-relaxed line-clamp-1">
+            <p className="text-xs text-slate-500 leading-relaxed line-clamp-1 text-left">
               {cleanDescription}
             </p>
           )}
+          {/* Delivery Starts June 15 Notice */}
+          <div className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50/70 border border-amber-100 px-2 py-0.5 rounded-md self-start mt-1 select-none">
+            <CalendarDays className="h-3 w-3 text-amber-600 shrink-0" />
+            <span>Delivery starts from 15 June</span>
+          </div>
         </Link>
 
         {/* Pack selector if bulk */}

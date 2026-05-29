@@ -116,16 +116,7 @@ export function FreshnessPromise() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-tr from-emerald-900/40 via-transparent to-transparent" />
 
-                {/* Overlay card */}
-                <div className="absolute bottom-5 left-5 right-5 flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-lg">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center shrink-0">
-                    <Leaf className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Straight from the farm</p>
-                    <p className="text-xs text-slate-500 mt-0.5">No middlemen. No warehouses. Just fresh.</p>
-                  </div>
-                </div>
+
               </div>
 
               {/* Floating stat card */}

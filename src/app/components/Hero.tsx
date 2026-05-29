@@ -1,7 +1,7 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowRight, MapPin, Clock, Leaf, ShieldCheck,
-  ChevronDown, Star, Zap, Truck,
+  ChevronDown, Star, Zap, Truck, Calendar,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -46,7 +46,6 @@ export function Hero() {
 
   const stats = [
     { value: products.length > 0 ? `${products.length}+` : '50+', label: 'Varieties' },
-    { value: '6h', label: 'Farm to door' },
     { value: '4.9★', label: 'Rating' },
   ];
 
@@ -78,11 +77,24 @@ export function Hero() {
             {/* ─── Left column ─── */}
             <div className="space-y-5 text-center lg:text-left">
 
-              {/* 1. Delivery status pill */}
+              {/* Pre-order Announcement */}
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
+                className="flex justify-center lg:justify-start"
+              >
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-black shadow-sm select-none">
+                  <Calendar className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Now accepting pre-orders — Fresh deliveries start from 15 June</span>
+                </div>
+              </motion.div>
+
+              {/* 1. Delivery status pill */}
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: 0.05 }}
                 className="flex justify-center lg:justify-start"
               >
                 {isLoading ? (
@@ -292,9 +304,7 @@ export function Hero() {
                       <p className="text-xs font-semibold text-white leading-tight">
                         The Fruit Tribe Farm, Bihar
                       </p>
-                      <p className="text-[11px] text-white/60 mt-0.5">
-                        Harvested this morning · Grade A
-                      </p>
+
                     </div>
                   </div>
                 </div>

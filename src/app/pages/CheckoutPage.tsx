@@ -2370,7 +2370,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         <div>
           <h3 className="text-sm font-bold text-slate-900">Delivery Slot</h3>
           <p className="text-[10px] font-semibold text-slate-500">
-            {etaLabel ? `Delivering in ${etaLabel}` : 'Choose your preferred delivery slot'}
+            Choose your preferred delivery slot
           </p>
         </div>
       </div>
@@ -2514,14 +2514,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 <span className="tabular-nums font-mono">{distanceLabel}</span>
               </p>
             </div>
-            <div className="h-8 border-l border-slate-100" />
-            <div className="text-right">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Estimated Time</p>
-              <p className="text-xs font-black text-emerald-600 flex items-center justify-end gap-1 mt-0.5">
-                <Zap className="w-3.5 h-3.5 text-emerald-500 fill-emerald-500 shrink-0" />
-                <span className="tabular-nums font-mono">{etaLabel || '…'}</span>
-              </p>
-            </div>
           </div>
         </div>
 
@@ -2534,7 +2526,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
         )}
 
         {/* Mobile Stats Bar (Sticky below header) */}
-        <div className="bg-white border-b border-slate-100 p-3 grid grid-cols-3 gap-2.5 text-center text-xs sticky top-[61px] z-10 shadow-sm lg:hidden">
+        <div className="bg-white border-b border-slate-100 p-3 grid grid-cols-2 gap-2.5 text-center text-xs sticky top-[61px] z-10 shadow-sm lg:hidden">
           <div className="bg-slate-50/80 p-1.5 rounded-xl border border-slate-100/50">
             <p className="text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-0.5">Distance</p>
             <p className="text-slate-800 font-extrabold flex items-center justify-center gap-1">
@@ -2547,13 +2539,6 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
             <p className="text-emerald-600 font-extrabold flex items-center justify-center gap-1">
               <Zap className="w-3.5 h-3.5 fill-emerald-500 text-emerald-500 shrink-0" />
               <span className="tabular-nums">{deliveryStats.onTimeRate != null ? `${deliveryStats.onTimeRate}%` : '…'}</span>
-            </p>
-          </div>
-          <div className="bg-slate-50/80 p-1.5 rounded-xl border border-slate-100/50">
-            <p className="text-slate-400 font-bold uppercase text-[8px] tracking-wider mb-0.5">ETA</p>
-            <p className="text-slate-800 font-extrabold flex items-center justify-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-              <span className="tabular-nums">{etaLabel || '…'}</span>
             </p>
           </div>
         </div>
@@ -3313,6 +3298,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 </p>
               )}
 
+              {/* Pre-order Delivery Starts June 15 Notice */}
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-bold flex items-center gap-2 shadow-sm select-none">
+                <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
+                <span>Pre-order today: Deliveries begin from 15 June</span>
+              </div>
+
               {/* Desktop Pay Button */}
               <div className="hidden lg:block">
                 {desktopPayButton}
@@ -3327,6 +3318,12 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
         {/* Mobile Sticky Bottom Pay Bar (Hidden on desktop) */}
         <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 p-4 z-20 lg:hidden flex flex-col gap-2 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+          {/* Pre-order Delivery Starts June 15 Notice */}
+          <div className="p-2 px-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-[10px] font-bold flex items-center gap-1.5 self-center select-none">
+            <Calendar className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <span>Delivery starts from 15 June</span>
+          </div>
+
           <button
             type="button"
             onClick={() => void submitCheckout()}
