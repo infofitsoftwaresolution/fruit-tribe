@@ -3,6 +3,7 @@ import {
     UnauthorizedException,
     BadRequestException,
     ConflictException,
+    NotFoundException,
     ServiceUnavailableException,
     Logger,
 } from '@nestjs/common';
@@ -156,9 +157,12 @@ export class AuthService {
                     'This email is used for delivery partner access. Sign in on the delivery login page.',
                 );
             }
-            // If user has a pending OTP (not yet verified), hint frontend to redirect to verify-email
-            if (existing.otpCode && existing.otpExpiry && existing.isActive === false) {
-                throw new ConflictException('EMAIL_PENDING_VERIFICATION');
+            // Unverified account (OTP may have expired or been cleared after 24h)
+            if (existing.isActive === false) {
+                throw new ConflictException({
+                    message: 'EMAIL_PENDING_VERIFICATION',
+                    email: emailNorm,
+                });
             }
             throw new ConflictException('EMAIL_ALREADY_REGISTERED');
         }
@@ -177,7 +181,7 @@ export class AuthService {
                     'This mobile number is used for delivery partner access. Sign in on the delivery login page.',
                 );
             }
-            if (phoneTaken.otpCode && phoneTaken.otpExpiry && phoneTaken.isActive === false) {
+            if (phoneTaken.isActive === false) {
                 throw new ConflictException({
                     message: 'PHONE_PENDING_VERIFICATION',
                     phone: normalizedPhone,
@@ -482,9 +486,8 @@ export class AuthService {
             );
         }
 
-        // If already verified, nothing to resend
-        if (!user.otpCode || !user.otpExpiry || user.otpExpiry < new Date()) {
-            return { message: 'Account is already verified or has no pending code.' };
+        if (user.isActive) {
+            return { message: 'Account is already verified. You can sign in.' };
         }
 
         const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
@@ -749,11 +752,63 @@ export class AuthService {
         return { updated: result.count };
     }
 
-    async forgotPassword(dto: ForgotPasswordDto) {
-        const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-        // Do not leak whether the email exists
+    /** Admin: manually verify / activate a customer account. */
+    async activateCustomerForAdmin(userId: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: { role: true },
+        });
         if (!user) {
-            return { message: 'If this email exists, a reset code has been sent.' };
+            throw new NotFoundException('Customer not found.');
+        }
+        if (user.role?.name !== 'CUSTOMER') {
+            throw new BadRequestException('Only customer accounts can be activated from this screen.');
+        }
+        if (user.isActive) {
+            return {
+                message: 'Account is already active.',
+                user: {
+                    id: user.id,
+                    email: user.email,
+                    isActive: true,
+                    verificationStatus: 'Verified',
+                },
+            };
+        }
+
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    isActive: true,
+                    otpCode: null,
+                    otpExpiry: null,
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
+                },
+            });
+            await tx.otpLog.updateMany({
+                where: { userId, verified: false },
+                data: { verified: true },
+            });
+        });
+
+        return {
+            message: 'Customer account activated successfully.',
+            user: {
+                id: user.id,
+                email: user.email,
+                isActive: true,
+                verificationStatus: 'Verified',
+            },
+        };
+    }
+
+    async forgotPassword(dto: ForgotPasswordDto) {
+        const emailNorm = dto.email.trim().toLowerCase();
+        const user = await this.prisma.user.findUnique({ where: { email: emailNorm } });
+        if (!user) {
+            throw new NotFoundException('No account found with this email address.');
         }
 
         if (!this.mailService.isEnabled()) {
@@ -781,7 +836,7 @@ export class AuthService {
                 'We could not send the reset email. Please try again in a few minutes.',
             );
         }
-        return { message: 'If this email exists, a reset code has been sent.' };
+        return { message: 'A password reset code has been sent to your email.' };
     }
 
     async resetPassword(dto: ResetPasswordDto) {

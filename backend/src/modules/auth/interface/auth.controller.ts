@@ -10,6 +10,7 @@ import {
     HttpStatus,
     Res,
     Query,
+    Param,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '../application/auth.service';
@@ -124,6 +125,15 @@ export class AuthController {
     @Get('users')
     async getUsers() {
         return this.authService.getCustomersForAdmin();
+    }
+
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Activate / verify a customer account (Admin only)' })
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('ADMIN')
+    @Patch('users/:id/activate')
+    async activateCustomer(@Param('id') id: string) {
+        return this.authService.activateCustomerForAdmin(id);
     }
 
     @ApiBearerAuth()

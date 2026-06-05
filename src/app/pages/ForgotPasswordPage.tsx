@@ -14,14 +14,16 @@ export function ForgotPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [step, setStep] = useState<'request' | 'reset' | 'done'>('request');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
     try {
       if (step === 'request') {
-        await requestPasswordReset(email.trim());
-        toast.success('If this email exists, a reset code has been sent.');
+        const res = await requestPasswordReset(email.trim());
+        toast.success(res.message || 'A password reset code has been sent to your email.');
         setStep('reset');
       } else if (step === 'reset') {
         if (newPassword.length < 8) {
@@ -36,8 +38,10 @@ export function ForgotPasswordPage() {
         toast.success('Password reset successful. You can now log in.');
         setStep('done');
       }
-    } catch (err: any) {
-      toast.error(getUserErrorMessage(err, 'Something went wrong. Please try again.'));
+    } catch (err: unknown) {
+      const msg = getUserErrorMessage(err, 'Something went wrong. Please try again.');
+      setError(msg);
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -67,6 +71,11 @@ export function ForgotPasswordPage() {
 
               {/* Request reset code form */}
               <form onSubmit={handleSubmit} className="space-y-6">
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+                    {error}
+                  </div>
+                )}
                 <div>
                   <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
                     Email Address

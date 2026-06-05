@@ -912,9 +912,44 @@ export async function requestPasswordReset(email: string): Promise<{ message: st
   const res = await fetch(`${getEffectiveApiBase()}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email: email.trim().toLowerCase() }),
   });
-  if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      const raw = data?.message;
+      if (typeof raw === 'string' && raw.trim()) message = raw;
+      else if (Array.isArray(raw)) message = raw.join('; ');
+    } catch {
+      message = await res.text().catch(() => res.statusText);
+    }
+    throw new Error(message || 'Password reset request failed.');
+  }
+  return res.json();
+}
+
+/** Admin: activate / verify a customer account. */
+export async function activateCustomerAccount(userId: string): Promise<{
+  message: string;
+  user: { id: string; email: string; isActive: boolean; verificationStatus: string };
+}> {
+  const res = await fetch(`${getEffectiveApiBase()}/auth/users/${userId}/activate`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      const raw = data?.message;
+      if (typeof raw === 'string' && raw.trim()) message = raw;
+      else if (Array.isArray(raw)) message = raw.join('; ');
+    } catch {
+      message = await res.text().catch(() => res.statusText);
+    }
+    throw new Error(message || 'Could not activate customer.');
+  }
   return res.json();
 }
 

@@ -14,7 +14,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
-import { postBulkCustomerAnnouncement } from '@/lib/api';
+import { activateCustomerAccount, postBulkCustomerAnnouncement } from '@/lib/api';
 import { getUserErrorMessage } from '@/lib/userError';
 
 const STOCK_CLEARANCE_PRESET = {
@@ -27,7 +27,7 @@ export function AdminCustomersPage() {
     const navigate = useNavigate();
     const { theme } = useStore();
     const { user } = useAuth();
-    const { customers, orders, isInitialLoading: loading } = useAdminData();
+    const { customers, orders, isInitialLoading: loading, refreshCustomers } = useAdminData();
     const [searchQuery, setSearchQuery] = useState('');
     const [segmentFilter, setSegmentFilter] = useState<'all' | 'VIP' | 'Active' | 'Inactive'>('all');
     const [verificationFilter, setVerificationFilter] = useState<'all' | 'Verified' | 'Unverified'>('all');
@@ -40,6 +40,26 @@ export function AdminCustomersPage() {
     const [bulkMessage, setBulkMessage] = useState(STOCK_CLEARANCE_PRESET.message);
     const [bulkAudience, setBulkAudience] = useState<'all' | 'verified' | 'with_orders'>('verified');
     const [bulkSendEmail, setBulkSendEmail] = useState(false);
+    const [activatingId, setActivatingId] = useState<string | null>(null);
+
+    const handleActivateCustomer = async (customer: { id: string; name: string; email: string }) => {
+        if (!isAdmin) return;
+        setActivatingId(customer.id);
+        try {
+            const res = await activateCustomerAccount(customer.id);
+            toast.success(res.message || `${customer.name} has been activated.`);
+            await refreshCustomers();
+            setSelectedCustomer((prev: any) =>
+                prev?.id === customer.id
+                    ? { ...prev, verificationStatus: 'Verified', isActive: true }
+                    : prev,
+            );
+        } catch (err) {
+            toast.error(getUserErrorMessage(err, 'Could not activate this customer.'));
+        } finally {
+            setActivatingId(null);
+        }
+    };
 
     const filteredCustomers = useMemo(() => {
         let base = customers.map((c: any) => ({
@@ -418,7 +438,26 @@ export function AdminCustomersPage() {
                                                 </div>
                                             </td>
                                             <td className="admin-td">
-                                                <div className="flex justify-center">
+                                                <div className="flex justify-center gap-2">
+                                                    {customer.verificationStatus === 'Unverified' && isAdmin && (
+                                                        <button
+                                                            type="button"
+                                                            title="Activate account"
+                                                            disabled={activatingId === customer.id}
+                                                            className="h-8 px-2.5 flex items-center justify-center gap-1 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 hover:bg-emerald-100 transition-all text-[10px] font-semibold disabled:opacity-50"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                void handleActivateCustomer(customer);
+                                                            }}
+                                                        >
+                                                            {activatingId === customer.id ? (
+                                                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                            ) : (
+                                                                <Shield className="w-3.5 h-3.5" />
+                                                            )}
+                                                            Activate
+                                                        </button>
+                                                    )}
                                                     <button 
                                                         className="h-8 w-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all"
                                                         onClick={(e) => {
@@ -611,7 +650,14 @@ export function AdminCustomersPage() {
                                         </div>
                                         <div>
                                             <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase font-heading leading-tight">{selectedCustomer.name}</h2>
-                                            <div className="flex items-center gap-4 mt-3">
+                                            <div className="flex items-center gap-4 mt-3 flex-wrap">
+                                                <span className={cn(
+                                                    selectedCustomer.verificationStatus === 'Verified'
+                                                        ? 'admin-badge-emerald'
+                                                        : 'admin-badge-amber',
+                                                )}>
+                                                    {selectedCustomer.verificationStatus}
+                                                </span>
                                                 <span className={cn(
                                                     "px-5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm border",
                                                     selectedCustomer.status === 'VIP' 
@@ -733,6 +779,21 @@ export function AdminCustomersPage() {
                             </div>
 
                             <div className="p-10 bg-slate-50/80 backdrop-blur-md border-t border-slate-100 flex gap-4 mt-auto">
+                                {selectedCustomer.verificationStatus === 'Unverified' && isAdmin && (
+                                    <button
+                                        type="button"
+                                        disabled={activatingId === selectedCustomer.id}
+                                        onClick={() => void handleActivateCustomer(selectedCustomer)}
+                                        className="flex-1 h-14 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-700 text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-60"
+                                    >
+                                        {activatingId === selectedCustomer.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Shield className="w-4 h-4" />
+                                        )}
+                                        Activate account
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => handleViewCustomerAnalytics(selectedCustomer)}
                                     className="flex-1 h-14 bg-slate-900 text-white rounded-2xl hover:bg-black text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-slate-900/10"

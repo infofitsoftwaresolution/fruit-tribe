@@ -3,9 +3,11 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
-import { UserPlus, Eye, EyeOff, Shield, Loader2 } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, Shield, Loader2, Mail, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, pressableSurfaceClass } from '@/lib/utils';
+import { resendEmailCode } from '@/lib/api';
+import { getUserErrorMessage } from '@/lib/userError';
 
 const AUTH_BG_IMAGE =
   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&q=80';
@@ -37,7 +39,12 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [resendingVerify, setResendingVerify] = useState(false);
   const [error, setError] = useState('');
+  const [pendingVerification, setPendingVerification] = useState<{
+    identifier: string;
+    channel: 'sms' | 'email';
+  } | null>(null);
   const resolvedAuthBg =
     (theme?.authBackgroundImage && theme.authBackgroundImage.trim()) || AUTH_BG_IMAGE;
 
@@ -179,7 +186,45 @@ export function SignUpPage({ embedded = false }: SignUpPageProps) {
           </div>
 
           <AnimatePresence mode="wait">
-            {error && (
+            {pendingVerification && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-4 p-4 bg-amber-50/95 backdrop-blur-sm border border-amber-200/80 rounded-xl space-y-3"
+              >
+                <div className="flex items-start gap-2">
+                  <Mail className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Account not verified yet</p>
+                    <p className="text-sm text-amber-800 mt-1">
+                      {pendingVerification.channel === 'sms'
+                        ? 'This mobile number is already registered but not verified. Re-verify to receive a new OTP.'
+                        : 'This email is already registered but not verified. Re-verify to receive a new code.'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleReverify()}
+                  disabled={resendingVerify}
+                  className={cn(
+                    pressableSurfaceClass,
+                    'w-full h-10 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg flex items-center justify-center gap-2 disabled:opacity-70',
+                  )}
+                >
+                  {resendingVerify ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      Re-verify account
+                    </>
+                  )}
+                </button>
+              </motion.div>
+            )}
+            {error && !pendingVerification && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
