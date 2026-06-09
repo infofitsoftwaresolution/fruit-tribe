@@ -2,7 +2,11 @@ import { createContext, useContext, useState, ReactNode, useEffect, useCallback 
 import { toast } from 'sonner';
 import { getEffectiveApiBase, getAuthProfile, registerUser } from '@/lib/api';
 import { parseAuthVerificationFromResponse } from '@/lib/authVerification';
-import { getUserErrorMessage } from '@/lib/userError';
+import {
+  isSessionExpiredError,
+  SESSION_EXPIRED_EVENT,
+} from '@/lib/sessionAuth';
+import { toastSessionExpired, toastUserError } from '@/lib/userError';
 
 export type UserRole = 'admin' | 'seller' | 'customer' | 'delivery_partner';
 
@@ -85,6 +89,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   const [isSessionChecked, setIsSessionChecked] = useState(false);
 
+  const clearSessionQuiet = useCallback(() => {
+    setUser(null);
+    setRequirePasswordChange(false);
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('requirePasswordChange');
+  }, []);
+
   const refreshSessionFromServer = useCallback(async () => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
     if (!token) return;
@@ -118,10 +131,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('user', JSON.stringify(next));
         return next;
       });
-    } catch {
-      /* offline or expired token */
+    } catch (error) {
+      if (isSessionExpiredError(error)) {
+        clearSessionQuiet();
+      }
     }
-  }, []);
+  }, [clearSessionQuiet]);
+
+  useEffect(() => {
+    const onSessionExpired = () => {
+      clearSessionQuiet();
+      toastSessionExpired();
+      const path = (window.location.hash.replace(/^#/, '') || '/').split('?')[0];
+      const needsLogin =
+        path.startsWith('/admin')
+        || path.startsWith('/delivery')
+        || path.startsWith('/profile')
+        || path.startsWith('/checkout')
+        || path.startsWith('/change-password');
+      if (needsLogin && path !== '/login') {
+        window.location.hash = '#/login';
+      }
+    };
+
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [clearSessionQuiet]);
 
   useEffect(() => {
     const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
@@ -219,7 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRequirePasswordChange(!!u.requirePasswordChange);
       toast.success(`Welcome back, ${userData.name}!`);
     } catch (error: any) {
-      toast.error(getUserErrorMessage(error, 'Login failed. Please check your email and password.'));
+      toastUserError(error, 'Login failed. Please check your email and password.');
       throw error;
     }
   };

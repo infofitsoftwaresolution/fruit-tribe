@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn, getRoundedClass } from '@/lib/utils';
 import { toast } from 'sonner';
 import { activateCustomerAccount, postBulkCustomerAnnouncement } from '@/lib/api';
-import { getUserErrorMessage } from '@/lib/userError';
+import { toastUserError } from '@/lib/userError';
 
 const STOCK_CLEARANCE_PRESET = {
     title: 'Stock clearance sale',
@@ -55,7 +55,7 @@ export function AdminCustomersPage() {
                     : prev,
             );
         } catch (err) {
-            toast.error(getUserErrorMessage(err, 'Could not activate this customer.'));
+            toastUserError(err, 'Could not activate this customer.');
         } finally {
             setActivatingId(null);
         }
@@ -248,7 +248,7 @@ export function AdminCustomersPage() {
             }
             setBulkOpen(false);
         } catch (e: unknown) {
-            toast.error(getUserErrorMessage(e, 'Failed to send bulk message'));
+            toastUserError(e, 'Failed to send bulk message');
         } finally {
             setBulkLoading(false);
         }

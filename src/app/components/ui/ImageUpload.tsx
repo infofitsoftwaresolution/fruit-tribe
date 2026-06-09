@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getEffectiveApiBase, getImageDisplayUrl } from '@/lib/api';
 import { getUserErrorMessage } from '@/lib/userError';
+import { apiFetch } from '@/lib/api';
 
 interface ImageUploadProps {
     value: string[];
@@ -55,7 +56,7 @@ export function ImageUpload({ value, onChange, maxFiles = 4, label = 'Product Im
                 localStorage.getItem('accessToken') ||
                 sessionStorage.getItem('token') ||
                 sessionStorage.getItem('accessToken');
-            const response = await fetch(`${getEffectiveApiBase()}/uploads/multiple`, {
+            const response = await apiFetch(`${getEffectiveApiBase()}/uploads/multiple`, {
                 method: 'POST',
                 headers: token ? { Authorization: `Bearer ${token}` } : undefined,
                 body: formData,

@@ -5,6 +5,9 @@ import type { SavedDeliveryAddress } from './deliveryAddressUtils';
 import { parseAuthVerificationFromResponse } from './authVerification';
 import { PRODUCT_PLACEHOLDER_IMAGE } from './productPlaceholder';
 import { parsePackQtyKg, variantPacksAvailable } from './inventoryPool';
+import { apiFetch } from './sessionAuth';
+
+export { apiFetch } from './sessionAuth';
 
 const API_BASE = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || 'http://localhost:3000/v1';
 
@@ -57,13 +60,13 @@ export type AuthProfileUpdate = {
 };
 
 export async function getAuthProfile(): Promise<AuthProfile> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/me`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/me`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 export async function updateAuthProfile(body: AuthProfileUpdate): Promise<AuthProfile> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/profile`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/profile`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -78,7 +81,7 @@ export async function submitContactMessage(body: {
   subject: string;
   message: string;
 }): Promise<{ message?: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/contact`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/contact`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -88,7 +91,7 @@ export async function submitContactMessage(body: {
 }
 
 export async function subscribeNewsletter(email: string): Promise<{ message?: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/newsletter/subscribe`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/newsletter/subscribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -99,7 +102,7 @@ export async function subscribeNewsletter(email: string): Promise<{ message?: st
 
 /** Saved delivery addresses for the logged-in customer. */
 export async function getUserAddresses(): Promise<SavedDeliveryAddress[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/addresses`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/addresses`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -115,7 +118,7 @@ export async function createUserAddress(body: {
   pincode: string;
   isDefault?: boolean;
 }): Promise<SavedDeliveryAddress> {
-  const res = await fetch(`${getEffectiveApiBase()}/addresses`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/addresses`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -141,7 +144,7 @@ export async function updateUserAddress(
     isDefault: boolean;
   }>,
 ): Promise<SavedDeliveryAddress> {
-  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/addresses/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -151,7 +154,7 @@ export async function updateUserAddress(
 }
 
 export async function deleteUserAddress(id: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/addresses/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -159,7 +162,7 @@ export async function deleteUserAddress(id: string): Promise<void> {
 }
 
 export async function setDefaultUserAddress(id: string): Promise<SavedDeliveryAddress> {
-  const res = await fetch(`${getEffectiveApiBase()}/addresses/${id}/default`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/addresses/${id}/default`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -449,13 +452,13 @@ export async function getProducts(filters: ProductFilters = {}): Promise<Product
   if (filters.showOutOfSeason !== undefined) params.set('showOutOfSeason', String(filters.showOutOfSeason));
   if (filters.includeInactive !== undefined) params.set('includeInactive', String(filters.includeInactive));
   const qs = params.toString();
-  const res = await fetch(`${getEffectiveApiBase()}/products${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/products${qs ? `?${qs}` : ''}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 export async function getProduct(id: string): Promise<ApiProduct | null> {
-  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/products/${id}`, { headers: getAuthHeaders() });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
@@ -470,7 +473,7 @@ export interface Category {
 }
 
 export async function getCategories(): Promise<Category[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/categories`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/categories`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -487,7 +490,7 @@ export type AdminContactSubmission = {
 export async function getAdminContactSubmissions(limit: number = 12): Promise<AdminContactSubmission[]> {
   const params = new URLSearchParams();
   params.set('limit', String(limit));
-  const res = await fetch(`${getEffectiveApiBase()}/settings/contact-submissions?${params.toString()}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/contact-submissions?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -514,7 +517,7 @@ export async function getAdminDeliveryOverdue(
 ): Promise<{ thresholdHours: number; items: AdminDeliveryOverdueItem[] }> {
   const params = new URLSearchParams();
   params.set('hours', String(hours));
-  const res = await fetch(`${getEffectiveApiBase()}/orders/admin/delivery-overdue?${params.toString()}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/admin/delivery-overdue?${params.toString()}`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -526,7 +529,7 @@ export async function getAdminDeliveryOverdue(
 }
 
 export async function createCategory(body: { name: string; description?: string; imageUrl?: string }): Promise<Category> {
-  const res = await fetch(`${getEffectiveApiBase()}/categories`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/categories`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -539,14 +542,14 @@ export async function createCategory(body: { name: string; description?: string;
 }
 
 export async function getSellers(): Promise<any[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/sellers`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/sellers`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 /** Suspend seller (admin only). */
 export async function suspendSeller(sellerId: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/suspend`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/sellers/${sellerId}/suspend`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -555,7 +558,7 @@ export async function suspendSeller(sellerId: string): Promise<void> {
 
 /** Reactivate a suspended seller (admin only). */
 export async function reactivateSeller(sellerId: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/reactivate`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/sellers/${sellerId}/reactivate`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -563,14 +566,14 @@ export async function reactivateSeller(sellerId: string): Promise<void> {
 }
 
 export async function getOrders(): Promise<any[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 /** Fetch a single order by id (auth required). */
 export async function getOrder(orderId: string): Promise<any> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -626,7 +629,7 @@ export async function createOrder(body: {
   paymentMethod?: 'online' | 'cod';
   savedAddressId?: string;
 }): Promise<{ id: string; orderNumber: string; [k: string]: unknown }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -664,7 +667,7 @@ export async function simulateOrderPricing(body: {
   amountInPaise: number;
   currency: string;
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/pricing/simulate`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/pricing/simulate`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -694,7 +697,7 @@ export async function createSubscriptionOrder(body: {
   idempotencyKey?: string;
   savedAddressId?: string;
 }): Promise<{ id: string; orderNumber: string; payableAmount?: unknown; [k: string]: unknown }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/subscription`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/subscription`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -717,7 +720,7 @@ export async function createSubscriptionOrder(body: {
 
 /** Update order status (admin/seller). Persists to database. */
 export async function updateOrderStatus(orderId: string, status: string): Promise<unknown> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/status`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}/status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ status }),
@@ -728,7 +731,7 @@ export async function updateOrderStatus(orderId: string, status: string): Promis
 
 /** Update order payment status (admin only). Persists to database. */
 export async function updateOrderPaymentStatus(orderId: string, paymentStatus: string): Promise<unknown> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-status`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-status`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify({ paymentStatus }),
@@ -747,7 +750,7 @@ export async function createManualOrder(body: {
   status?: string;
   paymentStatus?: string;
 }): Promise<any> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/manual`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/manual`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -765,7 +768,7 @@ export async function generateOrderPaymentLink(
   amountInPaise: number,
   customerDetails?: { name: string; email?: string; contact?: string }
 ): Promise<{ paymentLink: string; emailDispatch?: { sent: boolean; error?: string } }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-link`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}/payment-link`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ amountInPaise, customerDetails }),
@@ -792,7 +795,7 @@ export async function createRazorpayOrder(
   amountInPaise: number,
   currency: string = 'INR'
 ): Promise<{ razorpayOrderId: string; keyId: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/create-razorpay-order`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}/create-razorpay-order`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ amountInPaise, currency }),
@@ -816,7 +819,7 @@ export async function verifyPayment(
   orderId: string,
   payload: { razorpayOrderId: string; razorpayPaymentId: string; signature: string }
 ): Promise<{ success: boolean }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/${orderId}/verify-payment`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/${orderId}/verify-payment`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(payload),
@@ -831,7 +834,7 @@ export async function confirmPaymentLink(orderId: string, payload?: {
   paymentLinkId?: string;
   paymentLinkStatus?: string;
 }): Promise<{ success: boolean; paymentStatus: string; orderStatus: string; captured: boolean }> {
-  const res = await fetch(`${getEffectiveApiBase()}/orders/public/${orderId}/confirm-payment-link`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/orders/public/${orderId}/confirm-payment-link`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload ?? {}),
@@ -855,7 +858,7 @@ export async function registerUser(payload: {
     firstName: firstName || undefined,
     lastName: lastName || undefined,
   };
-  const res = await fetch(`${getEffectiveApiBase()}/auth/register`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -889,7 +892,7 @@ export async function registerUser(payload: {
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<{ message: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/verify-email`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/verify-email`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, code }),
@@ -899,7 +902,7 @@ export async function verifyEmailCode(email: string, code: string): Promise<{ me
 }
 
 export async function resendEmailCode(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/resend-email-code`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/resend-email-code`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -909,7 +912,7 @@ export async function resendEmailCode(email: string): Promise<{ message: string 
 }
 
 export async function requestPasswordReset(email: string): Promise<{ message: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/forgot-password`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/forgot-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -934,7 +937,7 @@ export async function activateCustomerAccount(userId: string): Promise<{
   message: string;
   user: { id: string; email: string; isActive: boolean; verificationStatus: string };
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/users/${userId}/activate`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/users/${userId}/activate`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -954,7 +957,7 @@ export async function activateCustomerAccount(userId: string): Promise<{
 }
 
 export async function resetPasswordWithCode(email: string, code: string, newPassword: string): Promise<{ message: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/reset-password`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, code, newPassword }),
@@ -964,7 +967,7 @@ export async function resetPasswordWithCode(email: string, code: string, newPass
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/change-password`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/change-password`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ currentPassword, newPassword }),
@@ -974,7 +977,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 export async function getCustomers(): Promise<any[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/users`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -993,7 +996,7 @@ export async function postBulkCustomerAnnouncement(body: {
   emailCap?: number;
   message?: string;
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/users/bulk-announcement`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/users/bulk-announcement`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1031,7 +1034,7 @@ export async function getMyNotifications(params?: { limit?: number; unreadOnly?:
   if (typeof params?.limit === 'number') q.set('limit', String(params.limit));
   if (typeof params?.unreadOnly === 'boolean') q.set('unreadOnly', String(params.unreadOnly));
   const suffix = q.toString() ? `?${q.toString()}` : '';
-  const res = await fetch(`${getEffectiveApiBase()}/auth/notifications${suffix}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/notifications${suffix}`, {
     headers: getAuthHeaders(),
   });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
@@ -1039,7 +1042,7 @@ export async function getMyNotifications(params?: { limit?: number; unreadOnly?:
 }
 
 export async function markAllNotificationsRead(): Promise<{ updated: number }> {
-  const res = await fetch(`${getEffectiveApiBase()}/auth/notifications/read-all`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/auth/notifications/read-all`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -1075,7 +1078,7 @@ export async function createProduct(body: {
   origin?: string;
   nutritionalInfo?: string;
 }): Promise<ApiProduct> {
-  const res = await fetch(`${getEffectiveApiBase()}/products`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/products`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1116,7 +1119,7 @@ export async function updateProduct(
     nutritionalInfo?: string;
   }>
 ): Promise<ApiProduct> {
-  const res = await fetch(`${getEffectiveApiBase()}/products/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/products/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1131,7 +1134,7 @@ export async function deleteProduct(id: string, options?: { permanent?: boolean 
   const params = new URLSearchParams();
   if (options?.permanent) params.set('permanent', 'true');
   const q = params.toString();
-  const res = await fetch(`${getEffectiveApiBase()}/products/${id}${q ? `?${q}` : ''}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/products/${id}${q ? `?${q}` : ''}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -1141,7 +1144,7 @@ export async function deleteProduct(id: string, options?: { permanent?: boolean 
 
 /** Approve seller application (admin only). */
 export async function approveSeller(sellerId: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/sellers/${sellerId}/approve`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/sellers/${sellerId}/approve`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
   });
@@ -1150,7 +1153,7 @@ export async function approveSeller(sellerId: string): Promise<void> {
 
 /** Get serviceable cities and optional 6-digit pincodes (where we deliver). Public. */
 export async function getServiceableAreas(): Promise<{ cities: string[]; pincodes: string[] }> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`);
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/serviceable-areas`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   const data = await res.json();
   return {
@@ -1164,7 +1167,7 @@ export async function updateServiceableAreas(body: {
   cities?: string[];
   pincodes?: string[];
 }): Promise<{ cities: string[]; pincodes: string[] }> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/serviceable-areas`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/serviceable-areas`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1189,7 +1192,7 @@ export async function getStoreSettings(): Promise<{
   freeDeliveryWithinKm?: number;
 }> {
   const bust = Date.now();
-  const res = await fetch(`${getEffectiveApiBase()}/settings/store?_=${bust}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/store?_=${bust}`, {
     cache: 'no-store',
     headers: { 'Cache-Control': 'no-cache' },
   });
@@ -1218,7 +1221,7 @@ export async function updateStoreSettings(body: {
   freeDeliveryWithinKm?: number;
   message?: string;
 }> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/store`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/store`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1236,7 +1239,7 @@ export async function getWarehouses(activeOnly = true): Promise<Array<{
   longitude: number | string;
   isActive: boolean;
 }>> {
-  const res = await fetch(`${getEffectiveApiBase()}/warehouses?activeOnly=${activeOnly}`);
+  const res = await apiFetch(`${getEffectiveApiBase()}/warehouses?activeOnly=${activeOnly}`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -1246,7 +1249,7 @@ export async function getDrivingDistanceKm(
   sources: Array<{ latitude: number; longitude: number }>,
   destination: { latitude: number; longitude: number },
 ): Promise<{ distanceKm: number | null }> {
-  const res = await fetch(`${getEffectiveApiBase()}/geocode/driving-distance`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/geocode/driving-distance`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ sources, destination }),
@@ -1261,7 +1264,7 @@ export async function getDrivingDistanceKm(
 
 /** Create warehouse (admin only). */
 export async function createWarehouse(data: { name: string; address: string; latitude: number; longitude: number; isActive?: boolean }): Promise<{ id: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/warehouses`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/warehouses`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -1272,7 +1275,7 @@ export async function createWarehouse(data: { name: string; address: string; lat
 
 /** Update warehouse (admin only). */
 export async function updateWarehouse(id: string, data: Partial<{ name: string; address: string; latitude: number; longitude: number; isActive: boolean }>): Promise<unknown> {
-  const res = await fetch(`${getEffectiveApiBase()}/warehouses/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/warehouses/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -1283,20 +1286,20 @@ export async function updateWarehouse(id: string, data: Partial<{ name: string; 
 
 /** Delete warehouse (admin only). */
 export async function deleteWarehouse(id: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/warehouses/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/warehouses/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
 }
 
 /** List delivery partners / in-house delivery staff (admin only). */
 export async function getDeliveryPartners(): Promise<Array<{ id: string; name: string; phone: string; vehicle: string | null; status: string; onlineStatus?: string; user?: { email: string } }>> {
-  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/delivery-partners`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
 
 /** Create delivery partner (admin only). Also provisions login with temp password. */
 export async function createDeliveryPartner(data: { name: string; phone: string; email: string; vehicle?: string; status?: string }): Promise<{ id: string }> {
-  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/delivery-partners`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -1310,7 +1313,7 @@ export async function updateDeliveryPartner(
   id: string,
   data: Partial<{ name: string; phone: string; email: string; vehicle: string; status: string }>,
 ): Promise<unknown> {
-  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(data),
@@ -1321,13 +1324,13 @@ export async function updateDeliveryPartner(
 
 /** Delete delivery partner (admin only). */
 export async function deleteDeliveryPartner(id: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/delivery-partners/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
 }
 
 /** Assign an order to a delivery partner (admin only). */
 export async function assignDeliveryPartner(orderId: string, partnerId: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/delivery-partners/assign`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/delivery-partners/assign`, {
     method: 'POST',
     headers: getAuthHeaders(),
     body: JSON.stringify({ orderId, partnerId }),
@@ -1355,7 +1358,7 @@ export async function validateCoupon(code: string, context?: {
   if (context?.categoryName) params.set('categoryName', context.categoryName);
   if (context?.cartProductIds?.length) params.set('cartProductIds', context.cartProductIds.join(','));
   if (context?.cartCategoryNames?.length) params.set('cartCategoryNames', context.cartCategoryNames.join(','));
-  const res = await fetch(`${getEffectiveApiBase()}/settings/validate-coupon?${params.toString()}`);
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/validate-coupon?${params.toString()}`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   return res.json();
 }
@@ -1406,14 +1409,14 @@ export async function getAvailableOffers(filters?: {
   if (filters?.cartProductIds?.length) params.set('cartProductIds', filters.cartProductIds.join(','));
   if (filters?.cartCategoryNames?.length) params.set('cartCategoryNames', filters.cartCategoryNames.join(','));
   const qs = params.toString();
-  const res = await fetch(`${getEffectiveApiBase()}/settings/offers${qs ? `?${qs}` : ''}`);
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/offers${qs ? `?${qs}` : ''}`);
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   const data = await res.json();
   return Array.isArray(data?.offers) ? data.offers : [];
 }
 
 export async function getAdminCoupons(): Promise<AdminCoupon[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupons`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   const data = await res.json();
   return Array.isArray(data?.coupons) ? data.coupons : [];
@@ -1429,7 +1432,7 @@ export async function createAdminCoupon(body: {
   usageLimit?: number | null;
   isActive?: boolean;
 }): Promise<AdminCoupon> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/create`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupons/create`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1449,7 +1452,7 @@ export async function updateAdminCoupon(id: string, body: {
   usageLimit?: number | null;
   isActive?: boolean;
 }): Promise<AdminCoupon> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify(body),
@@ -1460,7 +1463,7 @@ export async function updateAdminCoupon(id: string, body: {
 }
 
 export async function deleteAdminCoupon(id: string): Promise<void> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupons/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(),
   });
@@ -1468,14 +1471,14 @@ export async function deleteAdminCoupon(id: string): Promise<void> {
 }
 
 export async function getCouponScopes(): Promise<CouponScopeRule[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, { headers: getAuthHeaders() });
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await res.text().catch(() => res.statusText));
   const data = await res.json();
   return Array.isArray(data?.scopes) ? data.scopes : [];
 }
 
 export async function updateCouponScopes(scopes: CouponScopeRule[]): Promise<CouponScopeRule[]> {
-  const res = await fetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, {
+  const res = await apiFetch(`${getEffectiveApiBase()}/settings/coupon-scopes`, {
     method: 'PUT',
     headers: getAuthHeaders(),
     body: JSON.stringify({ scopes }),

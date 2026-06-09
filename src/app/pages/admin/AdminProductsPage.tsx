@@ -26,7 +26,7 @@ import { cn } from '@/lib/utils';
 import { AdminTableSkeletonRows } from '@/app/components/admin/AdminTableSkeleton';
 import { ImageUpload } from '@/app/components/ui/ImageUpload';
 import { useLocation } from 'react-router-dom';
-import { getUserErrorMessage } from '@/lib/userError';
+import { toastUserError } from '@/lib/userError';
 import { buildVariantSku, normalizeVariantLabel } from '@/lib/variantPackLabel';
 import { PRODUCT_PLACEHOLDER_IMAGE, resolveProductImageSrc } from '@/lib/productPlaceholder';
 
@@ -181,7 +181,7 @@ export function AdminProductsPage() {
             setNewCategoryName('');
             toast.success(`Category "${created.name}" created.`);
         } catch (e: any) {
-            toast.error(getUserErrorMessage(e, 'Failed to create category'));
+            toastUserError(e, 'Failed to create category');
         } finally {
             setIsCreatingCategory(false);
         }
@@ -349,7 +349,7 @@ export function AdminProductsPage() {
                             delete next[key];
                             return next;
                         });
-                        toast.error(getUserErrorMessage(e, 'Failed to archive'));
+                        toastUserError(e, 'Failed to archive');
                     }
                 }
             },
@@ -373,7 +373,7 @@ export function AdminProductsPage() {
                                         void refreshProducts();
                                         toast.success(`${name} permanently deleted`);
                                     } catch (e: any) {
-                                        toast.error(getUserErrorMessage(e, 'Failed to permanently delete'));
+                                        toastUserError(e, 'Failed to permanently delete');
                                     }
                                 },
                             },
@@ -673,7 +673,7 @@ export function AdminProductsPage() {
                     return next;
                 });
             }
-            toast.error(getUserErrorMessage(err, 'Failed to save product'));
+            toastUserError(err, 'Failed to save product');
         } finally {
             setIsSavingProduct(false);
         }
