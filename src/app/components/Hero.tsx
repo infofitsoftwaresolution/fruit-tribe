@@ -86,7 +86,7 @@ export function Hero() {
               >
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm font-black shadow-sm select-none">
                   <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 shrink-0" />
-                  <span>Now accepting pre-orders — Fresh deliveries start from 9 June</span>
+                  <span>Now accepting pre-orders — Fresh deliveries start from 12 June</span>
                 </div>
               </motion.div>
 

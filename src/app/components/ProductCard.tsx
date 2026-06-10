@@ -461,10 +461,10 @@ export const ProductCard = memo(({
           )}
         </div>
         <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{name}</h3>
-        {/* Delivery Starts June 9 Notice */}
+        {/* Delivery Starts June 12 Notice */}
         <div className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50/70 border border-amber-100 px-1.5 py-0.5 rounded-md self-start mt-0.5 select-none">
           <CalendarDays className="h-2.5 w-2.5 text-amber-600 shrink-0" />
-          <span>Delivery starts from 9 June</span>
+          <span>Delivery starts from 12 June</span>
         </div>
         {!isOutOfStock && (hasBulk || variantOptions.length > 0) ? (
           <div className="relative self-start mt-0.5 max-w-full">
@@ -569,10 +569,10 @@ export const ProductCard = memo(({
               {cleanDescription}
             </p>
           )}
-          {/* Delivery Starts June 9 Notice */}
+          {/* Delivery Starts June 12 Notice */}
           <div className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-50/70 border border-amber-100 px-2 py-0.5 rounded-md self-start mt-1 select-none">
             <CalendarDays className="h-3 w-3 text-amber-600 shrink-0" />
-            <span>Delivery starts from 9 June</span>
+            <span>Delivery starts from 12 June</span>
           </div>
         </Link>
 
