@@ -53,7 +53,22 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext",
+      supported: {
+        'destructuring': true
+      }
+    }
+  },
+  esbuild: {
+    target: "esnext",
+    supported: {
+      'destructuring': true
+    }
+  },
   build: {
+    target: "esnext",
     rollupOptions: {
       output: {
         manualChunks: {
