@@ -491,9 +491,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             {product.isSeasonal && <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold uppercase">Peak season</span>}
             {product.isOrganic && <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold uppercase">Organic</span>}
             <span className="px-3 py-1 rounded-full bg-emerald-900 text-emerald-100 text-[11px] font-semibold uppercase">Tribe Pick</span>
-            <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-bold uppercase inline-flex items-center gap-1">
-              <CalendarDays className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-              Delivery starts from 12 June
+            <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold uppercase inline-flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+              Order now for next day delivery
             </span>
           </div>
 

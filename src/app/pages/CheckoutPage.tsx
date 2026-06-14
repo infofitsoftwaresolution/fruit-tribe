@@ -3298,10 +3298,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
                 </p>
               )}
 
-              {/* Pre-order Delivery Starts June 12 Notice */}
-              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] font-bold flex items-center gap-2 shadow-sm select-none">
-                <Calendar className="h-4 w-4 text-amber-600 shrink-0" />
-                <span>Pre-order today: Deliveries begin from 12 June</span>
+              {/* Next Day Delivery Notice */}
+              <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-bold flex items-center gap-2 shadow-sm select-none">
+                <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span>Order now for next day delivery</span>
               </div>
 
               {/* Desktop Pay Button */}
@@ -3318,10 +3318,10 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
 
         {/* Mobile Sticky Bottom Pay Bar (Hidden on desktop) */}
         <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-slate-100 p-4 z-20 lg:hidden flex flex-col gap-2 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-          {/* Pre-order Delivery Starts June 12 Notice */}
-          <div className="p-2 px-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-800 text-[10px] font-bold flex items-center gap-1.5 self-center select-none">
-            <Calendar className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-            <span>Delivery starts from 12 June</span>
+          {/* Next Day Delivery Notice */}
+          <div className="p-2 px-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-[10px] font-bold flex items-center gap-1.5 self-center select-none">
+            <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+            <span>Order now for next day delivery</span>
           </div>
 
           <button

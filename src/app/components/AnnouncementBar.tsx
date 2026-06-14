@@ -7,7 +7,7 @@ export function AnnouncementBar() {
       {[...Array(6)].map((_, i) => (
         <div key={i} className="flex items-center gap-6 sm:gap-8">
           <span className="font-extrabold text-[10px] sm:text-xs uppercase tracking-[0.18em] text-white font-outfit">
-            PRE ORDER NOW TO GET FLAT 10% OFF — USE COUPON CODE: PREORDER10
+            SAVE 20% ON ORDERS ABOVE ₹1500 — FREE DELIVERY ABOVE ₹2500
           </span>
           <Leaf className="w-3.5 h-3.5 text-emerald-300 fill-emerald-300/40 shrink-0" />
         </div>

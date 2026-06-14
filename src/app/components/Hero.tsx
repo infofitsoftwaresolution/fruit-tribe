@@ -1,7 +1,7 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowRight, MapPin, Clock, Leaf, ShieldCheck,
-  ChevronDown, Star, Zap, Truck, Calendar,
+  ChevronDown, Star, Zap, Truck, Percent,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -84,9 +84,9 @@ export function Hero() {
                 transition={{ duration: 0.4 }}
                 className="flex justify-center lg:justify-start"
               >
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs sm:text-sm font-black shadow-sm select-none">
-                  <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 shrink-0" />
-                  <span>Now accepting pre-orders — Fresh deliveries start from 12 June</span>
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-black shadow-sm select-none">
+                  <Percent className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
+                  <span>Save 20% on orders above ₹1500 & free delivery above ₹2500</span>
                 </div>
               </motion.div>
 
