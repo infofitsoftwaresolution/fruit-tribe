@@ -14,6 +14,7 @@ import { WarehouseModule } from './modules/warehouse/warehouse.module';
 import { DeliveryPartnerModule } from './modules/delivery-partner/delivery-partner.module';
 import { AddressModule } from './modules/address/address.module';
 import { GeocodeModule } from './common/geocode/geocode.module';
+import { FirebaseModule } from './common/firebase/firebase.module';
 import { MailService } from './common/mail/mail.service';
 import { SmsService } from './common/sms/sms.service';
 
@@ -39,6 +40,7 @@ import { SmsService } from './common/sms/sms.service';
         DeliveryPartnerModule,
         AddressModule,
         GeocodeModule,
+        FirebaseModule,
     ],
     providers: [
         MailService,

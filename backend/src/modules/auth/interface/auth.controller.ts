@@ -26,6 +26,7 @@ import {
     SendWhatsappOtpDto,
     VerifyWhatsappOtpDto,
     UpdateProfileDto,
+    FirebaseLoginDto,
 } from '../application/dtos/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -174,6 +175,21 @@ export class AuthController {
     @Get('whatsapp/status')
     async getWhatsappStatus() {
         return { enabled: this.authService.isWhatsappEnabled() };
+    }
+
+    @ApiOperation({ summary: 'Check if Google / Firebase sign-in is enabled on the server' })
+    @Get('firebase/status')
+    async getFirebaseStatus() {
+        return { enabled: this.authService.isFirebaseEnabled() };
+    }
+
+    @ApiOperation({ summary: 'Sign in with a Firebase ID token (Google, etc.)' })
+    @HttpCode(HttpStatus.OK)
+    @Post('firebase')
+    async loginWithFirebase(@Body() dto: FirebaseLoginDto, @Res({ passthrough: true }) res: Response) {
+        const result = await this.authService.loginWithFirebase(dto);
+        this.setAuthCookies(res, result.accessToken, result.refreshToken);
+        return result;
     }
 
     // ─── WhatsApp OTP Login ──────────────────────────────────────────────────

@@ -11,6 +11,9 @@ import { toast } from 'sonner';
 import { cn, pressableSurfaceClass } from '@/lib/utils';
 import { getEffectiveApiBase } from '@/lib/api';
 import { getUserErrorMessage } from '@/lib/userError';
+import { getFirebaseAuth, getGoogleProvider, isFirebaseClientConfigured } from '@/lib/firebase';
+import { signInWithPopup } from 'firebase/auth';
+import { GoogleIcon } from '@/app/components/ui/GoogleIcon';
 
 const AUTH_BG_IMAGE =
   'https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=1920&q=80';
@@ -191,6 +194,8 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
 
   const [isWaEnabled, setIsWaEnabled] = useState(false);
   const [waLoading, setWaLoading] = useState(true);
+  const [isFirebaseEnabled, setIsFirebaseEnabled] = useState(false);
+  const [firebaseClientReady] = useState(() => isFirebaseClientConfigured());
 
   // ── Sync WhatsApp status from backend ──────────────────────────────────
   useEffect(() => {
@@ -200,6 +205,73 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
       .catch(() => setIsWaEnabled(false))
       .finally(() => setWaLoading(false));
   }, []);
+
+  useEffect(() => {
+    fetch(`${getEffectiveApiBase()}/auth/firebase/status`)
+      .then((r) => r.json())
+      .then((data) => setIsFirebaseEnabled(!!data.enabled))
+      .catch(() => setIsFirebaseEnabled(false));
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setIsLoading(true);
+    try {
+      const auth = getFirebaseAuth();
+      if (!auth) {
+        throw new Error('Google sign-in is not configured. Add VITE_FIREBASE_API_KEY to .env.local.');
+      }
+      const result = await signInWithPopup(auth, getGoogleProvider());
+      const idToken = await result.user.getIdToken();
+      const res = await fetch(`${getEffectiveApiBase()}/auth/firebase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = Array.isArray(data?.message) ? data.message.join('; ') : (data?.message || 'Google sign-in failed.');
+        throw new Error(msg);
+      }
+      const token = data.accessToken;
+      const u = data.user;
+      if (!token || !u) throw new Error('Invalid login response.');
+
+      const nameParts = [u.firstName, u.lastName].filter(Boolean).join(' ');
+      const name = nameParts || (u.email?.split('@')[0] ?? 'User');
+      const mapRole = (r: string | undefined): UserRole => {
+        if (!r) return 'customer';
+        const up = r.toUpperCase();
+        if (up === 'ADMIN' || up === 'SUPER_ADMIN') return 'admin';
+        if (up === 'SELLER') return 'seller';
+        if (up === 'DELIVERY_PARTNER') return 'delivery_partner';
+        return 'customer';
+      };
+      const seller = u.seller as { id?: string; storeName?: string } | undefined;
+      const userData: User = {
+        id: String(u.id),
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        email: u.email,
+        role: mapRole(u.role),
+        phone: typeof u.phone === 'string' ? u.phone : '',
+        address: '',
+        memberSince: new Date().getFullYear().toString(),
+        sellerId: seller?.id,
+        sellerStoreName: seller?.storeName,
+      };
+      loginWithTokenAndUser(token, userData, !!u.requirePasswordChange);
+      toast.success(`Welcome, ${userData.name}!`);
+      redirectAfterLogin();
+    } catch (err: any) {
+      const code = err?.code as string | undefined;
+      if (code === 'auth/popup-closed-by-user') {
+        return;
+      }
+      setError(getUserErrorMessage(err, 'Google sign-in failed. Please try again.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -370,6 +442,51 @@ export function LoginPage({ embedded = false }: LoginPageProps) {
                 >
                   {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><LogIn className="h-4 w-4" /> Sign in</>}
                 </button>
+
+                {isFirebaseEnabled && firebaseClientReady && (
+                  <>
+                    <div className="relative py-2">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-slate-200/70" />
+                      </div>
+                      <div className="relative flex justify-center text-xs uppercase tracking-wider">
+                        <span className="bg-white/80 backdrop-blur-sm px-3 py-0.5 rounded-full text-slate-400 font-medium">
+                          or continue with
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGoogleLogin}
+                      disabled={isLoading}
+                      className={cn(
+                        pressableSurfaceClass,
+                        'group relative w-full h-12 overflow-hidden rounded-xl',
+                        'bg-white/90 backdrop-blur-md border border-slate-200/90',
+                        'shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_rgba(15,23,42,0.04)]',
+                        'hover:bg-white hover:border-slate-300 hover:shadow-[0_2px_8px_rgba(15,23,42,0.08),0_8px_24px_rgba(15,23,42,0.06)]',
+                        'active:scale-[0.99] transition-all duration-200',
+                        'disabled:opacity-70 disabled:cursor-not-allowed disabled:active:scale-100',
+                      )}
+                    >
+                      <span className="absolute inset-0 bg-gradient-to-r from-blue-50/0 via-slate-50/80 to-emerald-50/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <span className="relative flex items-center justify-center gap-3 px-4">
+                        {isLoading ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+                        ) : (
+                          <>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm ring-1 ring-slate-100 group-hover:ring-slate-200 transition-all">
+                              <GoogleIcon className="h-[18px] w-[18px]" />
+                            </span>
+                            <span className="text-[15px] font-semibold text-slate-700 tracking-tight group-hover:text-slate-900 transition-colors">
+                              Continue with Google
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  </>
+                )}
               </motion.form>
             ) : (
               <motion.div

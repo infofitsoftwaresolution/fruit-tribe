@@ -203,3 +203,10 @@ export class VerifyWhatsappOtpDto {
     @Matches(/^\d{6}$/, { message: 'OTP must be exactly 6 digits.' })
     otp: string;
 }
+
+export class FirebaseLoginDto {
+    @ApiProperty({ description: 'Firebase ID token from the client after Google sign-in.' })
+    @IsString()
+    @MinLength(20)
+    idToken: string;
+}

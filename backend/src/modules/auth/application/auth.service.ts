@@ -23,12 +23,14 @@ import {
     SendWhatsappOtpDto,
     VerifyWhatsappOtpDto,
     UpdateProfileDto,
+    FirebaseLoginDto,
 } from './dtos/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { MailService } from '../../../common/mail/mail.service';
 import { SmsService } from '../../../common/sms/sms.service';
 import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
+import { FirebaseService } from '../../../common/firebase/firebase.service';
 
 @Injectable()
 export class AuthService {
@@ -43,7 +45,12 @@ export class AuthService {
         private readonly mailService: MailService,
         private readonly smsService: SmsService,
         private readonly whatsappService: WhatsappService,
+        private readonly firebaseService: FirebaseService,
     ) { }
+
+    isFirebaseEnabled(): boolean {
+        return this.firebaseService.isEnabled();
+    }
 
     isWhatsappEnabled(): boolean {
         return this.whatsappService.isEnabled();
@@ -344,6 +351,10 @@ export class AuthService {
         // Account lockout check
         if (user.lockedUntil && user.lockedUntil > new Date()) {
             throw new UnauthorizedException('Account is temporarily locked. Please try again later.');
+        }
+
+        if (!user.passwordHash) {
+            throw new UnauthorizedException('This account uses Google sign-in. Please use Continue with Google.');
         }
 
         const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -892,6 +903,10 @@ export class AuthService {
             throw new BadRequestException('User not found');
         }
 
+        if (!user.passwordHash) {
+            throw new BadRequestException('This account uses Google sign-in and has no password to change.');
+        }
+
         const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
         if (!valid) {
             throw new BadRequestException('Current password is incorrect');
@@ -1038,6 +1053,133 @@ export class AuthService {
             this.prisma.user.update({
                 where: { id: user.id },
                 data: { refreshTokenHash: refreshHash },
+            }),
+        ]);
+
+        return {
+            accessToken,
+            refreshToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                phone: user.phone,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role?.name,
+                requirePasswordChange: user.requirePasswordChange,
+                seller: sellerProfile,
+            },
+        };
+    }
+
+    /** Verify a Firebase ID token (Google, etc.) and issue app JWT session. */
+    async loginWithFirebase(dto: FirebaseLoginDto) {
+        if (!this.firebaseService.isEnabled()) {
+            throw new ServiceUnavailableException(
+                'Google sign-in is not configured on this server.',
+            );
+        }
+
+        let decoded: Awaited<ReturnType<FirebaseService['verifyIdToken']>>;
+        try {
+            decoded = await this.firebaseService.verifyIdToken(dto.idToken);
+        } catch (err: any) {
+            this.logger.warn(`Firebase token verification failed: ${err?.message || err}`);
+            throw new UnauthorizedException('Invalid or expired Google sign-in. Please try again.');
+        }
+
+        const firebaseUid = decoded.uid;
+        const email = decoded.email?.trim().toLowerCase();
+        if (!email) {
+            throw new BadRequestException('Google account must include an email address.');
+        }
+        if (decoded.email_verified === false) {
+            throw new UnauthorizedException('Please verify your Google email before signing in.');
+        }
+
+        let user = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    { firebaseUid },
+                    { email },
+                ],
+            },
+            include: { role: true, deliveryPartner: true },
+        });
+
+        if (user) {
+            if (user.deliveryPartner || user.role?.name === 'DELIVERY_PARTNER') {
+                throw new ConflictException(
+                    'This email is used for delivery partner access. Sign in on the delivery login page.',
+                );
+            }
+
+            const nameParts = (decoded.name || '').trim().split(/\s+/).filter(Boolean);
+            const patch: Prisma.UserUpdateInput = {
+                firebaseUid: user.firebaseUid || firebaseUid,
+                isActive: true,
+                otpCode: null,
+                otpExpiry: null,
+            };
+            if (!user.firstName && nameParts[0]) patch.firstName = nameParts[0];
+            if (!user.lastName && nameParts.length > 1) {
+                patch.lastName = nameParts.slice(1).join(' ');
+            }
+
+            if (
+                !user.isActive
+                || user.firebaseUid !== firebaseUid
+                || patch.firstName
+                || patch.lastName
+            ) {
+                user = await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: patch,
+                    include: { role: true, deliveryPartner: true },
+                });
+            }
+        } else {
+            const customerRole = await this.prisma.role.findUnique({ where: { name: 'CUSTOMER' } });
+            const nameParts = (decoded.name || '').trim().split(/\s+/).filter(Boolean);
+            user = await this.prisma.$transaction(async (tx) => {
+                const created = await tx.user.create({
+                    data: {
+                        email,
+                        firebaseUid,
+                        firstName: nameParts[0] || undefined,
+                        lastName: nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined,
+                        roleId: customerRole?.id,
+                        isActive: true,
+                    },
+                    include: { role: true, deliveryPartner: true },
+                });
+                await tx.cart.create({ data: { userId: created.id } });
+                await tx.wishlist.create({ data: { userId: created.id } });
+                return created;
+            });
+        }
+
+        const payload = { sub: user.id, email: user.email, role: user.role?.name };
+        const accessToken = this.jwtService.sign(payload);
+        const refreshToken = this.jwtService.sign(payload, {
+            secret: this.config.get('JWT_REFRESH_SECRET'),
+            expiresIn: '7d',
+        });
+        const refreshHash = createHash('sha256').update(refreshToken).digest('hex');
+
+        const [sellerProfile] = await Promise.all([
+            this.prisma.seller.findUnique({
+                where: { userId: user.id },
+                select: { id: true, storeName: true },
+            }),
+            this.prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    failedLoginAttempts: 0,
+                    lockedUntil: null,
+                    lastLogin: new Date(),
+                    refreshTokenHash: refreshHash,
+                },
             }),
         ]);
 
