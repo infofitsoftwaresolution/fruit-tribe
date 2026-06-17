@@ -19,6 +19,13 @@ In **GitHub → repo → Settings → Secrets and variables → Actions**, set:
 | `DATABASE_URL` | PostgreSQL connection string. |
 | `JWT_SECRET` | Secret for JWT signing. |
 | `LETSENCRYPT_EMAIL` | (Optional) Email for Let's Encrypt (e.g. `admin@thefruittribe.com`). Defaults to `admin@thefruittribe.com` if not set. |
+| `VITE_FIREBASE_API_KEY` | Firebase web app `apiKey` (baked into frontend build). |
+| `VITE_FIREBASE_AUTH_DOMAIN` | (Optional) e.g. `the-fruit-tribe.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | e.g. `the-fruit-tribe` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | (Optional) e.g. `the-fruit-tribe.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase web app sender ID |
+| `VITE_FIREBASE_APP_ID` | Firebase web app ID |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | Full Firebase Admin service account JSON (paste entire file contents). **Never commit this file.** |
 
 ### DNS
 
