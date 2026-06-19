@@ -144,6 +144,15 @@ export class CreateProductDto {
     @IsString()
     farmState?: string;
 
+    @ApiProperty({
+        example: 'Order now for next day delivery',
+        description: 'Delivery promise badge shown on product cards. Leave empty to use the store default.',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    deliveryTag?: string;
+
     @ApiProperty({ type: [ProductVariantDto], required: false })
     @IsOptional()
     @IsArray()

@@ -162,7 +162,12 @@ export function AdminOrdersPage() {
             vendorNames,
             distanceKm: extractDistanceKm(api),
             userEmail: api.user?.email || '',
-            userPhone: api.user?.phone || '',
+            userPhone:
+                api.user?.phone
+                || api.shippingAddress?.phone
+                || api.shippingAddress?.mobile
+                || api.shippingAddress?.contact
+                || '',
         } as any;
     }
 

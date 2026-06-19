@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Truck, MapPin, Zap, Activity, ShieldCheck, Loader2, CreditCard, Banknote, Minus, Plus, FileText, ShoppingBag, Tag, ChevronDown, Home, Building2, Navigation, Clock, ChevronLeft, Percent, ChevronRight, Calendar, Heart, Edit, Trash2 } from 'lucide-react';
 import { useStore, type CartItem } from '@/app/context/StoreContext';
+import { resolveProductDeliveryTag } from '@/lib/productDeliveryTag';
 import { useAuth } from '@/app/context/AuthContext';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { useProducts } from '@/app/hooks/useProducts';
@@ -479,6 +480,7 @@ function buildSupplementalGeocodeQueries(street: string, city: string, state: st
 
 export function CheckoutPage({ items }: CheckoutPageProps) {
   const { products: storeProducts, taxRates, preferences, clearCart, handleUpdateQuantity, handleRemoveItem } = useStore();
+  const deliveryTagText = resolveProductDeliveryTag(undefined, preferences.productDeliveryTag);
   const { products: productsFromApi } = useProducts({ limit: 500 });
   const products = productsFromApi.length > 0 ? productsFromApi : storeProducts;
   const codAllowedForCart = useMemo(() => {
@@ -3301,7 +3303,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
               {/* Next Day Delivery Notice */}
               <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-[11px] font-bold flex items-center gap-2 shadow-sm select-none">
                 <Calendar className="h-4 w-4 text-emerald-600 shrink-0" />
-                <span>Order now for next day delivery</span>
+                <span>{deliveryTagText}</span>
               </div>
 
               {/* Desktop Pay Button */}
@@ -3321,7 +3323,7 @@ export function CheckoutPage({ items }: CheckoutPageProps) {
           {/* Next Day Delivery Notice */}
           <div className="p-2 px-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-800 text-[10px] font-bold flex items-center gap-1.5 self-center select-none">
             <Calendar className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-            <span>Order now for next day delivery</span>
+            <span>{deliveryTagText}</span>
           </div>
 
           <button

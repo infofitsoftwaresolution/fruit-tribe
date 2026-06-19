@@ -7,13 +7,15 @@ import { toast } from 'sonner';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { variantPacksAvailable } from '@/lib/inventoryPool';
 import { useAuth } from '@/app/context/AuthContext';
+import { useStore } from '@/app/context/StoreContext';
 import { useProduct } from '@/app/hooks/useProducts';
 import { useServiceableAreas } from '@/app/hooks/useServiceableAreas';
 import { AIRecommendations } from '@/app/components/AIRecommendations';
 import { cn, formatInr } from '@/lib/utils';
-import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
+import { productHasBulkPricing, getRetailUnitReference, getEffectiveUnitPrice, formatPerUnitPackDiscountSuffix, isProductInStock } from '@/lib/pricing';
 import type { Product } from '@/lib/api';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/productPlaceholder';
+import { resolveProductDeliveryTag } from '@/lib/productDeliveryTag';
 import { NotFoundPage } from './NotFoundPage';
 
 interface ProductDetailPageProps {
@@ -92,6 +94,7 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { preferences } = useStore();
   const { product: apiProduct, loading, error } = useProduct(id || null);
 
   const [quantity, setQuantity] = useState(1);
@@ -235,6 +238,9 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
   if (error || !product || !apiProduct) {
     return <NotFoundPage />;
   }
+
+  const deliveryTagText = resolveProductDeliveryTag(apiProduct, preferences.productDeliveryTag);
+  const isOutOfStock = !isProductInStock(apiProduct);
 
   const hasBulk = productHasBulkPricing(apiProduct);
   const bulkQty = product.bulkDiscountQty;
@@ -491,10 +497,12 @@ export function ProductDetailPage({ onAddToCart }: ProductDetailPageProps) {
             {product.isSeasonal && <span className="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-semibold uppercase">Peak season</span>}
             {product.isOrganic && <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold uppercase">Organic</span>}
             <span className="px-3 py-1 rounded-full bg-emerald-900 text-emerald-100 text-[11px] font-semibold uppercase">Tribe Pick</span>
-            <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold uppercase inline-flex items-center gap-1">
-              <CalendarDays className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              Order now for next day delivery
-            </span>
+            {!isOutOfStock && (
+              <span className="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold uppercase inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                {deliveryTagText}
+              </span>
+            )}
           </div>
 
           <div>

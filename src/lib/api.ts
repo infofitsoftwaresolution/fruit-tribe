@@ -213,6 +213,8 @@ export interface ApiProduct {
   farmName?: string | null;
   /** State the farm is in, e.g. 'Karnataka' */
   farmState?: string | null;
+  /** Per-product delivery promise badge override */
+  deliveryTag?: string | null;
   origin?: string | null;
   nutritionalInfo?: string | null;
   category?: { id: string; name: string; slug: string } | null;
@@ -270,6 +272,8 @@ export interface Product {
   farmName?: string;
   /** Farm origin state */
   farmState?: string;
+  /** Per-product delivery promise badge override */
+  deliveryTag?: string;
   origin?: string;
   nutritionalInfo?: string;
 }
@@ -312,6 +316,7 @@ export function mapApiProductToProduct(p: ApiProduct): Product {
     ripenessStage: p.ripenessStage ?? undefined,
     farmName: p.farmName ?? undefined,
     farmState: p.farmState ?? undefined,
+    deliveryTag: p.deliveryTag ?? undefined,
     origin: p.origin ?? undefined,
     nutritionalInfo: p.nutritionalInfo ?? undefined,
     variants: p.variants?.map((v) => {
@@ -1075,6 +1080,7 @@ export async function createProduct(body: {
   ripenessStage?: string;
   farmName?: string;
   farmState?: string;
+  deliveryTag?: string;
   origin?: string;
   nutritionalInfo?: string;
 }): Promise<ApiProduct> {
@@ -1115,6 +1121,7 @@ export async function updateProduct(
     ripenessStage?: string;
     farmName?: string;
     farmState?: string;
+    deliveryTag?: string;
     origin?: string;
     nutritionalInfo?: string;
   }>

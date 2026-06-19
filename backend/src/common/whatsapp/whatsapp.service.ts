@@ -13,17 +13,25 @@ export interface OrderWhatsAppAlertPayload {
     itemLines: string[];
 }
 
+type WhatsappProvider = 'meta' | 'aisensy';
+
 /**
- * WhatsApp delivery via Meta WhatsApp Cloud API.
+ * WhatsApp delivery via Meta Cloud API or AiSensy API campaigns.
  *
- * OTP env vars:
+ * Provider: WHATSAPP_PROVIDER = meta (default) | aisensy
+ *
+ * Meta OTP:
  *   WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN
  *   WHATSAPP_TEMPLATE_NAME (default: otp_verification)
  *
+ * AiSensy OTP (requires a Live API Campaign in the AiSensy dashboard):
+ *   AISENSY_API_KEY, AISENSY_CAMPAIGN_NAME
+ *   WHATSAPP_TEMPLATE_NAME is ignored — the campaign binds the template (e.g. login_otp)
+ *
  * Order alerts:
  *   WHATSAPP_ORDER_NOTIFY_PHONE – override store notify number (10 digits or +91…)
- *   WHATSAPP_ORDER_TEMPLATE_NAME – approved template (body uses {{1}} = full message)
- *   WHATSAPP_ORDER_TEMPLATE_LANG – template language (default: en)
+ *   WHATSAPP_ORDER_TEMPLATE_NAME / AISENSY_ORDER_CAMPAIGN_NAME – optional template/campaign
+ *   WHATSAPP_ORDER_TEMPLATE_LANG – template language for Meta (default: en)
  */
 @Injectable()
 export class WhatsappService {
@@ -31,12 +39,29 @@ export class WhatsappService {
 
     constructor(private readonly config: ConfigService) { }
 
+    private getProvider(): WhatsappProvider {
+        const raw = (this.config.get<string>('WHATSAPP_PROVIDER') || process.env.WHATSAPP_PROVIDER || 'meta')
+            .trim()
+            .toLowerCase();
+        return raw === 'aisensy' ? 'aisensy' : 'meta';
+    }
+
     isEnabled(): boolean {
+        if (this.getProvider() === 'aisensy') {
+            const apiKey = this.getAisensyApiKey();
+            const campaignName = this.getAisensyOtpCampaignName();
+            const enabled = Boolean(apiKey && campaignName);
+            this.logger.debug(
+                `WhatsApp Service (AiSensy) enabled: ${enabled} (API key: ${apiKey ? 'SET' : 'MISSING'}, campaign: ${campaignName ? 'SET' : 'MISSING'})`,
+            );
+            return enabled;
+        }
+
         const phoneNumberId = (this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID') || process.env.WHATSAPP_PHONE_NUMBER_ID)?.trim();
         const accessToken = (this.config.get<string>('WHATSAPP_ACCESS_TOKEN') || process.env.WHATSAPP_ACCESS_TOKEN)?.trim();
 
         const enabled = Boolean(phoneNumberId && accessToken);
-        this.logger.debug(`WhatsApp Service enabled check: ${enabled} (ID: ${phoneNumberId ? 'SET' : 'MISSING'}, Token: ${accessToken ? 'SET' : 'MISSING'})`);
+        this.logger.debug(`WhatsApp Service (Meta) enabled: ${enabled} (ID: ${phoneNumberId ? 'SET' : 'MISSING'}, Token: ${accessToken ? 'SET' : 'MISSING'})`);
 
         return enabled;
     }
@@ -54,15 +79,20 @@ export class WhatsappService {
      * @param code    6-digit numeric OTP
      */
     async sendOtp(phone10: string, code: string): Promise<void> {
+        if (this.getProvider() === 'aisensy') {
+            await this.sendAisensyCampaign(phone10, this.getAisensyOtpCampaignName()!, [code], 'OTP');
+            return;
+        }
+
         const templateName = this.config.get<string>('WHATSAPP_TEMPLATE_NAME') || 'otp_verification';
         const templateLang = this.config.get<string>('WHATSAPP_TEMPLATE_LANG') || 'en';
 
         if (templateName === 'hello_world') {
-            await this.sendTemplate(phone10, templateName, templateLang, []);
+            await this.sendMetaTemplate(phone10, templateName, templateLang, []);
             return;
         }
 
-        await this.sendTemplate(phone10, templateName, templateLang, [code], [
+        await this.sendMetaTemplate(phone10, templateName, templateLang, [code], [
             {
                 type: 'button',
                 sub_type: 'url',
@@ -92,10 +122,20 @@ export class WhatsappService {
         const templateName = (this.config.get<string>('WHATSAPP_ORDER_TEMPLATE_NAME') || process.env.WHATSAPP_ORDER_TEMPLATE_NAME)?.trim();
         const templateLang = this.config.get<string>('WHATSAPP_ORDER_TEMPLATE_LANG') || process.env.WHATSAPP_ORDER_TEMPLATE_LANG || 'en';
 
+        if (this.getProvider() === 'aisensy') {
+            const orderCampaign = this.getAisensyOrderCampaignName();
+            if (orderCampaign) {
+                await this.sendAisensyCampaign(to, orderCampaign, [body], 'order alert');
+            } else {
+                this.logger.warn('AiSensy order alert skipped: set AISENSY_ORDER_CAMPAIGN_NAME or use Meta for plain-text alerts');
+            }
+            return;
+        }
+
         if (templateName) {
-            await this.sendTemplate(to, templateName, templateLang, [body]);
+            await this.sendMetaTemplate(to, templateName, templateLang, [body]);
         } else {
-            await this.sendText(to, body);
+            await this.sendMetaText(to, body);
         }
     }
 
@@ -131,9 +171,64 @@ export class WhatsappService {
         );
     }
 
-    private async sendText(phone10: string, body: string): Promise<void> {
+    private getAisensyApiKey(): string | undefined {
+        return (this.config.get<string>('AISENSY_API_KEY') || process.env.AISENSY_API_KEY)?.trim() || undefined;
+    }
+
+    private getAisensyOtpCampaignName(): string | undefined {
+        return (this.config.get<string>('AISENSY_CAMPAIGN_NAME') || process.env.AISENSY_CAMPAIGN_NAME)?.trim() || undefined;
+    }
+
+    private getAisensyOrderCampaignName(): string | undefined {
+        return (
+            this.config.get<string>('AISENSY_ORDER_CAMPAIGN_NAME')
+            || process.env.AISENSY_ORDER_CAMPAIGN_NAME
+            || this.config.get<string>('WHATSAPP_ORDER_TEMPLATE_NAME')
+            || process.env.WHATSAPP_ORDER_TEMPLATE_NAME
+        )?.trim() || undefined;
+    }
+
+    private async sendAisensyCampaign(
+        phone10: string,
+        campaignName: string,
+        templateParams: string[],
+        label: string,
+    ): Promise<void> {
+        const apiKey = this.getAisensyApiKey();
+        if (!apiKey || !campaignName) {
+            const err = new Error('AiSensy config missing: set AISENSY_API_KEY and AISENSY_CAMPAIGN_NAME in .env');
+            this.logger.warn(`Cannot send AiSensy ${label} to 91${phone10}: ${err.message}`);
+            throw err;
+        }
+
+        const destination = `+91${phone10}`;
+        const payload = {
+            apiKey,
+            campaignName,
+            destination,
+            userName: 'Customer',
+            templateParams,
+        };
+
+        const res = await fetch('https://backend.aisensy.com/campaign/t1/api/v2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+            const text = await res.text().catch(() => res.statusText);
+            this.logger.error(`AiSensy API error (${res.status}) for ${destination} [${label}]: ${text}`);
+            throw new Error(`WhatsApp delivery failed: ${text || res.statusText}`);
+        }
+
+        const data = await res.json().catch(() => ({}));
+        this.logger.log(`AiSensy ${label} sent to ${destination} — response: ${JSON.stringify(data)}`);
+    }
+
+    private async sendMetaText(phone10: string, body: string): Promise<void> {
         const to = `91${phone10}`;
-        await this.postMessage({
+        await this.postMetaMessage({
             messaging_product: 'whatsapp',
             to,
             type: 'text',
@@ -141,7 +236,7 @@ export class WhatsappService {
         }, to);
     }
 
-    private async sendTemplate(
+    private async sendMetaTemplate(
         phone10: string,
         templateName: string,
         templateLang: string,
@@ -172,10 +267,10 @@ export class WhatsappService {
             (payload.template as Record<string, unknown>).components = components;
         }
 
-        await this.postMessage(payload, to);
+        await this.postMetaMessage(payload, to);
     }
 
-    private async postMessage(payload: Record<string, unknown>, toLabel: string): Promise<void> {
+    private async postMetaMessage(payload: Record<string, unknown>, toLabel: string): Promise<void> {
         const phoneNumberId = this.config.get<string>('WHATSAPP_PHONE_NUMBER_ID') || process.env.WHATSAPP_PHONE_NUMBER_ID;
         const accessToken = this.config.get<string>('WHATSAPP_ACCESS_TOKEN') || process.env.WHATSAPP_ACCESS_TOKEN;
         const apiVersion = this.config.get<string>('WHATSAPP_API_VERSION') || process.env.WHATSAPP_API_VERSION || 'v19.0';

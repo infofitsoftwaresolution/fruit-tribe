@@ -258,6 +258,8 @@ export interface StorePreferences {
     platformFee?: number;
     /** Available delivery time slots for checkout selection (admin configurable). */
     deliverySlots?: string[];
+    /** Default delivery promise badge on product cards and checkout */
+    productDeliveryTag?: string;
     /** Public subscription page copy, plans, fruits, and benefits (admin Subscription section) */
     subscriptionPage?: SubscriptionPageConfig;
 }
@@ -387,6 +389,7 @@ const INITIAL_PREFERENCES: StorePreferences = {
     deliveryFeeMode: 'SLAB',
     deliveryPerKmRate: 10,
     platformFee: 0,
+    productDeliveryTag: 'Order now for next day delivery',
 };
 
 const INITIAL_PAGES: Page[] = [

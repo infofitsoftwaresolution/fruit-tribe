@@ -134,6 +134,8 @@ model Product {
   farmName            String?          @map("farm_name")
   /// State the farm is located in, e.g. 'Karnataka'
   farmState           String?          @map("farm_state")
+  /// Optional per-product delivery promise shown on cards (e.g. "Order now for next day delivery")
+  deliveryTag         String?          @map("delivery_tag")
   cartItems           CartItem[]
   orderItems          OrderItem[]
   images              ProductImage[]

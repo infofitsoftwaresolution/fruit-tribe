@@ -152,6 +152,7 @@ export function AdminProductsPage() {
         ripenessStage: '',
         farmName: '',
         farmState: '',
+        deliveryTag: '',
         variants: [] as { id?: string; name: string; price: string; sku: string; lowStockThreshold?: string; isBulkVariant?: boolean }[]
     });
 
@@ -426,6 +427,7 @@ export function AdminProductsPage() {
             ripenessStage: product.ripenessStage || '',
             farmName: product.farmName || '',
             farmState: product.farmState || '',
+            deliveryTag: (product as any).deliveryTag || '',
             variants: (product.variants || [])
                 .filter((v: any) => {
                     const label = String(v?.name || v?.attributeValue || '').toLowerCase();
@@ -609,6 +611,7 @@ export function AdminProductsPage() {
                     ripenessStage: formData.ripenessStage || undefined,
                     farmName: formData.farmName || undefined,
                     farmState: formData.farmState || undefined,
+                    deliveryTag: formData.deliveryTag.trim() || null,
                     isActive: formData.isActive,
                     images: imagesPayload,
                     variants: variantsPayload,
@@ -651,6 +654,7 @@ export function AdminProductsPage() {
                     ripenessStage: formData.ripenessStage || undefined,
                     farmName: formData.farmName || undefined,
                     farmState: formData.farmState || undefined,
+                    deliveryTag: formData.deliveryTag.trim() || undefined,
                     variants: variantsPayload.map(v => ({
                         sku: v.sku || `SKU-${Date.now()}`,
                         attributeValue: v.attributeValue,
@@ -708,7 +712,7 @@ export function AdminProductsPage() {
                                 seasonalStart: '', seasonalEnd: '', bulkDiscountQty: '', bulkDiscountPrice: '',
                                 allowCashOnDelivery: true,
                                 isActive: true,
-                                freshnessScore: '', ripenessStage: '', farmName: '', farmState: '',
+                                freshnessScore: '', ripenessStage: '', farmName: '', farmState: '', deliveryTag: '',
                                 variants: []
                             });
                             setIsModalOpen(true);
@@ -1349,6 +1353,15 @@ export function AdminProductsPage() {
                                                 onChange={(v: string) => setFormData({ ...formData, farmName: v })}
                                                 placeholder="e.g. Fruit Tribe Orchard"
                                             />
+                                            <FormInput
+                                                label="Delivery Tag"
+                                                value={formData.deliveryTag}
+                                                onChange={(v: string) => setFormData({ ...formData, deliveryTag: v })}
+                                                placeholder="e.g. Order now for next day delivery"
+                                            />
+                                            <p className="text-[10px] text-slate-400 -mt-2">
+                                                Shown on product cards. Leave empty to use the store default from Settings → Delivery.
+                                            </p>
                                         </div>
                                     </div>
 

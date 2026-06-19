@@ -309,6 +309,7 @@ export class ProductService {
                     ripenessStage: dto.ripenessStage ?? undefined,
                     farmName: dto.farmName ?? undefined,
                     farmState: dto.farmState ?? undefined,
+                    deliveryTag: dto.deliveryTag?.trim() || undefined,
                     stock: requestedTotalUnits,
                 },
             });
@@ -421,6 +422,7 @@ export class ProductService {
                     ...(dto.ripenessStage !== undefined && { ripenessStage: dto.ripenessStage }),
                     ...(dto.farmName !== undefined && { farmName: dto.farmName }),
                     ...(dto.farmState !== undefined && { farmState: dto.farmState }),
+                    ...(dto.deliveryTag !== undefined && { deliveryTag: dto.deliveryTag?.trim() || null }),
                 },
             });
 

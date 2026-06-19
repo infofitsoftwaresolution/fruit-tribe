@@ -1419,7 +1419,7 @@ export class OrderService {
         await this.reconcileDeliveredFiscalState();
         return this.prisma.order.findMany({
             include: {
-                user: { select: { id: true, email: true, firstName: true, lastName: true } },
+                user: { select: { id: true, email: true, phone: true, firstName: true, lastName: true } },
                 items: {
                     include: {
                         product: { select: { id: true, name: true } },
@@ -1834,7 +1834,7 @@ export class OrderService {
         return this.prisma.order.findUnique({
             where: { id: orderId },
             include: {
-                user: { select: { id: true, email: true, firstName: true, lastName: true } },
+                user: { select: { id: true, email: true, phone: true, firstName: true, lastName: true } },
                 items: {
                     include: {
                         product: { select: { name: true, id: true } },

@@ -6,6 +6,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { toast } from 'sonner';
 import { cn, formatInr } from '@/lib/utils';
+import { resolveProductDeliveryTag } from '@/lib/productDeliveryTag';
 import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
 import { productHasBulkPricing, getRetailUnitReference, getBestEligibleBulkTier, formatPerUnitPackDiscountSuffix } from '@/lib/pricing';
 import { variantPacksAvailable } from '@/lib/inventoryPool';
@@ -103,9 +104,12 @@ export const ProductCard = memo(({
   bulkDiscountQty, bulkDiscountPrice, onAddToCart, product, bulkDealMode, liveOfferHint,
   farmName, farmState, freshnessScore, ripenessStage, harvestDate,
 }: ProductCardProps) => {
+  const { preferences } = useStore();
   const [quantity, setQuantity] = useState(1);
   const [isPackSelectOpen, setIsPackSelectOpen] = useState(false);
   const packSelectRef = useRef<HTMLDivElement | null>(null);
+
+  const deliveryTagText = resolveProductDeliveryTag(product, preferences.productDeliveryTag);
 
   const effectiveFarmName       = farmName       ?? (product as any)?.farmName       ?? product?.vendor ?? null;
   const effectiveFarmState      = farmState      ?? (product as any)?.farmState      ?? null;
@@ -461,11 +465,12 @@ export const ProductCard = memo(({
           )}
         </div>
         <h3 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">{name}</h3>
-        {/* Next Day Delivery Notice */}
-        <div className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50/70 border border-emerald-100 px-1.5 py-0.5 rounded-md self-start mt-0.5 select-none">
-          <CalendarDays className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
-          <span>Order now for next day delivery</span>
-        </div>
+        {!isOutOfStock && (
+          <div className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50/70 border border-emerald-100 px-1.5 py-0.5 rounded-md self-start mt-0.5 select-none">
+            <CalendarDays className="h-2.5 w-2.5 text-emerald-600 shrink-0" />
+            <span>{deliveryTagText}</span>
+          </div>
+        )}
         {!isOutOfStock && (hasBulk || variantOptions.length > 0) ? (
           <div className="relative self-start mt-0.5 max-w-full">
             <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-[11px] font-semibold hover:bg-slate-100 transition-all select-none">
@@ -569,11 +574,12 @@ export const ProductCard = memo(({
               {cleanDescription}
             </p>
           )}
-          {/* Next Day Delivery Notice */}
-          <div className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50/70 border border-emerald-100 px-2 py-0.5 rounded-md self-start mt-1 select-none">
-            <CalendarDays className="h-3 w-3 text-emerald-600 shrink-0" />
-            <span>Order now for next day delivery</span>
-          </div>
+          {!isOutOfStock && (
+            <div className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700 bg-emerald-50/70 border border-emerald-100 px-2 py-0.5 rounded-md self-start mt-1 select-none">
+              <CalendarDays className="h-3 w-3 text-emerald-600 shrink-0" />
+              <span>{deliveryTagText}</span>
+            </div>
+          )}
         </Link>
 
         {/* Pack selector if bulk */}

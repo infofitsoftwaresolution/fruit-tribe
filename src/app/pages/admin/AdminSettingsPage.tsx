@@ -97,6 +97,7 @@ export function AdminSettingsPage() {
     );
     const [deliverySaving, setDeliverySaving] = useState(false);
     const [deliverySlots, setDeliverySlots] = useState<string[]>(preferences.deliverySlots ?? []);
+    const [productDeliveryTag, setProductDeliveryTag] = useState<string>(preferences.productDeliveryTag ?? 'Order now for next day delivery');
     const [newSlot, setNewSlot] = useState('');
 
     // Keep local Razorpay fields in sync with persisted preferences/state refreshes.
@@ -163,6 +164,10 @@ export function AdminSettingsPage() {
         setDeliverySlots(preferences.deliverySlots ?? []);
     }, [preferences.deliverySlots]);
 
+    useEffect(() => {
+        setProductDeliveryTag(preferences.productDeliveryTag ?? 'Order now for next day delivery');
+    }, [preferences.productDeliveryTag]);
+
     const handleSaveDeliveryCharge = async () => {
         const num = parseFloat(deliveryCharge);
         if (!Number.isFinite(num) || num < 0) {
@@ -178,6 +183,7 @@ export function AdminSettingsPage() {
             freeDeliveryWithinKm: preferences.freeDeliveryWithinKm,
             platformFee: preferences.platformFee,
             deliverySlots: preferences.deliverySlots,
+            productDeliveryTag: preferences.productDeliveryTag,
         };
         setDeliverySaving(true);
         try {
@@ -219,6 +225,7 @@ export function AdminSettingsPage() {
             updatePreferences({
                 ...optimisticDeliveryPrefs,
                 deliverySlots: finalSlots,
+                productDeliveryTag: productDeliveryTag.trim() || 'Order now for next day delivery',
             });
 
             await updateStoreSettings({
@@ -233,6 +240,7 @@ export function AdminSettingsPage() {
                     ...preferences,
                     platformFee: Number.isFinite(platformFeeNum) && platformFeeNum >= 0 ? platformFeeNum : 0,
                     deliverySlots: finalSlots,
+                    productDeliveryTag: productDeliveryTag.trim() || 'Order now for next day delivery',
                 }
             });
             toast.success('Delivery options saved successfully!');
@@ -246,6 +254,7 @@ export function AdminSettingsPage() {
                 freeDeliveryWithinKm: previousDeliveryPrefs.freeDeliveryWithinKm,
                 platformFee: previousDeliveryPrefs.platformFee,
                 deliverySlots: previousDeliveryPrefs.deliverySlots,
+                productDeliveryTag: previousDeliveryPrefs.productDeliveryTag,
             });
             toast.error(getUserErrorMessage(e, 'Failed to save'));
         } finally {
@@ -966,6 +975,22 @@ export function AdminSettingsPage() {
                             Configure scheduled delivery slots displayed to buyers during checkout.
                         </p>
                     </div>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                        Product delivery tag
+                    </label>
+                    <input
+                        type="text"
+                        value={productDeliveryTag}
+                        onChange={(e) => setProductDeliveryTag(e.target.value)}
+                        placeholder="Order now for next day delivery"
+                        className="admin-input w-full max-w-xl"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1.5">
+                        Default badge shown on product cards, product pages, and checkout. Override per product in Products → Edit.
+                    </p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mb-4">

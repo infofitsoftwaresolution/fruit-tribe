@@ -59,7 +59,8 @@ Step-by-step workflows for every major process in the platform. Use this with [A
    - `PORT=3000`
 2. Optional for full features:
    - Razorpay keys (payments)
-   - `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (OTP + order alerts)
+   - `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` (OTP + order alerts via Meta), **or**
+   - `WHATSAPP_PROVIDER=aisensy`, `AISENSY_API_KEY`, `AISENSY_CAMPAIGN_NAME` (OTP via AiSensy)
    - `WHATSAPP_ORDER_NOTIFY_PHONE` (store number for new orders)
 
 ### Step 3 — Start infrastructure
@@ -125,7 +126,7 @@ npm run dev
 | 1 | Browser `/login` | User chooses WhatsApp login, enters phone. |
 | 2 | Frontend | `GET /v1/auth/whatsapp/status` — checks if WhatsApp API is configured. |
 | 3 | Frontend | `POST /v1/auth/whatsapp/send-otp` with phone number. |
-| 4 | Backend | Sends OTP template via Meta WhatsApp Cloud API. |
+| 4 | Backend | Sends OTP template via Meta WhatsApp Cloud API or AiSensy API campaign. |
 | 5 | User | Enters OTP on screen. |
 | 6 | Frontend | `POST /v1/auth/whatsapp/verify-otp` with phone + OTP. |
 | 7 | Backend | Validates OTP, issues JWT, sets auth cookies. |
@@ -500,7 +501,21 @@ When any customer places an order, the store can receive a WhatsApp message.
 1. Order created successfully → async `sendOrderAlert`.
 2. Failure does **not** cancel the order (logged only).
 
-**Note:** WhatsApp OTP for login uses the same Meta credentials but a different template (`otp_verification`).
+**Note:** WhatsApp OTP for login uses Meta credentials + `otp_verification` template, or AiSensy (`WHATSAPP_PROVIDER=aisensy`).
+
+### AiSensy OTP login setup
+
+1. **Template** (Manage → Template Message): create **Authentication** template (e.g. `login_otp`) with body `{{1}} is your verification code.` and submit for approval.
+2. **API Campaign** (Campaigns → + Launch → API Campaign): name the campaign (e.g. `login_otp_campaign`), select the approved `login_otp` template, set status **Live**.
+3. **API key** (Developer / API): copy your project API key.
+4. **Backend `.env`:**
+   ```env
+   WHATSAPP_PROVIDER=aisensy
+   AISENSY_API_KEY=your_api_key_here
+   AISENSY_CAMPAIGN_NAME=login_otp_campaign
+   ```
+5. Restart the backend. `GET /v1/auth/whatsapp/status` should return `{ "enabled": true }`.
+6. Users log in at `/login` → **WhatsApp OTP** tab (phone must already be registered on an account).
 
 ---
 
