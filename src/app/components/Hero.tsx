@@ -1,7 +1,7 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowRight, MapPin, Clock, Leaf, ShieldCheck,
-  ChevronDown, Star, Zap, Truck, Percent,
+  ChevronDown, Star, Zap, Truck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/app/context/StoreContext';
@@ -54,7 +54,7 @@ export function Hero() {
       {/* ─── Hero: strict one-screen height ─── */}
       <div
         ref={containerRef}
-        className="relative min-h-[100svh] lg:h-[100svh] flex items-center overflow-hidden bg-white pt-[96px] pb-12 sm:pt-[104px] sm:pb-16 lg:pt-[104px] lg:pb-0"
+        className="relative min-h-[100svh] lg:h-[100svh] flex items-center overflow-hidden bg-white pt-16 pb-12 sm:pt-20 sm:pb-16 lg:pt-20 lg:pb-0"
       >
         {/* Background */}
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -77,18 +77,6 @@ export function Hero() {
             {/* ─── Left column ─── */}
             <div className="space-y-5 text-center lg:text-left">
 
-              {/* Pre-order Announcement */}
-              <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="flex justify-center lg:justify-start"
-              >
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-black shadow-sm select-none">
-                  <Percent className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 shrink-0" />
-                  <span>Save 20% on orders above ₹1500 & free delivery above ₹2500</span>
-                </div>
-              </motion.div>
 
               {/* 1. Delivery status pill */}
               <motion.div

@@ -9,7 +9,6 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useStore } from '@/app/context/StoreContext';
 import { mergeSubscriptionPageConfig } from '@/app/config/subscriptionPageConfig';
 import { cn } from '@/lib/utils';
-import { AnnouncementBar } from './AnnouncementBar';
 
 interface NavbarProps {
   cartCount: number;
@@ -112,19 +111,7 @@ export function Navbar({ cartCount, onCartClick }: NavbarProps) {
             : 'bg-white'
         )}
       >
-        <AnimatePresence>
-          {isHomePage && !isScrolled && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: 'easeInOut' }}
-              className="overflow-hidden"
-            >
-              <AnnouncementBar />
-            </motion.div>
-          )}
-        </AnimatePresence>
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 h-16">
 
