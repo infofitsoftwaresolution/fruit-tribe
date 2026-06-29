@@ -8,6 +8,47 @@ import { useProducts } from '@/app/hooks/useProducts';
 import type { Product } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { productHasBulkPricing, productAvailableStock } from '@/lib/pricing';
+import { parseVariantPackDescriptor } from '@/lib/variantPackLabel';
+import { variantPacksAvailable } from '@/lib/inventoryPool';
+
+function getProductAvailability(product: Product): number {
+  const stock = product.stock ?? 0;
+  const availableStock = product.availableStock ?? stock;
+  const unitLabel = product.unit || 'kg';
+
+  const variants = product.variants || [];
+  const activeVariants = variants.filter((v: any) => {
+    const label = String(v?.name || '').trim().toLowerCase();
+    return !label.includes('(archived)');
+  });
+
+  if (activeVariants.length > 0) {
+    const variantOptions = activeVariants.map((v: any) => {
+      const parsed = parseVariantPackDescriptor(String(v.name || ''), unitLabel);
+      const poolKg = Math.max(0, Number(availableStock));
+      const availStock = variantPacksAvailable(poolKg, parsed.packQty);
+      return {
+        key: `variant:${String(v.id || v.sku || '')}`,
+        availableStock: availStock,
+        inStock: availStock > 0,
+        packQty: parsed.packQty,
+        sku: v.sku,
+      };
+    });
+
+    variantOptions.sort((a, b) =>
+      a.packQty !== b.packQty ? a.packQty - b.packQty : String(a.sku).localeCompare(String(b.sku))
+    );
+
+    const inStockOptions = variantOptions.filter(v => v.inStock);
+    const defaultKey = inStockOptions[0]?.key || variantOptions[0]?.key || 'retail';
+    
+    const selectedVariant = variantOptions.find(v => v.key === defaultKey) || null;
+    return selectedVariant ? selectedVariant.availableStock : availableStock;
+  }
+
+  return availableStock;
+}
 
 interface FeaturedProductsProps {
     onAddToCart: (product: Product, quantity?: number) => void;
@@ -29,12 +70,24 @@ export function FeaturedProducts({ onAddToCart }: FeaturedProductsProps) {
     }, [products]);
 
     const featuredProducts = useMemo(() => {
-        let next = activeCatalog;
+        let next = [...activeCatalog];
         if (productTab === 'bulk') {
             next = next.filter((p) => productHasBulkPricing(p));
         } else if (productTab === 'seasonal') {
             next = next.filter((p) => Boolean(p.isSeasonal));
         }
+        
+        next.sort((a, b) => {
+            const stockA = getProductAvailability(a);
+            const stockB = getProductAvailability(b);
+            const isOutOfStockA = stockA <= 0;
+            const isOutOfStockB = stockB <= 0;
+
+            if (isOutOfStockA && !isOutOfStockB) return 1;
+            if (!isOutOfStockA && isOutOfStockB) return -1;
+            return 0;
+        });
+
         return next.slice(0, 8);
     }, [activeCatalog, productTab]);
 
