@@ -1,3 +1,7 @@
+export function isArchivedVariantLabel(value: string | null | undefined): boolean {
+    return String(value || '').trim().toLowerCase().includes('(archived)');
+}
+
 /** Parse pack weight from variant label (e.g. "10kg" → 10). */
 export function parsePackQtyKg(rawValue: string | null | undefined): number {
     const label = String(rawValue ?? '').trim().toLowerCase();

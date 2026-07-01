@@ -13,7 +13,7 @@ import { CreateManualOrderDto } from '../interface/dtos/create-manual-order.dto'
 import * as crypto from 'crypto';
 import { userCityMatchesServiceList } from '../../../common/utils/indian-city-aliases';
 import { WhatsappService } from '../../../common/whatsapp/whatsapp.service';
-import { parsePackQtyKg as parsePackQtyKgUtil } from '../../catalog/application/inventory-pool.util';
+import { parsePackQtyKg as parsePackQtyKgUtil, isArchivedVariantLabel } from '../../catalog/application/inventory-pool.util';
 
 @Injectable()
 export class OrderService {
@@ -537,6 +537,7 @@ export class OrderService {
         // Backward compatibility: if no explicit product tiers exist, derive discount tiers from variant rows.
         for (const row of fallbackPricingRows) {
             const pid = String(row.productId);
+            if (isArchivedVariantLabel(row.attributeValue)) continue;
             if ((tiersByProduct.get(pid) || []).length > 0) continue;
             const qty = this.parsePackQtyKg(row.attributeValue);
             const basePrice = Number(row.basePrice);
@@ -1093,6 +1094,7 @@ export class OrderService {
         }
         for (const row of fallbackPricingRows) {
             const pid = String(row.productId);
+            if (isArchivedVariantLabel(row.attributeValue)) continue;
             if ((tiersByProduct.get(pid) || []).length > 0) continue;
             const qty = this.parsePackQtyKg(row.attributeValue);
             const basePrice = Number(row.basePrice);

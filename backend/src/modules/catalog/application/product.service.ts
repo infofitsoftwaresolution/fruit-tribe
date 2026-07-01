@@ -102,6 +102,7 @@ export class ProductService {
     ): Array<{ minWeight: number; discountPercentage: number }> {
         const byWeight = new Map<number, number>();
         for (const variant of variants) {
+            if (this.isArchivedVariantLabel(variant.attributeValue)) continue;
             const minWeight = this.parsePackQtyKg(variant.attributeValue);
             const totalPrice = Number(variant.priceOverride);
             if (!(Number.isFinite(minWeight) && minWeight > 0 && Number.isFinite(totalPrice) && totalPrice > 0 && Number.isFinite(basePrice) && basePrice > 0)) continue;
